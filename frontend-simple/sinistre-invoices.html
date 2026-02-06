@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pôle sinistre - Factures hospitalières</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand" aria-label="Mobility Health">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility Health" class="brand-logo">
+                <span class="brand-text">Pôle sinistre</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="sos-dashboard.html" id="navTableauSos">Tableau SOS</a></li>
+                <li><a href="sinistre-invoices.html" class="active" id="navFactures">Factures</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2>Factures hospitalières à valider</h2>
+            <p class="muted">
+                Consultez les factures transmises par les hôpitaux après accord médical et validez-les pour passage au service comptable.
+            </p>
+        </div>
+
+        <section class="dashboard-section">
+            <div class="filters-row">
+                <label>
+                    Étape du circuit
+                    <select id="stageFilter">
+                        <option value="sinistre" selected>En attente pôle sinistre</option>
+                        <option value="medical">En attente accord médical</option>
+                        <option value="compta">En attente comptabilité MH</option>
+                        <option value="all">Toutes les factures</option>
+                    </select>
+                </label>
+                <label>
+                    Recherche
+                    <input type="text" id="invoiceSearch" placeholder="Numéro de facture ou sinistre">
+                </label>
+                <button class="btn" id="refreshInvoicesBtn">Actualiser</button>
+            </div>
+
+            <div class="panel-grid">
+                <div class="panel list-panel">
+                    <div class="panel-header">
+                        <h4>Factures reçues</h4>
+                        <span class="muted" id="invoiceCount">0 facture</span>
+                    </div>
+                    <p class="muted" id="invoiceListEmpty">Aucune facture à afficher.</p>
+                    <ul id="invoiceList" class="card-list"></ul>
+                </div>
+
+                <div class="panel detail-panel" id="invoiceDetailPanel">
+                    <p class="muted">Sélectionnez une facture pour afficher ses détails.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/sinistre-invoices.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistiques - Mobility Health</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        .stats-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .query-section {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .results-section {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .example-queries {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .example-query-btn {
+            font-size: 0.85rem;
+            padding: 5px 12px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.html">
+                <img src="assets/mobility-logo.svg" alt="Mobility Health" height="30" class="me-2">
+                Mobility Health - Statistiques
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/frontend-simple/user-dashboard.html">Tableau de bord</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="stats-container">
+        <!-- Section de requête -->
+        <div class="query-section">
+            <h2 class="mb-4">📊 Statistiques Intelligentes</h2>
+            <p class="text-muted mb-4">
+                Posez vos questions en langage naturel pour obtenir des statistiques et analyses de vos données de santé.
+            </p>
+            
+            <div class="input-group mb-3">
+                <input 
+                    type="text" 
+                    class="form-control form-control-lg" 
+                    id="queryInput" 
+                    placeholder="Ex: Montre-moi mes statistiques de course cette semaine"
+                    onkeypress="if(event.key === 'Enter') executeQuery()"
+                >
+                <button class="btn btn-primary btn-lg" type="button" id="queryButton" onclick="executeQuery()">
+                    <span id="buttonText">Rechercher</span>
+                    <span id="buttonSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                </button>
+            </div>
+
+            <div class="example-queries">
+                <small class="text-muted w-100 mb-2">Exemples de requêtes :</small>
+                <button class="btn btn-outline-secondary example-query-btn" onclick="setQuery('Montre-moi mes statistiques d\'activité')">
+                    Statistiques générales
+                </button>
+                <button class="btn btn-outline-secondary example-query-btn" onclick="setQuery('Combien de calories ai-je brûlées cette semaine?')">
+                    Calories brûlées
+                </button>
+                <button class="btn btn-outline-secondary example-query-btn" onclick="setQuery('Compare mes activités de marche et de course')">
+                    Comparaison d'activités
+                </button>
+                <button class="btn btn-outline-secondary example-query-btn" onclick="setQuery('Montre-moi l\'évolution de mon activité sur les 30 derniers jours')">
+                    Évolution temporelle
+                </button>
+                <button class="btn btn-outline-secondary example-query-btn" onclick="setQuery('Quel est mon poids moyen ce mois-ci?')">
+                    Métriques de santé
+                </button>
+            </div>
+
+            <div id="errorAlert" class="alert alert-danger d-none mt-3" role="alert"></div>
+        </div>
+
+        <!-- Section de résultats -->
+        <div class="results-section d-none" id="resultsSection">
+            <h3 class="mb-4">Résultats</h3>
+            
+            <!-- Résumé statistique -->
+            <div id="summary-container" class="mb-4"></div>
+
+            <!-- Interprétation -->
+            <div id="interpretation-container" class="mb-4"></div>
+
+            <!-- Graphiques -->
+            <div id="charts-container" class="mb-4"></div>
+
+            <!-- Informations techniques (collapsible) -->
+            <div class="accordion mt-4" id="technicalAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#technicalInfo">
+                            Informations techniques
+                        </button>
+                    </h2>
+                    <div id="technicalInfo" class="accordion-collapse collapse" data-bs-parent="#technicalAccordion">
+                        <div class="accordion-body">
+                            <p><strong>Requête SQL générée :</strong></p>
+                            <pre id="sqlQuery" class="bg-light p-3 rounded"></pre>
+                            <p class="mt-3"><strong>Nombre de lignes :</strong> <span id="dataCount"></span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section de chargement -->
+        <div class="results-section d-none" id="loadingSection">
+            <div class="loading">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Chargement...</span>
+                </div>
+                <p class="mt-3">Analyse en cours...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/frontend-simple/js/api.js"></script>
+    <script src="/frontend-simple/js/stats.js" onerror="console.error('❌ Erreur lors du chargement de stats.js'); window.statsJsError = true;"></script>
+    <script>
+        // Vérification immédiate après chargement
+        setTimeout(function() {
+            console.log('🔍 Vérification après chargement de stats.js:', {
+                queryStatistics: typeof window.queryStatistics,
+                checkMCPHealth: typeof window.checkMCPHealth,
+                displayCharts: typeof window.displayCharts,
+                statsJsError: window.statsJsError
+            });
+            
+            // Si stats.js n'a pas chargé, créer les fonctions directement ici
+            if (window.statsJsError || typeof window.queryStatistics === 'undefined') {
+                console.warn('⚠️ stats.js n\'a pas chargé, création des fonctions inline...');
+                
+                // Créer queryStatistics inline
+                window.queryStatistics = async function(query, userId = null) {
+                    const API_BASE = window.API_BASE_URL || 'http://localhost:8000/api/v1';
+                    const endpoint = `${API_BASE}/stats/query-public`;
+                    
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query, user_id: userId })
+                    });
+                    
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.detail || `Erreur HTTP: ${response.status}`);
+                    }
+                    
+                    return await response.json();
+                };
+                
+                // Créer checkMCPHealth inline
+                window.checkMCPHealth = async function() {
+                    const API_BASE = window.API_BASE_URL || 'http://localhost:8000/api/v1';
+                    try {
+                        const response = await fetch(`${API_BASE}/stats/health`);
+                        return await response.json();
+                    } catch (error) {
+                        return { status: 'error', error: error.message };
+                    }
+                };
+                
+                // Créer displayCharts inline
+                window.displayCharts = function(charts, containerId = 'charts-container') {
+                    const container = document.getElementById(containerId);
+                    if (!container) return;
+                    container.innerHTML = '';
+                    if (!charts || charts.length === 0) {
+                        container.innerHTML = '<p class="text-muted">Aucun graphique disponible</p>';
+                        return;
+                    }
+                    charts.forEach((chart, index) => {
+                        const div = document.createElement('div');
+                        div.id = `chart-${index}`;
+                        div.className = 'mb-4';
+                        div.style.minHeight = '400px';
+                        container.appendChild(div);
+                        try {
+                            const data = JSON.parse(chart.data);
+                            if (typeof Plotly !== 'undefined') {
+                                Plotly.newPlot(`chart-${index}`, data.data, data.layout);
+                            }
+                        } catch (e) {
+                            console.error('Erreur graphique:', e);
+                        }
+                    });
+                };
+                
+                // Créer displayInterpretation inline
+                window.displayInterpretation = function(text, containerId = 'interpretation-container') {
+                    const container = document.getElementById(containerId);
+                    if (!container) return;
+                    container.innerHTML = `<div class="alert alert-info">${(text || 'Aucune interprétation').replace(/\n/g, '<br>')}</div>`;
+                };
+                
+                // Créer displaySummary inline
+                window.displaySummary = function(summary, containerId = 'summary-container') {
+                    const container = document.getElementById(containerId);
+                    if (!container) return;
+                    if (!summary || Object.keys(summary).length === 0) {
+                        container.innerHTML = '';
+                        return;
+                    }
+                    let html = '<div class="row">';
+                    for (const [key, value] of Object.entries(summary)) {
+                        const val = typeof value === 'object' && value.avg !== undefined ? value.avg.toFixed(2) : 
+                                   typeof value === 'object' && value.sum !== undefined ? value.sum.toFixed(0) : value;
+                        html += `<div class="col-md-3 mb-3"><div class="card"><div class="card-body"><h6 class="card-subtitle mb-2 text-muted">${key.replace(/_/g, ' ').toUpperCase()}</h6><h4 class="card-title">${val}</h4></div></div></div>`;
+                    }
+                    html += '</div>';
+                    container.innerHTML = html;
+                };
+                
+                console.log('✅ Fonctions créées inline avec succès');
+            }
+        }, 200);
+    </script>
+    <script>
+        // Attendre que tous les scripts soient chargés
+        window.addEventListener('DOMContentLoaded', function() {
+            // Vérifier que les fonctions sont chargées après un court délai
+            setTimeout(function() {
+                console.log('Vérification des fonctions chargées:');
+                console.log('  - queryStatistics:', typeof window.queryStatistics !== 'undefined');
+                console.log('  - checkMCPHealth:', typeof window.checkMCPHealth !== 'undefined');
+                console.log('  - displayCharts:', typeof window.displayCharts !== 'undefined');
+                
+                // Fallback si queryStatistics n'est pas défini
+                if (typeof window.queryStatistics === 'undefined') {
+                    console.warn('queryStatistics n\'est pas défini, création d\'un fallback...');
+                    window.queryStatistics = async function(query, userId = null) {
+                        const API_BASE = window.API_BASE_URL || 'http://localhost:8000/api/v1';
+                        const token = localStorage.getItem('access_token');
+                        
+                        // Utiliser l'endpoint public pour éviter les problèmes d'authentification
+                        const endpoint = `${API_BASE}/stats/query-public`;
+                        const headers = {
+                            'Content-Type': 'application/json'
+                        };
+                        
+                        // Ajouter le token seulement s'il existe (optionnel pour l'endpoint public)
+                        if (token) {
+                            headers['Authorization'] = `Bearer ${token}`;
+                        }
+                        
+                        const response = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: headers,
+                            body: JSON.stringify({ query, user_id: userId })
+                        });
+                        
+                        if (!response.ok) {
+                            const error = await response.json();
+                            throw new Error(error.detail || `Erreur HTTP: ${response.status}`);
+                        }
+                        
+                        return await response.json();
+                    };
+                }
+                
+                // Fallback pour checkMCPHealth
+                if (typeof window.checkMCPHealth === 'undefined') {
+                    console.warn('checkMCPHealth n\'est pas défini, création d\'un fallback...');
+                    window.checkMCPHealth = async function() {
+                        const API_BASE = window.API_BASE_URL || 'http://localhost:8000/api/v1';
+                        try {
+                            const response = await fetch(`${API_BASE}/stats/health`);
+                            return await response.json();
+                        } catch (error) {
+                            return { status: 'error', error: error.message };
+                        }
+                    };
+                }
+                
+                // Fallback pour displayCharts
+                if (typeof window.displayCharts === 'undefined') {
+                    console.warn('displayCharts n\'est pas défini, création d\'un fallback...');
+                    window.displayCharts = function(charts, containerId = 'charts-container') {
+                        const container = document.getElementById(containerId);
+                        if (!container) return;
+                        container.innerHTML = '<p class="text-muted">Graphiques non disponibles</p>';
+                    };
+                }
+                
+                // Fallback pour displayInterpretation
+                if (typeof window.displayInterpretation === 'undefined') {
+                    window.displayInterpretation = function(text, containerId = 'interpretation-container') {
+                        const container = document.getElementById(containerId);
+                        if (!container) return;
+                        container.innerHTML = `<div class="alert alert-info">${text || 'Aucune interprétation disponible'}</div>`;
+                    };
+                }
+                
+                // Fallback pour displaySummary
+                if (typeof window.displaySummary === 'undefined') {
+                    window.displaySummary = function(summary, containerId = 'summary-container') {
+                        const container = document.getElementById(containerId);
+                        if (!container) return;
+                        container.innerHTML = '';
+                    };
+                }
+                
+                // Vérifier la connexion au serveur MCP
+                window.checkMCPHealth().then(function(health) {
+                    if (health.status !== 'ok') {
+                        const alert = document.getElementById('errorAlert');
+                        if (alert) {
+                            alert.textContent = `⚠️ Le serveur MCP n'est pas accessible. ${health.error || 'Assurez-vous qu\'il est démarré.'}`;
+                            alert.classList.remove('d-none');
+                        }
+                    }
+                }).catch(function(error) {
+                    console.error('Erreur lors de la vérification du serveur MCP:', error);
+                });
+            }, 100);
+        });
+
+        function setQuery(query) {
+            document.getElementById('queryInput').value = query;
+            executeQuery();
+        }
+
+        async function executeQuery() {
+            const queryInput = document.getElementById('queryInput');
+            const queryButton = document.getElementById('queryButton');
+            const buttonText = document.getElementById('buttonText');
+            const buttonSpinner = document.getElementById('buttonSpinner');
+            const errorAlert = document.getElementById('errorAlert');
+            const resultsSection = document.getElementById('resultsSection');
+            const loadingSection = document.getElementById('loadingSection');
+
+            const query = queryInput.value.trim();
+            if (!query) {
+                errorAlert.textContent = 'Veuillez entrer une requête';
+                errorAlert.classList.remove('d-none');
+                return;
+            }
+
+            // Afficher le chargement
+            loadingSection.classList.remove('d-none');
+            resultsSection.classList.add('d-none');
+            errorAlert.classList.add('d-none');
+            queryButton.disabled = true;
+            buttonText.textContent = 'Analyse en cours...';
+            buttonSpinner.classList.remove('d-none');
+            
+            // Message de progression
+            const loadingText = loadingSection.querySelector('p');
+            if (loadingText) {
+                loadingText.textContent = '⏳ Analyse de votre requête en cours... (cela peut prendre 2-3 minutes avec Ollama)';
+            }
+
+            try {
+                // Utiliser window.queryStatistics si disponible, sinon le fallback
+                const queryFn = window.queryStatistics || queryStatistics;
+                if (typeof queryFn !== 'function') {
+                    throw new Error('La fonction queryStatistics n\'est pas disponible. Vérifiez que stats.js est chargé.');
+                }
+                const result = await queryFn(query);
+
+                // Afficher les résultats
+                displaySummary(result.summary);
+                displayInterpretation(result.interpretation_text);
+                displayCharts(result.charts);
+
+                // Afficher les informations techniques
+                document.getElementById('sqlQuery').textContent = result.sql_query;
+                document.getElementById('dataCount').textContent = result.data_count;
+
+                // Masquer le chargement et afficher les résultats
+                loadingSection.classList.add('d-none');
+                resultsSection.classList.remove('d-none');
+
+            } catch (error) {
+                let errorMessage = `Erreur: ${error.message}`;
+                
+                // Messages d'aide spécifiques
+                if (error.message.includes('timeout') || error.message.includes('temps')) {
+                    errorMessage += '\n\n💡 Suggestions:\n';
+                    errorMessage += '- Ollama peut prendre 2-3 minutes pour répondre\n';
+                    errorMessage += '- Utilisez un modèle plus rapide (llama3.2:1b) ou le mode fallback\n';
+                    errorMessage += '- Réessayez dans quelques instants';
+                } else if (error.message.includes('connecter') || error.message.includes('connect')) {
+                    errorMessage += '\n\n💡 Vérifiez que le serveur MCP est démarré:\n';
+                    errorMessage += 'cd "D:\\logiciel et application\\serveur MCP"\n';
+                    errorMessage += 'python server_rest.py';
+                }
+                
+                errorAlert.innerHTML = errorMessage.replace(/\n/g, '<br>');
+                errorAlert.classList.remove('d-none');
+                loadingSection.classList.add('d-none');
+            } finally {
+                queryButton.disabled = false;
+                buttonText.textContent = 'Rechercher';
+                buttonSpinner.classList.add('d-none');
+            }
+        }
+    </script>
+</body>
+</html>
+

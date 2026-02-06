@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion Hôpital - Mobility Health</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: white;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            background: #3498db;
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #2980b9;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+        }
+        
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+        
+        .file-upload {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .file-upload:hover {
+            border-color: #3498db;
+            background: #f8f9fa;
+        }
+        
+        .file-upload.dragover {
+            border-color: #3498db;
+            background: #e8f4f8;
+        }
+        
+        .file-upload input[type="file"] {
+            display: none;
+        }
+        
+        .file-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .file-info.active {
+            display: block;
+        }
+        
+        .prestations-list {
+            margin-top: 20px;
+        }
+        
+        .prestation-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .prestation-info {
+            flex: 1;
+        }
+        
+        .prestation-info h4 {
+            margin-bottom: 5px;
+        }
+        
+        .prestation-amount {
+            font-size: 18px;
+            font-weight: 600;
+            color: #27ae60;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 Gestion Hôpital</h1>
+            <p>Ajouter des prestations et uploader des rapports</p>
+        </div>
+        
+        <div id="errorMessage" class="error" style="display: none;"></div>
+        <div id="successMessage" class="success" style="display: none;"></div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('prestations')">Prestations</button>
+            <button class="tab" onclick="showTab('rapport')">Rapport</button>
+        </div>
+        
+        <!-- Tab Prestations -->
+        <div id="prestations" class="tab-content active">
+            <h2>Ajouter une prestation</h2>
+            <form id="prestationForm">
+                <input type="hidden" id="hospitalId" value="">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Code prestation</label>
+                        <input type="text" id="codePrestation" required placeholder="CONSULT, RADIO, etc.">
+                    </div>
+                    <div class="form-group">
+                        <label>Date prestation</label>
+                        <input type="datetime-local" id="datePrestation" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Libellé</label>
+                    <input type="text" id="libelle" required placeholder="Consultation médicale">
+                </div>
+                
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="description" placeholder="Description détaillée de la prestation"></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Montant unitaire (€)</label>
+                        <input type="number" id="montantUnitaire" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Quantité</label>
+                        <input type="number" id="quantite" min="1" value="1" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ID Sinistre (optionnel)</label>
+                        <input type="number" id="sinistreId" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>ID Utilisateur (optionnel)</label>
+                        <input type="number" id="userId" min="1">
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn">Ajouter la prestation</button>
+            </form>
+            
+            <div class="prestations-list" id="prestationsList">
+                <div class="loading">Chargement des prestations...</div>
+            </div>
+        </div>
+        
+        <!-- Tab Rapport -->
+        <div id="rapport" class="tab-content">
+            <h2>Uploader un rapport signé</h2>
+            <form id="rapportForm">
+                <input type="hidden" id="rapportHospitalId" value="">
+                
+                <div class="form-group">
+                    <label>Titre du rapport</label>
+                    <input type="text" id="rapportTitre" required placeholder="Rapport médical du patient">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Type de rapport</label>
+                        <select id="typeRapport" required>
+                            <option value="medical">Médical</option>
+                            <option value="technique">Technique</option>
+                            <option value="administratif">Administratif</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>ID Sinistre (optionnel)</label>
+                        <input type="number" id="rapportSinistreId" min="1">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Rapport signé (PDF)</label>
+                    <div class="file-upload" id="fileUpload">
+                        <input type="file" id="rapportFile" accept=".pdf,.doc,.docx" required>
+                        <p>📄 Cliquez ou glissez-déposez le fichier ici</p>
+                        <p style="font-size: 12px; color: #7f8c8d; margin-top: 10px;">PDF, DOC, DOCX (max 10MB)</p>
+                    </div>
+                    <div class="file-info" id="fileInfo"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="estSigne"> Rapport déjà signé
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn">Uploader le rapport</button>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+        let hospitalId = null;
+        let token = localStorage.getItem('token') || '';
+        
+        // Récupérer l'ID de l'hôpital depuis l'URL ou la session
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            hospitalId = urlParams.get('hospital_id') || '1'; // Par défaut 1 pour les tests
+            
+            document.getElementById('hospitalId').value = hospitalId;
+            document.getElementById('rapportHospitalId').value = hospitalId;
+            
+            loadPrestations();
+            setupFileUpload();
+        });
+        
+        function showTab(tabName) {
+            // Masquer tous les contenus
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Masquer tous les onglets
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Afficher le contenu sélectionné
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        function setupFileUpload() {
+            const fileUpload = document.getElementById('fileUpload');
+            const fileInput = document.getElementById('rapportFile');
+            const fileInfo = document.getElementById('fileInfo');
+            
+            fileUpload.addEventListener('click', () => fileInput.click());
+            
+            fileUpload.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                fileUpload.classList.add('dragover');
+            });
+            
+            fileUpload.addEventListener('dragleave', () => {
+                fileUpload.classList.remove('dragover');
+            });
+            
+            fileUpload.addEventListener('drop', (e) => {
+                e.preventDefault();
+                fileUpload.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput.files = files;
+                    updateFileInfo(files[0]);
+                }
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    updateFileInfo(e.target.files[0]);
+                }
+            });
+        }
+        
+        function updateFileInfo(file) {
+            const fileInfo = document.getElementById('fileInfo');
+            fileInfo.innerHTML = `
+                <strong>${file.name}</strong><br>
+                Taille: ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
+                Type: ${file.type || 'Non spécifié'}
+            `;
+            fileInfo.classList.add('active');
+        }
+        
+        document.getElementById('prestationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const prestationData = {
+                code_prestation: document.getElementById('codePrestation').value,
+                libelle: document.getElementById('libelle').value,
+                description: document.getElementById('description').value || null,
+                montant_unitaire: parseFloat(document.getElementById('montantUnitaire').value),
+                quantite: parseInt(document.getElementById('quantite').value),
+                date_prestation: new Date(document.getElementById('datePrestation').value).toISOString(),
+                sinistre_id: document.getElementById('sinistreId').value ? parseInt(document.getElementById('sinistreId').value) : null,
+                user_id: document.getElementById('userId').value ? parseInt(document.getElementById('userId').value) : null
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/hospitals/${hospitalId}/prestations/add`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(prestationData)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Erreur lors de l\'ajout de la prestation');
+                }
+                
+                const result = await response.json();
+                showSuccess('Prestation ajoutée avec succès !');
+                document.getElementById('prestationForm').reset();
+                loadPrestations();
+            } catch (error) {
+                showError('Erreur: ' + error.message);
+            }
+        });
+        
+        document.getElementById('rapportForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('rapportFile');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showError('Veuillez sélectionner un fichier');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('titre', document.getElementById('rapportTitre').value);
+            formData.append('type_rapport', document.getElementById('typeRapport').value);
+            formData.append('fichier', fileInput.files[0]);
+            formData.append('est_signe', document.getElementById('estSigne').checked);
+            
+            const sinistreId = document.getElementById('rapportSinistreId').value;
+            if (sinistreId) {
+                formData.append('sinistre_id', sinistreId);
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/hospitals/${hospitalId}/rapport`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Erreur lors de l\'upload du rapport');
+                }
+                
+                const result = await response.json();
+                showSuccess('Rapport uploadé avec succès !');
+                document.getElementById('rapportForm').reset();
+                document.getElementById('fileInfo').classList.remove('active');
+            } catch (error) {
+                showError('Erreur: ' + error.message);
+            }
+        });
+        
+        async function loadPrestations() {
+            try {
+                const response = await fetch(`${API_BASE}/hospitals/${hospitalId}/prestations`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Erreur lors du chargement des prestations');
+                }
+                
+                const prestations = await response.json();
+                displayPrestations(prestations);
+            } catch (error) {
+                document.getElementById('prestationsList').innerHTML = `<div class="error">Erreur: ${error.message}</div>`;
+            }
+        }
+        
+        function displayPrestations(prestations) {
+            const container = document.getElementById('prestationsList');
+            
+            if (prestations.length === 0) {
+                container.innerHTML = '<div class="loading">Aucune prestation enregistrée</div>';
+                return;
+            }
+            
+            container.innerHTML = prestations.map(p => `
+                <div class="prestation-item">
+                    <div class="prestation-info">
+                        <h4>${p.libelle}</h4>
+                        <p><strong>Code:</strong> ${p.code_prestation} | <strong>Date:</strong> ${new Date(p.date_prestation).toLocaleDateString('fr-FR')}</p>
+                        <p><strong>Quantité:</strong> ${p.quantite} x ${parseFloat(p.montant_unitaire).toFixed(2)} €</p>
+                    </div>
+                    <div class="prestation-amount">
+                        ${parseFloat(p.montant_total).toFixed(2)} €
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+        
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
+
+
+
+

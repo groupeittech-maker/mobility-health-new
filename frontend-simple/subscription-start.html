@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Démarrer une souscription - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/home.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html">Accueil</a></li>
+                <li><a href="index.html#products">Produits</a></li>
+                <li id="auth-menu">
+                    <a href="login.html" id="login-link">Connexion</a>
+                    <span id="user-info" style="display: none;">
+                        <span id="user-name"></span>
+                        <a href="#" onclick="logout()">Déconnexion</a>
+                    </span>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container" style="max-width: 800px; margin: 3rem auto; padding: 2rem;">
+        <h2 style="text-align: center; margin-bottom: 2rem;">Démarrer votre souscription</h2>
+        
+        <div id="subscription-form-container">
+            <div class="subscription-steps">
+                <div class="step-indicator">
+                    <div class="step active" data-step="1">
+                        <div class="step-circle">1</div>
+                        <div class="step-label">Voyage</div>
+                    </div>
+                    <div class="step" data-step="2">
+                        <div class="step-circle">2</div>
+                        <div class="step-label">Produit</div>
+                    </div>
+                    <div class="step" data-step="3">
+                        <div class="step-circle">3</div>
+                        <div class="step-label">Médical</div>
+                    </div>
+                    <div class="step" data-step="4">
+                        <div class="step-circle">4</div>
+                        <div class="step-label">Paiement</div>
+                    </div>
+                </div>
+
+                <!-- Étape 1: Projet de voyage -->
+                <div id="step-1" class="subscription-step active">
+                    <h3>Informations sur le voyage</h3>
+                    <form id="project-form">
+                        <!-- Informations voyageur (souscription pour soi-même uniquement) -->
+                        <div class="form-section">
+                            <h4>Informations du voyageur</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="traveler-lastname">Nom *</label>
+                                    <input type="text" id="traveler-lastname" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="traveler-firstname">Prénom *</label>
+                                    <input type="text" id="traveler-firstname" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="traveler-birthdate">Date de naissance *</label>
+                                <input type="date" id="traveler-birthdate" required max="">
+                            </div>
+                        </div>
+
+                        <!-- Informations voyage -->
+                        <div class="form-section">
+                            <h4>Informations sur le voyage</h4>
+                            <div class="form-group">
+                                <label for="destination-country">Pays de destination *</label>
+                                <input type="text" id="destination-country" required placeholder="Ex: Espagne, Italie, États-Unis...">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="project-departure">Date de départ *</label>
+                                    <input type="date" id="project-departure" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-return">Date de retour</label>
+                                    <input type="date" id="project-return">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Nombre de jours</label>
+                                <div id="days-count" class="days-display">--</div>
+                                <small class="form-hint">Calculé automatiquement à partir des dates</small>
+                            </div>
+                        </div>
+
+                        <!-- Autres informations -->
+                        <div class="form-section">
+                            <h4>Autres informations</h4>
+                            <div class="form-group">
+                                <label>Voyagez-vous avec des enfants mineurs ? *</label>
+                                <div class="radio-group">
+                                    <label class="radio-label">
+                                        <input type="radio" name="has-minors" value="yes" required>
+                                        <span>Oui</span>
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="has-minors" value="no" checked required>
+                                        <span>Non</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div id="minors-details" style="display: none;">
+                                <div class="form-group">
+                                    <label for="minors-count">Nombre d'enfants mineurs</label>
+                                    <input type="number" id="minors-count" min="1" max="10" value="1">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary btn-large">Continuer vers la sélection du produit</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Étape 2: Sélection du produit -->
+                <div id="step-2" class="subscription-step" style="display: none;">
+                    <h3>Sélectionnez votre produit d'assurance</h3>
+                    <div id="products-selection">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <p>Chargement des produits...</p>
+                        </div>
+                    </div>
+                    <div class="form-actions" style="margin-top: 1.5rem;">
+                        <button type="button" class="btn btn-secondary" onclick="showStep(1)">← Retour</button>
+                    </div>
+                </div>
+
+                <!-- Étape 3: Questionnaire -->
+                <div id="step-3" class="subscription-step" style="display: none;">
+                    <h3>Questionnaire de santé</h3>
+                    <p>Veuillez remplir le questionnaire pour finaliser votre souscription.</p>
+                    <div class="form-actions" style="margin-top: 1.5rem;">
+                        <button type="button" class="btn btn-secondary" onclick="showStep(2)" style="margin-right: 1rem;">← Retour</button>
+                        <a href="questionnaire-short.html" class="btn btn-primary">Remplir le questionnaire</a>
+                    </div>
+                </div>
+
+                <!-- Étape 4: Paiement -->
+                <div id="step-4" class="subscription-step" style="display: none;">
+                    <h3>Finalisation et paiement</h3>
+                    <p>Votre souscription est prête. Procédez au paiement pour activer votre assurance.</p>
+                    <div id="payment-info"></div>
+                    <div class="form-actions" style="margin-top: 1.5rem;">
+                        <button type="button" class="btn btn-secondary" onclick="showStep(3)">← Retour</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="main-footer">
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/countries.js"></script>
+    <script src="js/subscription-start.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,99 @@
+name: mobility_health_mobile
+description: Application mobile Mobility Health - Client utilisateur
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # UI & Design
+  cupertino_icons: ^1.0.6
+  flutter_svg: ^2.0.9
+  cached_network_image: ^3.3.0
+  shimmer: ^3.0.0
+
+  # State Management
+  provider: ^6.1.1
+  flutter_riverpod: ^2.4.9
+
+  # Networking
+  http: ^1.1.2
+  dio: ^5.4.0
+  connectivity_plus: ^5.0.2
+
+  # Local Storage
+  shared_preferences: ^2.2.2
+  flutter_secure_storage: ^9.0.0
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Authentication & Security
+  jwt_decoder: ^2.0.1
+
+  # Utilities
+  intl: ^0.20.2
+  path_provider: ^2.1.1
+  country_code_picker: ^3.0.0
+  url_launcher: ^6.2.2
+  open_filex: ^4.3.2
+  image_picker: ^1.0.5
+  file_picker: ^8.0.0
+  permission_handler: ^11.1.0
+  geolocator: ^10.1.0
+
+  # Forms & Validation (retiré - non utilisé dans le code)
+  # flutter_form_builder: ^9.1.0
+  # form_builder_validators: ^9.1.0
+
+  # Navigation
+  go_router: ^13.0.0
+
+  # Error Handling & Logging
+  logger: ^2.0.2+1
+
+  # Environment Variables
+  flutter_dotenv: ^5.1.0
+  
+  # Fonts
+  google_fonts: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  flutter_launcher_icons: ^0.14.4
+  build_runner: ^2.4.7
+  hive_generator: ^2.0.1
+  json_serializable: ^6.7.1
+  json_annotation: ^4.8.1
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/Attached_image.png"
+  remove_alpha: true
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - .env
+    - assets/images/
+    - assets/images/logo_officiel_mh.png
+    - assets/images/partners/
+    - assets/icons/
+
+  # Fonts (optionnel - commenté car les fichiers n'existent pas encore)
+  # fonts:
+  #   - family: Roboto
+  #     fonts:
+  #       - asset: fonts/Roboto-Regular.ttf
+  #       - asset: fonts/Roboto-Bold.ttf
+  #         weight: 700
+

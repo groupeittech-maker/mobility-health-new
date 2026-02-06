@@ -1,0 +1,60 @@
+# FastAPI et serveur
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Base de données
+sqlalchemy==2.0.23
+alembic==1.12.1
+psycopg2-binary==2.9.9  # PostgreSQL
+
+# Validation et configuration
+pydantic==2.5.0
+pydantic-settings==2.1.0
+email-validator==2.1.1  # Validation d'emails pour Pydantic
+
+# Authentification et sécurité
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.1
+
+# Redis
+redis==5.0.1
+
+# MinIO (stockage d'objets)
+minio==7.2.0
+
+# Celery (tâches asynchrones)
+celery==5.3.4
+flower==2.0.1  # Interface web pour Celery (optionnel)
+
+# Génération de PDF
+reportlab==4.0.7
+
+# QR Code
+qrcode[pil]==7.4.2
+Pillow==10.1.0
+
+# Notifications push (optionnel)
+# pyfcm==1.5.0  # Décommenter si nécessaire
+
+# Twilio pour SMS (optionnel)
+# twilio==8.10.0  # Décommenter si nécessaire
+
+# Tests
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-asyncio==0.21.1
+httpx==0.25.1  # Pour TestClient de FastAPI
+
+# Utilitaires
+python-dotenv==1.0.0
+
+# Module IA - Analyse de documents
+pytesseract==0.3.13
+pdf2image==1.17.0
+filetype==1.2.0
+scikit-learn==1.7.2
+numpy>=2.0.0
+pandas>=2.0.0
+

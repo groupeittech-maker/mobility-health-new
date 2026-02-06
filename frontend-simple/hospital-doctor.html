@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traitement hospitalier - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="protected hospital-doctor">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li data-visible-roles="doctor"><a href="hospital-doctor.html" class="active">Traitement</a></li>
+                <li data-visible-roles="doctor"><a href="medical-review.html">Validations</a></li>
+                <li data-visible-roles="doctor"><a href="doctor-dashboard.html">Dashboard</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2>Prise en charge hospitalière</h2>
+            <p class="muted">
+                Bienvenue Dr <strong id="doctorName">—</strong>
+            </p>
+            <p class="muted" id="doctorHospitalContext"></p>
+        </div>
+
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <h3>Dossiers assignés</h3>
+                <p id="assignedCasesCount">-</p>
+                <small class="muted">Patients orientés vers vous</small>
+            </div>
+            <div class="stat-card">
+                <h3>Rapports finalisés</h3>
+                <p id="completedCasesCount">-</p>
+                <small class="muted">Séjours clôturés</small>
+            </div>
+        </div>
+
+        <section class="dashboard-section" id="doctorCasesSection">
+            <div class="section-header" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;">
+                <div>
+                    <h3>Dossiers</h3>
+                    <p class="muted">Patients orientés par la réception — à traiter ou déjà traités</p>
+                </div>
+                <div class="section-actions" style="display: flex; align-items: center; gap: 0.5rem;">
+                    <div class="doctor-tabs" role="tablist" style="display: flex; gap: 0.25rem;">
+                        <button type="button" class="tab-btn active" data-doctor-tab="to_treat" id="tabDoctorToTreat" role="tab" aria-selected="true">Dossiers à traiter</button>
+                        <button type="button" class="tab-btn" data-doctor-tab="treated" id="tabDoctorTreated" role="tab" aria-selected="false">Dossiers traités</button>
+                    </div>
+                    <button class="btn btn-outline" id="refreshCasesBtn">Actualiser</button>
+                </div>
+            </div>
+
+            <div id="doctorToTreatPanel">
+                <div id="casesLoading" class="loading-state">Chargement des dossiers...</div>
+                <div id="casesError" class="alert alert-error" style="display: none;"></div>
+                <div class="filter-section" style="margin-bottom: 1rem;">
+                    <label for="searchDoctorToTreat" class="sr-only">Rechercher</label>
+                    <input type="search" id="searchDoctorToTreat" class="search-input" placeholder="Rechercher alerte, patient, hôpital..." aria-label="Rechercher dans les dossiers à traiter" style="max-width: 320px;">
+                </div>
+                <div id="casesEmpty" class="alert alert-info" hidden>
+                    Aucun patient n'a encore été orienté vers vous. La réception vous affectera un patient dès qu'une urgence sera confirmée.
+                </div>
+
+                <div class="table-wrapper">
+                    <table class="data-table" id="doctorCasesTable">
+                    <thead>
+                        <tr>
+                            <th>Alerte</th>
+                            <th>Patient</th>
+                            <th>Priorité</th>
+                            <th>Hôpital</th>
+                            <th>Statut du séjour</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="doctorCasesBody"></tbody>
+                </table>
+                </div>
+                <div id="doctorToTreatPagination" class="table-pagination-wrapper" hidden></div>
+            </div>
+
+            <div id="doctorTreatedPanel" hidden>
+                <div class="filter-section" style="margin-bottom: 1rem;">
+                    <label for="searchDoctorTreated" class="sr-only">Rechercher</label>
+                    <input type="search" id="searchDoctorTreated" class="search-input" placeholder="Rechercher alerte, patient, statut..." aria-label="Rechercher dans les dossiers traités" style="max-width: 320px;">
+                </div>
+                <div id="historyEmpty" class="alert alert-info" hidden>
+                    Aucun dossier traité pour le moment. Vos rapports clôturés apparaîtront ici.
+                </div>
+                <div class="table-wrapper">
+                    <table class="data-table" id="historyTable">
+                        <thead>
+                            <tr>
+                                <th>Alerte</th>
+                                <th>Patient</th>
+                                <th>Statut</th>
+                                <th>Rapport</th>
+                                <th>Dernière mise à jour</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody"></tbody>
+                    </table>
+                </div>
+                <div id="doctorTreatedPagination" class="table-pagination-wrapper" hidden></div>
+            </div>
+        </section>
+
+        <section class="dashboard-section" id="caseDetailsSection" hidden>
+            <div class="section-header">
+                <div>
+                    <h3>Dossier sélectionné</h3>
+                    <p class="muted" id="caseMeta"></p>
+                </div>
+                <div class="section-actions">
+                    <button class="btn btn-outline btn-sm" id="openAlertFileBtn">Voir la fiche complète</button>
+                </div>
+            </div>
+
+            <div class="case-overview-grid" id="caseOverview"></div>
+
+            <div class="doctor-case-grid">
+                <div class="doctor-case-panel">
+                    <h4>Informations patient</h4>
+                    <div id="patientDetails" class="info-grid"></div>
+
+                    <div class="panel-divider"></div>
+
+                    <h4>Notes de la réception</h4>
+                    <p id="orientationNotes" class="muted">—</p>
+
+                    <div class="panel-divider"></div>
+
+                    <h4>Dossier médical</h4>
+                    <div id="medicalDataContent" class="questionnaire-content"></div>
+                </div>
+
+                <div class="doctor-case-panel">
+                    <h4>Rapport médical</h4>
+                    <form id="doctorReportForm">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="motifConsultation">Motif de consultation</label>
+                                <textarea id="motifConsultation" rows="2"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="motifHospitalisation">Motif d'hospitalisation</label>
+                                <textarea id="motifHospitalisation" rows="2"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="dureeSejour">Durée du séjour (jours)</label>
+                                <input type="number" id="dureeSejour" min="0" step="0.5">
+                            </div>
+                        </div>
+
+                        <div class="form-grid two-columns">
+                            <div>
+                                <label>Actes réalisés</label>
+                                <div id="actesOptions" class="options-grid"></div>
+                            </div>
+                            <div>
+                                <label>Examens réalisés</label>
+                                <div id="examensOptions" class="options-grid"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="resumeSejour">Résumé du séjour</label>
+                                <textarea id="resumeSejour" rows="3"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="observationsSejour">Observations complémentaires</label>
+                                <textarea id="observationsSejour" rows="3"></textarea>
+                            </div>
+                        </div>
+
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="terminerSejour">
+                            Clôturer le séjour après enregistrement
+                        </label>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary" id="saveReportBtn" disabled>Enregistrer le rapport</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/nav-access.js"></script>
+    <script src="js/hospital-doctor.js"></script>
+</body>
+</html>
+

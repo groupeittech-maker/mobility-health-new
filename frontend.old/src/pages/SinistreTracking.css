@@ -1,0 +1,532 @@
+.sinistre-tracking {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding: 2rem;
+}
+
+.tracking-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.tracking-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tracking-header h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.header-badges {
+  display: flex;
+  gap: 1rem;
+}
+
+.status-badge,
+.priority-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.status-badge {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.status-en_attente {
+  background: rgba(255, 193, 7, 0.9);
+  color: #333;
+}
+
+.status-en_cours {
+  background: rgba(0, 123, 255, 0.9);
+  color: white;
+}
+
+.status-resolue {
+  background: rgba(40, 167, 69, 0.9);
+  color: white;
+}
+
+.status-annulee {
+  background: rgba(108, 117, 125, 0.9);
+  color: white;
+}
+
+.priority-badge {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.priority-faible {
+  background: rgba(40, 167, 69, 0.9);
+}
+
+.priority-normale {
+  background: rgba(255, 193, 7, 0.9);
+  color: #333;
+}
+
+.priority-elevee {
+  background: rgba(255, 152, 0, 0.9);
+}
+
+.priority-critique {
+  background: rgba(220, 53, 69, 0.9);
+}
+
+.tracking-content {
+  padding: 2rem;
+}
+
+.info-section {
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.info-section:last-of-type {
+  border-bottom: none;
+}
+
+.info-section h2 {
+  color: #333;
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.info-item label {
+  font-weight: 600;
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.info-item .value {
+  color: #333;
+  font-size: 1.1rem;
+}
+
+/* Localisation */
+.location-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.coordinates {
+  font-family: monospace;
+  background: #f8f9fa;
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-top: 0.5rem;
+}
+
+.address {
+  background: #f8f9fa;
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-top: 0.5rem;
+}
+
+.map-placeholder {
+  padding: 2rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.map-link {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: #007bff;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.map-link:hover {
+  background: #0056b3;
+}
+
+/* Description */
+.description-box {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+}
+
+/* Hôpital */
+.hospital-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.info-note {
+  color: #666;
+  font-style: italic;
+}
+
+.hospital-card {
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 2px dashed #ccc;
+}
+
+.hospital-card.hospital-details {
+  border: 2px solid #007bff;
+  background: #e7f3ff;
+}
+
+.hospital-details h3 {
+  margin: 0 0 1rem 0;
+  color: #007bff;
+  font-size: 1.3rem;
+}
+
+.hospital-address,
+.hospital-contact {
+  margin: 1rem 0;
+}
+
+.hospital-address strong,
+.hospital-contact strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: #333;
+}
+
+.hospital-loading {
+  margin: 0;
+  color: #666;
+}
+
+.hospital-note {
+  margin-top: 1rem;
+  color: #666;
+  font-style: italic;
+}
+
+/* Prise en charge */
+.care-info {
+  padding: 1rem 0;
+}
+
+.care-status {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.care-pending,
+.care-active,
+.care-resolved {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.care-pending {
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+}
+
+.care-active {
+  background: #d1ecf1;
+  border-left: 4px solid #17a2b8;
+}
+
+.care-resolved {
+  background: #d4edda;
+  border-left: 4px solid #28a745;
+}
+
+.care-pending .icon,
+.care-active .icon,
+.care-resolved .icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+/* Interventions */
+.interventions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.intervention-item {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+}
+
+.intervention-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.intervention-time {
+  font-weight: 600;
+  color: #333;
+}
+
+.intervention-status {
+  padding: 0.25rem 0.75rem;
+  background: #007bff;
+  color: white;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+.intervention-body {
+  color: #666;
+}
+
+.intervention-description {
+  margin: 0.5rem 0;
+  font-style: italic;
+  color: #555;
+}
+
+.intervention-details {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #007bff;
+  font-weight: 500;
+}
+
+/* Workflow */
+.workflow-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.workflow-step {
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #ccc;
+  background: #fdfdfd;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.workflow-step-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.workflow-step-header h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.workflow-icon {
+  font-size: 1.5rem;
+}
+
+.workflow-description {
+  margin: 0.5rem 0;
+  color: #555;
+}
+
+.workflow-meta {
+  font-size: 0.85rem;
+  color: #777;
+  display: flex;
+  justify-content: space-between;
+}
+
+.workflow-badge {
+  display: inline-block;
+  margin-top: 0.25rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.workflow-completed {
+  border-color: #28a745;
+}
+
+.workflow-completed .workflow-badge {
+  background: #d4edda;
+  color: #155724;
+}
+
+.workflow-in_progress {
+  border-color: #ffc107;
+}
+
+.workflow-in_progress .workflow-badge {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.workflow-pending {
+  border-color: #6c757d;
+}
+
+.workflow-pending .workflow-badge {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.workflow-cancelled {
+  border-color: #dc3545;
+}
+
+.workflow-cancelled .workflow-badge {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-pending {
+  background: #ffc107;
+  color: #333;
+}
+
+.status-validated {
+  background: #17a2b8;
+  color: white;
+}
+
+.status-invoiced {
+  background: #28a745;
+  color: white;
+}
+
+/* Notes */
+.notes-container {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  min-height: 100px;
+}
+
+.notes-placeholder {
+  color: #999;
+  font-style: italic;
+  text-align: center;
+  margin: 0;
+  padding: 2rem;
+}
+
+.notes-content {
+  padding: 1rem;
+}
+
+.notes-content p {
+  margin: 0.5rem 0;
+  line-height: 1.6;
+}
+
+.notes-author {
+  margin-top: 1rem;
+  text-align: right;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Actions */
+.tracking-actions {
+  padding: 1.5rem 2rem;
+  background: #f8f9fa;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-refresh {
+  padding: 0.75rem 1.5rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+
+.btn-refresh:hover {
+  background: #0056b3;
+}
+
+/* Loading et erreur */
+.loading-container,
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 1rem;
+}
+
+.error-container {
+  color: #dc3545;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sinistre-tracking {
+    padding: 1rem;
+  }
+
+  .tracking-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .header-badges {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

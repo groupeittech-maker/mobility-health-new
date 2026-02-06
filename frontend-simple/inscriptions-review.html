@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation des inscriptions - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="protected inscriptions-review">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="inscriptions-review.html" class="active">Inscriptions</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2>Validation des inscriptions</h2>
+            <p class="muted">Validez ou refusez les inscriptions (informations civiles et médicales). Une fois validée, l'abonné peut se connecter pour souscrire.</p>
+        </div>
+
+        <div id="inscriptionsError" class="alert alert-error" hidden></div>
+        <div id="inscriptionsLoading" class="loading" hidden><div class="spinner"></div></div>
+        <div id="inscriptionsEmpty" class="empty-state" hidden>
+            <div class="empty-state-icon">✓</div>
+            <p>Aucune inscription en attente de validation.</p>
+        </div>
+        <div id="inscriptionsList" class="dashboard-section" hidden></div>
+    </main>
+
+    <!-- Modale détail des informations enregistrées -->
+    <div id="inscriptionDetailOverlay" class="modal-overlay" hidden aria-hidden="true"
+         style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem;"
+         onclick="if (event.target === this) window.closeInscriptionDetailModal && closeInscriptionDetailModal();">
+        <div id="inscriptionDetailModal" class="card inscription-detail-modal" role="dialog" aria-labelledby="inscriptionDetailTitle"
+             style="max-width: 560px; width: 100%; max-height: 90vh; overflow: auto;"
+             onclick="event.stopPropagation();">
+            <div class="card-body inscription-detail-modal-body">
+                <h3 id="inscriptionDetailTitle" class="inscription-detail-modal-title">Informations enregistrées</h3>
+                <div id="inscriptionDetailLoading" class="loading" style="display: none;"><div class="spinner"></div></div>
+                <div id="inscriptionDetailBody"></div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/nav-access.js"></script>
+    <script src="js/inscriptions-review.js"></script>
+</body>
+</html>

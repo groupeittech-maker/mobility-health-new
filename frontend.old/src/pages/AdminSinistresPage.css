@@ -1,0 +1,672 @@
+.admin-sinistres-page {
+  padding: 2rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.page-header h1 {
+  margin: 0 0 2rem 0;
+  color: #333;
+  font-size: 2rem;
+}
+
+.sinistres-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 2rem;
+}
+
+.alertes-list {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-height: calc(100vh - 200px);
+  display: flex;
+  flex-direction: column;
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.list-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #333;
+}
+
+.filter-select {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.alertes-table {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.alertes-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.alertes-table thead {
+  position: sticky;
+  top: 0;
+  background: #f8f9fa;
+  z-index: 1;
+}
+
+.alertes-table th {
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #666;
+  border-bottom: 2px solid #dee2e6;
+  font-size: 0.9rem;
+}
+
+.alertes-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #dee2e6;
+  font-size: 0.9rem;
+}
+
+.alertes-table tbody tr {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.alertes-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.alertes-table tbody tr.selected {
+  background: #e7f3ff;
+  border-left: 3px solid #007bff;
+}
+
+.btn-view {
+  padding: 0.25rem 0.75rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.btn-view:hover {
+  background: #0056b3;
+}
+
+.sinistre-details {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.details-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.btn-close {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-close:hover {
+  background: #c82333;
+}
+
+.details-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.info-section {
+  padding-bottom: 2rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.info-section:last-child {
+  border-bottom: none;
+}
+
+.info-section h3 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1.2rem;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.info-item label {
+  display: block;
+  font-weight: 600;
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.info-item p {
+  margin: 0;
+  color: #333;
+  font-size: 1rem;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.status-en_attente {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-en_cours {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.status-resolue {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-annulee {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.priority-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.priority-faible {
+  background: #d4edda;
+  color: #155724;
+}
+
+.priority-normale {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.priority-elevee {
+  background: #ffeaa7;
+  color: #d63031;
+}
+
+.priority-critique {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.location-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.coordinates,
+.address {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.coordinates strong,
+.address strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.map-link {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background: #007bff;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  margin-top: 0.5rem;
+  transition: background 0.2s;
+}
+
+.map-link:hover {
+  background: #0056b3;
+}
+
+.hospital-card {
+  padding: 1.5rem;
+  background: #e7f3ff;
+  border-radius: 8px;
+  border: 2px solid #007bff;
+  margin-bottom: 1rem;
+}
+
+.hospital-card h4 {
+  margin: 0 0 0.5rem 0;
+  color: #007bff;
+}
+
+.hospital-card p {
+  margin: 0.5rem 0;
+  color: #333;
+}
+
+.no-hospital {
+  color: #999;
+  font-style: italic;
+  margin-bottom: 1rem;
+}
+
+.interventions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.intervention-item {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+}
+
+.intervention-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.intervention-libelle {
+  font-weight: 600;
+  color: #333;
+}
+
+.intervention-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.intervention-status.status-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.intervention-status.status-validated {
+  background: #d4edda;
+  color: #155724;
+}
+
+.intervention-status.status-invoiced {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.intervention-details {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.intervention-date {
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: #999;
+}
+
+/* Workflow admin */
+.workflow-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.workflow-admin-item {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #ccc;
+}
+
+.workflow-admin-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.workflow-admin-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+.workflow-admin-header p {
+  margin: 0.25rem 0 0 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.workflow-admin-controls {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.workflow-status-select {
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  font-size: 0.9rem;
+}
+
+.workflow-note-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.btn-update-workflow {
+  padding: 0.5rem 1rem;
+  background: #17a2b8;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-update-workflow:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.workflow-badge {
+  display: inline-block;
+  padding: 0.25rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  height: fit-content;
+}
+
+.workflow-pending {
+  border-color: #6c757d;
+}
+
+.workflow-in_progress {
+  border-color: #ffc107;
+}
+
+.workflow-completed {
+  border-color: #28a745;
+}
+
+.workflow-cancelled {
+  border-color: #dc3545;
+}
+
+.workflow-pending .workflow-badge {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.workflow-in_progress .workflow-badge {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.workflow-completed .workflow-badge {
+  background: #d4edda;
+  color: #155724;
+}
+
+.workflow-cancelled .workflow-badge {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.notes-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.notes-content {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.notes-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.add-notes-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.add-notes-form textarea {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #666;
+  font-style: italic;
+}
+
+.actions-section {
+  padding-top: 1rem;
+}
+
+.actions-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.btn-action {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-assign-hospital {
+  background: #17a2b8;
+  color: white;
+}
+
+.btn-assign-hospital:hover:not(:disabled) {
+  background: #138496;
+}
+
+.btn-close-sinistre {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-close-sinistre:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-content h2 {
+  margin: 0 0 1.5rem 0;
+  color: #333;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.modal-form select,
+.modal-form textarea {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-family: inherit;
+}
+
+.modal-form textarea {
+  resize: vertical;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.btn-cancel,
+.btn-confirm {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-cancel {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-cancel:hover {
+  background: #5a6268;
+}
+
+.btn-confirm {
+  background: #007bff;
+  color: white;
+}
+
+.btn-confirm:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loading,
+.no-data {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+@media (max-width: 1200px) {
+  .sinistres-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .alertes-list {
+    max-height: 400px;
+  }
+}
+

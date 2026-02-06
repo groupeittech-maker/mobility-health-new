@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de bord Médecin - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li data-visible-roles="doctor"><a href="doctor-dashboard.html">Dashboard</a></li>
+                <li data-visible-roles="doctor"><a href="medical-review.html">Validations médicales</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2>Tableau de bord Médecin</h2>
+            <p id="welcomeMessage">Bienvenue, <span id="userName"></span></p>
+        </div>
+
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <h3>Attestations en attente</h3>
+                <p id="pendingAttestationsCount">-</p>
+                <a href="medical-review.html" class="btn btn-primary">Valider</a>
+            </div>
+
+            <div class="stat-card">
+                <h3>Attestations validées</h3>
+                <p id="validatedAttestationsCount">-</p>
+            </div>
+        </div>
+
+        <div class="dashboard-section">
+            <h3>Actions rapides</h3>
+            <div class="quick-actions">
+                <a href="hospital-doctor.html" class="action-card">
+                    <h4>Prises en charge hospitalières</h4>
+                    <p>Consulter vos patients orientés par la réception</p>
+                </a>
+                <a href="medical-review.html" class="action-card">
+                    <h4>Valider les dossiers médicaux</h4>
+                    <p>Questionnaires médicaux et décisions d’éligibilité</p>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/nav-access.js"></script>
+    <script src="js/doctor-dashboard.js"></script>
+</body>
+</html>
+
+

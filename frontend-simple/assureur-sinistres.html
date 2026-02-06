@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portail sinistre assureur - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="protected">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+                <span class="brand-text">Sinistres Assureur</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="assureur-sinistres.html" class="active">Portail assureur</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <div>
+                <h2>Vue sinistre dédiée à votre assureur</h2>
+                <p class="muted">
+                    Retrouvez uniquement les sinistres et les étapes de traitement liés aux produits gérés par votre compagnie d'assurance.
+                </p>
+            </div>
+            <div class="section-tabs" id="sinistresTabs">
+                <button class="tab-btn active" data-section="sinistresListSection">Liste des sinistres</button>
+                <button class="tab-btn" data-section="workflowSection">Détails du workflow</button>
+            </div>
+        </div>
+
+        <!-- Liste des sinistres -->
+        <section id="sinistresListSection" class="dashboard-section">
+            <div class="section-heading">
+                <h3>Sinistres de vos assurés</h3>
+                <p class="muted">
+                    Visualisez tous les sinistres déclenchés par les assurés ayant souscrit aux produits de votre assureur.
+                </p>
+            </div>
+
+            <div class="table-toolbar">
+                <input type="text" id="sinistreSearchInput" placeholder="Rechercher par numéro de sinistre, alerte ou assuré">
+                <select id="sinistreStatusFilter" aria-label="Filtrer par statut">
+                    <option value="all">Tous les statuts</option>
+                    <option value="en_cours">En cours</option>
+                    <option value="resolu">Résolu</option>
+                    <option value="annule">Annulé</option>
+                </select>
+                <button class="btn" id="sinistreRefreshBtn">Actualiser</button>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>N° de sinistre</th>
+                            <th>N° d'alerte</th>
+                            <th>Assuré</th>
+                            <th>Date de déclenchement</th>
+                            <th>Statut</th>
+                            <th class="column-action">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sinistresTableBody">
+                        <tr>
+                            <td colspan="6" class="muted">Chargement des sinistres...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Détails du workflow -->
+        <section id="workflowSection" class="dashboard-section" hidden>
+            <div class="section-heading">
+                <h3>Détails du workflow de traitement</h3>
+                <p class="muted">
+                    Consultez toutes les étapes du processus de traitement d'un sinistre pour vos assurés.
+                </p>
+            </div>
+
+            <div class="panel-grid">
+                <div class="panel list-panel">
+                    <div class="panel-header">
+                        <h4>Sinistres</h4>
+                        <span class="muted" id="workflowSinistreCount">0 sinistre</span>
+                    </div>
+                    <p class="muted" id="workflowSinistreEmpty">Aucun sinistre à afficher.</p>
+                    <ul id="workflowSinistreList" class="card-list"></ul>
+                </div>
+
+                <div class="panel detail-panel" id="workflowDetail">
+                    <p class="muted">Sélectionnez un sinistre pour afficher les détails de son workflow.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script>
+        window.ASSUREUR_SINISTRES_ALLOWED_ROLES = ['agent_sinistre_assureur', 'admin'];
+        window.MH_ALLOWED_ROLES_OVERRIDE = ['agent_sinistre_assureur', 'admin'];
+    </script>
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/currency.js"></script>
+    <script src="js/table-pagination.js"></script>
+    <script src="js/assureur-sinistres.js"></script>
+</body>
+</html>
+

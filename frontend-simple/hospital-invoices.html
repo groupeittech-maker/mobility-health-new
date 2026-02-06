@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facturation hospitalière - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/hospital-invoices.css">
+</head>
+<body class="protected">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+                <span class="brand-text">Comptabilité hospitalière</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="hospital-dashboard.html">Portail</a></li>
+                <li><a href="hospital-invoices.html" class="active">Factures hospitalières</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container hospital-invoice-page">
+        <header class="page-header">
+            <div>
+                <p class="eyebrow">Comptabilité hospitalière</p>
+                <h2>Traitement des factures</h2>
+                <p class="subtitle">
+                    Vérifiez les rapports médicaux validés puis générez la facture à transmettre au back-office Mobility Health.
+                </p>
+            </div>
+            <div class="summary-cards">
+                <div class="summary-card">
+                    <span class="summary-label">Séjours prêts à facturer</span>
+                    <strong class="summary-value" id="statReadyCount">0</strong>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-label">Potentiel HT estimé</span>
+                    <strong class="summary-value" id="statPotentialHt">0 XOF</strong>
+                </div>
+            </div>
+        </header>
+
+        <section class="filters-panel">
+            <div class="filter-group">
+                <label for="filterStatus">Statut du séjour</label>
+                <select id="filterStatus">
+                    <option value="validated">Validés</option>
+                    <option value="awaiting_validation">En validation</option>
+                    <option value="in_progress">En cours</option>
+                    <option value="all">Tous</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filterReport">Rapport médical</label>
+                <select id="filterReport">
+                    <option value="approved">Validé</option>
+                    <option value="submitted">Soumis</option>
+                    <option value="all">Tous</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filterInvoice">Facture</label>
+                <select id="filterInvoice">
+                    <option value="none">À générer</option>
+                    <option value="pending_medical">En attente accord médical</option>
+                    <option value="pending_sinistre">En attente pôle sinistre</option>
+                    <option value="pending_compta">En attente comptabilité MH</option>
+                    <option value="validated">Validées</option>
+                    <option value="rejected">Refusées</option>
+                    <option value="all">Tous</option>
+                </select>
+            </div>
+            <div class="filter-group search-group">
+                <label for="filterSearch">Recherche</label>
+                <input id="filterSearch" type="search" placeholder="Sinistre ou patient">
+            </div>
+        </section>
+
+        <section class="catalog-panel">
+            <div class="catalog-header">
+                <div>
+                    <p class="eyebrow">Catalogue médical</p>
+                    <h3>Actes & examens facturables</h3>
+                    <p class="subtitle">
+                        Paramétrez vos actes médicaux et examens pour que les montants soient appliqués automatiquement dans les factures.
+                    </p>
+                </div>
+                <div class="catalog-meta">
+                    <span class="pill pill-neutral" id="catalogHospitalBadge" hidden></span>
+                    <span class="pill" id="catalogLoadingPill" hidden>Actualisation…</span>
+                    <button type="button" class="secondary-button" id="catalogRefreshBtn">Actualiser</button>
+                </div>
+            </div>
+
+            <div class="catalog-defaults">
+                <div class="default-card">
+                    <span>Tarif horaire de séjour</span>
+                    <strong id="catalogHourlyRate">15 000 XOF</strong>
+                </div>
+                <div class="default-card">
+                    <span>Acte (fallback)</span>
+                    <strong id="catalogDefaultAct">20 000 XOF</strong>
+                </div>
+                <div class="default-card">
+                    <span>Examen (fallback)</span>
+                    <strong id="catalogDefaultExam">15 000 XOF</strong>
+                </div>
+            </div>
+
+            <div id="catalogFeedbackBox" class="feedback" hidden></div>
+
+            <div id="catalogErrorBox" class="panel-empty" hidden>
+                <p id="catalogErrorMessage">Impossible de charger le catalogue.</p>
+                <small>Réessayez ou contactez le support en cas de persistance.</small>
+            </div>
+
+            <div class="catalog-grid">
+                <article class="catalog-card" data-section="acts">
+                    <button type="button" class="catalog-toggle" data-section="acts" aria-expanded="true">
+                        <div>
+                            <h4>Actes médicaux</h4>
+                            <p class="catalog-subtitle">Montants appliqués pour chaque acte clinique</p>
+                        </div>
+                        <div class="catalog-toggle-meta">
+                            <span class="pill" id="actCountBadge">0 acte</span>
+                            <span class="catalog-chevron" aria-hidden="true"></span>
+                        </div>
+                    </button>
+
+                    <div class="catalog-body">
+                        <div id="actTarifsEmpty" class="panel-empty small">
+                            <p>Aucun acte paramétré pour l’instant.</p>
+                            <small>Ajoutez vos actes (ex. consultation, sutures, immobilisation...)</small>
+                        </div>
+                        <table class="catalog-table" id="actTarifsTable" hidden>
+                            <thead>
+                                <tr>
+                                    <th>Libellé</th>
+                                    <th>Code</th>
+                                    <th>Tarif (HT)</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="actTarifsTableBody"></tbody>
+                        </table>
+
+                        <form id="actTarifForm" class="catalog-form">
+                            <div class="catalog-form-row">
+                                <input id="actNameInput" type="text" placeholder="Libellé de l'acte" required>
+                                <input id="actCodeInput" type="text" placeholder="Code (optionnel)" maxlength="50">
+                                <input id="actPriceInput" type="number" min="0" step="100" placeholder="Tarif HT (XOF)" required>
+                            </div>
+                            <textarea id="actDescriptionInput" rows="2" placeholder="Description (optionnel)"></textarea>
+                            <button type="submit" class="secondary-button">Ajouter un acte</button>
+                        </form>
+                    </div>
+                </article>
+
+                <article class="catalog-card" data-section="exams">
+                    <button type="button" class="catalog-toggle" data-section="exams" aria-expanded="true">
+                        <div>
+                            <h4>Examens</h4>
+                            <p class="catalog-subtitle">Tarifs appliqués aux examens et analyses</p>
+                        </div>
+                        <div class="catalog-toggle-meta">
+                            <span class="pill" id="examCountBadge">0 examen</span>
+                            <span class="catalog-chevron" aria-hidden="true"></span>
+                        </div>
+                    </button>
+
+                    <div class="catalog-body">
+                        <div id="examTarifsEmpty" class="panel-empty small">
+                            <p>Aucun examen n'est encore paramétré.</p>
+                            <small>Ajoutez les examens pratiqués dans votre établissement.</small>
+                        </div>
+                        <table class="catalog-table" id="examTarifsTable" hidden>
+                            <thead>
+                                <tr>
+                                    <th>Examen</th>
+                                    <th>Tarif (HT)</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="examTarifsTableBody"></tbody>
+                        </table>
+
+                        <form id="examTarifForm" class="catalog-form">
+                            <div class="catalog-form-row">
+                                <input id="examNameInput" type="text" placeholder="Nom de l'examen" required>
+                                <input id="examPriceInput" type="number" min="0" step="100" placeholder="Tarif HT (XOF)" required>
+                            </div>
+                            <button type="submit" class="secondary-button">Ajouter un examen</button>
+                        </form>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <div class="content-grid">
+            <section class="stays-panel">
+                <div class="panel-header">
+                    <h3>Séjours hospitaliers</h3>
+                    <span class="pill" id="staysRefreshLabel" hidden>Actualisation…</span>
+                </div>
+                <div id="staysLoading" class="panel-empty">Chargement des séjours…</div>
+                <div id="staysEmpty" class="panel-empty" hidden>
+                    <p>Aucun séjour ne correspond aux filtres.</p>
+                    <small>Modifiez les filtres ou attendez la validation d'un rapport.</small>
+                </div>
+                <ul class="stay-list" id="staysList" hidden></ul>
+                <div id="staysPagination" class="table-pagination-wrapper" hidden></div>
+            </section>
+
+            <section class="details-panel">
+                <div id="detailsPlaceholder" class="panel-empty">
+                    <p>Sélectionnez un séjour pour consulter le rapport de prise en charge.</p>
+                </div>
+                <div id="detailsContent" hidden>
+                    <div class="details-header">
+                        <div>
+                            <p class="eyebrow">Sinistre</p>
+                            <h3 id="detailSinistre">#—</h3>
+                            <p class="muted" id="detailPatient">Patient —</p>
+                        </div>
+                        <div class="status-stack">
+                            <span class="status-badge" id="detailStatus">—</span>
+                            <span class="status-badge status-invoiced" id="detailInvoiceBadge" hidden></span>
+                        </div>
+                    </div>
+
+                    <div class="report-section">
+                        <div>
+                            <h4>Résumé médical</h4>
+                            <dl class="report-grid">
+                                <div>
+                                    <dt>Motif de consultation</dt>
+                                    <dd id="detailMotifConsultation">—</dd>
+                                </div>
+                                <div>
+                                    <dt>Motif d’hospitalisation</dt>
+                                    <dd id="detailMotifHospitalisation">—</dd>
+                                </div>
+                                <div>
+                                    <dt>Durée du séjour</dt>
+                                    <dd id="detailDuree">—</dd>
+                                </div>
+                                <div>
+                                    <dt>Médecin hospitalier</dt>
+                                    <dd id="detailDoctor">—</dd>
+                                </div>
+                            </dl>
+                            <div class="rich-card" id="detailResumeCard" hidden>
+                                <p class="muted">Résumé</p>
+                                <p id="detailResume">—</p>
+                            </div>
+                        </div>
+
+                        <div class="tags-grid">
+                            <div>
+                                <h4>Actes réalisés</h4>
+                                <div class="tags-container" id="detailActes"></div>
+                            </div>
+                            <div>
+                                <h4>Examens effectués</h4>
+                                <div class="tags-container" id="detailExamens"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="invoiceReadOnlyBanner" class="alert alert-info" style="display: none; margin-bottom: 1rem;">
+                        <strong>Consultation uniquement</strong> — Cette facture est traitée. Elle ne peut pas être modifiée.
+                    </div>
+                    <div class="invoice-section">
+                        <div class="invoice-header">
+                            <div>
+                                <h4>Prévisualisation de la facture</h4>
+                                <p class="muted">Les montants sont calculés automatiquement à partir du rapport validé.</p>
+                            </div>
+                            <div class="tva-inputs">
+                                <label for="tvaInput">TVA</label>
+                                <input id="tvaInput" type="number" min="0" max="1" step="0.01" value="0.18">
+                                <span class="tva-hint" id="tvaDisplay">18%</span>
+                            </div>
+                        </div>
+
+                        <div class="invoice-builder-toolbar" id="invoiceBuilderToolbar" hidden>
+                            <div class="builder-actions">
+                                <button type="button" class="secondary-button" id="addCustomLineBtn">Ajouter une ligne libre</button>
+                                <button type="button" class="ghost-button" id="resetInvoiceLinesBtn">Recharger le rapport</button>
+                            </div>
+                            <p class="muted helper-text" id="invoiceBuilderHelper">
+                                Ajustez librement les libellés, quantités ou montants avant l'envoi de la facture.
+                            </p>
+                        </div>
+
+                        <div id="invoiceEmpty" class="panel-empty">Aucune ligne n'est définie. Ajoutez une ligne libre ou rechargez les éléments du rapport médical.</div>
+
+                        <table class="invoice-table" id="invoiceTable" hidden>
+                            <thead>
+                                <tr>
+                                    <th>Libellé</th>
+                                    <th>Quantité</th>
+                                    <th>PU (HT)</th>
+                                    <th>Montant (HT)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoiceLines"></tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3">Montant HT</td>
+                                    <td id="invoiceSubtotal">0 XOF</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3">TVA</td>
+                                    <td id="invoiceVat">0 XOF</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3"><strong>Total TTC</strong></td>
+                                    <td><strong id="invoiceTotal">0 XOF</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+
+                        <div class="notes-field">
+                            <label for="invoiceNotes">Notes internes (optionnel)</label>
+                            <textarea id="invoiceNotes" rows="3" placeholder="Ajouter une précision pour Mobility Health…"></textarea>
+                        </div>
+
+                    <div class="invoice-validation" id="invoiceValidationCard" hidden>
+                        <h4>Suivi des validations</h4>
+                        <ul class="validation-list">
+                            <li>
+                                <span>Pôle médical</span>
+                                <span class="validation-pill" id="validationMedicalBadge">En attente</span>
+                            </li>
+                            <li>
+                                <span>Pôle sinistre</span>
+                                <span class="validation-pill" id="validationSinistreBadge">En attente</span>
+                            </li>
+                            <li>
+                                <span>Comptabilité MH</span>
+                                <span class="validation-pill" id="validationComptaBadge">En attente</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                        <div id="feedbackBox" class="feedback" hidden></div>
+
+                        <button type="button" class="primary-button" id="generateInvoiceBtn" disabled>
+                            Générer la facture
+                        </button>
+                        <p class="muted invoice-info" id="invoiceInfo" hidden></p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/hospital-invoices.js"></script>
+</body>
+</html>
+

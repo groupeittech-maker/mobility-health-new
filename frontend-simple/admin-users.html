@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Utilisateurs - Back Office</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-products.html">Produits</a></li>
+                <li><a href="admin-assureurs.html">Assureurs</a></li>
+                <li><a href="admin-subscriptions.html">Souscriptions</a></li>
+                <li><a href="admin-users.html" class="active">Utilisateurs</a></li>
+                <li><a href="admin-hospitals.html">Hôpitaux</a></li>
+                <li><a href="admin-attestations.html">Attestations</a></li>
+                <li><a href="admin-destinations.html">Destinations</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2>Gestion des Utilisateurs</h2>
+        </div>
+
+        <div class="dashboard-section">
+            <h3>Créer un utilisateur</h3>
+            <p>Les administrateurs peuvent créer des comptes actifs pour tous les rôles disponibles. Le mot de passe doit contenir au moins 8 caractères.</p>
+
+            <form id="createUserForm">
+                <div class="create-user-grid">
+                    <div class="form-group">
+                        <label for="fullName">Nom complet</label>
+                        <input type="text" id="fullName" name="full_name" placeholder="Nom et prénom">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email *</label>
+                        <input type="email" id="email" name="email" placeholder="exemple@domaine.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="username">Nom d'utilisateur *</label>
+                        <input type="text" id="username" name="username" placeholder="Identifiant unique" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Mot de passe *</label>
+                        <input type="password" id="password" name="password" placeholder="Min. 8 caractères" minlength="8" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userRole">Rôle *</label>
+                        <select id="userRole" name="role" required></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userStatus">Statut *</label>
+                        <select id="userStatus" name="is_active" required>
+                            <option value="true" selected>Actif</option>
+                            <option value="false">Inactif</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Créer l'utilisateur</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="dashboard-section">
+            <div class="table-toolbar">
+                <div class="toolbar-actions">
+                    <input type="text" id="userSearchInput" placeholder="Rechercher par nom, email, username ou rôle..." class="search-input">
+                </div>
+            </div>
+        </div>
+
+        <div id="usersTableContainer">
+            <div class="loading">
+                <div class="spinner"></div>
+            </div>
+        </div>
+
+        <div id="editUserModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Modifier un profil utilisateur</h3>
+                    <button type="button" class="close" id="closeEditModal" aria-label="Fermer">&times;</button>
+                </div>
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId">
+                    <div class="create-user-grid">
+                        <div class="form-group">
+                            <label for="editFullName">Nom complet</label>
+                            <input type="text" id="editFullName" name="full_name" placeholder="Nom et prénom">
+                        </div>
+                        <div class="form-group">
+                            <label for="editEmail">Email *</label>
+                            <input type="email" id="editEmail" name="email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editUsername">Nom d'utilisateur</label>
+                            <input type="text" id="editUsername" name="username" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label for="editUserRole">Rôle *</label>
+                            <select id="editUserRole" name="role" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="editUserStatus">Statut *</label>
+                            <select id="editUserStatus" name="is_active" required>
+                                <option value="true">Actif</option>
+                                <option value="false">Inactif</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelEditBtn">Annuler</button>
+                        <button type="submit" class="btn btn-primary">Enregistrer les modifications</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="resetPasswordModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Réinitialiser le mot de passe</h3>
+                    <button type="button" class="close" id="closeResetModal" aria-label="Fermer">&times;</button>
+                </div>
+                <form id="resetPasswordForm">
+                    <p class="muted">Définissez un nouveau mot de passe pour <strong id="resetUserLabel">cet utilisateur</strong>. Le mot de passe doit contenir au moins 8 caractères.</p>
+                    <div class="form-group">
+                        <label for="newPassword">Nouveau mot de passe *</label>
+                        <input type="password" id="newPassword" name="new_password" minlength="8" required placeholder="Nouveau mot de passe">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirmer le mot de passe *</label>
+                        <input type="password" id="confirmPassword" minlength="8" required placeholder="Confirmez le mot de passe">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelResetBtn">Annuler</button>
+                        <button type="submit" class="btn btn-primary">Mettre à jour le mot de passe</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/admin-users.js"></script>
+    <script src="js/table-scrollbar-fix.js"></script>
+</body>
+</html>
+

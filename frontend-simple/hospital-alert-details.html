@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dossier d'alerte - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+                <span class="brand-text">Dossier d'alerte</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#" id="backLink">Retour</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2>Alerte <span id="alertNumber"></span></h2>
+            <p id="alertMeta" class="muted"></p>
+        </div>
+
+        <section class="dashboard-section" id="receptionLandingSection" hidden>
+            <h3>Aucune alerte sélectionnée</h3>
+            <p id="receptionLandingMessage" class="muted">
+                Recherche d'une alerte assignée à votre hôpital...
+            </p>
+            <div class="landing-actions">
+                <a class="btn btn-outline" href="sos-dashboard.html">Ouvrir le tableau des alertes</a>
+            </div>
+        </section>
+
+        <section class="dashboard-section" id="assignedAlertsSection">
+            <div class="section-header">
+                <div>
+                    <h3>Alertes assignées à ma réception</h3>
+                    <p class="muted">
+                        Identifiez l’alerte concernée puis cliquez sur « Ouvrir » pour charger le dossier complet.
+                    </p>
+                </div>
+                <div class="section-actions">
+                    <button class="btn btn-outline btn-sm" id="refreshAssignedAlertsBtn">Actualiser</button>
+                </div>
+            </div>
+            <div id="assignedAlertsError" class="alert alert-error" hidden></div>
+            <div id="assignedAlertsLoading" class="loading" hidden>
+                <div class="spinner"></div>
+            </div>
+            <div id="assignedAlertsEmpty" class="empty-state" hidden>
+                <div class="empty-state-icon">📭</div>
+                <p>Aucune alerte n'est actuellement assignée à votre hôpital.</p>
+                <p class="muted">
+                    Surveillez le tableau SOS pour être alerté dès qu’une nouvelle alerte est routée vers vous.
+                </p>
+            </div>
+            <div class="table-wrapper">
+                <table class="data-table" id="assignedAlertsTable" hidden>
+                    <thead>
+                        <tr>
+                            <th>Alerte</th>
+                            <th>Patient</th>
+                            <th>Priorité</th>
+                            <th>Statut</th>
+                            <th>Assignée le</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="assignedAlertsBody"></tbody>
+                </table>
+            </div>
+            <div id="assignedAlertsPagination" class="table-pagination-wrapper" hidden></div>
+        </section>
+
+        <section class="dashboard-section">
+            <h3>Informations générales</h3>
+            <div class="info-grid">
+                <div>
+                    <strong>Statut</strong>
+                    <div id="alertStatus">-</div>
+                </div>
+                <div>
+                    <strong>Priorité</strong>
+                    <div id="alertPriority">-</div>
+                </div>
+                <div>
+                    <strong>Coordonnées</strong>
+                    <div id="alertLocation">-</div>
+                </div>
+            </div>
+            <p id="alertDescription" class="muted"></p>
+        </section>
+
+        <section class="dashboard-section">
+            <h3>Informations patient</h3>
+            <div id="patientInfo" class="info-grid"></div>
+        </section>
+
+        <section class="dashboard-section">
+            <h3>Hôpital et sinistre</h3>
+            <div id="hospitalInfo" class="info-grid"></div>
+        </section>
+
+        <section class="dashboard-section" id="receptionActionsSection" hidden>
+            <h3>Actions réception</h3>
+            <div class="reception-actions">
+                <button class="btn" id="dispatchAmbulanceBtn">🚑 Envoyer une ambulance</button>
+                <div id="orientationFormContainer"></div>
+            </div>
+        </section>
+
+        <section class="dashboard-section" id="doctorReportSection" hidden>
+            <h3>Rapport médical</h3>
+            <form id="doctorReportForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="motifConsultation">Motif de consultation</label>
+                        <textarea id="motifConsultation" name="motifConsultation" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="motifHospitalisation">Motif d'hospitalisation</label>
+                        <textarea id="motifHospitalisation" name="motifHospitalisation" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="dureeSejour">Durée du séjour (jours)</label>
+                        <input type="number" id="dureeSejour" name="dureeSejour" min="0" step="0.5">
+                    </div>
+                </div>
+
+                <div class="form-grid two-columns">
+                    <div>
+                        <label>Actes médicaux réalisés</label>
+                        <div id="actesOptions" class="options-grid"></div>
+                    </div>
+                    <div>
+                        <label>Examens réalisés</label>
+                        <div id="examensOptions" class="options-grid"></div>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="resumeSejour">Résumé du séjour</label>
+                        <textarea id="resumeSejour" name="resumeSejour" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="observationsSejour">Observations complémentaires</label>
+                        <textarea id="observationsSejour" name="observationsSejour" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <label class="checkbox-label">
+                    <input type="checkbox" id="terminerSejour">
+                    Clôturer le séjour après enregistrement
+                </label>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Enregistrer le rapport</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="dashboard-section" id="reportValidationSection" hidden>
+            <h3>Validation du rapport</h3>
+            <p class="muted">
+                Le médecin référent confirme ou rejette le rapport clinique avant la facturation.
+            </p>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="reportValidationNotes">Notes</label>
+                    <textarea id="reportValidationNotes" rows="3" placeholder="Commentaires pour l'équipe médicale"></textarea>
+                </div>
+            </div>
+            <div class="medical-decision-actions">
+                <button type="button" class="btn btn-success" id="approveReportBtn">Valider le rapport</button>
+                <button type="button" class="btn btn-danger" id="rejectReportBtn">Rejeter le rapport</button>
+            </div>
+        </section>
+
+        <section class="dashboard-section" id="invoiceSection" hidden>
+            <h3>Facturation hospitalière</h3>
+            <div id="invoiceSummary" class="info-grid"></div>
+            <div id="invoiceContentBlock" class="table-wrapper" hidden>
+                <h4>Contenu de la facture</h4>
+                <table class="data-table" id="invoiceLinesTable">
+                    <thead>
+                        <tr>
+                            <th>Désignation</th>
+                            <th>Quantité</th>
+                            <th>Prix unitaire</th>
+                            <th>Montant TTC</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoiceLinesBody"></tbody>
+                </table>
+                <p id="invoiceLinesEmpty" class="muted" hidden>Aucune ligne.</p>
+            </div>
+            <p id="invoiceApprovalStatus" class="muted" hidden></p>
+            <div id="invoiceMedicalApproval" class="medical-decision-card" hidden>
+                <label for="invoiceMedicalNotes">Notes pour la validation médicale</label>
+                <textarea id="invoiceMedicalNotes" rows="3" placeholder="Commentaires à propos de la facture"></textarea>
+                <div class="medical-decision-actions">
+                    <button type="button" class="btn btn-success" id="invoiceApproveBtn">Accorder la facture</button>
+                    <button type="button" class="btn btn-danger" id="invoiceRejectBtn">Refuser la facture</button>
+                </div>
+            </div>
+            <div id="invoiceSinistreApproval" class="medical-decision-card" hidden>
+                <label for="invoiceSinistreNotes">Notes pour la validation sinistre</label>
+                <textarea id="invoiceSinistreNotes" rows="3" placeholder="Commentaires pour le pôle sinistre"></textarea>
+                <div class="medical-decision-actions">
+                    <button type="button" class="btn btn-success" id="invoiceSinistreApproveBtn">Valider la facture</button>
+                    <button type="button" class="btn btn-danger" id="invoiceSinistreRejectBtn">Refuser la facture</button>
+                </div>
+            </div>
+            <button class="btn btn-primary" id="createInvoiceBtn">Créer et envoyer la facture</button>
+        </section>
+
+        <section class="dashboard-section" id="questionnaireSection" hidden>
+            <div class="section-header">
+                <h3>Dossier patient</h3>
+                <p class="muted">
+                    Aperçu synthétique des informations civiles et médicales nécessaires à la décision.
+                </p>
+            </div>
+            <div class="questionnaire-grid">
+                <div class="questionnaire-block">
+                    <div class="questionnaire-header">
+                        <h5>Données civiles</h5>
+                    </div>
+                    <div class="questionnaire-content" id="civilDataContent"></div>
+                </div>
+                <div class="questionnaire-block">
+                    <div class="questionnaire-header">
+                        <h5>Dossier médical</h5>
+                        <span class="badge badge-provisoire" id="medicalQuestionnaireVersion" hidden></span>
+                    </div>
+                    <div class="questionnaire-content" id="medicalDataContent"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="dashboard-section" id="medicalDecisionSection">
+            <div class="section-header">
+                <h3>Décision médicale</h3>
+                <p class="muted" id="medicalDecisionStatus">
+                    Analysez les informations patient puis confirmez ou refusez la véracité de l'alerte.
+                </p>
+            </div>
+            <div class="medical-decision-card">
+                <label for="medicalDecisionNotes">Notes à partager avec l'équipe opérationnelle</label>
+                <textarea id="medicalDecisionNotes" rows="4" placeholder="Précisez votre décision..."></textarea>
+                <div class="medical-decision-actions">
+                    <button type="button" class="btn btn-success" id="medicalApproveBtn">
+                        Alerte avérée
+                    </button>
+                    <button type="button" class="btn btn-danger" id="medicalRejectBtn">
+                        Alerte non avérée
+                    </button>
+                </div>
+                <p class="muted decision-hint">
+                    La validation ambulance reste gérée par la réception de l'hôpital.
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/hospital-alert-details.js"></script>
+</body>
+</html>
+

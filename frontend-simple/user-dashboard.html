@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Espace Assuré - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <style>
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .quick-actions-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .quick-action-card {
+            background: white;
+            border: 2px solid var(--secondary-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+        .quick-action-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 31, 120, 0.2);
+            border-color: var(--primary-color);
+        }
+        .quick-action-card h3 {
+            margin: 0 0 0.5rem 0;
+            color: var(--secondary-color);
+        }
+        .quick-action-card p {
+            margin: 0;
+            color: var(--muted-text);
+            font-size: 0.9rem;
+        }
+        .subscriptions-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .subscriptions-tab {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 1rem;
+            color: var(--secondary-color);
+            transition: all 0.2s;
+        }
+        .subscriptions-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+            font-weight: bold;
+        }
+        .subscriptions-tab:hover {
+            color: var(--primary-color);
+        }
+        .subscriptions-content {
+            display: none;
+        }
+        .subscriptions-content.active {
+            display: block;
+        }
+        .subscription-card {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: box-shadow 0.2s;
+        }
+        .subscription-card:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .subscription-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        .subscription-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--dark-text);
+            margin: 0;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: bold;
+        }
+        .status-badge.en_attente, .status-badge.pending {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-badge.active {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-badge.expiree, .status-badge.expired {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status-badge.suspendue, .status-badge.resiliee {
+            background-color: #e2e3e5;
+            color: #383d41;
+        }
+        .subscription-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .subscription-info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .subscription-info-label {
+            font-size: 0.875rem;
+            color: var(--secondary-color);
+            margin-bottom: 0.25rem;
+        }
+        .subscription-info-value {
+            font-weight: 500;
+            color: var(--dark-text);
+        }
+        .subscription-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--secondary-color);
+        }
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .subscription-card.highlighted {
+            animation: highlightPulse 2s ease-in-out;
+        }
+        @keyframes highlightPulse {
+            0%, 100% {
+                box-shadow: 0 4px 20px rgba(28, 119, 255, 0.4);
+            }
+            50% {
+                box-shadow: 0 6px 30px rgba(28, 119, 255, 0.6);
+            }
+        }
+        /* Modal de résiliation */
+        .resiliation-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            -webkit-backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .resiliation-modal.show {
+            display: flex;
+            opacity: 1;
+        }
+        .resiliation-modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+            position: relative;
+        }
+        .resiliation-modal.show .resiliation-modal-content {
+            transform: scale(1);
+        }
+        .resiliation-modal-header {
+            margin-bottom: 1.5rem;
+        }
+        .resiliation-modal-header h3 {
+            margin: 0 0 0.5rem 0;
+            color: var(--dark-text);
+            font-size: 1.5rem;
+        }
+        .resiliation-modal-header p {
+            margin: 0;
+            color: var(--muted-text);
+            font-size: 0.95rem;
+        }
+        .resiliation-modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--muted-text);
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        .resiliation-modal-close:hover {
+            background: var(--light-bg);
+            color: var(--dark-text);
+        }
+        .resiliation-modal-body {
+            margin-bottom: 1.5rem;
+        }
+        .resiliation-modal-body label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--dark-text);
+            font-weight: 500;
+        }
+        .resiliation-modal-body textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            resize: vertical;
+            transition: border-color 0.2s ease;
+        }
+        .resiliation-modal-body textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(8, 173, 160, 0.1);
+        }
+        .resiliation-modal-body .help-text {
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--muted-text);
+        }
+        .resiliation-modal-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+        }
+        .resiliation-modal-actions .btn {
+            min-width: 100px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="user-dashboard.html" class="active">Tableau de bord</a></li>
+                <li><a href="user-attestations.html">Mes Attestations</a></li>
+                <li><a href="user-products.html">Mes Produits</a></li>
+                <li><a href="#" onclick="logout(); return false;">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <div>
+                <h2>Mon Tableau de Bord</h2>
+                <p id="welcomeMessage">Bienvenue, <span id="userName"></span></p>
+            </div>
+        </div>
+
+        <!-- Actions rapides -->
+        <div class="quick-actions-buttons">
+            <a href="project-wizard.html" class="quick-action-card">
+                <h3>📋 Nouvelle souscription</h3>
+                <p>Déclarer votre voyage et préparer la souscription</p>
+            </a>
+            <button onclick="triggerSOSAlert()" class="quick-action-card" id="sosAlertBtn" style="background: white; border: 2px solid #dc3545; width: 100%;">
+                <h3 style="color: #dc3545;">🚨 Alerte / Déclaration de sinistre</h3>
+                <p>Appuyez pour déclencher une alerte d'urgence</p>
+            </button>
+        </div>
+
+        <!-- Statistiques rapides -->
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <h3>Souscriptions actives</h3>
+                <p id="activeSubscriptionsCount">-</p>
+            </div>
+            <div class="stat-card">
+                <h3>En attente</h3>
+                <p id="pendingSubscriptionsCount">-</p>
+            </div>
+            <div class="stat-card">
+                <h3>Expirées</h3>
+                <p id="expiredSubscriptionsCount">-</p>
+            </div>
+            <div class="stat-card">
+                <h3>Souscriptions résiliées</h3>
+                <p id="attestationsCount">-</p>
+            </div>
+        </div>
+
+        <!-- Onglets pour les souscriptions -->
+        <div class="dashboard-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                <h3 style="margin: 0;">Mes Souscriptions</h3>
+                <div style="position: relative; max-width: 400px; width: 100%;">
+                    <input 
+                        type="text" 
+                        id="subscriptionSearchInput" 
+                        placeholder="Rechercher par numéro, produit, date..." 
+                        style="width: 100%; padding: 0.75rem 1rem 0.75rem 2.5rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.95rem;"
+                    />
+                    <span style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--secondary-color); font-size: 1.1rem;">🔍</span>
+                </div>
+            </div>
+            <div class="subscriptions-tabs">
+                <button class="subscriptions-tab active" onclick="switchTab('all', this)">Toutes</button>
+                <button class="subscriptions-tab" onclick="switchTab('active', this)">En cours</button>
+                <button class="subscriptions-tab" onclick="switchTab('pending', this)">En attente</button>
+                <button class="subscriptions-tab" onclick="switchTab('expired', this)">Expirées</button>
+            </div>
+
+            <div id="subscriptionsLoading" class="loading">
+                <div class="spinner"></div>
+                <p>Chargement de vos souscriptions...</p>
+            </div>
+
+            <div id="subscriptionsAll" class="subscriptions-content active">
+                <div id="subscriptionsAllList"></div>
+            </div>
+            <div id="subscriptionsActive" class="subscriptions-content">
+                <div id="subscriptionsActiveList"></div>
+            </div>
+            <div id="subscriptionsPending" class="subscriptions-content">
+                <div id="subscriptionsPendingList"></div>
+            </div>
+            <div id="subscriptionsExpired" class="subscriptions-content">
+                <div id="subscriptionsExpiredList"></div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <!-- Modal de résiliation -->
+    <div id="resiliationModal" class="resiliation-modal" role="dialog" aria-modal="true" aria-labelledby="resiliationModalTitle">
+        <div class="resiliation-modal-content">
+            <button class="resiliation-modal-close" onclick="closeResiliationModalFromDashboard()" aria-label="Fermer">&times;</button>
+            <div class="resiliation-modal-header">
+                <h3 id="resiliationModalTitle">Demander la résiliation</h3>
+                <p>Votre demande sera examinée par un agent. Vous serez notifié de la décision.</p>
+            </div>
+            <div class="resiliation-modal-body">
+                <label for="resiliationNotes">Raison de la résiliation (optionnel)</label>
+                <textarea 
+                    id="resiliationNotes" 
+                    placeholder="Ex: Je ne voyage plus, changement de situation, etc."
+                    rows="4"
+                ></textarea>
+                <p class="help-text">Cette information aidera notre équipe à traiter votre demande plus rapidement.</p>
+            </div>
+            <div class="resiliation-modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeResiliationModalFromDashboard()">Annuler</button>
+                <button type="button" class="btn btn-danger" id="confirmResiliationBtn">Confirmer la demande</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/user-dashboard.js"></script>
+</body>
+</html>
+
+

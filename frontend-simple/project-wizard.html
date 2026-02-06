@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nouvelle souscription</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <style>
+        .wizard-container {
+            max-width: 960px;
+            margin: 2rem auto;
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 12px 40px rgba(15, 30, 64, 0.08);
+            overflow: hidden;
+        }
+        .wizard-header {
+            background: linear-gradient(120deg, #4f1f78 0%, #08ada0 100%);
+            color: #fff;
+            padding: 2rem;
+        }
+        .wizard-header h2 {
+            margin: 0 0 0.5rem 0;
+        }
+        .wizard-steps {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+        .wizard-step {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.2);
+            font-weight: 500;
+        }
+        .wizard-step.active {
+            background: #fff;
+            color: #4f1f78;
+        }
+        form {
+            padding: 2rem;
+        }
+        .form-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+        .form-grid.two-columns {
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        }
+        .form-field {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-field label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--dark-text);
+        }
+        .form-field input,
+        .form-field textarea,
+        .form-field select {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-field input:focus,
+        .form-field textarea:focus,
+        .form-field select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(8, 173, 160, 0.15);
+        }
+        .section-divider {
+            margin: 2rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px dashed var(--border-color);
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        .tier-info-section {
+            margin-top: 1rem;
+            padding: 1.25rem;
+            background: #f4fbfa;
+            border: 1px solid rgba(8, 173, 160, 0.25);
+            border-radius: 10px;
+        }
+        .tier-info-section .section-divider { margin-top: 0; }
+        .form-hint {
+            font-size: 0.9rem;
+            color: var(--secondary-color, #5a6175);
+            margin-bottom: 1rem;
+        }
+        .tip-box {
+            background: #f6fbff;
+            border: 1px solid #cfe9ff;
+            border-radius: 10px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 1rem;
+        }
+        .tip-icon {
+            font-size: 1.5rem;
+        }
+        .form-actions {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .primary-btn {
+            background: linear-gradient(135deg, #1c77ff, #00b0ff);
+            border: none;
+            color: #fff;
+            padding: 0.9rem 2rem;
+            border-radius: 999px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 12px 24px rgba(28, 119, 255, 0.25);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .primary-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .primary-btn:not(:disabled):hover {
+            transform: translateY(-1px);
+            box-shadow: 0 18px 32px rgba(28, 119, 255, 0.35);
+        }
+        .alert {
+            padding: 1rem 1.25rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .alert-info {
+            background: #e8f0fe;
+            color: #1f3a7d;
+            border: 1px solid #c5d7ff;
+        }
+        .documents-hint {
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+            margin-bottom: 0.75rem;
+        }
+        .document-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1rem;
+        }
+        .document-field {
+            border: 1px dashed var(--border-color);
+            border-radius: 10px;
+            padding: 1rem;
+            background: #fbfcff;
+        }
+        .document-field label {
+            font-weight: 600;
+        }
+        .document-field input[type="file"] {
+            margin-top: 0.5rem;
+            padding: 0.35rem;
+        }
+        .document-field small {
+            display: block;
+            margin-top: 0.4rem;
+            color: var(--secondary-color);
+        }
+        .document-extra {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        .document-extra input[type="text"] {
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            padding: 0.55rem 0.7rem;
+        }
+        @media (max-width: 600px) {
+            .wizard-header {
+                padding: 1.5rem;
+            }
+            form {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="protected">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="user-dashboard.html">Tableau de bord</a></li>
+                <li><a href="user-attestations.html">Mes Attestations</a></li>
+                <li><a href="user-products.html">Mes Produits</a></li>
+                <li><a href="#" onclick="logout(); return false;">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="wizard-container">
+            <div class="wizard-header">
+                <h2>Nouvelle souscription</h2>
+                <p>Cette étape nous permet de comprendre votre besoin pour vous proposer l’assurance la plus adaptée.</p>
+                <div class="wizard-steps">
+                    <div class="wizard-step active">
+                        <span>1</span> Voyage
+                    </div>
+                    <div class="wizard-step">
+                        <span>2</span> Produit
+                    </div>
+                    <div class="wizard-step">
+                        <span>3</span> Médical
+                    </div>
+                    <div class="wizard-step">
+                        <span>4</span> Paiement
+                    </div>
+                    <div class="wizard-step">
+                        <span>5</span> Attestation
+                    </div>
+                </div>
+            </div>
+
+            <form id="projectForm">
+                <div id="formMessage" style="display:none;"></div>
+
+                <div class="section-divider">Informations sur le voyage</div>
+                <div class="form-grid two-columns">
+                    <div class="form-field">
+                        <label for="travelerRelation">Souscription *</label>
+                        <select id="travelerRelation" name="traveler_relation" required>
+                            <option value="self">Je suis le voyageur</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid two-columns">
+                    <div class="form-field">
+                        <label for="destinationCountry">Pays de destination *</label>
+                        <select id="destinationCountry" name="destination_country" required></select>
+                    </div>
+                    <div class="form-field">
+                        <label for="destinationCity">Ville / zone de destination</label>
+                        <select id="destinationCity" name="destination_city">
+                            <option value="">Choisir un pays d'abord...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid two-columns">
+                    <div class="form-field">
+                        <label for="travelMode">Moyen de transport *</label>
+                        <select id="travelMode" name="travel_mode" required>
+                            <option value="">Choisir...</option>
+                            <option value="avion">Avion</option>
+                            <option value="route">Route</option>
+                            <option value="mer">Mer</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid two-columns">
+                    <div class="form-field">
+                        <label for="dateDepart">Date de départ *</label>
+                        <input type="datetime-local" id="dateDepart" name="date_depart" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="dateRetour">Date de retour</label>
+                        <input type="datetime-local" id="dateRetour" name="date_retour">
+                    </div>
+                </div>
+
+                <div class="form-grid two-columns">
+                    <div class="form-field">
+                        <label for="durationDisplay">Durée du séjour</label>
+                        <input type="text" id="durationDisplay" readonly placeholder="Calcul automatique">
+                    </div>
+                </div>
+
+                <div class="form-grid two-columns">
+                    <div class="form-field">
+                        <label for="participants">Nombre de participants *</label>
+                        <input type="number" id="participants" name="nombre_participants" min="1" value="1" required>
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <label>Voyagez-vous avec des enfants mineurs ? *</label>
+                    <div style="display:flex; gap:1rem;">
+                        <label><input type="radio" name="with_minors" value="yes" id="withMinorsYes" required> Oui</label>
+                        <label><input type="radio" name="with_minors" value="no" id="withMinorsNo" checked required> Non</label>
+                    </div>
+                </div>
+
+                <div id="minorsDetailsSection" style="display: none; margin-top: 1.5rem;">
+                    <div class="form-field">
+                        <label for="minorsCount">Nombre d'enfants mineurs *</label>
+                        <input type="number" id="minorsCount" name="minors_count" min="1" max="10" value="1" style="max-width: 150px;">
+                    </div>
+                    <div id="minorsList" style="margin-top: 1rem;">
+                        <!-- Les champs pour chaque enfant seront générés ici -->
+                    </div>
+                </div>
+
+                <div class="section-divider">Pièces justificatives (optionnel)</div>
+                <div class="documents-hint">
+                    Ajoutez les documents utiles à l'étude de votre dossier. Formats acceptés : PDF, JPG ou PNG (10&nbsp;Mo max par document).
+                </div>
+                <div class="document-grid">
+                    <div class="document-field">
+                        <label for="docPassport">Passeport</label>
+                        <input type="file" id="docPassport" data-doc-type="passport" accept=".pdf,image/*">
+                        <small>Photo de la page d'identité ou scan complet.</small>
+                    </div>
+                    <div class="document-field">
+                        <label for="docIdCard">Carte d'identité</label>
+                        <input type="file" id="docIdCard" data-doc-type="id_card" accept=".pdf,image/*">
+                        <small>Recto/verso ou document combiné.</small>
+                    </div>
+                    <div class="document-field">
+                        <label for="docResidence">Carte de résident</label>
+                        <input type="file" id="docResidence" data-doc-type="residence_permit" accept=".pdf,image/*">
+                        <small>Permis de séjour ou carte consulaire.</small>
+                    </div>
+                    <div class="document-field">
+                        <label for="docBooking">Réservation du voyage</label>
+                        <input type="file" id="docBooking" data-doc-type="travel_booking" accept=".pdf,image/*">
+                        <small>Billet, itinéraire ou justificatif d'hébergement.</small>
+                    </div>
+                </div>
+                <div class="document-field document-extra">
+                    <div>
+                        <label for="docOtherFile">Autre justificatif</label>
+                        <p class="documents-hint" style="margin-bottom:0;">Ajoutez tout document complémentaire (invitation, lettre d'employeur, etc.).</p>
+                    </div>
+                    <input type="text" id="docOtherLabel" placeholder="Libellé du document (ex: Lettre d'invitation)">
+                    <input type="file" id="docOtherFile" data-doc-type="other" data-label-input="docOtherLabel" accept=".pdf,image/*">
+                    <small>Un seul fichier. Vous pourrez en ajouter d'autres plus tard depuis votre espace.</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="primary-btn" id="submitBtn">
+                        Continuer vers le choix du produit
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/project-wizard.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Réception Hôpital - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="protected hospital-reception">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility Health" class="brand-logo">
+                <span class="brand-text">Réception Hôpital</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="hospital-reception.html" class="active">Alertes</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <div>
+                <h2>Portail Réception Hôpital</h2>
+                <p class="muted">
+                    Réceptionnez les alertes assignées, contrôlez les dossiers patients et déclenchez les actions urgentes pour votre établissement.
+                </p>
+                <p id="welcomeMessage">Bienvenue, <span id="userName"></span></p>
+            </div>
+            <div class="section-tabs">
+                <span class="role-badge" id="hospitalBadge">Hôpital non défini</span>
+            </div>
+        </div>
+
+        <section class="dashboard-stats">
+            <div class="stat-card">
+                <h3>Alertes assignées</h3>
+                <p id="assignedAlertsCount">0</p>
+                <small class="muted">En attente d'action par votre équipe</small>
+            </div>
+            <div class="stat-card">
+                <h3>Ambulances déclenchées</h3>
+                <p id="ambulanceCount">0</p>
+                <small class="muted">Depuis 24h</small>
+            </div>
+            <div class="stat-card">
+                <h3>Orientations envoyées</h3>
+                <p id="orientationCount">0</p>
+                <small class="muted">Patients dirigés vers un médecin</small>
+            </div>
+        </section>
+
+        <section class="dashboard-section" id="receptionNotificationsSection">
+            <div class="table-toolbar">
+                <div>
+                    <h3>Notifications</h3>
+                    <p class="muted">Suivez les alertes assignées et les validations médicales.</p>
+                </div>
+                <div class="alert-actions">
+                    <span class="badge" id="receptionNotificationsCount">0 notification</span>
+                    <button class="btn btn-secondary btn-sm" id="refreshReceptionNotificationsBtn" type="button">
+                        Actualiser
+                    </button>
+                </div>
+            </div>
+
+            <div id="receptionNotificationsError" class="alert alert-error" hidden></div>
+
+            <div id="receptionNotificationsLoading" class="loading" hidden>
+                <div class="spinner"></div>
+            </div>
+
+            <div id="receptionNotificationsEmpty" class="empty-state" hidden>
+                <div class="empty-state-icon">🔔</div>
+                <p>Aucune notification récente.</p>
+                <p class="muted">Les nouvelles alertes apparaîtront automatiquement.</p>
+            </div>
+
+            <div id="receptionNotificationsList" class="card-list" hidden></div>
+        </section>
+
+        <!-- Section liste des alertes (en haut : choisir un dossier) -->
+        <section class="dashboard-section" id="alertsListSection">
+            <div class="section-header" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;">
+                <div>
+                    <h3>Alertes assignées</h3>
+                    <p class="muted">Les alertes en cours pour votre hôpital. Sélectionnez-en une pour ouvrir le dossier.</p>
+                </div>
+                <div class="section-actions" style="display: flex; align-items: center; gap: 0.5rem;">
+                    <div class="reception-tabs" role="tablist" style="display: flex; gap: 0.25rem;">
+                        <button type="button" class="tab-btn active" data-reception-tab="to_treat" id="tabReceptionToTreat" role="tab" aria-selected="true">Alertes à traiter</button>
+                        <button type="button" class="tab-btn" data-reception-tab="orientations" id="tabReceptionOrientations" role="tab" aria-selected="false">Orientations envoyées</button>
+                    </div>
+                    <button class="btn btn-outline btn-sm" id="refreshAlertsBtn">Actualiser</button>
+                </div>
+            </div>
+
+            <div id="alertsError" class="alert alert-error" hidden></div>
+            <div id="alertsLoading" class="loading" hidden>
+                <div class="spinner"></div>
+            </div>
+            <div class="filter-section" style="margin-bottom: 1rem;">
+                <label for="searchAlertsReception" class="sr-only">Rechercher</label>
+                <input type="search" id="searchAlertsReception" class="search-input" placeholder="Rechercher alerte, patient, description, hôpital..." aria-label="Rechercher dans les alertes" style="max-width: 320px;">
+            </div>
+            <div id="alertsEmpty" class="empty-state" hidden>
+                <div class="empty-state-icon">📭</div>
+                <p id="alertsEmptyMessage">Aucune alerte assignée pour le moment.</p>
+                <p class="muted">Les nouvelles alertes apparaîtront automatiquement ici.</p>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="data-table" id="alertsTable" hidden>
+                    <thead>
+                        <tr>
+                            <th>Alerte</th>
+                            <th>Patient</th>
+                            <th>Priorité</th>
+                            <th>Assignée le</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alertsTableBody"></tbody>
+                </table>
+            </div>
+            <div id="receptionAlertsPagination" class="table-pagination-wrapper" hidden></div>
+        </section>
+
+        <!-- Dossier sélectionné et traitement (affichés en bas quand un dossier est ouvert) -->
+        <section class="dashboard-section" id="alertDetailsSection" hidden>
+            <a id="treatment-section-anchor" style="position: absolute; top: -100px; visibility: hidden;"></a>
+            <div class="section-header">
+                <div>
+                    <h3>Dossier sélectionné</h3>
+                    <p class="muted" id="selectedAlertMeta">Sélectionnez une alerte pour afficher les informations détaillées.</p>
+                </div>
+                <div class="section-actions">
+                    <button class="btn btn-secondary btn-sm" id="closeAlertDetailsBtn" onclick="closeAlertDetails()">Fermer le dossier</button>
+                    <a class="btn btn-outline btn-sm" id="openFullFileBtn">Ouvrir le dossier complet</a>
+                </div>
+            </div>
+
+            <div class="details-grid">
+                <div class="details-card">
+                    <h4>Patient</h4>
+                    <div id="patientDetails" class="info-grid small"></div>
+                </div>
+                <div class="details-card">
+                    <h4>Informations alerte</h4>
+                    <div id="alertDetails" class="info-grid small"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="dashboard-section" id="receptionActionsSection" hidden>
+            <div class="section-header">
+                <div>
+                    <h3>Actions réception</h3>
+                    <p class="muted">Déclenchez les actions opérationnelles selon le workflow.</p>
+                </div>
+            </div>
+            <div class="action-grid">
+                <div class="action-card">
+                    <h4>Envoi d'ambulance</h4>
+                    <p class="muted">Déclencher immédiatement une ambulance pour l'assuré.</p>
+                    <button class="btn btn-primary" id="dispatchAmbulanceBtn">🚑 Envoyer une ambulance</button>
+                    <p class="muted small" id="ambulanceStatus"></p>
+                </div>
+                <div class="action-card">
+                    <h4>Orientation vers un médecin</h4>
+                    <form id="orientationForm">
+                        <div class="form-group">
+                            <label for="doctorSelect">Médecin hospitalier</label>
+                            <select id="doctorSelect" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="orientationNotes">Notes pour le médecin</label>
+                            <textarea id="orientationNotes" rows="3" placeholder="Informations utiles pour la prise en charge"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success">Orienter le patient</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <style>
+        /* Style pour la ligne sélectionnée dans le tableau */
+        .data-table tbody tr.selected {
+            background-color: #e3f2fd;
+            border-left: 4px solid var(--primary-color, #007bff);
+        }
+        
+        .data-table tbody tr:hover {
+            background-color: #f5f5f5;
+            cursor: pointer;
+        }
+        
+        .data-table tbody tr.selected:hover {
+            background-color: #bbdefb;
+        }
+        
+        /* S'assurer que les sections sont bien affichées */
+        #alertDetailsSection[hidden],
+        #receptionActionsSection[hidden] {
+            display: none !important;
+            visibility: hidden !important;
+        }
+        
+        #alertDetailsSection:not([hidden]),
+        #receptionActionsSection:not([hidden]) {
+            display: block !important;
+            visibility: visible !important;
+        }
+        
+        /* S'assurer que la section de traitement est bien positionnée */
+        #alertDetailsSection {
+            position: relative;
+            scroll-margin-top: 100px; /* Espace pour la navbar */
+        }
+        
+        /* Styles pour les cartes de workflow horizontales */
+        .workflow-cards-container {
+            display: flex;
+            flex-direction: row;
+            gap: 1rem;
+            overflow-x: auto;
+            padding: 1rem 0;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-color, #dee2e6) transparent;
+        }
+        
+        .workflow-cards-container::-webkit-scrollbar {
+            height: 8px;
+        }
+        
+        .workflow-cards-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .workflow-cards-container::-webkit-scrollbar-thumb {
+            background-color: var(--border-color, #dee2e6);
+            border-radius: 4px;
+        }
+        
+        .workflow-card {
+            flex: 0 0 auto;
+            min-width: 250px;
+            max-width: 300px;
+            background: white;
+            border: 1px solid var(--border-color, #dee2e6);
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .workflow-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .workflow-card--completed {
+            border-left: 4px solid #28a745;
+            background: #f8fff9;
+        }
+        
+        .workflow-card--in-progress {
+            border-left: 4px solid #ffc107;
+            background: #fffef8;
+        }
+        
+        .workflow-card--pending {
+            border-left: 4px solid #6c757d;
+            background: #f8f9fa;
+        }
+        
+        .workflow-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+            gap: 0.5rem;
+        }
+        
+        .workflow-card-title {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--dark-text, #212529);
+            flex: 1;
+        }
+        
+        .workflow-card-body {
+            flex: 1;
+            margin-bottom: 0.75rem;
+        }
+        
+        .workflow-card-description {
+            margin: 0;
+            font-size: 0.85rem;
+            color: var(--muted-text, #6c757d);
+            line-height: 1.4;
+        }
+        
+        .workflow-card-footer {
+            margin-top: auto;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border-color, #dee2e6);
+        }
+        
+        .workflow-card-date {
+            font-size: 0.75rem;
+            color: var(--muted-text, #6c757d);
+        }
+        
+        .workflow-empty {
+            text-align: center;
+            padding: 2rem;
+            color: var(--muted-text, #6c757d);
+        }
+        
+        /* Responsive: sur petits écrans, permettre le défilement horizontal */
+        @media (max-width: 768px) {
+            .workflow-cards-container {
+                gap: 0.75rem;
+            }
+            
+            .workflow-card {
+                min-width: 220px;
+                max-width: 250px;
+            }
+        }
+    </style>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/hospital-reception.js"></script>
+</body>
+</html>
+

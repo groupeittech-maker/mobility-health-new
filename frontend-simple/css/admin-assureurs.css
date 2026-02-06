@@ -1,0 +1,109 @@
+.admin-assureurs-page .header-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.assureurs-panels {
+    grid-template-columns: 1fr 1.2fr;
+}
+
+.search-box input {
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    min-width: 220px;
+}
+
+.assureur-card {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.assureur-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+.assureur-card.selected {
+    border-color: var(--primary-color);
+    box-shadow: 0 6px 18px rgba(33, 94, 255, 0.15);
+}
+
+.assureur-card strong {
+    display: block;
+    font-size: 1rem;
+    color: var(--dark-text);
+    margin-bottom: 0.2rem;
+}
+
+.assureur-meta {
+    text-align: right;
+    font-size: 0.9rem;
+    color: #475569;
+}
+
+.assureur-form .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.assureur-form input,
+.assureur-form textarea,
+.assureur-form select {
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    padding: 0.75rem;
+    font-size: 1rem;
+    font-family: inherit;
+}
+
+.assureur-summary-card {
+    border: 1px dashed var(--border-color);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    background: #f8fafc;
+    margin-top: 1rem;
+}
+
+.assureur-summary-card img {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 0.35rem;
+}
+
+.assureur-summary-card strong {
+    color: var(--dark-text);
+}
+
+.small {
+    font-size: 0.85rem;
+}
+
+@media (max-width: 960px) {
+    .assureurs-panels {
+        grid-template-columns: 1fr;
+    }
+
+    .assureur-summary-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+

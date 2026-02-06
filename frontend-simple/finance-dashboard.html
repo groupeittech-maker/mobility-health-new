@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de bord Finance - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+                <span class="brand-text">Gestionnaire Finance</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="finance-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-subscriptions.html">Souscriptions</a></li>
+                <li><a href="technical-review.html">Validations techniques</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2>Tableau de bord Finance</h2>
+            <p id="welcomeMessage">Bienvenue, <span id="userName"></span></p>
+        </div>
+
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <h3>Souscriptions</h3>
+                <p id="subscriptionsCount">-</p>
+                <a href="admin-subscriptions.html" class="btn btn-primary">Gérer</a>
+            </div>
+
+            <div class="stat-card">
+                <h3>Paiements en attente</h3>
+                <p id="pendingPaymentsCount">-</p>
+            </div>
+            <div class="stat-card">
+                <h3>Validations techniques à traiter</h3>
+                <p id="technicalReviewsCount">-</p>
+                <a href="technical-review.html" class="btn btn-primary">Accéder</a>
+            </div>
+        </div>
+
+        <div class="dashboard-section">
+            <h3>Actions rapides</h3>
+            <div class="quick-actions">
+                <a href="admin-subscriptions.html" class="action-card">
+                    <h4>Gérer les souscriptions</h4>
+                    <p>Voir et gérer les souscriptions en attente</p>
+                </a>
+                <a href="technical-review.html" class="action-card">
+                    <h4>Valider les attestations</h4>
+                    <p>Consulter les dossiers techniques à approuver</p>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/finance-dashboard.js"></script>
+</body>
+</html>
+
+

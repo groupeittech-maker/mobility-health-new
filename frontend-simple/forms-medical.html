@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Étape 3 • Questionnaire médical</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .page-header {
+            margin-bottom: 1.5rem;
+        }
+        .page-header h2 {
+            margin-bottom: 0.4rem;
+        }
+        .layout-two-columns {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 1.5rem;
+        }
+        .panel, .form-card {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 12px 32px rgba(22, 54, 92, 0.08);
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            font-weight: 600;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.65rem 0.9rem;
+            font-family: inherit;
+        }
+        .grid-two {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 1.2rem;
+        }
+        .checkbox-group label {
+            font-weight: 500;
+        }
+        .section-title {
+            margin: 1.5rem 0 0.5rem;
+            font-size: 1.15rem;
+            color: var(--primary-color);
+        }
+        .divider {
+            border: none;
+            border-top: 1px dashed var(--border-color);
+            margin: 1.5rem 0;
+        }
+        .declaration {
+            background: linear-gradient(135deg, #f4fbfa 0%, #f0f9f8 100%);
+            border: 1.5px solid rgba(8, 173, 160, 0.2);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            margin-top: 1rem;
+            box-shadow: 0 2px 8px rgba(79, 31, 120, 0.06);
+            position: relative;
+            overflow: hidden;
+        }
+        .declaration-header {
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(8, 173, 160, 0.15);
+        }
+        .declaration-header h4 {
+            margin: 0 0 0.25rem 0;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #4f1f78;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .declaration-header h4::before {
+            content: "📋";
+            font-size: 1rem;
+        }
+        .declaration-subtitle {
+            margin: 0;
+            font-size: 0.8rem;
+            color: #5a6175;
+            font-weight: 400;
+        }
+        .declaration::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #4f1f78 0%, #08ada0 50%, #4f1f78 100%);
+            background-size: 200% 100%;
+            animation: shimmer 3s ease-in-out infinite;
+        }
+        @keyframes shimmer {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        .declaration .form-group {
+            margin-bottom: 0.75rem;
+            position: relative;
+            padding: 0.5rem;
+            border-radius: 6px;
+            transition: background-color 0.2s ease;
+        }
+        .declaration .form-group:hover {
+            background-color: rgba(8, 173, 160, 0.05);
+        }
+        .declaration .form-group:last-child {
+            margin-bottom: 0;
+        }
+        .declaration .form-group label {
+            display: flex;
+            align-items: flex-start;
+            cursor: pointer;
+            font-weight: 500;
+            color: #2d3748;
+            line-height: 1.5;
+            transition: color 0.2s ease;
+            margin: 0;
+            padding-left: 2.25rem;
+            position: relative;
+            font-size: 0.9rem;
+        }
+        .declaration .form-group label:hover {
+            color: #4f1f78;
+        }
+        .declaration .form-group input[type="checkbox"] {
+            position: absolute;
+            left: 0;
+            top: 0.2rem;
+            width: 18px;
+            height: 18px;
+            margin: 0;
+            cursor: pointer;
+            opacity: 0;
+            z-index: 1;
+        }
+        .declaration .form-group label::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0.2rem;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #d8e0ec;
+            border-radius: 4px;
+            background: #fff;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        .declaration .form-group label:has(input[type="checkbox"]:checked)::before {
+            background: linear-gradient(135deg, #4f1f78 0%, #08ada0 100%);
+            border-color: #4f1f78;
+            box-shadow: 0 2px 8px rgba(79, 31, 120, 0.25);
+        }
+        .declaration .form-group label:has(input[type="checkbox"]:checked)::after {
+            content: "✓";
+            position: absolute;
+            left: 4px;
+            top: 0.1rem;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1;
+            animation: checkmark 0.3s ease;
+            z-index: 2;
+        }
+        @keyframes checkmark {
+            0% {
+                transform: scale(0) rotate(45deg);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.2) rotate(45deg);
+            }
+            100% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+        .declaration .form-group label:has(input[type="checkbox"]:focus)::before {
+            outline: 2px solid rgba(79, 31, 120, 0.3);
+            outline-offset: 2px;
+        }
+        .action-bar {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+            gap: 1rem;
+        }
+        .primary-btn {
+            background: linear-gradient(135deg, #1c77ff, #00b0ff);
+            border: none;
+            color: #fff;
+            padding: 0.85rem 1.8rem;
+            border-radius: 999px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 12px 28px rgba(19,86,201,0.25);
+        }
+        .primary-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .secondary-btn {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 0.85rem 1.8rem;
+            border-radius: 999px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 12px 20px rgba(79, 31, 120, 0.3);
+        }
+        .secondary-btn:hover {
+            background-color: var(--secondary-dark);
+        }
+        .message {
+            margin-top: 1rem;
+            padding: 0.8rem 1.1rem;
+            border-radius: 8px;
+            display: none;
+        }
+        .message.success {
+            background: #e9f7ef;
+            border: 1px solid #c3e6cb;
+            color: #1e8449;
+        }
+        .message.error {
+            background: #fdecea;
+            border: 1px solid #f5c6cb;
+            color: #c0392b;
+        }
+        .form-hint {
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+        }
+        .photo-uploader {
+            border: 1px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+            background: #fdfefe;
+        }
+        .photo-content {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .photo-preview {
+            width: 180px;
+            height: 180px;
+            border-radius: 12px;
+            background: #f2f5ff;
+            border: 2px dashed #b3c5ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        .photo-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .photo-actions {
+            flex: 1;
+            min-width: 240px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+        }
+        .photo-actions input[type="file"] {
+            padding: 0.45rem;
+        }
+        .photo-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .photo-buttons button {
+            border-radius: 999px;
+            border: 1px solid var(--border-color);
+            background: #fff;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .photo-buttons button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .camera-stream {
+            margin-top: 0.75rem;
+            display: none;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .camera-stream video {
+            width: 100%;
+            max-width: 420px;
+            border-radius: 12px;
+            border: 2px solid #b3c5ff;
+            background: #000;
+        }
+        .photo-status {
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+        }
+        .mode-banner {
+            background: #f0f6ff;
+            border: 1px solid #c5d7ff;
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            margin: 1rem 0;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .mode-badge {
+            background: #1c77ff;
+            color: #fff;
+            border-radius: 999px;
+            padding: 0.35rem 0.9rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .short-section {
+            border: 1px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            background: #fcfdff;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 900px) {
+            .layout-two-columns {
+                grid-template-columns: 1fr;
+            }
+            .photo-content {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .photo-buttons {
+                width: 100%;
+            }
+            .photo-buttons button {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body class="protected">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="user-dashboard.html">Tableau de bord</a></li>
+                <li><a href="user-attestations.html">Mes Attestations</a></li>
+                <li><a href="user-products.html">Mes Produits</a></li>
+                <li><a href="project-wizard.html">Nouvelle souscription</a></li>
+                <li><a href="#" onclick="logout(); return false;">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="page-header">
+            <p>Étape 3 / 5</p>
+            <h2>Questionnaire médical</h2>
+            <p>Merci de compléter ces informations pour finaliser votre dossier avant paiement.</p>
+        </div>
+
+        <div id="formsMessage" class="message"></div>
+
+        <div class="layout-two-columns">
+            <aside class="panel">
+                <h3>Résumé de la souscription</h3>
+                <div id="subscriptionSummary">
+                    <p>Chargement...</p>
+                </div>
+                <hr class="divider">
+                <p><strong>Étapes suivantes :</strong></p>
+                <ol style="padding-left: 1.2rem;">
+                    <li>Questionnaire médical</li>
+                    <li>Paiement sécurisé</li>
+                    <li>Attestation provisoire</li>
+                </ol>
+            </aside>
+
+            <section>
+                <form id="questionnaireForm" class="form-card">
+                    <h3>Questionnaire Médical</h3>
+                    <div id="questionnaireModeBanner" class="mode-banner">
+                        <span id="questionnaireModeLabel" class="mode-badge">Mode long</span>
+                        <p style="margin:0;">Le questionnaire sélectionné lors de la création du projet est appliqué automatiquement. Vous pouvez compléter le mode long si des informations supplémentaires sont nécessaires.</p>
+                    </div>
+
+                    <div id="medicalShortSection" class="short-section" style="display:none;">
+                        <div class="form-group">
+                            <label for="shortHealth">État de santé général *</label>
+                            <select id="shortHealth" data-short-required="true">
+                                <option value="">Sélectionnez...</option>
+                                <option value="excellent">Excellent</option>
+                                <option value="bon">Bon</option>
+                                <option value="moyen">Moyen</option>
+                                <option value="faible">Fragile</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="shortAllergies">Allergies connues</label>
+                            <textarea id="shortAllergies" rows="2" placeholder="Si oui, précisez"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="shortMedicaments">Traitements ou médicaments réguliers</label>
+                            <textarea id="shortMedicaments" rows="2" placeholder="Indiquez les traitements en cours"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="shortConditions">Conditions médicales existantes</label>
+                            <textarea id="shortConditions" rows="2" placeholder="Précisez les antécédents médicaux importants"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="shortInsurance">Assurance santé actuelle</label>
+                            <input type="text" id="shortInsurance" placeholder="Nom de l'assurance si applicable">
+                        </div>
+                    </div>
+
+                    <div id="medicalLongSection">
+                        <div class="section-title">Santé actuelle</div>
+                        <div class="form-group">
+                            <span class="label-required">Êtes-vous malade au moment de la souscription de cette police ?</span>
+                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="malade_souscription" value="oui"> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="malade_souscription" value="non"> Non</label>
+                            </div>
+                            <div id="malade_souscription_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
+                                <label for="malade_souscription_precision">Si oui, précisez de quoi souffrez-vous</label>
+                                <textarea id="malade_souscription_precision" name="malade_souscription_precision" rows="2" placeholder="Décrivez brièvement..."></textarea>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <span class="label-required">Ressentez-vous actuellement des symptômes persistants ? (douleurs, essoufflements, etc.)</span>
+                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="symptomes_persistants" value="oui"> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="symptomes_persistants" value="non"> Non</label>
+                            </div>
+                            <div id="symptomes_persistants_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
+                                <label for="symptomes_persistants_precision">Si oui, précisez</label>
+                                <textarea id="symptomes_persistants_precision" name="symptomes_persistants_precision" rows="2" placeholder="Décrivez les symptômes..."></textarea>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <span class="label-required">Avez-vous un médecin traitant ?</span>
+                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="medecin_traitant" value="oui"> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="medecin_traitant" value="non"> Non</label>
+                            </div>
+                            <div id="medecin_traitant_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
+                                <label for="medecin_traitant_nom">Si oui, précisez : son nom</label>
+                                <input type="text" id="medecin_traitant_nom" name="medecin_traitant_nom" placeholder="Nom du médecin">
+                                <label for="medecin_traitant_specialite" style="margin-top:0.75rem;display:block;">Spécialité</label>
+                                <input type="text" id="medecin_traitant_specialite" name="medecin_traitant_specialite" placeholder="Ex. Médecine générale">
+                                <label for="medecin_traitant_telephone" style="margin-top:0.75rem;display:block;">Téléphone</label>
+                                <input type="tel" id="medecin_traitant_telephone" name="medecin_traitant_telephone" placeholder="Ex. +33 1 23 45 67 89">
+                            </div>
+                        </div>
+
+                        <div class="section-title" style="margin-top: 1.5rem;">Maladie et symptômes récents</div>
+                        <div class="form-group">
+                            <label>Veuillez indiquer les maladies ou symptômes observés récemment :</label>
+                            <div class="checkbox-group" id="symptomsList"></div>
+                        </div>
+                        <div class="form-group" id="symptomOtherGroup" style="display: none;">
+                            <label for="symptomOther">Autre (précisez)</label>
+                            <textarea id="symptomOther" rows="2" placeholder="Décrivez les autres maladies ou symptômes"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Êtes-vous enceinte ? (si concerné)</label>
+                            <select id="pregnancy" name="pregnancy" aria-label="Êtes-vous enceinte ? (si concerné)">
+                                <option value="">Non concerné / Non</option>
+                                <option value="oui">Oui</option>
+                                <option value="non">Non</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Avez-vous subi une opération chirurgicale dans les 6 derniers mois ? *</label>
+                            <select id="surgeryLast6Months" name="surgeryLast6Months" aria-label="Opération chirurgicale dans les 6 derniers mois" data-long-required="true">
+                                <option value="">Choisir...</option>
+                                <option value="oui">Oui</option>
+                                <option value="non">Non</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="surgeryDetailsGroup" style="display: none;">
+                            <label for="surgeryLast6MonthsDetails">Donnez des précisions *</label>
+                            <textarea id="surgeryLast6MonthsDetails" name="surgeryLast6MonthsDetails" rows="3" placeholder="Précisez la nature de l'opération, la date approximative, etc."></textarea>
+                        </div>
+
+                        <div class="section-title" style="margin-top: 1.5rem;">Historique médical</div>
+                        <div class="form-group">
+                            <span class="label-required">Êtes-vous en traitement médical régulier ?</span>
+                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="traitement_regulier" value="oui"> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="traitement_regulier" value="non"> Non</label>
+                            </div>
+                            <div id="traitement_regulier_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
+                                <label for="traitement_regulier_precision">Si oui, précisez le type de traitement</label>
+                                <textarea id="traitement_regulier_precision" name="traitement_regulier_precision" rows="2" placeholder="Type de traitement..."></textarea>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <span class="label-required">Avez-vous été hospitalisé au cours des 12 derniers mois ?</span>
+                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="hospitalise_12_mois" value="oui"> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="hospitalise_12_mois" value="non"> Non</label>
+                            </div>
+                            <div id="hospitalise_12_mois_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
+                                <label for="hospitalise_12_mois_raison">Si oui, précisez pour quelle raison</label>
+                                <textarea id="hospitalise_12_mois_raison" name="hospitalise_12_mois_raison" rows="2" placeholder="Raison de l'hospitalisation..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="section-title" style="margin-top: 1.5rem;">Mode de vie</div>
+                        <div class="form-group">
+                            <span class="label-required">Fumez-vous ?</span>
+                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="fumeur" value="oui"> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="fumeur" value="non"> Non</label>
+                            </div>
+                            <div id="fumeur_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
+                                <label for="fumeur_cigarettes">Si oui, combien de cigarettes par jour ?</label>
+                                <input type="text" id="fumeur_cigarettes" name="fumeur_cigarettes" placeholder="Ex. 5 à 10">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <span class="label-required">Consommez-vous de l'alcool ?</span>
+                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="alcool" value="oui"> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="alcool" value="non"> Non</label>
+                            </div>
+                            <div id="alcool_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
+                                <label for="alcool_frequence">Si oui, à quelle fréquence ?</label>
+                                <select id="alcool_frequence" name="alcool_frequence">
+                                    <option value="">Choisir...</option>
+                                    <option value="occasionnellement">Occasionnellement</option>
+                                    <option value="regulierement">Régulièrement (1 à 2 fois par semaine)</option>
+                                    <option value="quotidiennement">Quotidiennement</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <span class="label-required">Pratiquez-vous une activité physique régulièrement ?</span>
+                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="activite_physique" value="oui"> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="activite_physique" value="non"> Non</label>
+                            </div>
+                            <div id="activite_physique_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
+                                <label for="activite_physique_precision">Si oui, laquelle et à quelle fréquence ?</label>
+                                <input type="text" id="activite_physique_precision" name="activite_physique_precision" placeholder="Ex. Course 3 fois par semaine">
+                            </div>
+                        </div>
+
+                        <div class="section-title" style="margin-top: 1.5rem;">Allergies et intolérances</div>
+                        <div class="form-group">
+                            <span class="label-required">Êtes-vous allergique à certains médicaments, aliments, ou autres substances ?</span>
+                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="allergies" value="oui"> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="allergies" value="non"> Non</label>
+                            </div>
+                            <div id="allergies_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
+                                <label for="allergies_precision">Si oui, précisez</label>
+                                <textarea id="allergies_precision" name="allergies_precision" rows="2" placeholder="Médicaments, aliments, substances..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="section-title" style="margin-top: 1.5rem;">Santé mentale</div>
+                        <div class="form-group">
+                            <span class="label-required">Avez-vous déjà été diagnostiqué(e) pour un trouble mental ou émotionnel (anxiété, dépression, etc.) ?</span>
+                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="sante_mentale" value="oui"> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="sante_mentale" value="non"> Non</label>
+                            </div>
+                            <div id="sante_mentale_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
+                                <label for="sante_mentale_precision">Si oui, précisez</label>
+                                <textarea id="sante_mentale_precision" name="sante_mentale_precision" rows="2" placeholder="Précisez le diagnostic..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="declaration">
+                            <div class="declaration-header">
+                                <h4>Déclaration médicale</h4>
+                                <p class="declaration-subtitle">Veuillez confirmer l'exactitude de vos déclarations</p>
+                            </div>
+                            <div class="form-group">
+                                <label><input type="checkbox" id="medicalHonesty1" data-long-required="true"> Je déclare n'avoir rien omis dans ce questionnaire.</label>
+                            </div>
+                            <div class="form-group">
+                                <label><input type="checkbox" id="medicalHonesty2" data-long-required="true"> Je reconnais qu'une fausse déclaration entraîne la nullité des garanties.</label>
+                            </div>
+                        </div>
+                        <div class="declaration" style="margin-top: 1rem;">
+                            <div class="declaration-header">
+                                <h4>Déclarations et consentements</h4>
+                                <p class="declaration-subtitle">Veuillez lire et accepter les conditions suivantes pour continuer</p>
+                            </div>
+                            <div class="form-group">
+                                <label><input type="checkbox" id="acceptData" required> J'accepte le traitement de mes données personnelles.</label>
+                            </div>
+                            <div class="form-group">
+                                <label><input type="checkbox" id="honesty1" required> Je certifie que toutes les informations fournies sont exactes.</label>
+                            </div>
+                            <div class="form-group">
+                                <label><input type="checkbox" id="honesty2" required> Je reconnais qu'une fausse déclaration peut annuler la garantie.</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="action-bar">
+                        <button type="button" class="secondary-btn" onclick="goBack()">← Retour</button>
+                        <button type="submit" class="primary-btn" id="submitFormsBtn">Continuer vers le paiement</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/forms-medical.js"></script>
+</body>
+</html>
+

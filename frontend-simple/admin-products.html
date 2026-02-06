@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Produits - Back Office</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-products.html" class="active">Produits</a></li>
+                <li><a href="admin-assureurs.html">Assureurs</a></li>
+                <li><a href="admin-subscriptions.html">Souscriptions</a></li>
+                <li><a href="admin-users.html">Utilisateurs</a></li>
+                <li><a href="admin-hospitals.html">Hôpitaux</a></li>
+                <li><a href="admin-attestations.html">Attestations</a></li>
+                <li><a href="admin-destinations.html">Destinations</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <div>
+                <h2>Gestion des Produits</h2>
+                <p>Créez et maintenez les fiches produits d’assurance proposées côté client.</p>
+            </div>
+            <button class="btn btn-primary" onclick="showProductModal()">Créer un produit</button>
+        </div>
+
+        <div class="filter-section" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+            <label>Filtrer par statut:</label>
+            <select id="statusFilter" onchange="loadProducts()" aria-label="Filtrer par statut">
+                <option value="">Tous</option>
+                <option value="true">Actifs</option>
+                <option value="false">Inactifs</option>
+            </select>
+            <label for="searchProducts" class="sr-only">Rechercher</label>
+            <input type="search" id="searchProducts" class="search-input" placeholder="Rechercher code, nom, assureur, type..." style="max-width: 280px;" aria-label="Rechercher dans les produits">
+        </div>
+
+        <div id="productsTableContainer">
+            <div class="loading">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal pour créer/modifier un produit -->
+    <div id="productModal" class="modal modal-full">
+        <div class="modal-content product-modal">
+            <div class="modal-header">
+                <div>
+                    <p class="section-index text-muted">Créer un produit d’assurance</p>
+                    <h3 id="modalTitle">Nouveau produit</h3>
+                </div>
+                <button class="close" onclick="closeProductModal()" aria-label="Fermer le formulaire">&times;</button>
+            </div>
+            <form id="productForm" novalidate>
+                <input type="hidden" id="productId" name="productId">
+
+                <section class="product-form-section">
+                    <div class="section-heading">
+                        <div class="section-index">[A]</div>
+                        <div>
+                            <h4>Informations générales</h4>
+                            <p>Renseignez les informations essentielles telles que l’assureur, le code produit et son statut.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-grid two-col">
+                        <div class="form-group">
+                            <div class="label-with-action">
+                                <label for="assureurSelect">Compagnie d'assurance *</label>
+                                <button type="button" class="btn btn-link" onclick="window.location.href='admin-assureurs.html'">
+                                    Gérer les assureurs
+                                </button>
+                            </div>
+                            <select id="assureurSelect" name="assureurSelect" aria-describedby="assureurHelperText">
+                                <option value="">Chargement...</option>
+                            </select>
+                            <p class="text-muted small" id="assureurHelperText">
+                                Sélectionnez un assureur enregistré. Aucun produit ne peut être créé sans assureur.
+                            </p>
+                        </div>
+                        <div class="form-group">
+                            <label for="nom">Nom du produit *</label>
+                            <input type="text" id="nom" name="nom" required>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="description">Description</label>
+                            <textarea id="description" name="description" rows="3" placeholder="Résumé commercial du produit"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="code">Code produit *</label>
+                            <input type="text" id="code" name="code" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="statut">Statut</label>
+                            <select id="statut" name="statut">
+                                <option value="active">Actif</option>
+                                <option value="inactive">Inactif</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="type_produit">Type de produit</label>
+                            <select id="type_produit" name="type_produit">
+                                <option value="voyage">Voyage</option>
+                                <option value="sante">Santé</option>
+                                <option value="auto">Auto</option>
+                                <option value="habitation">Habitation</option>
+                                <option value="entreprise">Entreprise</option>
+                                <option value="autre">Autre</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="assureurSummaryCard" class="assureur-summary-card text-muted">
+                        Sélectionnez un assureur pour afficher ses détails (pays, logo, agent comptable).
+                    </div>
+                </section>
+
+                <section class="product-form-section">
+                    <div class="section-heading">
+                        <div class="section-index">[B]</div>
+                        <div>
+                            <h4>Tarification</h4>
+                            <p>Choisissez le mode de tarification puis définissez le prix appliqué.</p>
+                        </div>
+                    </div>
+
+                    <div class="tarification-modes" id="pricingModeChips">
+                        <button type="button" class="chip-option active" data-pricing-option="fixe">Prix fixe</button>
+                        <button type="button" class="chip-option" data-pricing-option="par_personne">Par personne</button>
+                        <button type="button" class="chip-option" data-pricing-option="par_duree">Par durée</button>
+                        <button type="button" class="chip-option" data-pricing-option="par_destination">Par destination</button>
+                        <button type="button" class="chip-option" data-pricing-option="par_groupe">Par groupe</button>
+                    </div>
+
+                    <div class="form-grid two-col">
+                        <div class="form-group">
+                            <label for="cout">Prix fixe (<span data-currency-symbol></span>) *</label>
+                            <input type="number" id="cout" name="cout" min="0" step="1" placeholder="Ex: 25000" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="cle_repartition">Clé de répartition *</label>
+                            <select id="cle_repartition" name="cle_repartition" required>
+                                <option value="fixe">Fixe</option>
+                                <option value="par_personne">Par personne</option>
+                                <option value="par_groupe">Par groupe</option>
+                                <option value="par_duree">Par durée</option>
+                                <option value="par_destination">Par destination</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="commission_assureur_pct">Commission assureur (%)</label>
+                            <input type="number" id="commission_assureur_pct" name="commission_assureur_pct" min="0" max="100" step="0.01" placeholder="Ex: 30" title="Pourcentage reversé à l'assureur (souscription payée). Dépend du produit et du type de transaction.">
+                            <small class="text-muted" style="display:block;margin-top:0.25rem;">Pourcentage reversé à l'assureur sur la prime (souscription payée). Par défaut 30 % si non renseigné. Utilisé dans la trace comptable (Frais &amp; remboursements).</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="duree_validite_jours">Durée de validité (jours)</label>
+                            <input type="number" id="duree_validite_jours" name="duree_validite_jours" min="1" placeholder="Ex: 90">
+                        </div>
+                    </div>
+                    <p class="text-muted small" style="margin-top: 1rem; margin-bottom: 0.5rem;"><strong>Primes générées</strong></p>
+                    <div class="form-grid two-col">
+                        <div class="form-group">
+                            <label for="prime_nette">Prime nette (<span data-currency-symbol></span>)</label>
+                            <input type="number" id="prime_nette" name="prime_nette" min="0" step="1" placeholder="Ex: 25000">
+                        </div>
+                        <div class="form-group">
+                            <label for="accessoire">Accessoire (<span data-currency-symbol></span>)</label>
+                            <input type="number" id="accessoire" name="accessoire" min="0" step="1" placeholder="Ex: 5000">
+                        </div>
+                        <div class="form-group">
+                            <label for="taxes">Taxes (<span data-currency-symbol></span>)</label>
+                            <input type="number" id="taxes" name="taxes" min="0" step="1" placeholder="Ex: 4500">
+                        </div>
+                        <div class="form-group">
+                            <label for="prime_total">Prime total (<span data-currency-symbol></span>)</label>
+                            <input type="number" id="prime_total" name="prime_total" min="0" step="1" placeholder="Ex: 34500">
+                        </div>
+                    </div>
+
+                    <div id="tarifsPrimeBlock" class="tarifs-prime-block" style="display: none;">
+                        <p class="text-muted small" style="margin-top: 1.5rem; margin-bottom: 0.5rem;"><strong>Tarifs selon durée, zone et âge</strong></p>
+                        <p class="text-muted small" style="margin-bottom: 1rem;">Définissez plusieurs prix selon la durée du voyage (jours), la zone de destination et la tranche d'âge de l'assuré. Si une ligne correspond, son prix est appliqué ; sinon le prix fixe ci-dessus est utilisé.</p>
+                        <div class="tarifs-prime-table-wrap">
+                            <table class="tarifs-prime-table" id="tarifsPrimeTable">
+                                <thead>
+                                    <tr>
+                                        <th>Durée min (j)</th>
+                                        <th>Durée max (j)</th>
+                                        <th>Zone / Pays</th>
+                                        <th>Âge min</th>
+                                        <th>Âge max</th>
+                                        <th>Prix (F CFA)</th>
+                                        <th>Priorité</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tarifsPrimeBody"></tbody>
+                            </table>
+                        </div>
+                        <button type="button" class="btn btn-outline" id="addTarifPrimeBtn">+ Ajouter un tarif</button>
+                    </div>
+                </section>
+
+                <section class="product-form-section">
+                    <div class="section-heading">
+                        <div class="section-index">[C]</div>
+                        <div>
+                            <h4>Garanties incluses</h4>
+                            <p>Décrivez chaque garantie avec sa franchise, ses capitaux et si elle est obligatoire.</p>
+                        </div>
+                    </div>
+
+                    <div id="garantiesList" class="guarantees-list"></div>
+                    <button type="button" class="btn btn-outline" id="addGuaranteeBtn">+ Ajouter une garantie</button>
+                </section>
+
+                <section class="product-form-section">
+                    <div class="section-heading">
+                        <div class="section-index">[C']</div>
+                        <div>
+                            <h4>Exclusions</h4>
+                            <p>Paires clé–valeur (ex. couleur : verte). Optionnel.</p>
+                        </div>
+                    </div>
+                    <div id="exclusionsList" class="exclusions-list"></div>
+                    <button type="button" class="btn btn-outline" id="addExclusionBtn">+ Ajouter une exclusion</button>
+                </section>
+
+                <section class="product-form-section">
+                    <div class="section-heading">
+                        <div class="section-index">[D]</div>
+                        <div>
+                            <h4>Paramètres de couverture</h4>
+                            <p>Définissez la cible, les zones couvertes et la durée maximale du séjour.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-grid three-col">
+                        <div class="form-group">
+                            <label for="age_minimum">Âge min</label>
+                            <input type="number" id="age_minimum" name="age_minimum" min="0" max="120" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="age_maximum">Âge max</label>
+                            <input type="number" id="age_maximum" name="age_maximum" min="0" max="120" placeholder="75">
+                        </div>
+                        <div class="form-group">
+                            <label for="duree_max_jours">Durée max (jours)</label>
+                            <input type="number" id="duree_max_jours" name="duree_max_jours" min="1" placeholder="90">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Zones couvertes</label>
+                        <div class="selected-zones" id="selectedZonesChips"></div>
+                        <div class="chip-selector" id="zonesSelector"></div>
+                        <input type="text" id="customZoneInput" class="chip-input" placeholder="Ajouter une zone personnalisée puis Entrée">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="paysEligibles">Pays ciblés (séparés par des virgules)</label>
+                        <input type="text" id="paysEligibles" placeholder="Afrique du Sud, Sénégal, Maroc">
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="conditions_sante">Remarques / conditions particulières</label>
+                        <textarea id="conditions_sante" rows="3" placeholder="Limitations médicales, exclusions, etc."></textarea>
+                    </div>
+                </section>
+
+                <div class="form-actions sticky">
+                    <button type="button" class="btn btn-secondary" onclick="closeProductModal()">Annuler</button>
+                    <button type="submit" class="btn btn-primary" id="submitProductBtn">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/health-check.js"></script>
+    <script src="js/currency.js"></script>
+    <script src="js/admin-products.js"></script>
+    <script src="js/table-scrollbar-fix.js"></script>
+</body>
+</html>
+

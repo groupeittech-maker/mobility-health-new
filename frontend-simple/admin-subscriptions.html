@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Souscriptions - Back Office</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-products.html">Produits</a></li>
+                <li><a href="admin-assureurs.html">Assureurs</a></li>
+                <li><a href="admin-subscriptions.html" class="active">Souscriptions</a></li>
+                <li><a href="admin-users.html">Utilisateurs</a></li>
+                <li><a href="admin-hospitals.html">Hôpitaux</a></li>
+                <li><a href="admin-attestations.html">Attestations</a></li>
+                <li><a href="admin-destinations.html">Destinations</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2>Gestion des Souscriptions</h2>
+        </div>
+
+        <div class="filter-section" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+            <label>Filtrer par statut:</label>
+            <select id="statusFilter" onchange="loadSubscriptions()" aria-label="Filtrer par statut">
+                <option value="pending">En attente</option>
+                <option value="active">Actives</option>
+                <option value="all">Toutes</option>
+            </select>
+            <label for="searchSubscriptions" class="sr-only">Rechercher</label>
+            <input type="search" id="searchSubscriptions" class="search-input" placeholder="Rechercher numéro, utilisateur, statut..." style="max-width: 280px;" aria-label="Rechercher dans les souscriptions">
+        </div>
+
+        <div id="subscriptionsTableContainer">
+            <div class="loading">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/diagnostic.js"></script>
+    <script src="js/admin-subscriptions.js"></script>
+    <script src="js/table-scrollbar-fix.js"></script>
+    <script>
+        // Ajouter un bouton de diagnostic en mode développement
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            document.addEventListener('DOMContentLoaded', function() {
+                const diagnosticBtn = document.createElement('button');
+                diagnosticBtn.textContent = '🔍 Diagnostic';
+                diagnosticBtn.className = 'btn btn-secondary';
+                diagnosticBtn.style.position = 'fixed';
+                diagnosticBtn.style.bottom = '20px';
+                diagnosticBtn.style.right = '20px';
+                diagnosticBtn.style.zIndex = '1000';
+                diagnosticBtn.onclick = runDiagnostic;
+                document.body.appendChild(diagnosticBtn);
+            });
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobility Health - Assurance Santé pour vos Voyages</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/home.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html" class="active">Accueil</a></li>
+                <li><a href="#products">Produits</a></li>
+                <li><a href="#about">À propos</a></li>
+                <li><a href="#contact">Contact</a></li>
+                <li id="auth-menu">
+                    <a href="login.html" id="login-link">Connexion</a>
+                    <span id="user-info" style="display: none;">
+                        <a href="production-review.html" id="production-docs-link" style="display: none;">Documents de validation</a>
+                        <span id="user-name"></span>
+                        <a href="#" onclick="logout()">Déconnexion</a>
+                    </span>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h2>Protégez votre santé en voyage</h2>
+                <p class="hero-subtitle">Assurance santé internationale adaptée à vos besoins</p>
+                <p class="slogan" style="margin: 1.5rem 0; font-size: 1.4rem; color: rgba(255, 255, 255, 0.95); font-weight: 500; font-style: italic; letter-spacing: 0.5px;">Travel safe. Life free</p>
+                <div class="hero-actions">
+                    <a href="#subscription" class="btn btn-primary btn-large">Souscrire maintenant</a>
+                    <a href="#products" class="btn btn-secondary btn-large">Découvrir nos produits</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Calculateur de tarif rapide -->
+    <section class="price-calculator" id="calculator">
+        <div class="container">
+            <h2 class="section-title">Estimez votre tarif en quelques secondes</h2>
+            <div class="calculator-card">
+                <form id="quick-calc-form">
+                    <div class="calc-row">
+                        <div class="calc-field">
+                            <label for="calc-destination">Destination</label>
+                            <input type="text" id="calc-destination" placeholder="Ex: France, Espagne..." required>
+                        </div>
+                        <div class="calc-field">
+                            <label for="calc-duration">Durée (jours)</label>
+                            <input type="number" id="calc-duration" min="1" max="365" placeholder="30" required>
+                        </div>
+                        <div class="calc-field">
+                            <label for="calc-participants">Participants</label>
+                            <input type="number" id="calc-participants" min="1" max="10" placeholder="1" required>
+                        </div>
+                        <div class="calc-field">
+                            <label for="calc-age">Âge moyen</label>
+                            <input type="number" id="calc-age" min="18" max="100" placeholder="35" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Calculer le tarif</button>
+                </form>
+                <div id="calc-result" class="calc-result" style="display: none;">
+                    <h3>Estimation de tarif</h3>
+                    <div class="result-price">
+                        <span class="price-amount" id="estimated-price">--</span>
+                        <span class="price-currency">€</span>
+                    </div>
+                    <p class="result-note">* Estimation indicative. Le tarif final peut varier selon votre profil.</p>
+                    <a href="#subscription" class="btn btn-primary">Souscrire avec ce produit</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section Produits -->
+    <section class="products-section" id="products">
+        <div class="container">
+            <h2 class="section-title">Nos produits d'assurance</h2>
+            <p class="section-subtitle">Choisissez la protection qui correspond à vos besoins</p>
+            
+            <div id="products-loading" class="loading">
+                <div class="spinner"></div>
+                <p>Chargement des produits...</p>
+            </div>
+            
+            <div id="products-container" class="products-grid" style="display: none;">
+                <!-- Les produits seront chargés dynamiquement ici -->
+            </div>
+            
+            <div id="products-error" class="error-message" style="display: none;">
+                <p>Impossible de charger les produits. Veuillez réessayer plus tard.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section Souscription -->
+    <section class="subscription-section" id="subscription">
+        <div class="container">
+            <div class="subscription-content">
+                <h2>Démarrez votre souscription</h2>
+                <p>Processus simple et rapide en 3 étapes</p>
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <h3>Créez votre projet</h3>
+                        <p>Définissez votre destination et dates de voyage</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <h3>Choisissez votre produit</h3>
+                        <p>Sélectionnez l'assurance adaptée à vos besoins</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <h3>Finalisez votre souscription</h3>
+                        <p>Remplissez le questionnaire et validez le paiement</p>
+                    </div>
+                </div>
+                <div class="subscription-actions">
+                    <a href="subscription-start.html" class="btn btn-primary btn-large">Commencer ma souscription</a>
+                    <a href="login.html" class="btn btn-outline">J'ai déjà un compte</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section À propos -->
+    <section class="about-section" id="about">
+        <div class="container">
+            <h2 class="section-title">Pourquoi choisir Mobility Health ?</h2>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <div class="feature-icon">🌍</div>
+                    <h3>Couverture mondiale</h3>
+                    <p>Protection dans plus de 190 pays à travers le monde</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Service rapide</h3>
+                    <p>Souscription en ligne en moins de 5 minutes</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>Protection complète</h3>
+                    <p>Couverture médicale, rapatriement et assistance 24/7</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">💰</div>
+                    <h3>Tarifs compétitifs</h3>
+                    <p>Meilleur rapport qualité/prix du marché</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">📱</div>
+                    <h3>Application mobile</h3>
+                    <p>Gérez votre assurance depuis votre smartphone</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🚨</div>
+                    <h3>Assistance SOS</h3>
+                    <p>Service d'urgence disponible 24h/24 et 7j/7</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section Contact -->
+    <section class="contact-section" id="contact">
+        <div class="container">
+            <h2 class="section-title">Besoin d'aide ?</h2>
+            <div class="contact-grid">
+                <div class="contact-item">
+                    <h3>📞 Téléphone</h3>
+                    <p>+33 1 23 45 67 89</p>
+                    <p>Lun-Ven: 9h-18h</p>
+                </div>
+                <div class="contact-item">
+                    <h3>✉️ Email</h3>
+                    <p>contact@mobilityhealth.com</p>
+                    <p>Réponse sous 24h</p>
+                </div>
+                <div class="contact-item">
+                    <h3>💬 Chat en ligne</h3>
+                    <p>Disponible 24/7</p>
+                    <a href="#" class="btn btn-outline">Démarrer une conversation</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Mobility Health</h3>
+                    <p>Votre partenaire de confiance pour l'assurance santé en voyage.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Liens utiles</h4>
+                    <ul>
+                        <li><a href="#products">Nos produits</a></li>
+                        <li><a href="#about">À propos</a></li>
+                        <li><a href="attestations.html">Mes attestations</a></li>
+                        <li><a href="login.html">Espace client</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Légal</h4>
+                    <ul>
+                        <li><a href="#">Conditions générales</a></li>
+                        <li><a href="#">Politique de confidentialité</a></li>
+                        <li><a href="#">Mentions légales</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/home.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+.price-history {
+  margin-top: 2rem;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.price-history h3 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.price-history-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+  font-style: italic;
+}
+
+.price-history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.price-history-table th,
+.price-history-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.price-history-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #333;
+}
+
+.price-history-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+.price-history-table .new-price {
+  font-weight: 600;
+  color: #007bff;
+}

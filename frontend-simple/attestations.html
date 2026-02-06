@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mes Attestations - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1>Mobility Health</h1>
+            <ul class="nav-menu">
+                <li><a href="index.html">Accueil</a></li>
+                <li><a href="questionnaire-short.html">Questionnaire Court</a></li>
+                <li><a href="questionnaire-long.html">Questionnaire Long</a></li>
+                <li><a href="attestations.html">Mes Attestations</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="form-container">
+            <h2>Mes Attestations</h2>
+            
+            <div class="form-group">
+                <label for="subscription_id_search">ID de souscription</label>
+                <input type="number" id="subscription_id_search" placeholder="Entrez l'ID de votre souscription">
+                <button type="button" class="btn btn-primary" id="searchBtn" style="margin-top: 0.5rem;">Rechercher</button>
+            </div>
+
+            <div id="attestationsList"></div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/attestations.js"></script>
+</body>
+</html>
+

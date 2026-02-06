@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de bord SOS - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <script>
+        (function () {
+            const FALLBACK_JS = 'vendor/leaflet/leaflet.js';
+            const FALLBACK_CSS = 'vendor/leaflet/leaflet.css';
+            let fallbackCssLoaded = false;
+            let fallbackScriptLoaded = false;
+            let resolveLeafletReady;
+            let rejectLeafletReady;
+            let timeoutId = null;
+            const leafletReadyPromise = new Promise((resolve, reject) => {
+                resolveLeafletReady = resolve;
+                rejectLeafletReady = reject;
+            });
+
+            function ensureCssFallback() {
+                if (fallbackCssLoaded) {
+                    return;
+                }
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = FALLBACK_CSS;
+                link.dataset.source = 'leaflet-local';
+                document.head.appendChild(link);
+                fallbackCssLoaded = true;
+            }
+
+            window.waitForLeaflet = function (timeoutMs = 8000) {
+                if (window.L) {
+                    return Promise.resolve(window.L);
+                }
+                if (timeoutMs > 0 && !timeoutId) {
+                    timeoutId = window.setTimeout(() => {
+                        if (!window.L && typeof rejectLeafletReady === 'function') {
+                            rejectLeafletReady(new Error('Leaflet non disponible'));
+                            rejectLeafletReady = null;
+                        }
+                    }, timeoutMs);
+                }
+                return leafletReadyPromise;
+            };
+
+            window.__handleLeafletLoaded = function () {
+                if (window.L && typeof resolveLeafletReady === 'function') {
+                    resolveLeafletReady(window.L);
+                    resolveLeafletReady = null;
+                }
+            };
+
+            window.__ensureLeafletCssFallback = ensureCssFallback;
+            window.__loadLeafletFallback = function () {
+                if (fallbackScriptLoaded) {
+                    return;
+                }
+                ensureCssFallback();
+                const script = document.createElement('script');
+                script.src = FALLBACK_JS;
+                script.onload = window.__handleLeafletLoaded;
+                script.onerror = function () {
+                    if (typeof rejectLeafletReady === 'function') {
+                        rejectLeafletReady(new Error('Impossible de charger Leaflet en local'));
+                        rejectLeafletReady = null;
+                    }
+                };
+                document.head.appendChild(script);
+                fallbackScriptLoaded = true;
+            };
+        })();
+    </script>
+    <link
+        id="leafletCdnCss"
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        crossorigin="anonymous"
+        data-leaflet-cdn="true"
+        onerror="window.__ensureLeafletCssFallback && window.__ensureLeafletCssFallback()"
+    >
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand" aria-label="Mobility Health">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility Health" class="brand-logo">
+                <span class="brand-text" id="brandRoleLabel">Opérateur SOS</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="sos-dashboard.html" class="active" id="navTableauSos">Tableau SOS</a></li>
+                <li><a href="sinistre-invoices.html" id="navFactures">Factures</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2 id="dashboardTitle">Tableau de bord Opérateur SOS</h2>
+            <p id="welcomeMessage">Bienvenue, <span id="userName"></span></p>
+        </div>
+
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <h3>Alertes actives</h3>
+                <p id="activeAlertsCount">-</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>Alertes traitées</h3>
+                <p id="processedAlertsCount">-</p>
+            </div>
+        </div>
+
+        <div class="dashboard-section map-section">
+            <h3>Carte des alertes en temps réel</h3>
+            <p class="muted">Survolez une alerte pour voir les détails et l'hôpital assigné automatiquement.</p>
+            <div id="alertsMap" class="alerts-map"></div>
+            <div class="map-legend">
+                <span class="map-legend-item">
+                    <span class="map-dot alert-dot"></span> Alerte
+                </span>
+                <span class="map-legend-item">
+                    <span class="map-dot hospital-dot"></span> Hôpital assigné
+                </span>
+            </div>
+        </div>
+
+        <div class="dashboard-section" id="sosAlertsSection">
+            <div class="table-toolbar" style="flex-wrap: wrap; align-items: center; gap: 1rem;">
+                <div>
+                    <h3>Alertes SOS</h3>
+                    <p class="muted">Consultez les alertes en temps réel ou l'historique des alertes traitées.</p>
+                </div>
+                <div class="section-tabs" id="sosAlertsTabs">
+                    <button type="button" class="tab-btn active" data-section="sosRealtimePanel" id="tabRealtimeBtn">Alertes en temps réel (0)</button>
+                    <button type="button" class="tab-btn" data-section="sosHistoryPanel" id="tabHistoryBtn">Historique des alertes (0)</button>
+                </div>
+            </div>
+
+            <!-- Onglet Alertes en temps réel -->
+            <div id="sosRealtimePanel" class="sos-tab-panel">
+                <div class="table-toolbar" style="margin-top: 0;">
+                    <div class="alerts-meta">
+                        <span id="lastRefreshTime" class="muted">Dernière actualisation : --</span>
+                        <span class="muted">Rafraîchissement auto toutes les 30&nbsp;s</span>
+                        <button class="btn btn-outline btn-sm" id="refreshAlertsBtn">Actualiser</button>
+                    </div>
+                </div>
+                <div class="filter-section" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1rem;">
+                    <div>
+                        <label for="statusFilter">Filtrer par statut</label>
+                        <select id="statusFilter">
+                            <option value="all">Toutes les alertes</option>
+                            <option value="en_attente">En attente</option>
+                            <option value="en_cours">En cours</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1; min-width: 200px;">
+                        <label for="searchAlertsRealtime">Rechercher</label>
+                        <input type="search" id="searchAlertsRealtime" placeholder="Alerte, nom, description, hôpital, souscription..." class="search-input" aria-label="Rechercher dans les alertes en temps réel">
+                    </div>
+                </div>
+                <div id="alertsError" style="display: none;"></div>
+                <div id="alertsLoading" class="loading" hidden>
+                    <div class="spinner"></div>
+                </div>
+                <div id="alertsEmptyState" class="empty-state" hidden>
+                    <div class="empty-state-icon">🛰️</div>
+                    <p>Aucune alerte à afficher pour le moment.</p>
+                    <p class="muted">Dès qu'une alerte sera créée, elle apparaîtra ici.</p>
+                </div>
+                <div class="table-wrapper">
+                    <table class="data-table" id="alertsTable" hidden>
+                        <thead>
+                            <tr>
+                                <th>Alerte</th>
+                                <th>Statut</th>
+                                <th>Priorité</th>
+                                <th>Prise en charge</th>
+                                <th>Description</th>
+                                <th>Hôpital le plus proche</th>
+                                <th>Souscription</th>
+                                <th>Localisation</th>
+                                <th>Créée le</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alertsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="sosRealtimePagination" class="table-pagination-wrapper" hidden></div>
+            </div>
+
+            <!-- Onglet Historique des alertes -->
+            <div id="sosHistoryPanel" class="sos-tab-panel" hidden>
+                <div class="table-toolbar" style="margin-top: 0;">
+                    <div class="alerts-meta">
+                        <span class="muted">Clôturées automatiquement</span>
+                        <span class="badge" id="treatedAlertsCount">0</span>
+                    </div>
+                </div>
+                <div class="filter-section" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1rem;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <label for="searchAlertsHistory">Rechercher</label>
+                        <input type="search" id="searchAlertsHistory" placeholder="Alerte, nom, description, hôpital..." class="search-input" aria-label="Rechercher dans l'historique des alertes">
+                    </div>
+                </div>
+                <div id="treatedAlertsEmptyState" class="empty-state" hidden>
+                    <div class="empty-state-icon">📁</div>
+                    <p>Aucune alerte traitée pour le moment.</p>
+                    <p class="muted">L'historique apparaîtra dès qu'une alerte sera terminée.</p>
+                </div>
+                <div class="table-wrapper">
+                    <table class="data-table" id="treatedAlertsTable" hidden>
+                        <thead>
+                            <tr>
+                                <th>Alerte</th>
+                                <th>Statut</th>
+                                <th>Priorité</th>
+                                <th>Prise en charge</th>
+                                <th>Description</th>
+                                <th>Hôpital</th>
+                                <th>Clôturée le</th>
+                            </tr>
+                        </thead>
+                        <tbody id="treatedAlertsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="sosHistoryPagination" class="table-pagination-wrapper" hidden></div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script
+        id="leafletCdnScript"
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        crossorigin="anonymous"
+        onload="window.__handleLeafletLoaded && window.__handleLeafletLoaded()"
+        onerror="window.__loadLeafletFallback && window.__loadLeafletFallback()"
+    ></script>
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/sos-dashboard.js"></script>
+    <script src="js/table-top-scrollbar.js"></script>
+</body>
+</html>
+
+

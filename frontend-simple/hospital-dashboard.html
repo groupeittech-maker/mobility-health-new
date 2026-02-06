@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de bord Administrateur Hôpital - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="protected">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+                <span class="brand-text">Comptabilité hospitalière</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="hospital-dashboard.html" class="active">Portail</a></li>
+                <li><a href="hospital-invoices.html">Factures hospitalières</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <div>
+                <h2 id="dashboardTitle">Vue unifiée pour les agents comptables hospitaliers</h2>
+                <p class="muted">
+                    Suivez vos factures en temps réel, repérez les dossiers bloqués et accédez rapidement aux outils clés.
+                </p>
+                <p id="welcomeMessage">
+                    Bienvenue, <span id="userName"></span>
+                    <span id="userRoleBadge" class="role-badge"></span>
+                </p>
+            </div>
+            <div class="section-tabs" id="dashboardTabs">
+                <a class="tab-btn" href="hospital-invoices.html" id="tabFacturerSejours">Facturer les séjours (0)</a>
+                <a class="tab-btn active" href="#portalSection" id="tabFacturesEnCours">Factures hospitalières (0)</a>
+                <a class="tab-btn" href="#processedInvoicesSection" id="tabHistoriqueFactures">Historique des factures (0)</a>
+            </div>
+        </div>
+
+        <section class="dashboard-section" id="portalSection">
+            <div class="section-heading">
+                <div>
+                    <h3>Suivi des factures et validations</h3>
+                    <p class="muted">
+                        Visualisez les factures en attente d’accords médicaux, sinistre ou comptabilité et accédez aux
+                        actions clés de votre rôle.
+                    </p>
+                </div>
+            </div>
+
+            <div class="dashboard-stats" id="hospitalStats">
+                <div class="stat-card">
+                    <h3>Factures en cours</h3>
+                    <p id="pendingInvoicesCount">0</p>
+                    <small class="muted">En attente d’accord médical, sinistre ou compta</small>
+                </div>
+
+                <div class="stat-card">
+                    <h3>Factures traitées</h3>
+                    <p id="processedInvoicesCount">0</p>
+                    <small class="muted">Factures validées ou refusées</small>
+                </div>
+            </div>
+
+            <section class="portal-subsection">
+                <div class="table-toolbar">
+                    <div>
+                        <h3>Factures en cours</h3>
+                        <p class="muted">Séjours facturés en attente d’accords.</p>
+                    </div>
+                    <div class="toolbar-actions" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <label for="searchInvoicesDashboard" class="sr-only">Rechercher</label>
+                        <input type="search" id="searchInvoicesDashboard" class="search-input" placeholder="Rechercher facture, patient, sinistre..." aria-label="Rechercher dans les factures" style="max-width: 280px;">
+                        <button type="button" class="secondary-button" id="refreshInvoicesBtn">Actualiser</button>
+                    </div>
+                </div>
+
+                <div id="invoicesError" class="alert alert-error" hidden></div>
+
+                <div id="pendingInvoicesLoading" class="loading" hidden>
+                    <div class="spinner"></div>
+                </div>
+
+                <div id="pendingInvoicesEmpty" class="empty-state" hidden>
+                    <div class="empty-state-icon">📄</div>
+                    <p>Aucune facture en cours pour votre établissement.</p>
+                    <p class="muted">Les nouvelles factures apparaîtront automatiquement.</p>
+                </div>
+
+                <div class="table-wrapper">
+                    <table class="data-table" id="pendingInvoicesTable" hidden>
+                        <thead>
+                            <tr>
+                                <th>Facture</th>
+                                <th>Patient</th>
+                                <th>Montant TTC</th>
+                                <th>Statut</th>
+                                <th>Créée le</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pendingInvoicesTableBody"></tbody>
+                    </table>
+                </div>
+                <div id="pendingInvoicesPagination" class="table-pagination-wrapper" hidden></div>
+            </section>
+
+            <section class="portal-subsection" id="processedInvoicesSection">
+                <div class="table-toolbar">
+                    <div>
+                        <h3>Factures traitées</h3>
+                        <p class="muted">Factures validées ou rejetées par la comptabilité.</p>
+                    </div>
+                    <div class="toolbar-actions">
+                        <label for="searchProcessedInvoices" class="sr-only">Rechercher</label>
+                        <input type="search" id="searchProcessedInvoices" class="search-input" placeholder="Rechercher facture, patient, sinistre..." aria-label="Rechercher dans les factures traitées" style="max-width: 280px;">
+                    </div>
+                </div>
+
+                <div id="processedInvoicesLoading" class="loading" hidden>
+                    <div class="spinner"></div>
+                </div>
+
+                <div id="processedInvoicesEmpty" class="empty-state" hidden>
+                    <div class="empty-state-icon">✅</div>
+                    <p>Aucune facture traitée pour le moment.</p>
+                    <p class="muted">Les factures validées apparaîtront ici.</p>
+                </div>
+
+                <div class="table-wrapper">
+                    <table class="data-table" id="processedInvoicesTable" hidden>
+                        <thead>
+                            <tr>
+                                <th>Facture</th>
+                                <th>Patient</th>
+                                <th>Montant TTC</th>
+                                <th>Statut</th>
+                                <th>Traitée le</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="processedInvoicesTableBody"></tbody>
+                    </table>
+                </div>
+                <div id="processedInvoicesPagination" class="table-pagination-wrapper" hidden></div>
+            </section>
+        </section>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/hospital-dashboard.js"></script>
+</body>
+</html>
+
+
+

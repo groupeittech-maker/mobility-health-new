@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Destinations - Back Office</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <style>
+        .destinations-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        .countries-section, .cities-section {
+            background: #fff;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .country-item, .city-item {
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .country-item.inactive, .city-item.inactive {
+            opacity: 0.6;
+            background: #e9ecef;
+        }
+        .country-info, .city-info {
+            flex: 1;
+        }
+        .country-name, .city-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        .country-code, .city-pays {
+            font-size: 0.875rem;
+            color: var(--secondary-color);
+        }
+        .item-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .btn-icon {
+            padding: 0.5rem;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .btn-icon:hover {
+            background: rgba(0,0,0,0.1);
+        }
+        .btn-icon.edit {
+            color: var(--primary-color);
+        }
+        .btn-icon.delete {
+            color: var(--danger-color);
+        }
+        .cities-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--secondary-color);
+        }
+        @media (max-width: 968px) {
+            .destinations-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-products.html">Produits</a></li>
+                <li><a href="admin-assureurs.html">Assureurs</a></li>
+                <li><a href="admin-subscriptions.html">Souscriptions</a></li>
+                <li><a href="admin-users.html">Utilisateurs</a></li>
+                <li><a href="admin-hospitals.html">Hôpitaux</a></li>
+                <li><a href="admin-attestations.html">Attestations</a></li>
+                <li><a href="admin-destinations.html" class="active">Destinations</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <div>
+                <h2>Gestion des Destinations</h2>
+                <p>Gérez les pays et villes de destination pris en charge par l'application.</p>
+            </div>
+            <button class="btn btn-primary" onclick="showCountryModal()">Ajouter un pays</button>
+        </div>
+
+        <div class="filter-section">
+            <label for="statusFilter">Filtrer par statut:</label>
+            <select id="statusFilter" aria-label="Filtrer par statut" onchange="loadDestinations()">
+                <option value="">Tous</option>
+                <option value="true">Actifs uniquement</option>
+                <option value="false">Inactifs uniquement</option>
+            </select>
+        </div>
+
+        <div class="destinations-container">
+            <div class="countries-section">
+                <div class="section-header">
+                    <h3>Pays de destination</h3>
+                    <button class="btn btn-sm btn-primary" onclick="showCountryModal()">+ Ajouter</button>
+                </div>
+                <label for="searchCountries" class="sr-only">Rechercher un pays</label>
+                <input type="search" id="searchCountries" class="search-input" placeholder="Rechercher par nom ou code..." style="margin-bottom: 1rem; max-width: 100%;" aria-label="Rechercher dans les pays">
+                <div id="countriesList" class="loading">
+                    <div class="spinner"></div>
+                </div>
+                <div id="countriesPagination" class="table-pagination-wrapper" hidden></div>
+            </div>
+
+            <div class="cities-section">
+                <div class="section-header">
+                    <h3>Villes</h3>
+                    <button class="btn btn-sm btn-primary" onclick="showCityModal()" id="addCityBtn" disabled>+ Ajouter</button>
+                </div>
+                <label for="searchCities" class="sr-only">Rechercher une ville</label>
+                <input type="search" id="searchCities" class="search-input" placeholder="Rechercher une ville..." style="margin-bottom: 1rem; max-width: 100%; display: none;" aria-label="Rechercher dans les villes">
+                <div id="selectedCountryInfo" style="margin-bottom: 1rem; padding: 0.75rem; background: #e8f0fe; border-radius: 6px; display: none;">
+                    <strong id="selectedCountryName"></strong>
+                </div>
+                <div id="citiesList" class="cities-list">
+                    <div class="empty-state">
+                        <p>Sélectionnez un pays pour voir ses villes</p>
+                    </div>
+                </div>
+                <div id="citiesPagination" class="table-pagination-wrapper" hidden></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal pour créer/éditer un pays -->
+    <div id="countryModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="countryModalTitle">Ajouter un pays</h3>
+                <button class="modal-close" onclick="closeCountryModal()">&times;</button>
+            </div>
+            <form id="countryForm" onsubmit="saveCountry(event)">
+                <input type="hidden" id="countryId">
+                <div class="form-group">
+                    <label for="countryCode">Code *</label>
+                    <input type="text" id="countryCode" required maxlength="10" placeholder="Ex: FR, CI, SN">
+                    <small>Code unique du pays (ISO ou personnalisé)</small>
+                </div>
+                <div class="form-group">
+                    <label for="countryName">Nom *</label>
+                    <input type="text" id="countryName" required maxlength="200" placeholder="Ex: France, Côte d'Ivoire">
+                </div>
+                <div class="form-group">
+                    <label for="countryOrder">Ordre d'affichage</label>
+                    <input type="number" id="countryOrder" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="countryActive" checked>
+                        Pays actif
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="countryNotes">Notes</label>
+                    <textarea id="countryNotes" rows="3" maxlength="500" placeholder="Notes optionnelles"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeCountryModal()">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal pour créer/éditer une ville -->
+    <div id="cityModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="cityModalTitle">Ajouter une ville</h3>
+                <button class="modal-close" onclick="closeCityModal()">&times;</button>
+            </div>
+            <form id="cityForm" onsubmit="saveCity(event)">
+                <input type="hidden" id="cityId">
+                <input type="hidden" id="cityCountryId">
+                <div class="form-group">
+                    <label for="cityName">Nom de la ville *</label>
+                    <input type="text" id="cityName" required maxlength="200" placeholder="Ex: Abidjan, Paris">
+                </div>
+                <div class="form-group">
+                    <label for="cityOrder">Ordre d'affichage</label>
+                    <input type="number" id="cityOrder" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="cityActive" checked>
+                        Ville active
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="cityNotes">Notes</label>
+                    <textarea id="cityNotes" rows="3" maxlength="500" placeholder="Notes optionnelles"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeCityModal()">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/admin-destinations.js"></script>
+</body>
+</html>
+

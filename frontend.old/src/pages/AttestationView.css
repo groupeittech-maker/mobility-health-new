@@ -1,0 +1,74 @@
+.attestation-view-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.attestation-header {
+  margin-bottom: 2rem;
+}
+
+.attestation-header h1 {
+  color: #333;
+  margin-bottom: 1rem;
+  font-size: 1.75rem;
+}
+
+.attestation-info {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.badge {
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.badge-provisoire {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.badge-definitive {
+  background: #d4edda;
+  color: #155724;
+}
+
+.attestation-date {
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.attestation-viewer-wrapper {
+  height: 800px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.loading,
+.error {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+}
+
+.error {
+  color: #dc3545;
+}
+
+@media (max-width: 768px) {
+  .attestation-view-container {
+    padding: 1rem;
+  }
+
+  .attestation-viewer-wrapper {
+    height: 600px;
+  }
+}
+

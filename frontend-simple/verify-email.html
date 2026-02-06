@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vérification d'email - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .verification-code-input {
+            font-size: 1.5rem;
+            text-align: center;
+            letter-spacing: 0.5rem;
+            font-weight: 600;
+            padding: 1rem;
+        }
+        .resend-link {
+            margin-top: 1rem;
+            text-align: center;
+        }
+        .resend-link.disabled {
+            color: var(--muted-text);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .email-display {
+            color: var(--primary-color);
+            font-weight: 600;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <main class="auth-shell">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare">
+                <p class="slogan">Travel safe. Life free</p>
+            </div>
+            <h2>Vérification d'email</h2>
+            <p class="muted" style="text-align:center;margin-bottom:1.5rem;color:var(--muted-text);">
+                Nous avons envoyé un code de vérification à :
+            </p>
+            <p class="email-display" id="emailDisplay" style="text-align:center;margin-bottom:1.5rem;"></p>
+            
+            <form id="verifyEmailForm">
+                <div class="form-group">
+                    <label for="verification_code">Code de vérification <span style="color: var(--danger-color);">*</span></label>
+                    <input 
+                        type="text" 
+                        id="verification_code" 
+                        name="verification_code" 
+                        class="verification-code-input"
+                        required 
+                        autocomplete="one-time-code"
+                        maxlength="6"
+                        pattern="[0-9]{6}"
+                        placeholder="000000">
+                    <small style="color: var(--secondary-color);">Entrez le code à 6 chiffres reçu par email</small>
+                </div>
+
+                <div class="form-actions" style="border-top:none;padding-top:0;">
+                    <button type="submit" class="btn btn-primary" id="verifyBtn" style="width: 100%;">Vérifier</button>
+                </div>
+            </form>
+            
+            <div class="resend-link">
+                <p>Vous n'avez pas reçu le code ?</p>
+                <a href="#" id="resendLink" style="color: var(--primary-color); text-decoration: none; font-weight: 600;">
+                    Renvoyer le code
+                </a>
+                <span id="resendCooldown" style="display: none; color: var(--muted-text); margin-left: 0.5rem;"></span>
+            </div>
+            
+            <div class="auth-links" style="margin-top: 2rem;">
+                <p><a href="login.html" style="color: var(--primary-color); text-decoration: none;">Retour à la connexion</a></p>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/verify-email.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,38 @@
+<svg width="320" height="120" viewBox="0 0 320 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="logoTitle logoDesc">
+  <title id="logoTitle">Mobility HealthCare</title>
+  <desc id="logoDesc">Logo Mobility HealthCare avec design moderne en lignes diagonales alternant violet profond et turquoise vibrant.</desc>
+  
+  <!-- Élément graphique : 5 lignes diagonales parallèles -->
+  <g transform="translate(10, 20)">
+    <!-- Ligne 1 : Violet profond -->
+    <rect x="0" y="0" width="12" height="80" rx="6" transform="rotate(-25 6 40)" fill="#4f1f78"/>
+    
+    <!-- Ligne 2 : Turquoise vibrant -->
+    <rect x="24" y="2" width="12" height="80" rx="6" transform="rotate(-25 30 42)" fill="#0bb1a2"/>
+    
+    <!-- Ligne 3 : Violet profond (plus épaisse avec 2 encoches horizontales sur le bord gauche) -->
+    <rect x="48" y="0" width="20" height="80" rx="10" transform="rotate(-25 58 40)" fill="#4f1f78"/>
+    <!-- Encoche 1 (en haut) -->
+    <rect x="48" y="20" width="20" height="6" rx="3" transform="rotate(-25 58 23)" fill="#ffffff" opacity="0.4"/>
+    <!-- Encoche 2 (en bas) -->
+    <rect x="48" y="55" width="20" height="6" rx="3" transform="rotate(-25 58 58)" fill="#ffffff" opacity="0.4"/>
+    
+    <!-- Ligne 4 : Turquoise vibrant -->
+    <rect x="80" y="2" width="12" height="80" rx="6" transform="rotate(-25 86 42)" fill="#0bb1a2"/>
+    
+    <!-- Ligne 5 : Violet profond -->
+    <rect x="104" y="0" width="12" height="80" rx="6" transform="rotate(-25 110 40)" fill="#4f1f78"/>
+  </g>
+  
+  <!-- Texte : MOBILITY HealthCare -->
+  <g font-family="'Poppins', 'Segoe UI', 'Roboto', 'Arial', sans-serif" font-weight="700">
+    <!-- MOBILITY en turquoise vibrant (majuscules) -->
+    <text x="130" y="50" font-size="32" fill="#0bb1a2" letter-spacing="1.5" font-weight="bold">MOBILITY</text>
+    
+    <!-- Health en violet profond -->
+    <text x="130" y="85" font-size="30" fill="#4f1f78" letter-spacing="1" font-weight="bold">Health</text>
+    
+    <!-- Care en turquoise vibrant -->
+    <text x="230" y="85" font-size="30" fill="#0bb1a2" letter-spacing="1" font-weight="bold">Care</text>
+  </g>
+</svg>

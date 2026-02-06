@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Déclarer une Alerte / Sinistre - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <style>
+        .alert-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .alert-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--danger-color);
+        }
+        .alert-header h2 {
+            color: var(--danger-color);
+            margin-bottom: 0.5rem;
+        }
+        .emergency-notice {
+            background-color: #fff3cd;
+            border: 2px solid var(--warning-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+        }
+        .emergency-notice h3 {
+            color: var(--danger-color);
+            margin-bottom: 0.5rem;
+        }
+        .location-section {
+            margin-bottom: 2rem;
+        }
+        .location-help {
+            background-color: #e7f3ff;
+            border-left: 4px solid var(--primary-color);
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        .btn-get-location {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+        .btn-get-location:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body class="protected">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="user-dashboard.html">Tableau de bord</a></li>
+                <li><a href="user-attestations.html">Mes Attestations</a></li>
+                <li><a href="user-products.html">Mes Produits</a></li>
+                <li><a href="#" onclick="logout(); return false;">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="alert-container">
+            <div class="alert-header">
+                <h2>🚨 Déclarer une Alerte / Sinistre</h2>
+                <p>En cas d'urgence médicale, nous sommes là pour vous aider 24/7</p>
+            </div>
+
+            <div class="emergency-notice">
+                <h3>⚠️ Urgence Médicale ?</h3>
+                <p>Si vous êtes dans une situation d'urgence médicale immédiate, appelez le <strong>112</strong> (numéro d'urgence européen) ou le service d'urgence local de votre pays.</p>
+                <p>Vous pouvez ensuite compléter ce formulaire pour nous informer de la situation.</p>
+            </div>
+
+            <form id="sosAlertForm">
+                <div class="form-group">
+                    <label for="subscription_id">Souscription concernée</label>
+                    <select id="subscription_id" name="subscription_id" required>
+                        <option value="">-- Sélectionner une souscription --</option>
+                    </select>
+                    <small style="color: var(--secondary-color);">Sélectionnez la souscription d'assurance concernée</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description de l'urgence / sinistre <span style="color: var(--danger-color);">*</span></label>
+                    <textarea id="description" name="description" rows="5" required placeholder="Décrivez la situation en détail..."></textarea>
+                    <small style="color: var(--secondary-color);">Incluez tous les détails importants (lieu, heure, nature de l'urgence, etc.)</small>
+                </div>
+
+                <div class="location-section">
+                    <h3>Localisation</h3>
+                    <div class="form-group">
+                        <label for="latitude">Latitude</label>
+                        <input type="number" id="latitude" name="latitude" step="any" required>
+                        <small style="color: var(--secondary-color);">Coordonnées GPS de votre position</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="longitude">Longitude</label>
+                        <input type="number" id="longitude" name="longitude" step="any" required>
+                        <small style="color: var(--secondary-color);">Coordonnées GPS de votre position</small>
+                    </div>
+
+                    <button type="button" class="btn-get-location" onclick="getCurrentLocation()">
+                        📍 Utiliser ma position actuelle
+                    </button>
+
+                    <div class="location-help">
+                        <strong>💡 Astuce :</strong> Cliquez sur "Utiliser ma position actuelle" pour remplir automatiquement vos coordonnées GPS. Si cela ne fonctionne pas, vous pouvez trouver vos coordonnées en utilisant Google Maps (clic droit sur votre position > Coordonnées).
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="type_urgence">Type d'urgence</label>
+                    <select id="type_urgence" name="type_urgence" required>
+                        <option value="">-- Sélectionner un type --</option>
+                        <option value="medicale">Urgence Médicale</option>
+                        <option value="accident">Accident</option>
+                        <option value="hospitalisation">Hospitalisation</option>
+                        <option value="rapatriement">Demande de Rapatriement</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="adresse">Adresse (optionnel)</label>
+                    <input type="text" id="adresse" name="adresse" placeholder="Rue, Ville, Pays">
+                    <small style="color: var(--secondary-color);">Adresse complète si connue (en plus des coordonnées GPS)</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-danger" id="submitBtn" style="width: 100%; font-size: 1.1rem; padding: 1rem;">
+                        🚨 Envoyer l'alerte
+                    </button>
+                </div>
+            </form>
+
+            <div style="text-align: center; margin-top: 2rem;">
+                <a href="user-dashboard.html" style="color: var(--primary-color); text-decoration: none;">← Retour au tableau de bord</a>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/sos-alert.js"></script>
+</body>
+</html>
+

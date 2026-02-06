@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Back Office - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html" class="active">Dashboard</a></li>
+                <li><a href="admin-products.html">Produits</a></li>
+                <li><a href="admin-assureurs.html">Assureurs</a></li>
+                <li><a href="admin-subscriptions.html">Souscriptions</a></li>
+                <li><a href="admin-users.html">Utilisateurs</a></li>
+                <li><a href="admin-hospitals.html">Hôpitaux</a></li>
+                <li><a href="admin-attestations.html">Attestations</a></li>
+                <li><a href="admin-destinations.html">Destinations</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2>Tableau de bord</h2>
+            <p id="welcomeMessage">Bienvenue, <span id="userName"></span></p>
+        </div>
+
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <h3>Produits</h3>
+                <p id="productsCount">-</p>
+                <a href="admin-products.html" class="btn btn-primary">Gérer</a>
+            </div>
+
+            <div class="stat-card">
+                <h3>Souscriptions</h3>
+                <p id="subscriptionsCount">-</p>
+                <a href="admin-subscriptions.html" class="btn btn-primary">Gérer</a>
+            </div>
+
+            <div class="stat-card">
+                <h3>Utilisateurs</h3>
+                <p id="usersCount">-</p>
+                <a href="admin-users.html" class="btn btn-primary">Gérer</a>
+            </div>
+
+            <div class="stat-card">
+                <h3>Attestations</h3>
+                <p id="attestationsCount">-</p>
+                <a href="admin-attestations.html" class="btn btn-primary">Gérer</a>
+            </div>
+        </div>
+
+        <div class="dashboard-section">
+            <h3>Actions rapides</h3>
+            <div class="quick-actions">
+                <a href="admin-products.html" class="action-card">
+                    <h4>Créer un produit</h4>
+                    <p>Ajouter un nouveau produit d'assurance</p>
+                </a>
+                <a href="admin-assureurs.html" class="action-card">
+                    <h4>Gérer les assureurs</h4>
+                    <p>Créer une compagnie et assigner son agent comptable</p>
+                </a>
+                <a href="admin-subscriptions.html" class="action-card">
+                    <h4>Voir les souscriptions</h4>
+                    <p>Gérer les souscriptions en attente</p>
+                </a>
+                <a href="admin-attestations.html" class="action-card">
+                    <h4>Valider attestations</h4>
+                    <p>Valider les attestations provisoires</p>
+                </a>
+                <a href="admin-hospitals.html" class="action-card">
+                    <h4>Créer un hôpital</h4>
+                    <p>Positionner l’hôpital sur la carte et assigner l’équipe</p>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/admin-dashboard.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Questionnaire Long - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1>Mobility Health</h1>
+            <ul class="nav-menu">
+                <li><a href="index.html">Accueil</a></li>
+                <li><a href="questionnaire-short.html">Questionnaire Court</a></li>
+                <li><a href="questionnaire-long.html">Questionnaire Long</a></li>
+                <li><a href="attestations.html">Mes Attestations</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="form-container">
+            <h2>Questionnaire Long</h2>
+            <p>Veuillez remplir ce formulaire détaillé pour votre souscription</p>
+            
+            <form id="questionnaireLongForm">
+                <div class="form-section">
+                    <h2>Informations Personnelles</h2>
+                    
+                    <div class="form-group">
+                        <label for="date_naissance">Date de naissance *</label>
+                        <input type="date" id="date_naissance" name="date_naissance" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="lieu_naissance">Lieu de naissance *</label>
+                        <input type="text" id="lieu_naissance" name="lieu_naissance" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nationalite">Nationalité *</label>
+                        <input type="text" id="nationalite" name="nationalite" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="profession">Profession *</label>
+                        <input type="text" id="profession" name="profession" required>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Historique Médical</h2>
+                    
+                    <div class="form-group">
+                        <label for="hospitalisations">Hospitalisations récentes</label>
+                        <textarea id="hospitalisations" name="hospitalisations" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="chirurgies">Chirurgies</label>
+                        <textarea id="chirurgies" name="chirurgies" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="accidents">Accidents</label>
+                        <textarea id="accidents" name="accidents" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="maladies_chroniques">Maladies chroniques</label>
+                        <textarea id="maladies_chroniques" name="maladies_chroniques" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Mode de Vie</h2>
+                    
+                    <div class="form-group">
+                        <label for="activite_physique">Activité physique *</label>
+                        <select id="activite_physique" name="activite_physique" required>
+                            <option value="">Sélectionnez...</option>
+                            <option value="aucune">Aucune</option>
+                            <option value="legere">Légère (1-2 fois/semaine)</option>
+                            <option value="moderee">Modérée (3-4 fois/semaine)</option>
+                            <option value="intense">Intense (5+ fois/semaine)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tabagisme">Tabagisme *</label>
+                        <select id="tabagisme" name="tabagisme" required>
+                            <option value="">Sélectionnez...</option>
+                            <option value="non">Non-fumeur</option>
+                            <option value="occasionnel">Fumeur occasionnel</option>
+                            <option value="regulier">Fumeur régulier</option>
+                            <option value="ancien">Ancien fumeur</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="consommation_alcool">Consommation d'alcool *</label>
+                        <select id="consommation_alcool" name="consommation_alcool" required>
+                            <option value="">Sélectionnez...</option>
+                            <option value="aucune">Aucune</option>
+                            <option value="occasionnelle">Occasionnelle</option>
+                            <option value="moderee">Modérée</option>
+                            <option value="frequente">Fréquente</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="voyages_frequents">Voyages fréquents *</label>
+                        <select id="voyages_frequents" name="voyages_frequents" required>
+                            <option value="">Sélectionnez...</option>
+                            <option value="non">Non</option>
+                            <option value="rarement">Rarement (1-2 fois/an)</option>
+                            <option value="occasionnellement">Occasionnellement (3-5 fois/an)</option>
+                            <option value="frequemment">Fréquemment (6+ fois/an)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Antécédents Familiaux</h2>
+                    
+                    <div class="form-group">
+                        <label for="antecedents_familiaux">Antécédents familiaux</label>
+                        <textarea id="antecedents_familiaux" name="antecedents_familiaux" rows="4"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Informations de Voyage</h2>
+                    
+                    <div class="form-group">
+                        <label for="destinations_frequentes">Destinations fréquentes</label>
+                        <textarea id="destinations_frequentes" name="destinations_frequentes" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="duree_sejours">Durée des séjours</label>
+                        <input type="text" id="duree_sejours" name="duree_sejours" placeholder="Ex: 1-2 semaines, 1 mois, etc.">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="activites_risque">Activités à risque</label>
+                        <textarea id="activites_risque" name="activites_risque" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="subscription_id">ID de souscription *</label>
+                    <input type="number" id="subscription_id" name="subscription_id" required placeholder="Entrez l'ID de votre souscription">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="window.location.href='index.html'">Annuler</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/questionnaire-long.js"></script>
+</body>
+</html>
+

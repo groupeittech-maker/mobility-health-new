@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API - Mobility Health</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test de Connexion API</h1>
+    
+    <div class="test-section">
+        <h2>1. Test de connectivité backend</h2>
+        <button onclick="testHealth()">Tester /health</button>
+        <div id="healthResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Test CORS Preflight</h2>
+        <button onclick="testCORS()">Tester OPTIONS</button>
+        <div id="corsResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Test avec token</h2>
+        <p>Token actuel: <span id="tokenInfo"></span></p>
+        <button onclick="testWithToken()">Tester /api/v1/subscriptions</button>
+        <div id="tokenResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Test direct fetch</h2>
+        <button onclick="testDirectFetch()">Test fetch direct</button>
+        <div id="directResult"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000/api/v1';
+        
+        function updateTokenInfo() {
+            const token = localStorage.getItem('access_token');
+            document.getElementById('tokenInfo').textContent = token ? token.substring(0, 30) + '...' : 'Aucun token';
+        }
+        
+        updateTokenInfo();
+        
+        async function testHealth() {
+            const result = document.getElementById('healthResult');
+            result.innerHTML = '<p class="info">Test en cours...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8000/health');
+                const data = await response.json();
+                result.innerHTML = `<p class="success">✅ Succès! Status: ${response.status}</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                result.innerHTML = `<p class="error">❌ Erreur: ${error.message}</p>`;
+            }
+        }
+        
+        async function testCORS() {
+            const result = document.getElementById('corsResult');
+            result.innerHTML = '<p class="info">Test en cours...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/subscriptions/?limit=1', {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': 'http://localhost:3000',
+                        'Access-Control-Request-Method': 'GET',
+                        'Access-Control-Request-Headers': 'authorization,content-type'
+                    }
+                });
+                
+                const headers = {};
+                response.headers.forEach((value, key) => {
+                    headers[key] = value;
+                });
+                
+                result.innerHTML = `<p class="success">✅ Succès! Status: ${response.status}</p><pre>${JSON.stringify(headers, null, 2)}</pre>`;
+            } catch (error) {
+                result.innerHTML = `<p class="error">❌ Erreur: ${error.message}</p>`;
+            }
+        }
+        
+        async function testWithToken() {
+            const result = document.getElementById('tokenResult');
+            result.innerHTML = '<p class="info">Test en cours...</p>';
+            
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                result.innerHTML = '<p class="error">❌ Aucun token trouvé. Connectez-vous d\'abord.</p>';
+                return;
+            }
+            
+            try {
+                console.log('Test avec token:', token.substring(0, 20) + '...');
+                const response = await fetch('http://localhost:8000/api/v1/subscriptions/?limit=1', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Réponse:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    ok: response.ok,
+                    headers: Object.fromEntries(response.headers.entries())
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    result.innerHTML = `<p class="success">✅ Succès! Status: ${response.status}</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    const errorData = await response.json().catch(() => ({ detail: 'Erreur inconnue' }));
+                    result.innerHTML = `<p class="error">❌ Erreur HTTP ${response.status}: ${errorData.detail || response.statusText}</p><pre>${JSON.stringify(errorData, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<p class="error">❌ Erreur réseau: ${error.message}</p><p>Type: ${error.name}</p><pre>${error.stack}</pre>`;
+                console.error('Erreur complète:', error);
+            }
+        }
+        
+        async function testDirectFetch() {
+            const result = document.getElementById('directResult');
+            result.innerHTML = '<p class="info">Test en cours...</p>';
+            
+            const token = localStorage.getItem('access_token');
+            
+            try {
+                const url = 'http://localhost:8000/api/v1/subscriptions/?limit=1';
+                const options = {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                };
+                
+                if (token) {
+                    options.headers['Authorization'] = `Bearer ${token}`;
+                }
+                
+                console.log('Test direct fetch:', { url, options });
+                
+                const response = await fetch(url, options);
+                
+                console.log('Réponse directe:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    ok: response.ok,
+                    type: response.type,
+                    url: response.url,
+                    redirected: response.redirected
+                });
+                
+                const text = await response.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch {
+                    data = { raw: text.substring(0, 200) };
+                }
+                
+                result.innerHTML = `
+                    <p class="${response.ok ? 'success' : 'error'}">Status: ${response.status} ${response.statusText}</p>
+                    <p>Type: ${response.type}</p>
+                    <p>URL: ${response.url}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                result.innerHTML = `
+                    <p class="error">❌ Erreur: ${error.message}</p>
+                    <p>Type: ${error.name}</p>
+                    <p>Stack: ${error.stack}</p>
+                `;
+                console.error('Erreur complète:', error);
+            }
+        }
+    </script>
+</body>
+</html>
+

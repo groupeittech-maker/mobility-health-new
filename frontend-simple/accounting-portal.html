@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portail comptable - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="protected">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+                <span class="brand-text">Comptabilité MH</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="accounting-portal.html" class="active">Portail</a></li>
+                <li><a href="accounting-ledger.html">Frais & remboursements</a></li>
+                <li><a href="mh-invoices.html">Factures hospitalières</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <div>
+                <h2>Vue unifiée pour les agents comptables</h2>
+                <p class="muted">
+                    Accédez aux flux financiers des souscriptions, traitez les factures hospitalières et consultez l’historique complet
+                    sans changer de contexte.
+                </p>
+            </div>
+            <div class="section-tabs" id="accountingTabs">
+                <button class="tab-btn active" id="tabFees" data-section="feesSection">Frais & remboursements</button>
+                <button class="tab-btn" id="tabInvoices" data-section="invoicesSection">Factures hospitalières</button>
+                <button class="tab-btn" id="tabHistory" data-section="historySection">Historique des factures</button>
+            </div>
+        </div>
+
+        <!-- Frais de souscription -->
+        <section id="feesSection" class="dashboard-section">
+            <div class="section-heading">
+                <h3>Suivi des frais de souscription et remboursements</h3>
+                <p class="muted">
+                    Filtrez les transactions selon leur statut pour retrouver rapidement les attestations provisoires,
+                    les paiements confirmés et les remboursements.
+                </p>
+            </div>
+
+            <section class="dashboard-stats">
+                <div class="stat-card">
+                    <h3>Transactions</h3>
+                    <p id="transactionsCount">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Montant total encaissé</h3>
+                    <p id="totalAmount">-</p>
+                </div>
+            <div class="stat-card">
+                <h3>Commission Mobility Health</h3>
+                <p id="mhAmount">-</p>
+            </div>
+                <div class="stat-card">
+                    <h3>Paiements confirmés</h3>
+                    <p id="paidTransactions">-</p>
+                </div>
+            </section>
+
+            <div class="table-toolbar">
+                <input type="text" id="searchInput" placeholder="Rechercher par assuré ou N° de souscription">
+                <select id="statusFilter" aria-label="Filtrer par statut">
+                    <option value="all">Tous les statuts</option>
+                    <option value="provisional">Reçu provisoire - attestation provisoire</option>
+                    <option value="paid">Payé - attestation définitive</option>
+                    <option value="refunded">Remboursé - refus du dossier</option>
+                </select>
+            </div>
+
+            <div id="ledgerWrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>N° de souscription</th>
+                            <th>Assuré</th>
+                            <th>Assureur</th>
+                            <th>Prime assurance</th>
+                            <th>Montant reversé<br>à l'assuré</th>
+                            <th>Part assureur</th>
+                            <th>Commission Mobility Health</th>
+                            <th>Statut</th>
+                            <th class="column-action">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionsBody">
+                        <tr>
+                            <td colspan="9" class="muted">Chargement des transactions...</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p class="table-note muted">
+                    * Le pourcentage de commission assureur est paramétré à la création du produit d'assurance et dépend du produit et du type de transaction.
+                    Pour le paramétrer : <a href="admin-products.html">Administration &gt; Produits</a>, puis créer ou modifier un produit — champ <strong>« Commission assureur (%) »</strong> (section Prix / Répartition).
+                    En cas de dossier remboursé,
+                    90&nbsp;% est reversé à l’assuré et 10&nbsp;% reste acquis à Mobility Health.
+                </p>
+            </div>
+        </section>
+
+        <!-- Factures hospitalières -->
+        <section id="invoicesSection" class="dashboard-section" hidden>
+            <div class="section-heading">
+                <h3>Traitement des factures hospitalières</h3>
+                <p class="muted">Validez ou rejetez les factures en attente depuis ce module.</p>
+            </div>
+
+            <div class="filters-row">
+                <label>
+                    Étape du circuit
+                    <select id="mhStageFilter">
+                        <option value="compta" selected>En attente comptabilité</option>
+                        <option value="sinistre">En validation sinistre</option>
+                        <option value="medical">En validation médicale</option>
+                        <option value="validated">Payées / validées</option>
+                        <option value="rejected">Rejets</option>
+                        <option value="all">Toutes</option>
+                    </select>
+                </label>
+                <label>
+                    Recherche
+                    <input type="text" id="mhInvoiceSearch" placeholder="Numéro de facture ou sinistre">
+                </label>
+                <button class="btn" id="mhRefreshBtn">Actualiser</button>
+            </div>
+
+            <div class="panel-grid">
+                <div class="panel list-panel">
+                    <div class="panel-header">
+                        <h4>Factures reçues</h4>
+                        <span class="muted" id="mhInvoiceCount">0 facture</span>
+                    </div>
+                    <p class="muted" id="mhInvoiceEmpty">Aucune facture à afficher.</p>
+                    <ul id="mhInvoiceList" class="card-list"></ul>
+                </div>
+
+                <div class="panel detail-panel" id="mhInvoiceDetail">
+                    <p class="muted">Sélectionnez une facture pour afficher ses détails.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Historique des factures -->
+        <section id="historySection" class="dashboard-section" hidden>
+            <div class="section-heading">
+                <h3>Historique global des factures</h3>
+                <p class="muted">
+                    Consultez la liste consolidée des factures avec leur sinistre associé,
+                    le client, l’hôpital et le statut actuel.
+                </p>
+            </div>
+
+            <div class="table-toolbar">
+                <input type="text" id="historySearchInput" placeholder="Rechercher facture, sinistre ou client">
+                <select id="historyStatusFilter" aria-label="Filtrer par statut">
+                    <option value="all">Tous les statuts</option>
+                    <option value="pending_medical">En attente accord médical</option>
+                    <option value="pending_sinistre">En attente pôle sinistre</option>
+                    <option value="pending_compta">En attente comptabilité MH</option>
+                    <option value="validated">Validée / payée</option>
+                    <option value="rejected">Rejetée</option>
+                </select>
+                <button class="btn" id="historyReloadBtn">Actualiser</button>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date facture</th>
+                            <th>Sinistre</th>
+                            <th>Client</th>
+                            <th>Hôpital</th>
+                            <th>Montant TTC</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        <tr>
+                            <td colspan="6" class="muted">Chargement en cours...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/currency.js"></script>
+    <script src="js/table-pagination.js"></script>
+    <script src="js/table-top-scrollbar.js"></script>
+    <script src="js/accounting-ledger.js"></script>
+    <script src="js/mh-invoices.js"></script>
+    <script src="js/accounting-portal.js"></script>
+</body>
+</html>
+

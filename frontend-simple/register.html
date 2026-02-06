@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscription - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .password-strength {
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--secondary-color);
+            font-weight: 600;
+        }
+        .password-strength.weak { color: var(--danger-color); }
+        .password-strength.medium { color: var(--warning-color); }
+        .password-strength.strong { color: var(--success-color); }
+        #passwordMatch {
+            color: var(--secondary-color);
+            font-weight: 600;
+        }
+        .country-search-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s ease;
+        }
+        .country-search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+        }
+        .country-search-container {
+            position: relative;
+        }
+        .country-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-top: 4px;
+            display: none;
+        }
+        .country-dropdown.show {
+            display: block;
+        }
+        .country-option {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .country-option:last-child {
+            border-bottom: none;
+        }
+        .country-option:hover,
+        .country-option.highlighted {
+            background-color: rgba(13, 148, 136, 0.1);
+        }
+        .country-option.no-results {
+            padding: 1rem;
+            text-align: center;
+            color: var(--muted-text);
+            cursor: default;
+        }
+        .form-section-hr {
+            margin: 1.5rem 0;
+            border: none;
+            border-top: 1px solid var(--border-color);
+        }
+        .form-section-title {
+            margin-bottom: 0.35rem;
+            color: var(--primary-color);
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .form-section-desc {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--muted-text);
+        }
+        .consent-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .consent-group .label-required { display: block; margin-bottom: 0.25rem; font-weight: 600; }
+        .consent-label {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+        }
+        .consent-label input[type="checkbox"] { margin-top: 0.2rem; flex-shrink: 0; }
+        .consent-label a { color: var(--primary-color); text-decoration: underline; }
+        .yes-no-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+        .yes-no-row label { display: flex; align-items: center; gap: 0.35rem; cursor: pointer; }
+        .conditional-detail { margin-top: 0.5rem; margin-left: 0; display: none; }
+        .conditional-detail.show { display: block; }
+        /* Styles pour mobile */
+        @media (max-width: 768px) {
+            .country-search-input {
+                font-size: 16px; /* Évite le zoom automatique sur iOS */
+                padding: 1rem;
+            }
+            .country-dropdown {
+                max-height: 250px;
+                border-radius: 8px;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            }
+            .country-option {
+                padding: 1rem 1.25rem;
+                font-size: 1rem;
+                min-height: 48px; /* Taille minimale pour le touch */
+                display: flex;
+                align-items: center;
+            }
+            .auth-logo img {
+                max-height: 100px;
+            }
+        }
+        @media (max-width: 480px) {
+            .country-dropdown {
+                max-height: 200px;
+            }
+            .auth-logo img {
+                max-height: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="auth-shell">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare">
+                <p class="slogan">Travel safe. Life free</p>
+            </div>
+            <p class="muted" style="text-align:center;margin-bottom:1.5rem;color:var(--muted-text);">Rejoignez la communauté Mobility HealthCare et protégez vos voyages.</p>
+            <h2>Créer un compte</h2>
+            <form id="registerForm">
+                <!-- Section 1 : Informations civiles -->
+                <h3 class="form-section-title">Informations civiles</h3>
+                <p class="form-section-desc">Identité et coordonnées.</p>
+
+                <div class="form-group">
+                    <label for="full_name">Nom complet <span style="color: var(--danger-color);">*</span></label>
+                    <input type="text" id="full_name" name="full_name" required autocomplete="name">
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email <span style="color: var(--danger-color);">*</span></label>
+                    <input type="email" id="email" name="email" required autocomplete="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="date_naissance">Date de naissance <span style="color: var(--danger-color);">*</span></label>
+                    <input type="date" id="date_naissance" name="date_naissance" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="sexe">Sexe <span style="color: var(--danger-color);">*</span></label>
+                    <select id="sexe" name="sexe" required>
+                        <option value="">Choisir...</option>
+                        <option value="M">Homme</option>
+                        <option value="F">Femme</option>
+                        <option value="Autre">Autre</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Téléphone <span style="color: var(--danger-color);">*</span></label>
+                    <input type="tel" id="phone" name="phone" required autocomplete="tel">
+                    <small style="color: var(--secondary-color);">Format: +33 6 12 34 56 78</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="pays_residence">Pays de résidence</label>
+                    <div class="country-search-container">
+                        <input type="text" id="pays_residence" name="pays_residence" class="country-search-input" placeholder="Rechercher un pays..." autocomplete="off">
+                        <div id="pays_residence_dropdown" class="country-dropdown"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="nationalite">Nationalité</label>
+                    <div class="country-search-container">
+                        <input type="text" id="nationalite" name="nationalite" class="country-search-input" placeholder="Rechercher un pays..." autocomplete="off">
+                        <div id="nationalite_dropdown" class="country-dropdown"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="numero_passeport">Numéro de passeport</label>
+                    <input type="text" id="numero_passeport" name="numero_passeport" placeholder="Ex. 14AB123456" autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label for="validite_passeport">Validité du passeport</label>
+                    <input type="date" id="validite_passeport" name="validite_passeport" min="">
+                </div>
+
+                <div class="form-group">
+                    <label for="contact_urgence">Personne à contacter en cas d'urgence</label>
+                    <input type="tel" id="contact_urgence" name="contact_urgence" placeholder="Ex. +33 6 12 34 56 78" autocomplete="tel">
+                    <small style="color: var(--secondary-color);">Numéro de téléphone de la personne à joindre en cas d'urgence</small>
+                </div>
+
+                <!-- Section 2 : Informations médicales -->
+                <hr class="form-section-hr" aria-hidden="true">
+                <h3 class="form-section-title">Informations médicales</h3>
+                <p class="form-section-desc">Ces informations permettent au médecin MH de valider votre inscription.</p>
+
+                <!-- Historique médical -->
+                <div class="form-group">
+                    <label for="maladies_chroniques">Historique médical</label>
+                    <small style="display: block; color: var(--secondary-color); margin-bottom: 0.5rem;">Cochez le cas échéant : diabète, HTA, asthme, épilepsie, drépanocytose, cardiopathie, autre</small>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-bottom: 0.5rem;">
+                        <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;"><input type="checkbox" name="maladie" value="diabète"> Diabète</label>
+                        <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;"><input type="checkbox" name="maladie" value="HTA"> HTA</label>
+                        <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;"><input type="checkbox" name="maladie" value="asthme"> Asthme</label>
+                        <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;"><input type="checkbox" name="maladie" value="épilepsie"> Épilepsie</label>
+                        <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;"><input type="checkbox" name="maladie" value="drépanocytose"> Drépanocytose</label>
+                        <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;"><input type="checkbox" name="maladie" value="cardiopathie"> Cardiopathie</label>
+                    </div>
+                    <input type="text" id="maladies_chroniques_autre" name="maladies_chroniques_autre" placeholder="Autre (précisez)" style="margin-top: 0.25rem;">
+                </div>
+
+                <div class="form-group">
+                    <span class="label-required">Êtes-vous en traitement médical régulier ?</span>
+                    <div class="yes-no-row">
+                        <label><input type="radio" name="traitement_regulier" value="oui"> Oui</label>
+                        <label><input type="radio" name="traitement_regulier" value="non"> Non</label>
+                    </div>
+                    <div id="traitement_regulier_detail" class="conditional-detail">
+                        <label for="traitement_regulier_precision">Si oui, précisez le type de traitement</label>
+                        <textarea id="traitement_regulier_precision" name="traitement_regulier_precision" rows="2" placeholder="Type de traitement..."></textarea>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <span class="label-required">Avez-vous été hospitalisé au cours des 12 derniers mois ?</span>
+                    <div class="yes-no-row">
+                        <label><input type="radio" name="hospitalise_12_mois" value="oui"> Oui</label>
+                        <label><input type="radio" name="hospitalise_12_mois" value="non"> Non</label>
+                    </div>
+                    <div id="hospitalise_12_mois_detail" class="conditional-detail">
+                        <label for="hospitalise_12_mois_raison">Si oui, précisez pour quelle raison</label>
+                        <textarea id="hospitalise_12_mois_raison" name="hospitalise_12_mois_raison" rows="2" placeholder="Raison de l'hospitalisation..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Mode de vie -->
+                <h4 class="form-section-title" style="margin-top: 1rem; font-size: 1rem;">Mode de vie</h4>
+                <div class="form-group">
+                    <span class="label-required">Fumez-vous ?</span>
+                    <div class="yes-no-row">
+                        <label><input type="radio" name="fumeur" value="oui"> Oui</label>
+                        <label><input type="radio" name="fumeur" value="non"> Non</label>
+                    </div>
+                    <div id="fumeur_detail" class="conditional-detail">
+                        <label for="fumeur_cigarettes">Si oui, combien de cigarettes par jour ?</label>
+                        <input type="text" id="fumeur_cigarettes" name="fumeur_cigarettes" placeholder="Ex. 5 à 10">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <span class="label-required">Consommez-vous de l'alcool ?</span>
+                    <div class="yes-no-row">
+                        <label><input type="radio" name="alcool" value="oui"> Oui</label>
+                        <label><input type="radio" name="alcool" value="non"> Non</label>
+                    </div>
+                    <div id="alcool_detail" class="conditional-detail">
+                        <label for="alcool_frequence">Si oui, à quelle fréquence ?</label>
+                        <select id="alcool_frequence" name="alcool_frequence">
+                            <option value="">Choisir...</option>
+                            <option value="occasionnellement">Occasionnellement</option>
+                            <option value="regulierement">Régulièrement (1 à 2 fois par semaine)</option>
+                            <option value="quotidiennement">Quotidiennement</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <span class="label-required">Pratiquez-vous une activité physique régulièrement ?</span>
+                    <div class="yes-no-row">
+                        <label><input type="radio" name="activite_physique" value="oui"> Oui</label>
+                        <label><input type="radio" name="activite_physique" value="non"> Non</label>
+                    </div>
+                    <div id="activite_physique_detail" class="conditional-detail">
+                        <label for="activite_physique_precision">Si oui, laquelle et à quelle fréquence ?</label>
+                        <input type="text" id="activite_physique_precision" name="activite_physique_precision" placeholder="Ex. Course 3 fois par semaine">
+                    </div>
+                </div>
+
+                <!-- Allergies et intolérances -->
+                <h4 class="form-section-title" style="margin-top: 1rem; font-size: 1rem;">Allergies et intolérances</h4>
+                <div class="form-group">
+                    <span class="label-required">Êtes-vous allergique à certains médicaments, aliments, ou autres substances ?</span>
+                    <div class="yes-no-row">
+                        <label><input type="radio" name="allergies" value="oui"> Oui</label>
+                        <label><input type="radio" name="allergies" value="non"> Non</label>
+                    </div>
+                    <div id="allergies_detail" class="conditional-detail">
+                        <label for="allergies_precision">Si oui, précisez</label>
+                        <textarea id="allergies_precision" name="allergies_precision" rows="2" placeholder="Médicaments, aliments, substances..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Santé mentale -->
+                <h4 class="form-section-title" style="margin-top: 1rem; font-size: 1rem;">Santé mentale</h4>
+                <div class="form-group">
+                    <span class="label-required">Avez-vous déjà été diagnostiqué(e) pour un trouble mental ou émotionnel (anxiété, dépression, etc.) ?</span>
+                    <div class="yes-no-row">
+                        <label><input type="radio" name="sante_mentale" value="oui"> Oui</label>
+                        <label><input type="radio" name="sante_mentale" value="non"> Non</label>
+                    </div>
+                    <div id="sante_mentale_detail" class="conditional-detail">
+                        <label for="sante_mentale_precision">Si oui, précisez</label>
+                        <textarea id="sante_mentale_precision" name="sante_mentale_precision" rows="2" placeholder="Précisez le diagnostic..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Section 3 : Informations personnelles et consentements -->
+                <hr class="form-section-hr" aria-hidden="true">
+                <h3 class="form-section-title">Informations personnelles</h3>
+                <p class="form-section-desc">Identifiants de connexion et consentements.</p>
+
+                <div class="form-group">
+                    <label for="username">Nom d'utilisateur <span style="color: var(--danger-color);">*</span></label>
+                    <input type="text" id="username" name="username" required autocomplete="username">
+                    <small style="color: var(--secondary-color);">Ce nom sera utilisé pour vous connecter</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Mot de passe <span style="color: var(--danger-color);">*</span></label>
+                    <input type="password" id="password" name="password" required autocomplete="new-password" minlength="8">
+                    <div id="passwordStrength" class="password-strength"></div>
+                    <small style="color: var(--secondary-color);">Minimum 8 caractères</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="password_confirm">Confirmer le mot de passe <span style="color: var(--danger-color);">*</span></label>
+                    <input type="password" id="password_confirm" name="password_confirm" required autocomplete="new-password">
+                    <div id="passwordMatch" style="margin-top: 0.5rem; font-size: 0.875rem;"></div>
+                </div>
+
+                <div class="form-group consent-group">
+                    <span class="label-required">Consentements <span style="color: var(--danger-color);">*</span></span>
+                    <label class="consent-label"><input type="checkbox" id="consent_cgu" name="consent_cgu" required> J'accepte les <a href="#" target="_blank" rel="noopener">conditions générales d'utilisation (CGU)</a>.</label>
+                    <label class="consent-label"><input type="checkbox" id="consent_confidentialite" name="consent_confidentialite" required> J'accepte la <a href="#" target="_blank" rel="noopener">politique de confidentialité</a>.</label>
+                    <label class="consent-label"><input type="checkbox" id="consent_donnees_medicales" name="consent_donnees_medicales" required> Je consens au traitement de mes données médicales pour la validation de mon inscription par le médecin MH.</label>
+                </div>
+
+                <div class="form-actions" style="border-top:none;padding-top:0;">
+                    <button type="submit" class="btn btn-primary" id="registerBtn" style="width: 100%;">S'inscrire</button>
+                </div>
+            </form>
+            <div class="auth-links">
+                <p>Déjà un compte ? <a href="login.html">Se connecter</a></p>
+                <p><a href="index.html">Retour à l'accueil</a></p>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/countries.js"></script>
+    <script src="js/register.js"></script>
+</body>
+</html>
+
+
+
+

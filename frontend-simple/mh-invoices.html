@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comptabilité Mobility Health - Factures hospitalières</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="protected">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+                <span class="brand-text">Comptabilité MH</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="accounting-portal.html">Portail</a></li>
+                <li><a href="accounting-ledger.html">Frais & remboursements</a></li>
+                <li><a href="mh-invoices.html" class="active">Factures hospitalières</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2>Traitement comptable des factures</h2>
+            <p class="muted">
+                Visualisez les factures transmises par le pôle sinistre et validez-les pour paiement ou retour.
+            </p>
+        </div>
+
+        <section class="dashboard-section">
+            <div class="filters-row">
+                <label>
+                    Étape du circuit
+                    <select id="mhStageFilter">
+                        <option value="compta" selected>En attente comptabilité</option>
+                        <option value="sinistre">En validation sinistre</option>
+                        <option value="medical">En validation médicale</option>
+                        <option value="validated">Payées / validées</option>
+                        <option value="rejected">Rejets</option>
+                        <option value="all">Toutes</option>
+                    </select>
+                </label>
+                <label>
+                    Recherche
+                    <input type="text" id="mhInvoiceSearch" placeholder="Numéro de facture ou sinistre">
+                </label>
+                <button class="btn" id="mhRefreshBtn">Actualiser</button>
+            </div>
+
+            <div class="panel-grid">
+                <div class="panel list-panel">
+                    <div class="panel-header">
+                        <h4>Factures reçues</h4>
+                        <span class="muted" id="mhInvoiceCount">0 facture</span>
+                    </div>
+                    <p class="muted" id="mhInvoiceEmpty">Aucune facture à afficher.</p>
+                    <ul id="mhInvoiceList" class="card-list"></ul>
+                </div>
+
+                <div class="panel detail-panel" id="mhInvoiceDetail">
+                    <p class="muted">Sélectionnez une facture pour afficher ses détails.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/mh-invoices.js"></script>
+</body>
+</html>
+

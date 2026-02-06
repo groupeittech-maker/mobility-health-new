@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des dossiers sinistres - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+        .nav-section-links {
+            position: relative;
+        }
+        .nav-section-link {
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        .nav-section-link:hover {
+            color: var(--primary-color);
+        }
+        .nav-section-link.active {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        .nav-section-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--primary-color);
+            border-radius: 2px;
+        }
+        @media (max-width: 768px) {
+            .nav-section-links {
+                display: none;
+            }
+        }
+        /* Onglets médecin référent */
+        .referent-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            margin-bottom: 1.25rem;
+            border-bottom: 2px solid var(--border-color, #e0e0e0);
+            padding-bottom: 0;
+        }
+        .referent-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.65rem 1rem;
+            border: none;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            background: none;
+            color: var(--text-muted, #666);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px 6px 0 0;
+            transition: color 0.2s, background 0.2s, border-color 0.2s;
+        }
+        .referent-tab:hover {
+            color: var(--primary-color, #2563eb);
+            background: rgba(37, 99, 235, 0.06);
+        }
+        .referent-tab.active {
+            color: var(--primary-color, #2563eb);
+            border-bottom-color: var(--primary-color, #2563eb);
+            background: rgba(37, 99, 235, 0.08);
+        }
+        .referent-tab__count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.5rem;
+            height: 1.35rem;
+            padding: 0 0.4rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: var(--border-color, #e0e0e0);
+            color: var(--text-color, #333);
+            border-radius: 999px;
+        }
+        .referent-tab.active .referent-tab__count {
+            background: var(--primary-color, #2563eb);
+            color: #fff;
+        }
+    </style>
+</head>
+<body data-review-type="medecin">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li data-visible-roles="doctor"><a href="doctor-dashboard.html">Dashboard</a></li>
+                <li><a href="medical-review.html">Validations médicales</a></li>
+                <li class="nav-section-links">
+                    <a href="#avisMedicauxSection" class="nav-section-link" data-section="avisMedicauxSection">📋 Avis médicaux (<span id="navAvisCount">0</span>)</a>
+                </li>
+                <li class="nav-section-links" id="navAlertesSos" style="display: none;">
+                    <a href="#alertValidationSection" class="nav-section-link" data-section="alertValidationSection">🚨 Dossiers sinistres (<span id="navAlertesCount">0</span>)</a>
+                </li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2 id="reviewTitle">Gestion des dossiers sinistres</h2>
+            <p id="reviewIntro">Analysez les questionnaires médicaux associés aux nouvelles souscriptions.</p>
+            <p id="reviewRoleBadge" class="muted" style="display: none; margin-top: 0.5rem; font-weight: 500;"></p>
+        </div>
+
+        <!-- Bloc 1 : Validations des avis médicaux (souscriptions / attestations) -->
+        <section class="dashboard-section validation-block validation-block--avis-medicaux" id="avisMedicauxSection">
+            <div class="validation-block__header">
+                <h3 class="validation-block__title">
+                    <span class="validation-block__icon" aria-hidden="true">📋</span>
+                    Validations des avis médicaux
+                </h3>
+                <p class="muted validation-block__desc" id="avisMedicauxDesc">
+                    Analysez les questionnaires médicaux des souscriptions et émettez votre avis. Les dossiers en attente apparaissent ci‑dessous.
+                </p>
+            </div>
+            <div id="reviewContainer" class="review-grid">
+                <div class="alert alert-info">Chargement des dossiers en attente...</div>
+            </div>
+            <div id="reviewPagination" class="table-pagination-wrapper" hidden></div>
+        </section>
+
+        <!-- Séparateur visuel (visible uniquement pour médecin référent MH) -->
+        <hr class="validation-block-separator" id="validationBlockSeparator" style="display: none;" aria-hidden="true">
+
+        <!-- Bloc 2 : Validations des alertes SOS (sinistres, rapports, factures) -->
+        <section class="dashboard-section validation-block validation-block--alertes-sos" id="alertValidationSection">
+            <div class="table-toolbar">
+                <div>
+                    <h3 class="validation-block__title">
+                        <span class="validation-block__icon" aria-hidden="true">🚨</span>
+                        Validations des alertes SOS
+                    </h3>
+                    <p class="muted" id="alertValidationIntro">
+                        Les dossiers évoluent par étape. Sélectionnez un onglet selon l'action à effectuer.
+                    </p>
+                </div>
+                <div class="alert-actions">
+                    <input 
+                        type="text" 
+                        id="alertValidationSearchInput" 
+                        class="search-input" 
+                        placeholder="Rechercher par alerte, patient, description..." 
+                        style="min-width: 300px; margin-right: 1rem;"
+                    >
+                    <button class="btn btn-secondary btn-sm" id="refreshAlertValidationBtn" type="button">
+                        Actualiser
+                    </button>
+                </div>
+            </div>
+
+            <div class="referent-tabs" id="referentTabs" role="tablist" aria-label="Étapes de validation">
+                <button type="button" class="referent-tab active" role="tab" aria-selected="true" data-tab="sinistre" id="tabSinistre">
+                    <span class="referent-tab__label">Sinistre à valider</span>
+                    <span class="referent-tab__count" id="tabCountSinistre" aria-label="0 dossiers">0</span>
+                </button>
+                <button type="button" class="referent-tab" role="tab" aria-selected="false" data-tab="sinistre_valide" id="tabSinistreValide">
+                    <span class="referent-tab__label">Sinistre validé</span>
+                    <span class="referent-tab__count" id="tabCountSinistreValide" aria-label="0 dossiers">0</span>
+                </button>
+                <button type="button" class="referent-tab" role="tab" aria-selected="false" data-tab="rapport" id="tabRapport">
+                    <span class="referent-tab__label">Rapport à valider</span>
+                    <span class="referent-tab__count" id="tabCountRapport" aria-label="0 dossiers">0</span>
+                </button>
+                <button type="button" class="referent-tab" role="tab" aria-selected="false" data-tab="rapport_valide" id="tabRapportValide">
+                    <span class="referent-tab__label">Rapport validé</span>
+                    <span class="referent-tab__count" id="tabCountRapportValide" aria-label="0 dossiers">0</span>
+                </button>
+                <button type="button" class="referent-tab" role="tab" aria-selected="false" data-tab="facture" id="tabFacture">
+                    <span class="referent-tab__label">Facture à valider</span>
+                    <span class="referent-tab__count" id="tabCountFacture" aria-label="0 dossiers">0</span>
+                </button>
+                <button type="button" class="referent-tab" role="tab" aria-selected="false" data-tab="facture_valide" id="tabFactureValide">
+                    <span class="referent-tab__label">Facture validée</span>
+                    <span class="referent-tab__count" id="tabCountFactureValide" aria-label="0 dossiers">0</span>
+                </button>
+                <button type="button" class="referent-tab" role="tab" aria-selected="false" data-tab="resolu" id="tabResolu">
+                    <span class="referent-tab__label">Dossier résolu</span>
+                    <span class="referent-tab__count" id="tabCountResolu" aria-label="0 dossiers">0</span>
+                </button>
+            </div>
+
+            <div id="alertValidationError" class="alert alert-error" hidden></div>
+
+            <div id="alertValidationLoading" class="loading" hidden>
+                <div class="spinner"></div>
+            </div>
+
+            <div id="alertValidationEmpty" class="empty-state" hidden>
+                <div class="empty-state-icon">🩺</div>
+                <p id="alertValidationEmptyMessage">Aucun dossier dans cette étape.</p>
+                <p class="muted">Les dossiers apparaissent dans l'onglet correspondant à l'action à effectuer.</p>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="data-table" id="alertValidationTable" hidden>
+                    <thead>
+                        <tr>
+                            <th>Alerte</th>
+                            <th>Patient / Description</th>
+                            <th>Priorité</th>
+                            <th>Statut</th>
+                            <th>Étape / Action</th>
+                            <th>Dernière mise à jour</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alertValidationTableBody"></tbody>
+                </table>
+            </div>
+            <div id="alertValidationPagination" class="table-pagination-wrapper" hidden></div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/nav-access.js"></script>
+    <script src="js/review-dashboard.js"></script>
+    <script src="js/table-top-scrollbar.js"></script>
+</body>
+</html>
+

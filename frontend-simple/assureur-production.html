@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portail production assureur - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="protected">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+                <span class="brand-text">Production Assureur</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="assureur-production.html" class="active">Portail assureur</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <div>
+                <h2>Vue production dédiée à votre assureur</h2>
+                <p class="muted">
+                    Retrouvez uniquement les demandes de souscription et leur finalisation pour les produits gérés par votre compagnie d'assurance.
+                </p>
+            </div>
+            <div class="section-tabs" id="productionTabs">
+                <button class="tab-btn active" data-section="subscriptionsListSection">Liste des souscriptions</button>
+                <button class="tab-btn" data-section="workflowSection">Détails du workflow</button>
+            </div>
+        </div>
+
+        <!-- Liste des souscriptions -->
+        <section id="subscriptionsListSection" class="dashboard-section">
+            <div class="section-heading">
+                <h3>Souscriptions de vos produits</h3>
+                <p class="muted">
+                    Visualisez toutes les demandes de souscription pour les produits de votre assureur.
+                </p>
+            </div>
+
+            <div class="table-toolbar">
+                <input type="text" id="subscriptionSearchInput" placeholder="Rechercher par numéro de souscription ou assuré">
+                <select id="subscriptionStatusFilter" aria-label="Filtrer par statut">
+                    <option value="all">Tous les statuts</option>
+                    <option value="en_attente">En attente</option>
+                    <option value="active">Active</option>
+                    <option value="resiliee">Résiliée</option>
+                    <option value="expiree">Expirée</option>
+                </select>
+                <button class="btn" id="subscriptionRefreshBtn">Actualiser</button>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>N° de souscription</th>
+                            <th>Assuré</th>
+                            <th>Produit</th>
+                            <th>Date de début</th>
+                            <th>Date de fin</th>
+                            <th>Statut</th>
+                            <th class="column-action">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="subscriptionsTableBody">
+                        <tr>
+                            <td colspan="7" class="muted">Chargement des souscriptions...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Détails du workflow -->
+        <section id="workflowSection" class="dashboard-section" hidden>
+            <div class="section-heading">
+                <h3>Détails du workflow de souscription</h3>
+                <p class="muted">
+                    Consultez le workflow complet d'une souscription : création, questionnaires, paiement, validations, attestations.
+                </p>
+            </div>
+
+            <div class="panel-grid">
+                <div class="panel list-panel">
+                    <div class="panel-header">
+                        <h4>Souscriptions</h4>
+                        <span class="muted" id="workflowSubscriptionCount">0 souscription</span>
+                    </div>
+                    <p class="muted" id="workflowSubscriptionEmpty">Aucune souscription à afficher.</p>
+                    <ul id="workflowSubscriptionList" class="card-list"></ul>
+                </div>
+
+                <div class="panel detail-panel" id="workflowDetail">
+                    <p class="muted">Sélectionnez une souscription pour afficher les détails de son workflow.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script>
+        window.ASSUREUR_PRODUCTION_ALLOWED_ROLES = ['production_agent', 'admin'];
+        window.MH_ALLOWED_ROLES_OVERRIDE = ['production_agent', 'admin'];
+    </script>
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/currency.js"></script>
+    <script src="js/table-pagination.js"></script>
+    <script src="js/assureur-production.js"></script>
+</body>
+</html>
+

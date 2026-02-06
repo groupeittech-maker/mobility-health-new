@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation technique - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body data-review-type="technique">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+                <span class="brand-text">Pôle technique</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="finance-dashboard.html">Dashboard</a></li>
+                <li><a href="technical-review.html">Validations techniques</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2 id="reviewTitle">Validation technique</h2>
+            <p id="reviewIntro">Vérifiez la complétude administrative avant de transmettre à la production.</p>
+        </div>
+
+        <section class="dashboard-section">
+            <div id="reviewContainer" class="review-grid">
+                <div class="alert alert-info">Chargement des attestations techniques...</div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/review-dashboard.js"></script>
+</body>
+</html>
+

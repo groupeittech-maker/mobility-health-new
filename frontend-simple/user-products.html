@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mes Produits - Mon Espace Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <style>
+        .page-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .page-header h2 {
+            margin: 0 0 0.4rem 0;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+            background: #fff;
+            box-shadow: 0 10px 30px rgba(15, 30, 64, 0.08);
+        }
+        .stat-card h4 {
+            margin: 0;
+            font-size: 0.95rem;
+            color: var(--secondary-color);
+        }
+        .stat-card p {
+            margin: 0.25rem 0 0;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--dark-text);
+        }
+        .filters-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        .filter-tab {
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            padding: 0.55rem 1.3rem;
+            background: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--secondary-color);
+        }
+        .filter-tab.active {
+            background: var(--primary-color);
+            color: #fff;
+            border-color: var(--primary-color);
+            box-shadow: 0 12px 26px rgba(28, 119, 255, 0.25);
+        }
+        .products-list {
+            display: grid;
+            gap: 1rem;
+        }
+        .product-card {
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            background: #fff;
+            padding: 1.5rem;
+            box-shadow: 0 16px 40px rgba(10, 29, 61, 0.08);
+        }
+        .product-card-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+        .product-card h3 {
+            margin: 0;
+        }
+        .status-badge {
+            border-radius: 999px;
+            padding: 0.4rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+        .status-active {
+            background: #d1f4e0;
+            color: #0a7a35;
+        }
+        .status-pending {
+            background: #fff1c9;
+            color: #8c6a00;
+        }
+        .status-expired {
+            background: #fde2e1;
+            color: #bb2a2a;
+        }
+        .status-other {
+            background: #e5e9f2;
+            color: #1c2a45;
+        }
+        .product-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+        .meta-label {
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+        }
+        .meta-value {
+            font-weight: 600;
+            color: var(--dark-text);
+        }
+        .card-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 2.5rem 1.5rem;
+            border: 1px dashed var(--border-color);
+            border-radius: 12px;
+            background: #f6f8ff;
+            color: var(--secondary-color);
+        }
+        .cta-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        .cta-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="protected">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="user-dashboard.html">Tableau de bord</a></li>
+                <li><a href="user-attestations.html">Mes Attestations</a></li>
+                <li><a href="user-products.html" class="active">Mes Produits</a></li>
+                <li><a href="#" onclick="logout(); return false;">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="page-header">
+            <div>
+                <h2>Produits souscrits</h2>
+                <p>Retrouvez ici vos souscriptions Mobility Health, leur statut actuel et les actions disponibles.</p>
+            </div>
+            <a class="cta-link" href="project-wizard.html">+ Démarrer une nouvelle souscription</a>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h4>Total produits</h4>
+                <p id="productsTotal">0</p>
+            </div>
+            <div class="stat-card">
+                <h4>Actifs</h4>
+                <p id="productsActive">0</p>
+            </div>
+            <div class="stat-card">
+                <h4>En attente</h4>
+                <p id="productsPending">0</p>
+            </div>
+            <div class="stat-card">
+                <h4>Expirés</h4>
+                <p id="productsExpired">0</p>
+            </div>
+        </div>
+
+        <div class="filters-tabs" id="productFilters" style="display: flex; flex-wrap: wrap; align-items: center; gap: 1rem;">
+            <button class="filter-tab active" data-filter="all">Tous</button>
+            <button class="filter-tab" data-filter="active">Actifs</button>
+            <button class="filter-tab" data-filter="pending">En attente</button>
+            <button class="filter-tab" data-filter="expired">Expirés</button>
+            <label for="searchUserProducts" class="sr-only">Rechercher</label>
+            <input type="search" id="searchUserProducts" class="search-input" placeholder="Rechercher produit, numéro, statut..." style="max-width: 280px; margin-left: auto;" aria-label="Rechercher dans les produits">
+        </div>
+
+        <div id="productsLoading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Chargement de vos produits...</p>
+        </div>
+
+        <div id="productsContainer" class="products-list"></div>
+        <div id="productsPagination" class="table-pagination-wrapper" hidden></div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/user-products.js"></script>
+</body>
+</html>
+
