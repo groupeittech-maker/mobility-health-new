@@ -1,7 +1,7 @@
 name: mobility_health_mobile
 description: Application mobile Mobility Health - Client utilisateur
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -42,6 +42,7 @@ dependencies:
   country_code_picker: ^3.0.0
   url_launcher: ^6.2.2
   open_filex: ^4.3.2
+  pdfx: ^2.9.2
   image_picker: ^1.0.5
   file_picker: ^8.0.0
   permission_handler: ^11.1.0
@@ -76,7 +77,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/images/Attached_image.png"
+  image_path: "assets/images/icone flutter.png"
   remove_alpha: true
 
 flutter:
@@ -85,9 +86,6 @@ flutter:
   assets:
     - .env
     - assets/images/
-    - assets/images/logo_officiel_mh.png
-    - assets/images/partners/
-    - assets/icons/
 
   # Fonts (optionnel - commenté car les fichiers n'existent pas encore)
   # fonts:
