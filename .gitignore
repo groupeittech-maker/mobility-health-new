@@ -28,6 +28,11 @@ wheels/
 .env
 .venv
 
+# Clés SSH déploiement (apps/mhc/deploy-keys — voir deploy-keys/README.md)
+apps/mhc/deploy-keys/*
+!apps/mhc/deploy-keys/.gitignore
+!apps/mhc/deploy-keys/README.md
+
 # IDE
 .vscode/
 .idea/

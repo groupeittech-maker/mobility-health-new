@@ -1,0 +1,4 @@
+# Ne jamais committer les clés SSH (privées ou publiques de prod)
+*
+!.gitignore
+!README.md
