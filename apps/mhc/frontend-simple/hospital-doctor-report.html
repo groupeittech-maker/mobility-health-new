@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rédaction du rapport — Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="protected hospital-doctor" data-hospital-doctor-page="report">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li data-visible-roles="doctor"><a href="hospital-doctor.html">Traitement</a></li>
+                <li data-visible-roles="doctor"><a href="medical-review.html">Validations</a></li>
+                <li data-visible-roles="doctor"><a href="doctor-dashboard.html">Dashboard</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <p style="margin-bottom: 0.5rem;">
+                <a href="hospital-doctor.html" class="btn btn-outline btn-sm">← Retour aux dossiers</a>
+            </p>
+            <h2>Rédaction du rapport</h2>
+            <p class="muted">
+                Bienvenue Dr <strong id="doctorName">—</strong>
+            </p>
+            <p class="muted" id="doctorHospitalContext"></p>
+        </div>
+
+        <div id="reportPageLoading" class="loading-state">Chargement du dossier...</div>
+        <div id="reportPageError" class="alert alert-error" style="display: none;" role="alert"></div>
+
+        <section class="dashboard-section" id="caseDetailsSection" hidden>
+            <div class="section-header">
+                <div>
+                    <h3>Dossier sélectionné</h3>
+                    <p class="muted" id="caseMeta"></p>
+                </div>
+                <div class="section-actions">
+                    <button class="btn btn-outline btn-sm" id="openAlertFileBtn" type="button">Voir la fiche complète</button>
+                </div>
+            </div>
+
+            <div class="case-overview-grid" id="caseOverview"></div>
+
+            <div class="doctor-case-grid">
+                <div class="doctor-case-panel">
+                    <h4>Informations patient</h4>
+                    <div id="patientDetails"></div>
+
+                    <div class="panel-divider"></div>
+
+                    <h4>Notes de la réception</h4>
+                    <p id="orientationNotes" class="reception-notes-body muted">—</p>
+
+                    <div class="panel-divider"></div>
+
+                    <h4>Dossier médical</h4>
+                    <div id="medicalDataContent" class="questionnaire-content"></div>
+                </div>
+
+                <div class="doctor-case-panel">
+                    <h4>Rapport médical</h4>
+                    <form id="doctorReportForm">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="motifConsultation">Motif de consultation</label>
+                                <textarea id="motifConsultation" rows="2"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="motifHospitalisation">Motif d'hospitalisation</label>
+                                <textarea id="motifHospitalisation" rows="2"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="dureeSejour">Durée du séjour (jours)</label>
+                                <input type="number" id="dureeSejour" min="0" step="0.5">
+                            </div>
+                        </div>
+
+                        <div class="form-grid two-columns">
+                            <div>
+                                <label>Actes réalisés</label>
+                                <div id="actesOptions" class="options-grid"></div>
+                            </div>
+                            <div>
+                                <label>Examens réalisés</label>
+                                <div id="examensOptions" class="options-grid"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="resumeSejour">Résumé du séjour</label>
+                                <textarea id="resumeSejour" rows="3"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="observationsSejour">Observations complémentaires</label>
+                                <textarea id="observationsSejour" rows="3"></textarea>
+                            </div>
+                        </div>
+
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="terminerSejour">
+                            Clôturer le séjour après enregistrement
+                        </label>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary" id="saveReportBtn" disabled>Enregistrer le rapport</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/nav-access.js"></script>
+    <script src="js/hospital-doctor.js"></script>
+</body>
+</html>

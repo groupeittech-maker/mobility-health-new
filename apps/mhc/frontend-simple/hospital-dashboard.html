@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de bord Administrateur Hôpital - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="protected">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+                <span class="brand-text">Comptabilité hospitalière</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="hospital-dashboard.html" class="active">Tableau de bord</a></li>
+                <li><a href="hospital-invoices.html">Factures hospitalières</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <div>
+                <h2 id="dashboardTitle">Espace comptable hôpital</h2>
+                <p class="muted" id="dashboardSubtitle">
+                    Dossiers à facturer, factures en suivi (validation ou refus), puis historique des factures validées.
+                </p>
+                <p id="welcomeMessage">
+                    Bienvenue, <span id="userName"></span>
+                    <span id="userRoleBadge" class="role-badge"></span>
+                </p>
+            </div>
+            <div class="section-tabs hospital-dashboard-tabs" id="dashboardTabs" role="tablist" aria-label="Sections comptable hôpital">
+                <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-tab-panel="panelToBill" id="tabToBill">1 · Dossiers à facturer (0)</button>
+                <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab-panel="panelFactured" id="tabFacturesEnCours">2 · Dossiers facturés (0)</button>
+                <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab-panel="panelHistorique" id="tabHistoriqueFactures">3 · Historique des factures (0)</button>
+                <a class="tab-btn tab-btn--link" href="hospital-invoices.html" id="tabOpenInvoicesPage">Saisie facture →</a>
+            </div>
+        </div>
+
+        <!-- Onglet 1 : dossiers sans facture (rapport validé) -->
+        <section class="dashboard-section hospital-accountant-panel" id="panelToBill" data-panel="to-bill" role="tabpanel" aria-labelledby="tabToBill">
+            <div id="accountantBillingBlock">
+                <div class="section-heading">
+                    <div>
+                        <h3>Dossiers à facturer</h3>
+                        <p class="muted">
+                            Séjours avec rapport validé, sans facture encore : ouvrez un dossier pour saisir et envoyer la facture.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="dashboard-stats dashboard-stats--compact" id="statToBillRow">
+                    <div class="stat-card stat-card--accent">
+                        <h3>En attente de facturation</h3>
+                        <p id="toBillCount">0</p>
+                        <small class="muted">Prêts pour la saisie facture</small>
+                    </div>
+                </div>
+
+                <section class="portal-subsection">
+                    <div class="table-toolbar">
+                        <div>
+                            <h4 class="toolbar-title">Liste des dossiers</h4>
+                            <p class="muted">Recherche par sinistre ou patient.</p>
+                        </div>
+                        <div class="toolbar-actions" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                            <label for="searchToBill" class="sr-only">Rechercher</label>
+                            <input type="search" id="searchToBill" class="search-input" placeholder="Sinistre, patient…" aria-label="Rechercher dossiers à facturer" style="max-width: 280px;">
+                            <button type="button" class="secondary-button" id="refreshToBillBtn">Actualiser</button>
+                        </div>
+                    </div>
+
+                    <div id="toBillError" class="alert alert-error" hidden></div>
+                    <div id="toBillLoading" class="loading" hidden>
+                        <div class="spinner"></div>
+                    </div>
+                    <div id="toBillEmpty" class="empty-state" hidden>
+                        <div class="empty-state-icon">📋</div>
+                        <p>Aucun dossier à facturer pour le moment.</p>
+                        <p class="muted">Les séjours apparaissent ici dès que le rapport médical est validé.</p>
+                    </div>
+                    <ul id="toBillCardList" class="card-list reception-alerts-card-list hospital-accountant-card-list" hidden aria-label="Dossiers à facturer"></ul>
+                    <div id="toBillPagination" class="table-pagination-wrapper" hidden></div>
+                </section>
+            </div>
+        </section>
+
+        <!-- Onglet 2 : facture émise — en attente de validation ou refusée -->
+        <section class="dashboard-section hospital-accountant-panel" id="panelFactured" data-panel="factured" role="tabpanel" aria-labelledby="tabFacturesEnCours" hidden>
+            <div class="section-heading">
+                <div>
+                    <h3>Dossiers facturés</h3>
+                    <p class="muted">
+                        Factures déjà émises : en attente de validation (médical, sinistre ou compta MH) ou <strong>refusées</strong>.
+                    </p>
+                </div>
+            </div>
+
+            <div class="dashboard-stats dashboard-stats--compact" id="hospitalStatsFollowUp">
+                <div class="stat-card">
+                    <h3>En suivi</h3>
+                    <p id="pendingInvoicesCount">0</p>
+                    <small class="muted">Validation en cours ou facture refusée</small>
+                </div>
+            </div>
+
+            <section class="portal-subsection">
+                <div class="table-toolbar">
+                    <div>
+                        <h4 class="toolbar-title">Liste des dossiers facturés</h4>
+                        <p class="muted">Statut de traitement et montant.</p>
+                    </div>
+                    <div class="toolbar-actions" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <label for="searchInvoicesDashboard" class="sr-only">Rechercher</label>
+                        <input type="search" id="searchInvoicesDashboard" class="search-input" placeholder="Facture, patient, sinistre…" aria-label="Rechercher dossiers facturés" style="max-width: 280px;">
+                        <button type="button" class="secondary-button" id="refreshInvoicesBtn">Actualiser</button>
+                    </div>
+                </div>
+
+                <div id="invoicesError" class="alert alert-error" hidden></div>
+                <div id="pendingInvoicesLoading" class="loading" hidden>
+                    <div class="spinner"></div>
+                </div>
+                <div id="pendingInvoicesEmpty" class="empty-state" hidden>
+                    <div class="empty-state-icon">📄</div>
+                    <p>Aucun dossier dans cette catégorie.</p>
+                    <p class="muted">Les factures émises apparaîtront ici jusqu’à validation ou en cas de refus.</p>
+                </div>
+                <ul id="pendingInvoicesCardList" class="card-list reception-alerts-card-list hospital-accountant-card-list" hidden aria-label="Dossiers facturés en suivi"></ul>
+                <div id="pendingInvoicesPagination" class="table-pagination-wrapper" hidden></div>
+            </section>
+        </section>
+
+        <!-- Onglet 3 : factures validées / payées -->
+        <section class="dashboard-section hospital-accountant-panel" id="panelHistorique" data-panel="historique" role="tabpanel" aria-labelledby="tabHistoriqueFactures" hidden>
+            <div class="section-heading">
+                <div>
+                    <h3>Historique des factures</h3>
+                    <p class="muted">Factures <strong>validées</strong> ou <strong>payées</strong>, classées par date.</p>
+                </div>
+            </div>
+
+            <div class="dashboard-stats dashboard-stats--compact" id="hospitalStatsHistory">
+                <div class="stat-card stat-card--accent">
+                    <h3>Factures classées</h3>
+                    <p id="processedInvoicesCount">0</p>
+                    <small class="muted">Validées ou payées</small>
+                </div>
+            </div>
+
+            <section class="portal-subsection">
+                <div class="table-toolbar">
+                    <div>
+                        <h4 class="toolbar-title">Liste de l’historique</h4>
+                        <p class="muted">Consultation des dossiers clos côté facturation.</p>
+                    </div>
+                    <div class="toolbar-actions">
+                        <label for="searchProcessedInvoices" class="sr-only">Rechercher</label>
+                        <input type="search" id="searchProcessedInvoices" class="search-input" placeholder="Facture, patient, sinistre…" aria-label="Rechercher dans l’historique" style="max-width: 280px;">
+                    </div>
+                </div>
+
+                <div id="processedInvoicesLoading" class="loading" hidden>
+                    <div class="spinner"></div>
+                </div>
+                <div id="processedInvoicesEmpty" class="empty-state" hidden>
+                    <div class="empty-state-icon">✅</div>
+                    <p>Aucune facture dans l’historique pour le moment.</p>
+                    <p class="muted">Les factures validées ou payées s’affichent ici.</p>
+                </div>
+                <ul id="processedInvoicesCardList" class="card-list reception-alerts-card-list hospital-accountant-card-list" hidden aria-label="Historique des factures"></ul>
+                <div id="processedInvoicesPagination" class="table-pagination-wrapper" hidden></div>
+            </section>
+        </section>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/hospital-dashboard.js?v=20260328-1"></script>
+</body>
+</html>

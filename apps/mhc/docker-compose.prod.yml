@@ -1,0 +1,86 @@
+# Prod : image buildée (Dockerfile.prod). Environment repris explicitement pour éviter
+# que la fusion Compose n'omette REDIS_URL, DATABASE_URL, etc.
+# Usage : docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: mobility-health-new-api:prod
+    restart: unless-stopped
+    volumes:
+      - mobility_health_uploads:/var/lib/mobility-health/uploads
+      # FCM v1 : fichier JSON compte de service sur l’hôte → chemin fixe dans le conteneur (voir .env)
+      - ${FCM_SERVICE_ACCOUNT_HOST_PATH:-/var/www/Mobility_Health/Mobility_Health/secrets/firebase-sa.json}:${FCM_SERVICE_ACCOUNT_CONTAINER_PATH:-/run/secrets/firebase-sa.json}:ro
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-mobility_health}
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      # URL publique de l’API (sans /api/v1) pour que les e-cartes s’affichent (proxy au lieu de minio:9000)
+      API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL:-https://srv1324425.hstgr.cloud}
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@mobilityhealth.com}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Mobility Health}
+      ASSURANCE_SITE_WEB: ${ASSURANCE_SITE_WEB:-https://srv1324425.hstgr.cloud}
+      LOCAL_FILE_STORAGE_ROOT: ${LOCAL_FILE_STORAGE_ROOT:-/var/lib/mobility-health/uploads}
+      PYTHONPATH: /app
+      FCM_SERVICE_ACCOUNT_PATH: ${FCM_SERVICE_ACCOUNT_PATH:-/run/secrets/firebase-sa.json}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/firebase-sa.json}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+      FCM_SERVICE_ACCOUNT_JSON: ${FCM_SERVICE_ACCOUNT_JSON:-}
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: mobility-health-new-api:prod
+    restart: unless-stopped
+    volumes:
+      - mobility_health_uploads:/var/lib/mobility-health/uploads
+      - ${FCM_SERVICE_ACCOUNT_HOST_PATH:-/var/www/Mobility_Health/Mobility_Health/secrets/firebase-sa.json}:${FCM_SERVICE_ACCOUNT_CONTAINER_PATH:-/run/secrets/firebase-sa.json}:ro
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-mobility_health}
+      REDIS_URL: redis://redis:6379/0
+      LOCAL_FILE_STORAGE_ROOT: ${LOCAL_FILE_STORAGE_ROOT:-/var/lib/mobility-health/uploads}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@mobilityhealth.com}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Mobility Health}
+      PYTHONPATH: /app
+      FCM_SERVICE_ACCOUNT_PATH: ${FCM_SERVICE_ACCOUNT_PATH:-/run/secrets/firebase-sa.json}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/firebase-sa.json}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+      FCM_SERVICE_ACCOUNT_JSON: ${FCM_SERVICE_ACCOUNT_JSON:-}
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
+    command: celery -A app.core.celery_app:celery_app worker --loglevel=info --concurrency=4 --queues=default,notifications,reminders
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: mobility-health-new-api:prod
+    restart: unless-stopped
+    volumes: []
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-mobility_health}
+      REDIS_URL: redis://redis:6379/0
+      PYTHONPATH: /app
+    command: celery -A app.core.celery_app:celery_app beat --loglevel=info

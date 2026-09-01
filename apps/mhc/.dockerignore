@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+__pycache__
+*.py[cod]
+.git
+.gitignore
+frontend-simple
+frontend-temp.tar.gz
+alembic-temp.tar.gz
+mobile-app
+node_modules
+*.md
+.pytest_cache
+.mypy_cache
+.venv
+venv

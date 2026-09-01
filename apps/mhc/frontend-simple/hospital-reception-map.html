@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alertes — Réception Hôpital - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <script>
+        (function () {
+            const FALLBACK_JS = 'vendor/leaflet/leaflet.js';
+            const FALLBACK_CSS = 'vendor/leaflet/leaflet.css';
+            let fallbackCssLoaded = false;
+            let fallbackScriptLoaded = false;
+            let resolveLeafletReady;
+            let rejectLeafletReady;
+            let timeoutId = null;
+            const leafletReadyPromise = new Promise((resolve, reject) => {
+                resolveLeafletReady = resolve;
+                rejectLeafletReady = reject;
+            });
+
+            function ensureCssFallback() {
+                if (fallbackCssLoaded) {
+                    return;
+                }
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = FALLBACK_CSS;
+                link.dataset.source = 'leaflet-local';
+                document.head.appendChild(link);
+                fallbackCssLoaded = true;
+            }
+
+            window.waitForLeaflet = function (timeoutMs = 8000) {
+                if (window.L) {
+                    return Promise.resolve(window.L);
+                }
+                if (timeoutMs > 0 && !timeoutId) {
+                    timeoutId = window.setTimeout(() => {
+                        if (!window.L && typeof rejectLeafletReady === 'function') {
+                            rejectLeafletReady(new Error('Leaflet non disponible'));
+                            rejectLeafletReady = null;
+                        }
+                    }, timeoutMs);
+                }
+                return leafletReadyPromise;
+            };
+
+            window.__handleLeafletLoaded = function () {
+                if (window.L && typeof resolveLeafletReady === 'function') {
+                    resolveLeafletReady(window.L);
+                    resolveLeafletReady = null;
+                }
+            };
+
+            window.__ensureLeafletCssFallback = ensureCssFallback;
+            window.__loadLeafletFallback = function () {
+                if (fallbackScriptLoaded) {
+                    return;
+                }
+                ensureCssFallback();
+                const script = document.createElement('script');
+                script.src = FALLBACK_JS;
+                script.onload = window.__handleLeafletLoaded;
+                script.onerror = function () {
+                    if (typeof rejectLeafletReady === 'function') {
+                        rejectLeafletReady(new Error('Impossible de charger Leaflet en local'));
+                        rejectLeafletReady = null;
+                    }
+                };
+                document.head.appendChild(script);
+                fallbackScriptLoaded = true;
+            };
+        })();
+    </script>
+    <link
+        id="leafletCdnCss"
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        crossorigin="anonymous"
+        data-leaflet-cdn="true"
+        onerror="window.__ensureLeafletCssFallback && window.__ensureLeafletCssFallback()"
+    >
+</head>
+<body
+    class="protected sos-alerts-map-page hospital-reception-map-page"
+    data-sos-page="alerts-map"
+    data-hospital-reception-map="1"
+>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand" aria-label="Mobility Health">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility Health" class="brand-logo">
+                <span class="brand-text" id="brandRoleLabel">Réception Hôpital</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="hospital-reception.html">Dossiers assignés</a></li>
+                <li><a href="hospital-reception-map.html" class="active">Alertes</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="sos-alerts-map-main">
+        <h2 id="dashboardTitle" class="visually-hidden">Carte des alertes — votre hôpital</h2>
+        <p id="welcomeMessage" class="visually-hidden">Utilisateur : <span id="userName"></span></p>
+
+        <div class="sos-alerts-map-toolbar">
+            <div class="sos-alerts-map-toolbar__intro">
+                <span class="sos-alerts-map-toolbar__title">Carte en temps réel</span>
+                <span class="muted sos-alerts-map-toolbar__hint">Uniquement les alertes assignées à votre hôpital · Marqueur → détail · Fermer avec « Vu »</span>
+            </div>
+            <div class="alerts-meta sos-alerts-map-toolbar__actions alerts-meta--with-sound">
+                <span id="lastRefreshTime" class="muted">Dernière actualisation : --</span>
+                <button type="button" class="btn btn-outline btn-sm mh-sos-sound-toggle" id="mhSosAlertSoundToggle" aria-pressed="false" title="Autorise le navigateur à jouer la sirène d’alerte SOS">
+                    Son des alertes : désactivé
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" id="refreshAlertsBtn">Actualiser</button>
+            </div>
+        </div>
+
+        <div id="alertsError" class="sos-alerts-map-error" style="display: none;"></div>
+
+        <section class="sos-alerts-map-body" aria-label="Carte Leaflet des alertes">
+            <div id="alertsMap" class="alerts-map alerts-map--dedicated"></div>
+            <div class="map-legend sos-alerts-map-legend">
+                <span class="map-legend-item">
+                    <span class="map-dot alert-dot"></span> Alerte
+                </span>
+                <span class="map-legend-item">
+                    <span class="map-dot hospital-dot"></span> Hôpital assigné
+                </span>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script
+        id="leafletCdnScript"
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        crossorigin="anonymous"
+        onload="window.__handleLeafletLoaded && window.__handleLeafletLoaded()"
+        onerror="window.__loadLeafletFallback && window.__loadLeafletFallback()"
+    ></script>
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/sos-mh-alert-modal.js"></script>
+    <script src="js/sos-dashboard.js"></script>
+</body>
+</html>

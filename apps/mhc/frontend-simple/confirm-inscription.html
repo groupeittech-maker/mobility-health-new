@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activation du compte - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .confirm-status {
+            text-align: center;
+            margin-top: 1rem;
+        }
+        .confirm-status--success {
+            color: #0f766e;
+        }
+        .confirm-status--error {
+            color: #b91c1c;
+        }
+        .confirm-status--info {
+            color: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+    <main class="auth-shell">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare">
+                <p class="slogan">Travel safe. Life free</p>
+            </div>
+            <h2>Activation de votre compte</h2>
+            <p id="confirmMessage" class="muted confirm-status">Traitement de votre confirmation...</p>
+            <div class="auth-links" style="margin-top: 2rem;">
+                <p><a href="login.html" style="color: var(--primary-color); text-decoration: none;">Aller à la connexion</a></p>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/confirm-inscription.js"></script>
+</body>
+</html>

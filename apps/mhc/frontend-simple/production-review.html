@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demandes de souscription - Production - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body data-review-type="production">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+                <span class="brand-text">Production</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="production-review.html" class="active" id="navDocumentsValidation">Demandes de souscription</a></li>
+                <li><a href="#resiliations" onclick="showResiliationsTab(); return false;">Demandes de résiliation</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2 id="reviewTitle">Demandes de souscription en attente</h2>
+            <p id="reviewIntro">Souscriptions en attente de validation définitive. Après approbation, l'attestation définitive et la carte santé numérique seront générées automatiquement.</p>
+        </div>
+
+        <!-- Onglets -->
+        <div class="tabs-container" style="margin-bottom: 2rem; border-bottom: 2px solid var(--border-color);">
+            <button class="tab-button active" onclick="showValidationsTab()" id="validationsTab">
+                Demandes de souscription
+                <span id="validationsCount" style="margin-left: 0.5rem; color: var(--muted-text); font-weight: normal;">(0)</span>
+            </button>
+            <button class="tab-button" onclick="showResiliationsTab()" id="resiliationsTab">
+                Demandes de résiliation
+                <span id="resiliationsCount" style="margin-left: 0.5rem; color: var(--muted-text); font-weight: normal;">(0)</span>
+            </button>
+        </div>
+
+        <!-- Section Documents de validation -->
+        <section id="validationsSection" class="dashboard-section" aria-label="Demandes de souscription">
+            <div id="reviewContainer" class="review-grid">
+                <div class="alert alert-info">Chargement des demandes de souscription...</div>
+            </div>
+        </section>
+
+        <!-- Section Résiliations -->
+        <section id="resiliationsSection" class="dashboard-section" style="display: none;">
+            <div id="resiliationsContainer">
+                <div class="alert alert-info">Chargement des demandes de résiliation...</div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modale détail du dossier (même présentation que validation des inscriptions) -->
+    <div id="productionDetailOverlay" class="modal-overlay" hidden aria-hidden="true"
+         style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem;"
+         onclick="if (event.target === this) window.closeProductionDetailModal && closeProductionDetailModal();">
+        <div id="productionDetailModal" class="card" role="dialog" aria-labelledby="productionDetailTitle"
+             style="max-width: 1100px; width: min(96vw, 1100px); max-height: 92vh; overflow: auto; border-radius: 18px; box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22);"
+             onclick="event.stopPropagation();">
+            <div class="card-body">
+                <h3 id="productionDetailTitle" style="margin-top: 0;">Détail du dossier</h3>
+                <div id="productionDetailBody"></div>
+                <div id="productionDetailActions" style="margin-top: 1.25rem; display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-end; align-items: center;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pour traiter une résiliation -->
+    <div id="resiliationProcessModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 id="resiliationProcessModalTitle">Traiter la demande de résiliation</h3>
+                <button class="close" onclick="closeResiliationProcessModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="resiliationProcessDetails"></div>
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label for="resiliationProcessNotes">Notes (optionnel)</label>
+                    <textarea id="resiliationProcessNotes" rows="4" placeholder="Ajoutez des notes sur votre décision..."></textarea>
+                </div>
+            </div>
+            <div class="modal-actions" style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="closeResiliationProcessModal()">Annuler</button>
+                <button type="button" class="btn btn-danger" onclick="rejectResiliation()">Refuser</button>
+                <button type="button" class="btn btn-success" onclick="approveResiliation()">Approuver</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .tabs-container {
+            display: flex;
+            gap: 1rem;
+        }
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 1rem;
+            color: var(--secondary-color);
+            transition: all 0.2s;
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .tab-button.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+            font-weight: bold;
+        }
+        .tab-button:hover {
+            color: var(--primary-color);
+        }
+        .badge {
+            background: var(--danger-color);
+            color: white;
+            border-radius: 12px;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        .resiliation-card {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .resiliation-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        .resiliation-card-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--dark-text);
+            margin: 0;
+        }
+        .resiliation-card-date {
+            color: var(--muted-text);
+            font-size: 0.9rem;
+        }
+        .resiliation-card-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .resiliation-card-info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .resiliation-card-info-label {
+            font-size: 0.85rem;
+            color: var(--muted-text);
+            margin-bottom: 0.25rem;
+        }
+        .resiliation-card-info-value {
+            font-weight: 500;
+            color: var(--dark-text);
+        }
+        .resiliation-card-notes {
+            background: var(--light-bg);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .resiliation-card-notes-label {
+            font-size: 0.85rem;
+            color: var(--muted-text);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        .resiliation-card-notes-text {
+            color: var(--dark-text);
+            line-height: 1.5;
+        }
+        .resiliation-card-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+        }
+        /* Modal détail – présentation lisible */
+        #productionDetailModal .production-detail-section .detail-row {
+            min-height: 2rem;
+            align-items: center;
+        }
+        #productionDetailModal .production-detail-section .detail-row:last-child {
+            border-bottom: none;
+        }
+        #productionDetailModal .production-detail-section .muted {
+            color: var(--muted-text, #6c757d);
+        }
+        #productionDetailModal .card-body {
+            padding: 1.5rem;
+        }
+        #productionDetailModal {
+            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+        }
+        #productionDetailBody {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1rem;
+            align-items: start;
+        }
+        #productionDetailModal .production-detail-section {
+            margin-bottom: 0;
+            height: fit-content;
+        }
+        #productionDetailActions {
+            border-top: 1px solid var(--border-color, #e5e7eb);
+            padding-top: 1rem;
+        }
+        /* Pièces jointes consultables dans le modal */
+        #productionDetailModal .modal-pj-link {
+            display: inline-block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--primary-color, #0d9488);
+            font-weight: 600;
+        }
+        #productionDetailModal .modal-pj-item {
+            background: rgba(248, 250, 252, 0.9);
+            border: 1px solid var(--border-color, #e5e7eb);
+            border-radius: 12px;
+            padding: 0.85rem 1rem;
+            margin-bottom: 0.75rem;
+        }
+        #productionDetailModal .modal-pj-link:hover {
+            text-decoration: underline;
+        }
+        #productionDetailModal .modal-pj-thumbnail {
+            display: block;
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color, #dee2e6);
+            cursor: pointer;
+            margin-top: 0.25rem;
+        }
+        #productionDetailModal .modal-pj-thumbnail:hover {
+            opacity: 0.9;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        @media (max-width: 900px) {
+            #productionDetailBody {
+                grid-template-columns: 1fr;
+            }
+            #productionDetailModal {
+                width: min(98vw, 1100px);
+            }
+        }
+    </style>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js?v=20260322-2"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/devis-currency.js"></script>
+    <script src="js/review-dashboard.js?v=20260322-10"></script>
+    <script src="js/production-resiliations.js"></script>
+</body>
+</html>
+

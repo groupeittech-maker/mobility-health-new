@@ -78,7 +78,14 @@ htmlcov/
 
 # Test files
 *.json
-curl_users.json
+!package.json
+!pubspec.json
+!**/package-lock.json
+!.cursor/environment.json
+
+# Archives temporaires de déploiement
+*.tar.gz
+!deploy/**/*.tar.gz
 
 # Documentation spécifique (garder seulement README.md)
 CHECKLIST_INSTALLATION_VPS.md

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des courtiers - Back Office</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-products.html">Produits</a></li>
+                <li><a href="admin-tarification.html">Tarification</a></li>
+                <li><a href="admin-assureurs.html">Assureurs</a></li>
+                <li><a href="admin-courtiers.html" class="active">Courtiers</a></li>
+                <li><a href="admin-subscriptions.html">Souscriptions</a></li>
+                <li><a href="admin-users.html">Utilisateurs</a></li>
+                <li><a href="admin-hospitals.html">Hôpitaux</a></li>
+                <li><a href="admin-attestations.html">Attestations</a></li>
+                <li><a href="admin-destinations.html">Destinations</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <div>
+                <h2>Courtiers en assurance</h2>
+                <p>Créer des courtiers liés à un seul assureur avec commission paramétrable sur la prime.</p>
+            </div>
+            <button class="btn btn-primary" id="newCourtierBtn">Nouveau courtier</button>
+        </div>
+
+        <section class="card" style="padding: 1rem;">
+            <div class="form-grid two-col">
+                <div class="form-group">
+                    <label for="searchInput">Recherche</label>
+                    <input type="search" id="searchInput" placeholder="Nom ou pays">
+                </div>
+                <div class="form-group">
+                    <label for="assureurFilter">Assureur lié</label>
+                    <select id="assureurFilter">
+                        <option value="">Tous</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <section class="card" style="margin-top: 1rem; padding: 1rem;">
+            <h3 id="formTitle">Nouveau courtier</h3>
+            <form id="courtierForm">
+                <input type="hidden" id="courtierId">
+                <div class="form-grid two-col">
+                    <div class="form-group">
+                        <label for="nom">Nom *</label>
+                        <input id="nom" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="pays">Pays *</label>
+                        <input id="pays" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="assureurId">Assureur lié *</label>
+                        <select id="assureurId" required>
+                            <option value="">Sélectionner</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="commissionPct">Commission courtier (%) *</label>
+                        <input id="commissionPct" type="number" min="0" max="100" step="0.01" value="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="agentComptableId">Agent comptable courtier</label>
+                        <select id="agentComptableId">
+                            <option value="">Non affecté</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="telephone">Téléphone</label>
+                        <input id="telephone">
+                    </div>
+                    <div class="form-group">
+                        <label for="logoFile">Logo (PNG/JPEG)</label>
+                        <input id="logoFile" type="file" accept="image/png,image/jpeg">
+                        <div id="logoPreviewWrap" style="display:none; margin-top:.5rem;">
+                            <img id="logoPreviewImg" alt="Aperçu logo courtier" style="max-width:96px; max-height:96px; border-radius:8px; border:1px solid #e2e8f0; background:#fff; padding:.25rem;">
+                        </div>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="adresse">Adresse</label>
+                        <textarea id="adresse" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Enregistrer</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="card" style="margin-top: 1rem; padding: 1rem;">
+            <h3>Liste des courtiers</h3>
+            <div id="listMount" class="table-wrapper">Chargement...</div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/health-check.js"></script>
+    <script src="js/admin-courtiers.js"></script>
+</body>
+</html>
+

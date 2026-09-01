@@ -1,0 +1,13 @@
+{
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "install": "pip install --upgrade pip && pip install -r apps/mhc/requirements.txt",
+  "start": "sudo service docker start 2>/dev/null || true",
+  "terminals": [
+    {
+      "name": "mhc-api",
+      "command": "cd apps/mhc && docker compose up api db redis minio"
+    }
+  ]
+}

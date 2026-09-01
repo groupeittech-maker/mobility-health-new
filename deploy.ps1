@@ -1,12 +1,23 @@
 # Script de deploiement pour Mobility Health
 # Deploie le frontend et le backend sur le serveur Hostinger VPS
 
-# Configuration
-$SSH_HOST = "82.112.242.86"
-$SSH_USER = "deployer"
-$FRONTEND_PATH = "frontend-simple"
+# Racine application MHC (monorepo)
+$MHC_ROOT = "apps/mhc"
+
+# Configuration - Modifier selon votre serveur
+# $SSH_HOST = "82.112.242.86"       # IP du VPS
+$SSH_HOST = "srv1324425.hstgr.cloud"  # Hostname Hostinger
+# Compte SSH sur le VPS (root ou deployer selon votre config)
+$SSH_USER = "root"
+# Propriétaire des fichiers après déploiement (ex. root:root ou deployer:deployer)
+$FILE_OWNER = "root:root"
+$FRONTEND_PATH = "$MHC_ROOT/frontend-simple"
+
+# --- Chemins sur le VPS (srv1324425 — voir deploy/SCP-DEPLOY-CHEMINS.md) ---
+# mobility-health = symlink -> .../Mobility_Health/Mobility Health (espace) ; frontend-simple dedans.
+# Backend Docker = .../Mobility_Health/Mobility_Health (underscore, PAS "Mobility Health").
 $SERVER_FRONTEND = "/var/www/mobility-health/frontend-simple"
-$SERVER_BACKEND = "/var/www/mobility-health/backend"
+$SERVER_BACKEND = "/var/www/Mobility_Health/Mobility_Health"
 
 # Variable pour suivre les erreurs
 $script:hasErrors = $false
@@ -14,6 +25,8 @@ $script:hasErrors = $false
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Deploiement Mobility Health" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Cibles serveur : frontend=$SERVER_FRONTEND | backend=$SERVER_BACKEND" -ForegroundColor DarkGray
 Write-Host ""
 
 # Verifier que OpenSSH est disponible
@@ -35,10 +48,22 @@ if (-not (Test-Path $FRONTEND_PATH)) {
     exit 1
 }
 
-if (-not (Test-Path "app")) {
-    Write-Host "Erreur: Le dossier 'app' (backend) n'existe pas!" -ForegroundColor Red
+if (-not (Test-Path "$MHC_ROOT/app")) {
+    Write-Host "Erreur: Le dossier '$MHC_ROOT/app' (backend) n'existe pas!" -ForegroundColor Red
     exit 1
 }
+
+# Etape 0: Creer les repertoires sur le serveur (obligatoire pour SCP si absents)
+Write-Host "Etape 0: Creation des repertoires sur le serveur..." -ForegroundColor Yellow
+$prepScript = "mkdir -p '$SERVER_FRONTEND' '$SERVER_BACKEND' && chmod 755 '$SERVER_FRONTEND' '$SERVER_BACKEND' 2>/dev/null; exit 0"
+$prepResult = & ssh -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" $prepScript 2>&1
+if (-not $?) {
+    Write-Host "   Echec creation dossiers SSH. Verifiez l'acces root et les chemins." -ForegroundColor Red
+    Write-Host "   $prepResult" -ForegroundColor Gray
+    exit 1
+}
+Write-Host "   OK : $SERVER_FRONTEND et $SERVER_BACKEND" -ForegroundColor Green
+Write-Host ""
 
 # Etape 1: Deployer le frontend
 Write-Host "Etape 1/4: Deploiement du frontend..." -ForegroundColor Yellow
@@ -75,7 +100,7 @@ if (Get-Command $tarCommand -ErrorAction SilentlyContinue) {
 echo 'Extraction des fichiers frontend...'
 sudo rm -rf $SERVER_FRONTEND/*
 sudo tar xzf /tmp/frontend.tar.gz -C $SERVER_FRONTEND/
-sudo chown -R deployer:deployer $SERVER_FRONTEND
+sudo chown -R $FILE_OWNER $SERVER_FRONTEND
 rm /tmp/frontend.tar.gz
 echo 'Frontend deploye'
 "@
@@ -125,7 +150,7 @@ echo 'Frontend deploye'
     Write-Host "   $fileCount fichiers copies" -ForegroundColor Gray
     
     # Definir les permissions
-    & ssh -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "sudo chown -R deployer:deployer ${SERVER_FRONTEND}" 2>&1 | Out-Null
+    & ssh -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "sudo chown -R ${FILE_OWNER} ${SERVER_FRONTEND}" 2>&1 | Out-Null
     
     if ($?) {
         Write-Host "   Frontend deploye avec succes" -ForegroundColor Green
@@ -144,31 +169,37 @@ Write-Host "   Correction des permissions sur le serveur..." -ForegroundColor Gr
 # S'assurer que le dossier backend a les bonnes permissions
 $permScript = @"
 sudo mkdir -p $SERVER_BACKEND
-sudo chown -R deployer:deployer $SERVER_BACKEND
+sudo chown -R $FILE_OWNER $SERVER_BACKEND
 "@
 & ssh -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" $permScript 2>&1 | Out-Null
 
 Write-Host "   Copie des fichiers backend vers le serveur..." -ForegroundColor Gray
 
-# Fichiers et dossiers backend a copier
+# Source locale (monorepo) -> nom deploye sur le VPS (structure plate inchangée)
 $backendItems = @(
-    "app",
-    "alembic",
-    "docker-compose.yml",
-    "Dockerfile",
-    "requirements.txt",
-    "alembic.ini"
+    @{ Path = "$MHC_ROOT/app"; DeployName = "app" },
+    @{ Path = "$MHC_ROOT/alembic"; DeployName = "alembic" },
+    @{ Path = "$MHC_ROOT/docker-compose.yml"; DeployName = "docker-compose.yml"; IsFile = $true },
+    @{ Path = "$MHC_ROOT/docker-compose.prod.yml"; DeployName = "docker-compose.prod.yml"; IsFile = $true },
+    @{ Path = "$MHC_ROOT/Dockerfile"; DeployName = "Dockerfile"; IsFile = $true },
+    @{ Path = "$MHC_ROOT/Dockerfile.prod"; DeployName = "Dockerfile.prod"; IsFile = $true },
+    @{ Path = "$MHC_ROOT/requirements.txt"; DeployName = "requirements.txt"; IsFile = $true },
+    @{ Path = "$MHC_ROOT/alembic.ini"; DeployName = "alembic.ini"; IsFile = $true },
+    @{ Path = ".dockerignore"; DeployName = ".dockerignore"; IsFile = $true }
 )
 
 $itemCount = 0
 $totalItems = $backendItems.Count
 
-foreach ($item in $backendItems) {
+foreach ($entry in $backendItems) {
+    $item = $entry.Path
+    $deployName = $entry.DeployName
+    $isFile = $entry.IsFile -eq $true
     $itemCount++
-    Write-Host "   [$itemCount/$totalItems] Copie de '$item'..." -ForegroundColor Gray
+    Write-Host "   [$itemCount/$totalItems] Copie de '$item' -> '$deployName'..." -ForegroundColor Gray
     
     if (Test-Path $item) {
-        if (Test-Path $item -PathType Container) {
+        if (-not $isFile -and (Test-Path $item -PathType Container)) {
             # C'est un dossier - exclure __pycache__ et autres fichiers inutiles
             Write-Host "      Creation de l'archive (exclusion __pycache__)..." -ForegroundColor DarkGray
             $tempBackendArchive = "${item}-temp.tar.gz"
@@ -190,17 +221,17 @@ foreach ($item in $backendItems) {
                 Write-Host "      Transfert vers le serveur..." -ForegroundColor DarkGray
                 
                 # Copier l'archive vers le serveur
-                $scpResult = & scp -o StrictHostKeyChecking=no "$archivePath" "${SSH_USER}@${SSH_HOST}:/tmp/${item}.tar.gz" 2>&1
+                $scpResult = & scp -o StrictHostKeyChecking=no "$archivePath" "${SSH_USER}@${SSH_HOST}:/tmp/${deployName}.tar.gz" 2>&1
                 
                 if ($?) {
                     Write-Host "      Extraction sur le serveur..." -ForegroundColor DarkGray
-                    # Extraire sur le serveur
                     $extractScript = @"
 cd $SERVER_BACKEND
-sudo rm -rf ${item}
-sudo tar xzf /tmp/${item}.tar.gz
-sudo chown -R deployer:deployer ${item}
-rm /tmp/${item}.tar.gz
+sudo rm -rf ${deployName}
+sudo tar xzf /tmp/${deployName}.tar.gz
+if [ -d "${itemName}" ] && [ "${itemName}" != "${deployName}" ]; then sudo mv ${itemName} ${deployName}; fi
+sudo chown -R $FILE_OWNER ${deployName}
+rm /tmp/${deployName}.tar.gz
 "@
                     $extractResult = & ssh -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" $extractScript 2>&1
                     
@@ -220,7 +251,7 @@ rm /tmp/${item}.tar.gz
             } else {
                 # Si tar echoue, utiliser scp direct (les erreurs de __pycache__ seront ignorees)
                 Write-Host "      Utilisation de scp direct (peut prendre du temps)..." -ForegroundColor DarkGray
-                $scpResult = & scp -r -o StrictHostKeyChecking=no "$item" "${SSH_USER}@${SSH_HOST}:${SERVER_BACKEND}/" 2>&1
+                $scpResult = & scp -r -o StrictHostKeyChecking=no "$item" "${SSH_USER}@${SSH_HOST}:${SERVER_BACKEND}/${deployName}" 2>&1
                 # Les erreurs de __pycache__ ne sont pas critiques
                 if ($scpResult -match "Permission denied" -and $scpResult -match "__pycache__") {
                     Write-Host "      '$item' copie (erreurs __pycache__ ignorees)" -ForegroundColor Green
@@ -234,7 +265,7 @@ rm /tmp/${item}.tar.gz
         } else {
             # C'est un fichier
             Write-Host "      Transfert du fichier..." -ForegroundColor DarkGray
-            $scpResult = & scp -o StrictHostKeyChecking=no "$item" "${SSH_USER}@${SSH_HOST}:${SERVER_BACKEND}/" 2>&1
+            $scpResult = & scp -o StrictHostKeyChecking=no "$item" "${SSH_USER}@${SSH_HOST}:${SERVER_BACKEND}/${deployName}" 2>&1
             
             if ($?) {
                 Write-Host "      '$item' copie" -ForegroundColor Green
@@ -260,24 +291,26 @@ Write-Host "   Veuillez patienter..." -ForegroundColor DarkGray
 $dockerScript = @"
 set -e
 cd $SERVER_BACKEND
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.prod.yml"
+[ ! -f docker-compose.prod.yml ] && COMPOSE_FILES="-f docker-compose.yml"
 
-echo '[1/6] Reconstruction de l'image API...'
-if sudo docker compose build --no-cache api; then
-    echo '✓ Image API reconstruite avec succes'
+echo '[1/6] Reconstruction de l image API...'
+if sudo docker compose `$COMPOSE_FILES build --no-cache api; then
+    echo 'Image API reconstruite avec succes'
 else
-    echo '✗ Erreur lors de la reconstruction de l'image API'
+    echo 'Erreur reconstruction image API'
     exit 1
 fi
 
 echo '[2/6] Arret des services existants...'
-sudo docker compose down || true
-echo '✓ Services arretes'
+sudo docker compose `$COMPOSE_FILES down || true
+echo 'Services arretes'
 
 echo '[3/6] Demarrage de tous les services (db, redis, minio, api, celery)...'
-if sudo docker compose up -d; then
-    echo '✓ Services demarres'
+if sudo docker compose `$COMPOSE_FILES up -d; then
+    echo 'Services demarres'
 else
-    echo '✗ Erreur lors du demarrage des services'
+    echo 'Erreur demarrage services'
     exit 1
 fi
 
@@ -285,29 +318,29 @@ echo '[4/6] Attente du demarrage complet des services (15 secondes)...'
 sleep 15
 
 echo '[5/6] Application des migrations Alembic...'
-MIGRATION_RESULT=\$(sudo docker compose exec -T api alembic upgrade head 2>&1)
-MIGRATION_EXIT_CODE=\$?
-if [ \$MIGRATION_EXIT_CODE -eq 0 ]; then
-    echo '✓ Migrations Alembic appliquees avec succes'
-    echo "\$MIGRATION_RESULT"
+MIGRATION_RESULT=`$(sudo docker compose `$COMPOSE_FILES exec -T api alembic upgrade head 2>&1)
+MIGRATION_EXIT_CODE=`$?
+if [ `$MIGRATION_EXIT_CODE -eq 0 ]; then
+    echo 'Migrations Alembic appliquees avec succes'
+    echo "`$MIGRATION_RESULT"
 else
-    echo '✗ Erreur lors de l'application des migrations Alembic'
-    echo "\$MIGRATION_RESULT"
+    echo 'Erreur lors de l application des migrations Alembic'
+    echo "`$MIGRATION_RESULT"
     exit 1
 fi
 
-echo '[6/6] Redemarrage de l'API pour appliquer les changements...'
-if sudo docker compose restart api; then
-    echo '✓ API redemarree'
+echo '[6/6] Redemarrage de l API pour appliquer les changements...'
+if sudo docker compose `$COMPOSE_FILES restart api; then
+    echo 'API redemarree'
 else
-    echo '✗ Erreur lors du redemarrage de l'API'
+    echo 'Erreur redemarrage API'
     exit 1
 fi
 
-echo '[Verification] Verification de l'etat des services...'
+echo '[Verification] Verification de l etat des services...'
 sleep 5
-SERVICES_STATUS=\$(sudo docker compose ps --format json)
-echo "\$SERVICES_STATUS"
+SERVICES_STATUS=`$(sudo docker compose `$COMPOSE_FILES ps --format json)
+echo "`$SERVICES_STATUS"
 
 echo 'Tous les services sont redemarres'
 "@
@@ -362,8 +395,10 @@ Write-Host "Etape 4/5: Verification de l'etat des services Docker..." -Foregroun
 
 $checkServicesScript = @"
 cd $SERVER_BACKEND
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.prod.yml"
+[ ! -f docker-compose.prod.yml ] && COMPOSE_FILES="-f docker-compose.yml"
 echo 'Verification des services Docker...'
-sudo docker compose ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}'
+sudo docker compose `$COMPOSE_FILES ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}'
 "@
 
 $servicesStatus = & ssh -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" $checkServicesScript 2>&1

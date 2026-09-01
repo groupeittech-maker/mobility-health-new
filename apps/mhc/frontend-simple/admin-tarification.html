@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tarification voyage - Back Office</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-products.html">Produits</a></li>
+                <li><a href="admin-tarification.html" class="active">Tarification</a></li>
+                <li><a href="admin-assureurs.html">Assureurs</a></li>
+                <li><a href="admin-courtiers.html">Courtiers</a></li>
+                <li><a href="admin-subscriptions.html">Souscriptions</a></li>
+                <li><a href="admin-users.html">Utilisateurs</a></li>
+                <li><a href="admin-hospitals.html">Hôpitaux</a></li>
+                <li><a href="admin-attestations.html">Attestations</a></li>
+                <li><a href="admin-destinations.html">Destinations</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header" style="margin-bottom: 1rem;">
+            <div>
+                <h2>Tarification voyage</h2>
+                <p class="text-muted" style="margin: 0.35rem 0 0; max-width: 52rem;">
+                    Le devis utilise d’abord le <strong>tarifaire ci-dessous</strong> (zone × durée) + <strong>surprimes âge</strong>, sauf si le produit définit une <a href="admin-products.html">matrice tarifaire</a> ou une grille finale dédiée.
+                    Codes moteur : <code>INTRA_AFRIQUE</code>, <code>RSA_MAGHREB</code>, <code>EXTRA_AFRIQUE</code>, <code>INTER_AFRIQUE</code>. Un pays peut être coché dans <strong>plusieurs</strong> zones si besoin (ex. intra + inter) : le devis utilise une priorité (RSA, puis Extra, puis Intra, puis Inter ; Intra l’emporte sur Inter pour les trajets intra→intra).
+                </p>
+            </div>
+        </div>
+
+        <section class="product-form-section" style="margin-bottom: 1.75rem;">
+            <div id="voyageReferencePanel"></div>
+        </section>
+
+        <section class="product-form-section" style="margin-bottom: 1.5rem;">
+            <div class="section-heading">
+                <div class="section-index">1</div>
+                <div>
+                    <h4>Zones et pays</h4>
+                    <p class="text-muted small" style="margin: 0;">Rattachez les pays aux zones (plusieurs zones possibles pour un même pays). Listes pays : <a href="admin-destinations.html">Destinations</a>.</p>
+                </div>
+            </div>
+            <details class="mh-admin-details">
+                <summary>Codes zones attendus par le moteur</summary>
+                <div id="canonicalVoyageHint"></div>
+            </details>
+            <div id="zonesAlert"></div>
+            <div class="form-grid two-col" style="margin-bottom: 1rem;">
+                <div class="form-group">
+                    <label>Code zone *</label>
+                    <input type="text" id="newZoneCode" placeholder="ex: INTRA_AFRIQUE" maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label>Nom *</label>
+                    <input type="text" id="newZoneNom" placeholder="Libellé affichage" maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label>Ordre (priorité affichage)</label>
+                    <input type="number" id="newZoneOrdre" min="0" value="0">
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary" id="btnAddZone">Ajouter la zone</button>
+            <div class="tarifs-prime-table-wrap" style="margin-top: 1rem;">
+                <table class="tarifs-prime-table">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Nom</th>
+                            <th>Pays</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="zonesTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <details id="tarifAdvanced" class="product-form-section" style="margin-bottom: 2rem; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0 1rem 1rem; background: #fff;">
+            <summary style="cursor: pointer; font-weight: 600; padding: 1rem 0; user-select: none;">Réglages avancés (fenêtres durée, tranches âge, grilles SQL de repli)</summary>
+            <p class="text-muted small" style="margin: 0 0 1rem;">À utiliser pour l’alignement base de données, tests ou cas exceptionnels. Le tarif voyageur repose sur le tableau <strong>PRIMES</strong> (grille JSON moteur) en routine.</p>
+
+        <section style="margin-bottom: 2rem;">
+            <div class="section-heading">
+                <div class="section-index">2</div>
+                <div>
+                    <h4>Fenêtres de durée (jours)</h4>
+                    <p class="text-muted small" style="margin: 0;">Colonnes de la grille SQL (ex. 1–7 j., 8–15 j.). En cas de chevauchement, la plus forte priorité l’emporte.</p>
+                </div>
+            </div>
+            <div id="fenetresAlert"></div>
+            <div class="form-grid two-col" style="margin-bottom: 1rem;">
+                <div class="form-group">
+                    <label>Libellé</label>
+                    <input type="text" id="newFdLibelle" placeholder="ex: 1 semaine" maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label>Durée min (j) *</label>
+                    <input type="number" id="newFdMin" min="0" value="1">
+                </div>
+                <div class="form-group">
+                    <label>Durée max (j) *</label>
+                    <input type="number" id="newFdMax" min="0" value="7">
+                </div>
+                <div class="form-group">
+                    <label>Priorité</label>
+                    <input type="number" id="newFdPriorite" min="0" value="0">
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary" id="btnAddFenetre">Ajouter la fenêtre</button>
+            <div class="tarifs-prime-table-wrap" style="margin-top: 1rem;">
+                <table class="tarifs-prime-table">
+                    <thead>
+                        <tr>
+                            <th>Libellé</th>
+                            <th>Min</th>
+                            <th>Max</th>
+                            <th>Priorité</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="fenetresTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="product-form-section">
+            <div class="section-heading">
+                <div class="section-index">3</div>
+                <div>
+                    <h4>Tranches d’âge (multiplicateurs SQL)</h4>
+                    <p class="text-muted small" style="margin: 0;">Ex. <code>1,30</code> = +30 % sur le prix grille. Les <strong>surprimes %</strong> affichées aux voyageurs suivent la table du haut sauf surcharge produit.</p>
+                </div>
+            </div>
+            <div id="tranchesAlert"></div>
+            <div class="form-grid two-col" style="margin-bottom: 1rem;">
+                <div class="form-group">
+                    <label>Libellé</label>
+                    <input type="text" id="newTaLibelle" placeholder="ex: Senior" maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label>Âge min (vide = sans min)</label>
+                    <input type="number" id="newTaMin" min="0" max="120" placeholder="—">
+                </div>
+                <div class="form-group">
+                    <label>Âge max (vide = sans max)</label>
+                    <input type="number" id="newTaMax" min="0" max="120" placeholder="—">
+                </div>
+                <div class="form-group">
+                    <label>Multiplicateur *</label>
+                    <input type="number" id="newTaCoeff" min="0" step="0.000001" value="1" title="Ex. 1,30 pour +30 %">
+                </div>
+                <div class="form-group">
+                    <label>Priorité</label>
+                    <input type="number" id="newTaPriorite" min="0" value="0">
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary" id="btnAddTranche">Ajouter la tranche</button>
+            <div class="tarifs-prime-table-wrap" style="margin-top: 1rem;">
+                <table class="tarifs-prime-table">
+                    <thead>
+                        <tr>
+                            <th>Libellé</th>
+                            <th>Âge min</th>
+                            <th>Âge max</th>
+                            <th>Mult.</th>
+                            <th>Priorité</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tranchesTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="product-form-section" style="margin-bottom: 2rem;">
+            <div class="section-heading">
+                <div class="section-index">4</div>
+                <div>
+                    <h4>Grille de référence SQL (18–69 ans)</h4>
+                    <p class="text-muted small" style="margin: 0;">Montants par zone × fenêtre de durée (repli moteur si pas de matrice / grille JSON).</p>
+                </div>
+            </div>
+            <div id="grilleAlert"></div>
+            <div class="tarifs-prime-table-wrap" style="overflow-x: auto;">
+                <table class="tarifs-prime-table" id="grilleMatrixTable">
+                    <thead><tr><th>Zone</th></tr></thead>
+                    <tbody id="grilleMatrixBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="product-form-section" style="margin-bottom: 2rem;">
+            <div class="section-heading">
+                <div class="section-index">5</div>
+                <div>
+                    <h4>Grille finale SQL globale</h4>
+                    <p class="text-muted small" style="margin: 0;">Repli après grilles voyage et <a href="admin-products.html">grille finale par produit</a>.</p>
+                </div>
+            </div>
+            <div id="grilleFinaleAlert"></div>
+            <div class="form-grid two-col" style="margin-bottom: 1rem;">
+                <div class="form-group">
+                    <label>Zone *</label>
+                    <select id="gfZone"><option value="">— Chargement —</option></select>
+                </div>
+                <div class="form-group">
+                    <label>Durée (fenêtre) *</label>
+                    <select id="gfFenetre"><option value="">— Chargement —</option></select>
+                </div>
+                <div class="form-group">
+                    <label>Tranche d’âge *</label>
+                    <select id="gfTranche"><option value="">— Chargement —</option></select>
+                </div>
+                <div class="form-group">
+                    <label>Coefficient (optionnel)</label>
+                    <input type="number" id="gfCoeff" min="0" step="0.000001" placeholder="Vide = multiplicateur de la tranche">
+                </div>
+                <div class="form-group">
+                    <label>Tarif final (F CFA) *</label>
+                    <input type="number" id="gfTarif" min="0" step="1" placeholder="Montant affiché au devis">
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary" id="btnGrilleFinaleSave">Enregistrer la cellule</button>
+            <div class="tarifs-prime-table-wrap" style="margin-top: 1rem; overflow-x: auto;">
+                <table class="tarifs-prime-table">
+                    <thead>
+                        <tr>
+                            <th>Zone</th>
+                            <th>Durée séjour</th>
+                            <th>Tranche âge</th>
+                            <th>Coeff.</th>
+                            <th>Tarif final</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="grilleFinaleBody"></tbody>
+                </table>
+            </div>
+        </section>
+        </details>
+    </main>
+
+    <div id="zonePaysModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3 id="zonePaysModalTitle">Pays de la zone</h3>
+                <button type="button" class="close" onclick="closeZonePaysModal()">&times;</button>
+            </div>
+            <p class="text-muted small">Cochez les pays rattachés à cette zone.</p>
+            <div id="zonePaysCheckboxList" style="max-height: 360px; overflow-y: auto; margin: 1rem 0;"></div>
+            <button type="button" class="btn btn-primary" onclick="saveZonePays()">Enregistrer les pays</button>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/voyage-tariff-reference-ui.js?v=1"></script>
+    <script src="js/admin-tarification.js?v=20260403-2"></script>
+</body>
+</html>

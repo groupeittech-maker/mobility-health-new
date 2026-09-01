@@ -48,8 +48,8 @@ jobs:
     
     - name: Create frontend archive
       run: |
-        cd frontend-simple
-        tar czf ../frontend.tar.gz .
+        cd apps/mhc/frontend-simple
+        tar czf ../../../frontend.tar.gz .
     
     - name: Copy frontend archive to server
       uses: appleboy/scp-action@v0.1.7
@@ -70,10 +70,14 @@ jobs:
     - name: Create backend archives
       run: |
         echo "📦 Creating backend archives..."
-        # Créer une archive pour le dossier app (exclure __pycache__)
-        tar czf app.tar.gz --exclude="__pycache__" --exclude="*.pyc" --exclude="*.pyo" --exclude=".git" app/
-        # Créer une archive pour le dossier alembic
-        tar czf alembic.tar.gz --exclude="__pycache__" --exclude="*.pyc" --exclude=".git" alembic/
+        tar czf app.tar.gz --exclude="__pycache__" --exclude="*.pyc" --exclude="*.pyo" --exclude=".git" -C apps/mhc app/
+        tar czf alembic.tar.gz --exclude="__pycache__" --exclude="*.pyc" --exclude=".git" -C apps/mhc alembic/
+        cp apps/mhc/docker-compose.yml .
+        cp apps/mhc/docker-compose.prod.yml .
+        cp apps/mhc/Dockerfile .
+        cp apps/mhc/Dockerfile.prod .
+        cp apps/mhc/requirements.txt .
+        cp apps/mhc/alembic.ini .
         echo "✅ Backend archives created"
     
     - name: Copy backend archives to server
@@ -83,7 +87,7 @@ jobs:
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: 22
-        source: "app.tar.gz,alembic.tar.gz,docker-compose.yml,Dockerfile,requirements.txt,alembic.ini"
+        source: "app.tar.gz,alembic.tar.gz,docker-compose.yml,docker-compose.prod.yml,Dockerfile,Dockerfile.prod,requirements.txt,alembic.ini"
         target: "/tmp/"
         timeout: 300s
         command_timeout: 300s
@@ -130,8 +134,8 @@ jobs:
         timeout: 600s
         command_timeout: 600s
         script: |
-          set -e  # Arrêter en cas d'erreur
-          cd /var/www/mobility-health/backend
+          set -e
+          cd /var/www/Mobility_Health/Mobility_Health
           
           # Corriger les permissions
           echo "🔧 Fixing permissions..."

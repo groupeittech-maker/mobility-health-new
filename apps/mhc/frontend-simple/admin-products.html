@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Produits - Back Office</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-products.html" class="active">Produits</a></li>
+                <li><a href="admin-tarification.html">Tarification</a></li>
+                <li><a href="admin-assureurs.html">Assureurs</a></li>
+                <li><a href="admin-courtiers.html">Courtiers</a></li>
+                <li><a href="admin-subscriptions.html">Souscriptions</a></li>
+                <li><a href="admin-users.html">Utilisateurs</a></li>
+                <li><a href="admin-hospitals.html">Hôpitaux</a></li>
+                <li><a href="admin-attestations.html">Attestations</a></li>
+                <li><a href="admin-destinations.html">Destinations</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <div>
+                <h2>Produits assurance voyage</h2>
+                <p class="text-muted" style="margin: 0.35rem 0 0; max-width: 48rem;">
+                    <strong>Devis :</strong> matrice tarifaire du produit si elle contient des lignes → sinon tarifaire commun (voir ci-dessous) + surprimes âge → repli grille / tarif de base.
+                    <a href="admin-tarification.html">Zones &amp; pays</a> · <a href="admin-destinations.html">Destinations</a>
+                </p>
+            </div>
+            <button class="btn btn-primary" onclick="showProductModal()">Créer un produit</button>
+        </div>
+
+        <section class="product-form-section" style="margin-bottom: 1.5rem;">
+            <div id="productsVoyageTariffMount"></div>
+        </section>
+
+        <div class="filter-section" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+            <label>Filtrer par statut:</label>
+            <select id="statusFilter" onchange="loadProducts()" aria-label="Filtrer par statut">
+                <option value="">Tous</option>
+                <option value="true">Actifs</option>
+                <option value="false">Inactifs</option>
+            </select>
+            <label for="searchProducts" class="sr-only">Rechercher</label>
+            <input type="search" id="searchProducts" class="search-input" placeholder="Code, nom, assureur…" style="max-width: 280px;" aria-label="Rechercher dans les produits">
+        </div>
+
+        <div id="productsTableContainer">
+            <div class="loading">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal pour créer/modifier un produit -->
+    <div id="productModal" class="modal modal-full">
+        <div class="modal-content product-modal">
+            <div class="modal-header">
+                <div>
+                    <p class="section-index text-muted">Assurance voyage</p>
+                    <h3 id="modalTitle">Nouveau produit</h3>
+                </div>
+                <button class="close" onclick="closeProductModal()" aria-label="Fermer le formulaire">&times;</button>
+            </div>
+            <form id="productForm" novalidate>
+                <input type="hidden" id="productId" name="productId">
+
+                <section class="product-form-section">
+                    <div class="section-heading">
+                        <div class="section-index">[A]</div>
+                        <div>
+                            <h4>Informations générales</h4>
+                            <p>Renseignez les informations essentielles telles que l’assureur, le code produit et son statut.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-grid two-col">
+                        <div class="form-group">
+                            <div class="label-with-action">
+                                <label for="assureurSelect">Compagnie d'assurance *</label>
+                                <button type="button" class="btn btn-link" onclick="window.location.href='admin-assureurs.html'">
+                                    Gérer les assureurs
+                                </button>
+                            </div>
+                            <select id="assureurSelect" name="assureurSelect" aria-describedby="assureurHelperText">
+                                <option value="">Chargement...</option>
+                            </select>
+                            <p class="text-muted small" id="assureurHelperText">
+                                Sélectionnez un assureur enregistré. Aucun produit ne peut être créé sans assureur.
+                            </p>
+                        </div>
+                        <div class="form-group">
+                            <label for="nom">Nom du produit *</label>
+                            <input type="text" id="nom" name="nom" required>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="description">Description</label>
+                            <textarea id="description" name="description" rows="3" placeholder="Résumé commercial du produit"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="code">Code produit *</label>
+                            <input type="text" id="code" name="code" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="cout">Tarif de base (dernier repli) *</label>
+                            <input type="number" id="cout" name="cout" min="1" step="1" value="1" required title="Si aucune matrice, grille ni tarif commun ne s’applique">
+                            <p class="text-muted small">F CFA — utilisé seulement en dernier recours.</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="statut">Statut</label>
+                            <select id="statut" name="statut">
+                                <option value="active">Actif</option>
+                                <option value="inactive">Inactif</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="assureurSummaryCard" class="assureur-summary-card text-muted">
+                        Sélectionnez un assureur pour afficher ses détails (pays, logo, agent comptable).
+                    </div>
+                </section>
+
+                <section class="product-form-section">
+                    <div class="section-heading">
+                        <div class="section-index">[B]</div>
+                        <div>
+                            <h4>Tarification</h4>
+                            <p class="text-muted small" style="margin: 0;">
+                                <strong>Matrice</strong> (tableau ci-dessous) : si au moins une ligne valide → elle remplace le tarifaire commun. Sinon → grille <strong>PRIMES</strong> (page Tarification) + surprimes ci-dessous (ou défauts métier si champs vides). Puis repli <strong>tarif de base</strong> ([A]).
+                            </p>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="cle_repartition" name="cle_repartition" value="fixe">
+                    <input type="hidden" id="commission_assureur_pct" name="commission_assureur_pct" value="">
+                    <input type="hidden" id="duree_validite_jours" name="duree_validite_jours" value="">
+
+                    <div id="tarifsPrimeBlock" class="tarifs-prime-block" style="display: block;">
+                        <p class="text-muted small" style="margin-bottom:0.5rem;"><a class="btn btn-outline btn-sm" href="admin-tarification.html">Zones &amp; pays</a> · <a class="btn btn-outline btn-sm" href="admin-destinations.html">Destinations</a></p>
+                    </div>
+
+                    <p class="text-muted small" style="margin-top: 1rem; margin-bottom: 0.5rem;"><strong>Surprimes âge</strong> (% ajoutés sur la prime ligne ; 18–69 ans : laisser vide pour 0 %)</p>
+                    <div class="form-grid two-col">
+                        <div class="form-group">
+                            <label for="surprime_moins_18_pct">Moins de 18 ans (%)</label>
+                            <input type="number" id="surprime_moins_18_pct" name="surprime_moins_18_pct" min="0" max="1000" step="0.01" placeholder="ex: 30">
+                        </div>
+                        <div class="form-group">
+                            <label for="surprime_70_75_pct">70 à 75 ans (%)</label>
+                            <input type="number" id="surprime_70_75_pct" name="surprime_70_75_pct" min="0" max="1000" step="0.01" placeholder="ex: 2">
+                        </div>
+                        <div class="form-group">
+                            <label for="surprime_76_80_pct">76 à 80 ans (%)</label>
+                            <input type="number" id="surprime_76_80_pct" name="surprime_76_80_pct" min="0" max="1000" step="0.01" placeholder="ex: 2.5">
+                        </div>
+                        <div class="form-group">
+                            <label for="surprime_81_89_pct">81 à 89 ans (%)</label>
+                            <input type="number" id="surprime_81_89_pct" name="surprime_81_89_pct" min="0" max="1000" step="0.01" placeholder="ex: 4">
+                        </div>
+                    </div>
+
+                    <p class="text-muted small" id="productTarifsMatrixHint" style="margin-top: 0.75rem;"></p>
+                    <div class="tarifs-prime-table-wrap" style="overflow-x: auto; margin-top: 0.5rem;">
+                        <table class="tarifs-prime-table" id="productTarifsMatrixTable">
+                            <thead>
+                                <tr>
+                                    <th>Zone (code)</th>
+                                    <th>Durée min (j)</th>
+                                    <th>Durée max (j)</th>
+                                    <th>Âge min</th>
+                                    <th>Âge max</th>
+                                    <th>Tarif</th>
+                                    <th>Priorité</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="productTarifsMatrixBody"></tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-outline" id="addProductTarifRowBtn" style="margin-top: 0.75rem;">+ Ajouter une ligne tarifaire</button>
+
+                    <details class="mh-admin-details" style="margin-top: 1.25rem;">
+                        <summary>Simulation de tarif (test)</summary>
+                        <div class="form-grid two-col" style="margin-top: 0.75rem; align-items: end;">
+                            <div class="form-group">
+                                <label for="quoteSimZone">Code zone</label>
+                                <input type="text" id="quoteSimZone" placeholder="ex: INTRA_AFRIQUE">
+                            </div>
+                            <div class="form-group">
+                                <label for="quoteSimDuree">Durée (jours)</label>
+                                <input type="number" id="quoteSimDuree" min="1" placeholder="ex: 14">
+                            </div>
+                            <div class="form-group">
+                                <label for="quoteSimAge">Âge</label>
+                                <input type="number" id="quoteSimAge" min="0" max="120" placeholder="ex: 35">
+                            </div>
+                            <div class="form-group">
+                                <button type="button" class="btn btn-secondary" id="quoteSimBtn">Calculer</button>
+                            </div>
+                        </div>
+                        <p id="quoteSimResult" class="text-muted small" style="margin-top: 0.5rem;" aria-live="polite"></p>
+                    </details>
+
+                    <details class="mh-admin-details" style="margin-top: 1rem;">
+                        <summary>Grille finale SQL (par produit) — repli avancé</summary>
+                        <p class="text-muted small" style="margin: 0.75rem 0;">Après matrice et grille voyage. Repli global : <a href="admin-tarification.html" target="_blank" rel="noopener">Tarification</a>.</p>
+                        <div id="pgfGrilleFinaleAlert"></div>
+                        <p class="text-muted small" id="pgfGrilleFinaleHint" style="margin-bottom: 0.75rem;"></p>
+                        <div class="form-grid two-col" style="margin-bottom: 1rem;">
+                            <div class="form-group">
+                                <label for="pgfZone">Zone *</label>
+                                <select id="pgfZone"><option value="">— Zone —</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="pgfFenetre">Durée (fenêtre) *</label>
+                                <select id="pgfFenetre"><option value="">— Durée —</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="pgfTranche">Tranche d’âge *</label>
+                                <select id="pgfTranche"><option value="">— Tranche âge —</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="pgfCoeff">Coefficient (optionnel)</label>
+                                <input type="number" id="pgfCoeff" min="0" step="0.000001" placeholder="Vide = multiplicateur de la tranche">
+                            </div>
+                            <div class="form-group">
+                                <label for="pgfTarif">Tarif final (F CFA) *</label>
+                                <input type="number" id="pgfTarif" min="0" step="1" placeholder="Montant au devis">
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="btnPgfGrilleFinaleSave">Enregistrer la cellule</button>
+                        <div class="tarifs-prime-table-wrap" style="margin-top: 1rem; overflow-x: auto;">
+                            <table class="tarifs-prime-table">
+                                <thead>
+                                    <tr>
+                                        <th>Zone</th>
+                                        <th>Durée séjour</th>
+                                        <th>Tranche âge</th>
+                                        <th>Coeff.</th>
+                                        <th>Tarif final</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pgfGrilleFinaleBody"></tbody>
+                            </table>
+                        </div>
+                    </details>
+                </section>
+
+                <section class="product-form-section">
+                    <div class="section-heading">
+                        <div class="section-index">[C]</div>
+                        <div>
+                            <h4>Garanties incluses</h4>
+                            <p>Tableau à deux colonnes (comme le modèle papier) : <strong>Garantie</strong> et <strong>Capitaux</strong> (texte libre : montants, FCFA, libellés). Liste-type préremplie, modifiable.</p>
+                        </div>
+                    </div>
+
+                    <table class="guarantees-edit-table" role="grid" aria-label="Garanties et capitaux">
+                        <thead>
+                            <tr>
+                                <th scope="col">Garantie</th>
+                                <th scope="col">Capitaux</th>
+                                <th scope="col" class="guarantees-edit-table__actions"><span class="visually-hidden">Action</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="garantiesList"></tbody>
+                    </table>
+                    <button type="button" class="btn btn-outline" id="addGuaranteeBtn">+ Ajouter une garantie</button>
+                </section>
+
+                <section class="product-form-section">
+                    <div class="section-heading">
+                        <div class="section-index">[C']</div>
+                        <div>
+                            <h4>Exclusions générales</h4>
+                            <p>Deux colonnes : <strong>Référence</strong> (ex. Exclusion 1) et <strong>Exclusion</strong> (texte juridique). Liste-type préremplie, modifiable.</p>
+                        </div>
+                    </div>
+                    <div id="exclusionsList" class="exclusions-list exclusions-list--editor"></div>
+                    <button type="button" class="btn btn-outline" id="addExclusionBtn">+ Ajouter une exclusion</button>
+                </section>
+
+                <!-- Couverture (âges, zones, pays, conditions) : retirée de l’UI ; champs cachés pour ne pas effacer les données API à l’édition -->
+                <input type="hidden" id="age_minimum" name="age_minimum" value="">
+                <input type="hidden" id="age_maximum" name="age_maximum" value="">
+                <input type="hidden" id="duree_max_jours" name="duree_max_jours" value="">
+                <input type="hidden" id="paysEligibles" name="paysEligibles" value="">
+                <input type="hidden" id="conditions_sante" name="conditions_sante" value="">
+
+                <div class="form-actions sticky">
+                    <button type="button" class="btn btn-secondary" onclick="closeProductModal()">Annuler</button>
+                    <button type="submit" class="btn btn-primary" id="submitProductBtn">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/currency.js"></script>
+    <script src="js/voyage-tariff-reference-ui.js?v=1"></script>
+    <script src="js/admin-products.js?v=20260403-1"></script>
+</body>
+</html>
+

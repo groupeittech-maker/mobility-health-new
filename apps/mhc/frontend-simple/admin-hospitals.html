@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des hôpitaux - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <script>
+        (function () {
+            const FALLBACK_JS = 'vendor/leaflet/leaflet.js';
+            const FALLBACK_CSS = 'vendor/leaflet/leaflet.css';
+            let fallbackCssLoaded = false;
+            let fallbackScriptLoaded = false;
+            let resolveLeafletReady;
+            let rejectLeafletReady;
+            let timeoutId = null;
+            const leafletReadyPromise = new Promise((resolve, reject) => {
+                resolveLeafletReady = resolve;
+                rejectLeafletReady = reject;
+            });
+
+            function ensureCssFallback() {
+                if (fallbackCssLoaded) {
+                    return;
+                }
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = FALLBACK_CSS;
+                link.dataset.source = 'leaflet-local';
+                document.head.appendChild(link);
+                fallbackCssLoaded = true;
+            }
+
+            window.waitForLeaflet = function (timeoutMs = 8000) {
+                if (window.L) {
+                    return Promise.resolve(window.L);
+                }
+                if (timeoutMs > 0 && !timeoutId) {
+                    timeoutId = window.setTimeout(() => {
+                        if (!window.L && typeof rejectLeafletReady === 'function') {
+                            rejectLeafletReady(new Error('Leaflet non disponible'));
+                            rejectLeafletReady = null;
+                        }
+                    }, timeoutMs);
+                }
+                return leafletReadyPromise;
+            };
+
+            window.__handleLeafletLoaded = function () {
+                if (window.L && typeof resolveLeafletReady === 'function') {
+                    resolveLeafletReady(window.L);
+                    resolveLeafletReady = null;
+                }
+            };
+
+            window.__ensureLeafletCssFallback = ensureCssFallback;
+            window.__loadLeafletFallback = function () {
+                if (fallbackScriptLoaded) {
+                    return;
+                }
+                ensureCssFallback();
+                const script = document.createElement('script');
+                script.src = FALLBACK_JS;
+                script.onload = window.__handleLeafletLoaded;
+                script.onerror = function () {
+                    if (typeof rejectLeafletReady === 'function') {
+                        rejectLeafletReady(new Error('Impossible de charger Leaflet en local'));
+                        rejectLeafletReady = null;
+                    }
+                };
+                document.head.appendChild(script);
+                fallbackScriptLoaded = true;
+            };
+        })();
+    </script>
+    <link
+        id="leafletCdnCss"
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        crossorigin="anonymous"
+        data-leaflet-cdn="true"
+        onerror="window.__ensureLeafletCssFallback && window.__ensureLeafletCssFallback()"
+    >
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_officiel_mh.jpg" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-products.html">Produits</a></li>
+                <li><a href="admin-assureurs.html">Assureurs</a></li>
+                <li><a href="admin-courtiers.html">Courtiers</a></li>
+                <li><a href="admin-subscriptions.html">Souscriptions</a></li>
+                <li><a href="admin-users.html">Utilisateurs</a></li>
+                <li><a href="admin-hospitals.html" class="active">Hôpitaux</a></li>
+                <li><a href="admin-attestations.html">Attestations</a></li>
+                <li><a href="admin-destinations.html">Destinations</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <div>
+                <h2>Gestion des hôpitaux</h2>
+                <p class="muted">Créer un hôpital, choisir son médecin référent et assigner les équipes de réception et de comptabilité.</p>
+            </div>
+            <button class="btn btn-outline" id="resetFormBtn">Nouvel hôpital</button>
+        </div>
+
+        <section class="dashboard-section">
+            <h3 id="formTitle">Créer un nouvel hôpital</h3>
+            <form id="hospitalForm" class="hospital-form">
+                <div class="hospital-form-grid">
+                    <div class="form-group">
+                        <label for="nom">Nom de l'hôpital</label>
+                        <input type="text" id="nom" name="nom" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="adresse">Adresse</label>
+                        <input type="text" id="adresse" name="adresse">
+                    </div>
+                    <div class="form-group">
+                        <label for="ville">Ville</label>
+                        <input type="text" id="ville" name="ville">
+                    </div>
+                    <div class="form-group">
+                        <label for="pays">Pays</label>
+                        <input type="text" id="pays" name="pays">
+                    </div>
+                    <div class="form-group">
+                        <label for="telephone">Téléphone</label>
+                        <input type="tel" id="telephone" name="telephone">
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="specialites">Spécialités</label>
+                        <input type="text" id="specialites" name="specialites" placeholder="Urgences, Pédiatrie...">
+                    </div>
+                    <div class="form-group">
+                        <label for="capacite_lits">Capacité (lits)</label>
+                        <input type="number" id="capacite_lits" name="capacite_lits" min="0">
+                    </div>
+                </div>
+
+                <div class="hospital-form-grid">
+                    <div class="form-group">
+                        <label for="latitude">Latitude</label>
+                        <input type="number" step="0.000001" id="latitude" name="latitude" placeholder="-4.27" min="-90" max="90" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="longitude">Longitude</label>
+                        <input type="number" step="0.000001" id="longitude" name="longitude" placeholder="15.27" min="-180" max="180" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="medecinReferentSelect">Médecin référent</label>
+                        <select id="medecinReferentSelect" name="medecin_referent_id">
+                            <option value="">-- Sélectionner --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="receptionistsSelect">Agents de réception</label>
+                        <select id="receptionistsSelect" name="receptionist_ids" multiple></select>
+                        <small class="muted">Maintenez Ctrl/⌘ pour sélectionner plusieurs agents.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="doctorsSelect">Médecins hospitaliers</label>
+                        <select id="doctorsSelect" name="doctor_ids" multiple></select>
+                        <small class="muted">Sélectionnez les médecins rattachés à cet hôpital.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="accountantsSelect">Agents comptables</label>
+                        <select id="accountantsSelect" name="accountant_ids" multiple></select>
+                        <small class="muted">Ces agents gèrent la facturation hospitalière.</small>
+                    </div>
+                </div>
+
+                <div class="map-card" id="hospitalCreateMap"></div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn" id="submitBtn">Enregistrer</button>
+                    <button type="button" class="btn btn-outline" id="cancelEditBtn" hidden>Annuler</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="dashboard-section">
+            <div class="table-toolbar">
+                <div>
+                    <h3>Hôpitaux enregistrés</h3>
+                    <p class="muted">Les hôpitaux apparaissent automatiquement sur la carte.</p>
+                </div>
+                <div class="toolbar-actions" style="display: flex; align-items: center; gap: 0.75rem;">
+                    <label for="searchHospitals" class="sr-only">Rechercher</label>
+                    <input type="search" id="searchHospitals" class="search-input" placeholder="Rechercher nom, ville, pays, contact..." aria-label="Rechercher dans les hôpitaux" style="max-width: 280px;">
+                    <button class="btn btn-outline btn-sm" id="refreshHospitalsBtn">Actualiser</button>
+                </div>
+            </div>
+
+            <div class="dashboard-section map-section">
+                <div id="hospitalsMap" class="alerts-map"></div>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="data-table" id="hospitalsTable">
+                    <thead>
+                        <tr>
+                            <th>Hôpital</th>
+                            <th>Médecin référent</th>
+                            <th>Réception</th>
+                            <th>Comptabilité</th>
+                            <th>Contact</th>
+                            <th>Localisation</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hospitalsTableBody">
+                    </tbody>
+                </table>
+                <div id="hospitalsEmptyState" class="empty-state" hidden>
+                    <div class="empty-state-icon">🏥</div>
+                    <p>Aucun hôpital enregistré pour le moment.</p>
+                    <p class="muted">Utilisez le formulaire ci-dessus pour en ajouter un.</p>
+                </div>
+                <div id="hospitalsPagination" class="table-pagination-wrapper" hidden></div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script
+        id="leafletCdnScript"
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        crossorigin="anonymous"
+        onload="window.__handleLeafletLoaded && window.__handleLeafletLoaded()"
+        onerror="window.__loadLeafletFallback && window.__loadLeafletFallback()"
+    ></script>
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/admin-hospitals.js"></script>
+    <script src="js/table-scrollbar-fix.js"></script>
+</body>
+</html>
+

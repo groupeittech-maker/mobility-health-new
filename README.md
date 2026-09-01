@@ -1,90 +1,44 @@
-# Mobility Health - Backend API
+# IT-Tech Platform — Mobility Health
 
-## 📋 Description
+Monorepo de la plateforme **Mobility Health Care** et des contrats d'intégration vers les services IT-Tech.
 
-Backend API pour la plateforme Mobility Health - Version FastAPI (v2.0)
+## Structure
 
-## 🏗️ Architecture
+```
+├── apps/mhc/              # Application MHC (backend, web, mobile)
+├── contracts/             # Contrats API Payment, OCR, Trust
+├── deploy/                # Scripts déploiement VPS
+├── docs/                  # Documentation (Cloud Agent, etc.)
+├── .cursor/               # Configuration Cloud Agent Cursor
+└── .github/workflows/     # CI/CD
+```
 
-- **Framework**: FastAPI (Python 3.11+)
-- **Base de données**: SQLite (développement) / PostgreSQL (production)
-- **ORM**: SQLAlchemy 2.0
-- **Migrations**: Alembic
-- **Authentification**: JWT (access + refresh tokens)
-- **Cache/Tâches**: Redis + Celery
-- **Stockage**: MinIO
+## Démarrage
 
-## 🚀 Installation
-
-### Prérequis
-
-- Python 3.11+
-- SQLite (développement) ou PostgreSQL (production)
-- Redis (optionnel pour le développement)
-- MinIO (optionnel pour le développement)
-
-### Configuration
-
-1. Cloner le dépôt :
 ```bash
-git clone https://github.com/Mobility-Health/Mobility-Health-backend.git
-cd Mobility-Health-backend
+cd apps/mhc
+docker compose up -d
 ```
 
-2. Installer les dépendances :
-```bash
-pip install -r requirements.txt
-```
+Voir [apps/mhc/README.md](apps/mhc/README.md).
 
-3. Configurer les variables d'environnement :
-```bash
-cp env.example .env
-# Éditer .env avec vos configurations
-```
+## Cloud Agent Cursor
 
-4. Créer la base de données (SQLite par défaut) :
-```bash
-alembic upgrade head
-```
+1. Push sur GitHub
+2. Configurer le dashboard : [docs/CLOUD_AGENT_SETUP.md](docs/CLOUD_AGENT_SETUP.md)
+3. Fichier `.cursor/environment.json` déjà présent
 
-5. Démarrer le serveur :
-```bash
-uvicorn app.main:app --reload
-```
+## CI/CD
 
-L'API sera accessible sur `http://localhost:8000`
+- **CI** : push/PR sur `main` ou `develop` → tests pytest + build Docker
+- **Deploy** : push `main` ou manuel → VPS Hostinger (`deploy.yml` / `deploy.ps1`)
 
-## 📚 Documentation API
+## Roadmap services externes
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-
-## 🌿 Branches
-
-- **Backend-fastAPI**: Version actuelle avec FastAPI (v2.0)
-- **main/master**: Peut contenir l'ancienne version Django (v1.0)
-
-## 🔧 Structure du projet
-
-```
-app/
-├── api/           # Endpoints API
-├── core/          # Configuration et utilitaires
-├── models/        # Modèles SQLAlchemy
-├── schemas/       # Schémas Pydantic
-├── services/      # Services métier
-├── middleware/    # Middlewares personnalisés
-├── workers/       # Tâches Celery
-└── tests/         # Tests unitaires
-```
-
-## 📝 Notes
-
-- Le projet utilise SQLite par défaut pour le développement
-- Pour passer à PostgreSQL, décommenter les lignes dans `app/core/config.py` et `app/core/database.py`
-- Utiliser `alembic upgrade head` pour créer/mettre à jour les tables
-
-## 📄 Licence
-
-Propriétaire - Mobility Health
-
+| Phase | Service | Statut |
+|---|---|---|
+| 1 | Finaliser MHC Core | En cours |
+| 2 | OCR/HTR Service | À créer |
+| 3 | Digital Trust | À créer |
+| 4 | Payment Orchestrator (intégration) | Existant — branchement |
+| — | Flutter mobile | Conservé |
