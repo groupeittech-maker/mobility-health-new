@@ -1,7 +1,7 @@
 name: Deploy to Hostinger VPS
 
 on:
-  workflow_dispatch:  # Déclenchement manuel
+  workflow_dispatch:
   push:
     branches: [ main ]
     paths-ignore:
@@ -17,79 +17,63 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Prepare SSH key
+    - name: Prepare SSH
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        SSH_HOST: ${{ secrets.SSH_HOST }}
       run: |
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
         python3 << 'PY'
         import os, sys
         raw = os.environ.get("SSH_PRIVATE_KEY") or ""
         if not raw.strip():
-            print("::error::Le secret SSH_PRIVATE_KEY est vide. Recreez-le avec le contenu de apps/mhc/deploy-keys/github_actions_mhc (fichier SANS .pub).")
+            print("::error::Le secret SSH_PRIVATE_KEY est vide.")
             sys.exit(1)
         key = raw.replace("\r\n", "\n").replace("\r", "\n")
         if "BEGIN" in key and "\\n" in key:
             key = key.replace("\\n", "\n")
         key = key.strip() + "\n"
         if "BEGIN OPENSSH PRIVATE KEY" not in key and "BEGIN RSA PRIVATE KEY" not in key:
-            print("::error::SSH_PRIVATE_KEY n'est pas une clé privée. N'utilisez pas le fichier .pub ni un chemin Windows.")
+            print("::error::SSH_PRIVATE_KEY n'est pas une clé privée (fichier sans .pub).")
             sys.exit(1)
-        path = os.path.join(os.environ["GITHUB_WORKSPACE"], ".ssh-deploy-key")
+        path = os.path.expanduser("~/.ssh/id_ed25519")
         with open(path, "w", newline="\n") as f:
             f.write(key)
-        os.chmod(path, 0o644)
-        print("Clé SSH écrite dans le workspace (non affichée).")
+        os.chmod(path, 0o600)
+        print("Clé SSH installée dans ~/.ssh/id_ed25519")
         PY
-        chmod 644 "$GITHUB_WORKSPACE/.ssh-deploy-key"
-        ssh-keygen -y -f "$GITHUB_WORKSPACE/.ssh-deploy-key" >/dev/null
-    
+        ssh-keygen -y -f ~/.ssh/id_ed25519 >/dev/null
+        ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+        chmod 600 ~/.ssh/known_hosts || true
+
     - name: Test SSH connection
-      uses: appleboy/ssh-action@v1.2.2
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        key_path: .ssh-deploy-key
-        port: 22
-        timeout: 30s
-        command_timeout: 15s
-        script: |
-          echo "🔍 Testing SSH connection..."
-          echo "✅ Connected successfully!"
-          echo "📍 Server: $(hostname)"
-          echo "📅 Date: $(date)"
-          echo "💾 Disk space:"
-          df -h / | tail -1
-    
+      env:
+        SSH_HOST: ${{ secrets.SSH_HOST }}
+        SSH_USER: ${{ secrets.SSH_USER }}
+      run: |
+        ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
+          "${SSH_USER}@${SSH_HOST}" "echo OK; hostname; date"
+
     - name: Create frontend archive
       run: |
         tar czf frontend.tar.gz -C apps/mhc/frontend-simple .
-        ls -lah frontend.tar.gz
         test -s frontend.tar.gz
 
     - name: Copy frontend archive to server
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        key_path: .ssh-deploy-key
-        port: 22
-        source: "frontend.tar.gz"
-        target: "/tmp/"
-        timeout: 300s
-        command_timeout: 300s
-        use_insecure_cipher: false
-        strip_components: 0
-        overwrite: true
-      continue-on-error: false
-    
+      env:
+        SSH_HOST: ${{ secrets.SSH_HOST }}
+        SSH_USER: ${{ secrets.SSH_USER }}
+      run: |
+        scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+          frontend.tar.gz "${SSH_USER}@${SSH_HOST}:/tmp/frontend.tar.gz"
+
     - name: Create backend archives
       run: |
-        echo "📦 Creating backend archives..."
         tar czf app.tar.gz --exclude="__pycache__" --exclude="*.pyc" --exclude="*.pyo" --exclude=".git" -C apps/mhc app/
         tar czf alembic.tar.gz --exclude="__pycache__" --exclude="*.pyc" --exclude=".git" -C apps/mhc alembic/
         cp apps/mhc/docker-compose.yml .
@@ -98,273 +82,29 @@ jobs:
         cp apps/mhc/Dockerfile.prod .
         cp apps/mhc/requirements.txt .
         cp apps/mhc/alembic.ini .
-        echo "✅ Backend archives created"
-        ls -lah app.tar.gz alembic.tar.gz docker-compose.yml Dockerfile requirements.txt alembic.ini
-    
+
     - name: Copy backend archives to server
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        key_path: .ssh-deploy-key
-        port: 22
-        source: "app.tar.gz,alembic.tar.gz,docker-compose.yml,docker-compose.prod.yml,Dockerfile,Dockerfile.prod,requirements.txt,alembic.ini"
-        target: "/tmp/"
-        timeout: 300s
-        command_timeout: 300s
-        use_insecure_cipher: false
-        strip_components: 0
-        overwrite: true
-      continue-on-error: false
-    
+      env:
+        SSH_HOST: ${{ secrets.SSH_HOST }}
+        SSH_USER: ${{ secrets.SSH_USER }}
+      run: |
+        scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+          app.tar.gz alembic.tar.gz docker-compose.yml docker-compose.prod.yml \
+          Dockerfile Dockerfile.prod requirements.txt alembic.ini \
+          "${SSH_USER}@${SSH_HOST}:/tmp/"
+
     - name: Extract and deploy frontend
-      uses: appleboy/ssh-action@v1.2.2
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        key_path: .ssh-deploy-key
-        port: 22
-        timeout: 300s
-        command_timeout: 300s
-        script: |
-          # Extraire l'archive frontend
-          echo "📦 Extracting frontend files..."
-          sudo rm -rf /var/www/mobility-health/frontend-simple/*
-          sudo tar xzf /tmp/frontend.tar.gz -C /var/www/mobility-health/frontend-simple/
-          sudo chown -R deployer:deployer /var/www/mobility-health/frontend-simple
-          rm /tmp/frontend.tar.gz
-          
-          # Vérifier que le frontend a été mis à jour
-          echo "📦 Checking frontend files..."
-          if [ -f "/var/www/mobility-health/frontend-simple/login.html" ]; then
-            echo "✅ Frontend files found"
-            echo "📅 File date: $(stat -c %y /var/www/mobility-health/frontend-simple/login.html)"
-          else
-            echo "❌ Frontend files not found!"
-          fi
-          
-          echo "✅ Frontend deployment completed!"
-    
+      env:
+        SSH_HOST: ${{ secrets.SSH_HOST }}
+        SSH_USER: ${{ secrets.SSH_USER }}
+      run: |
+        ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+          "${SSH_USER}@${SSH_HOST}" "bash -s" < .github/scripts/remote-deploy-frontend.sh
+
     - name: Deploy backend and restart services
-      uses: appleboy/ssh-action@v1.2.2
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        key_path: .ssh-deploy-key
-        port: 22
-        timeout: 600s
-        command_timeout: 600s
-        script: |
-          set -e
-          cd /var/www/Mobility_Health/Mobility_Health
-          
-          # Corriger les permissions
-          echo "🔧 Fixing permissions..."
-          sudo chown -R deployer:deployer /var/www/mobility-health/backend
-          
-          # Extraire les archives backend
-          echo "📦 Extracting backend files..."
-          if [ -f "/tmp/app.tar.gz" ]; then
-            sudo rm -rf app
-            sudo tar xzf /tmp/app.tar.gz
-            sudo chown -R deployer:deployer app
-            rm /tmp/app.tar.gz
-            echo "✅ App directory extracted"
-          else
-            echo "❌ app.tar.gz not found!"
-            exit 1
-          fi
-          
-          if [ -f "/tmp/alembic.tar.gz" ]; then
-            sudo rm -rf alembic
-            sudo tar xzf /tmp/alembic.tar.gz
-            sudo chown -R deployer:deployer alembic
-            rm /tmp/alembic.tar.gz
-            echo "✅ Alembic directory extracted"
-          else
-            echo "❌ alembic.tar.gz not found!"
-            exit 1
-          fi
-          
-          # Copier les fichiers individuels
-          if [ -f "/tmp/docker-compose.yml" ]; then
-            sudo cp /tmp/docker-compose.yml .
-            sudo chown deployer:deployer docker-compose.yml
-            rm /tmp/docker-compose.yml
-            echo "✅ docker-compose.yml copied"
-          fi
-          
-          if [ -f "/tmp/Dockerfile" ]; then
-            sudo cp /tmp/Dockerfile .
-            sudo chown deployer:deployer Dockerfile
-            rm /tmp/Dockerfile
-            echo "✅ Dockerfile copied"
-          fi
-
-          if [ -f "/tmp/Dockerfile.prod" ]; then
-            sudo cp /tmp/Dockerfile.prod .
-            sudo chown deployer:deployer Dockerfile.prod
-            rm /tmp/Dockerfile.prod
-            echo "✅ Dockerfile.prod copied"
-          fi
-
-          if [ -f "/tmp/docker-compose.prod.yml" ]; then
-            sudo cp /tmp/docker-compose.prod.yml .
-            sudo chown deployer:deployer docker-compose.prod.yml
-            rm /tmp/docker-compose.prod.yml
-            echo "✅ docker-compose.prod.yml copied"
-          fi
-          
-          if [ -f "/tmp/requirements.txt" ]; then
-            sudo cp /tmp/requirements.txt .
-            sudo chown deployer:deployer requirements.txt
-            rm /tmp/requirements.txt
-            echo "✅ requirements.txt copied"
-          fi
-          
-          if [ -f "/tmp/alembic.ini" ]; then
-            sudo cp /tmp/alembic.ini .
-            sudo chown deployer:deployer alembic.ini
-            rm /tmp/alembic.ini
-            echo "✅ alembic.ini copied"
-          fi
-          
-          # [1/6] Reconstruire les images Docker
-          echo "[1/6] 🔨 Rebuilding Docker images..."
-          if sudo docker compose build --no-cache api; then
-            echo "✅ Image API rebuilt successfully"
-          else
-            echo "❌ Failed to rebuild API image"
-            exit 1
-          fi
-          
-          # [2/6] Arrêter les services existants et libérer les ports
-          echo "[2/6] 🛑 Stopping existing services..."
-          sudo docker compose down --remove-orphans || true
-          
-          # Libérer les ports utilisés par les conteneurs orphelins
-          echo "🔧 Freeing up ports..."
-          sudo docker ps -a --filter "name=mobility_health" --format "{{.ID}}" | xargs -r sudo docker rm -f || true
-          
-          # Vérifier et libérer le port 9000 si nécessaire
-          if sudo lsof -ti:9000 > /dev/null 2>&1; then
-            echo "⚠️ Port 9000 is in use, freeing it..."
-            sudo lsof -ti:9000 | xargs -r sudo kill -9 || true
-            sleep 2
-          fi
-          
-          echo "✅ Services stopped and ports freed"
-          
-          # [3/6] Démarrer tous les services
-          echo "[3/6] 🚀 Starting all services (db, redis, minio, api, celery)..."
-          if sudo docker compose up -d; then
-            echo "✅ Services started"
-          else
-            echo "❌ Failed to start services"
-            exit 1
-          fi
-          
-          # [4/6] Attendre que les services soient prêts et vérifier leur état
-          echo "[4/6] ⏳ Waiting for services to be ready..."
-          sleep 20
-          
-          # Vérifier l'état de tous les services
-          echo "🔍 Checking all services status..."
-          sudo docker compose ps
-          
-          # Vérifier que la base de données est accessible
-          echo "🔍 Checking database connection..."
-          DB_CHECK=$(sudo docker compose exec -T db pg_isready -U postgres 2>&1 || echo "DB not ready")
-          echo "Database check: $DB_CHECK"
-          
-          # Vérifier que l'API est en cours d'exécution
-          echo "🔍 Checking API container..."
-          if sudo docker compose ps api | grep -q "Up\|running"; then
-            echo "✅ API container is running"
-          else
-            echo "⚠️ API container may not be running, waiting 10 more seconds..."
-            sleep 10
-            sudo docker compose ps api
-          fi
-          
-          # [5/6] Exécuter les migrations Alembic avec vérification stricte
-          echo "[5/6] 📊 Running database migrations..."
-          echo "📋 Current migration status:"
-          sudo docker compose exec -T api alembic current 2>&1 || echo "Could not get current migration status"
-          
-          echo "📋 Running migrations..."
-          MIGRATION_RESULT=$(sudo docker compose exec -T api alembic upgrade head 2>&1)
-          MIGRATION_EXIT_CODE=$?
-          
-          echo "📋 Migration output:"
-          echo "$MIGRATION_RESULT"
-          
-          if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
-            echo "✅ Migrations Alembic applied successfully"
-            echo "📋 Final migration status:"
-            sudo docker compose exec -T api alembic current 2>&1 || true
-          else
-            echo "❌ Failed to apply Alembic migrations (exit code: $MIGRATION_EXIT_CODE)"
-            echo "📋 Checking API logs for errors:"
-            sudo docker compose logs api --tail 50 || true
-            echo "📋 Checking database connection:"
-            sudo docker compose exec -T db psql -U postgres -c "SELECT version();" 2>&1 || true
-            exit 1
-          fi
-          
-          # [6/6] Redémarrer l'API
-          echo "[6/6] 🔄 Restarting API..."
-          if sudo docker compose restart api; then
-            echo "✅ API restarted"
-          else
-            echo "❌ Failed to restart API"
-            exit 1
-          fi
-          
-          # Vérifier le statut des services
-          echo "📊 Checking service status..."
-          sudo docker compose ps
-          
-          # Vérifier que tous les services sont en cours d'exécution
-          SERVICES_STATUS=$(sudo docker compose ps --format json)
-          if echo "$SERVICES_STATUS" | grep -q '"State":"running"'; then
-            echo "✅ All services are running"
-          else
-            echo "⚠️ Some services may not be running properly"
-            sudo docker compose ps
-          fi
-          
-          # Redémarrer Nginx pour vider le cache
-          echo "🔄 Reloading Nginx..."
-          if sudo systemctl reload nginx; then
-            echo "✅ Nginx reloaded"
-          else
-            echo "⚠️ Failed to reload Nginx"
-          fi
-          
-          # Tester l'API avec plusieurs tentatives
-          echo "🧪 Testing API health..."
-          sleep 15
-          MAX_RETRIES=3
-          RETRY_COUNT=0
-          API_HEALTHY=false
-          
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$API_HEALTHY" = false ]; do
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-            if curl -f -s https://srv1324425.hstgr.cloud/health > /dev/null 2>&1; then
-              API_HEALTHY=true
-              echo "✅ API health check passed (attempt $RETRY_COUNT/$MAX_RETRIES)"
-              curl -s https://srv1324425.hstgr.cloud/health | head -n 5
-            else
-              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                echo "⚠️ API health check failed (attempt $RETRY_COUNT/$MAX_RETRIES), retrying in 5 seconds..."
-                sleep 5
-              else
-                echo "❌ API health check failed after $MAX_RETRIES attempts"
-                echo "Check logs with: sudo docker compose logs api"
-                exit 1
-              fi
-            fi
-          done
-          
-          echo "✅ Backend deployment completed successfully!"
+      env:
+        SSH_HOST: ${{ secrets.SSH_HOST }}
+        SSH_USER: ${{ secrets.SSH_USER }}
+      run: |
+        ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+          "${SSH_USER}@${SSH_HOST}" "bash -s" < .github/scripts/remote-deploy-backend.sh
