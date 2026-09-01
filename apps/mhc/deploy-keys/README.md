@@ -45,7 +45,15 @@ Repository → **Settings → Secrets and variables → Actions** :
 |---|---|
 | `SSH_HOST` | `srv1324425.hstgr.cloud` |
 | `SSH_USER` | `root` |
-| `SSH_PRIVATE_KEY` | contenu de `deploy-keys/github_actions_mhc` |
+| `SSH_PRIVATE_KEY` | contenu **complet** de `deploy-keys/github_actions_mhc` (fichier **sans** `.pub`) |
+
+Sous Windows, copier ainsi :
+
+```powershell
+Get-Content -Raw ".\apps\mhc\deploy-keys\github_actions_mhc" | Set-Clipboard
+```
+
+Le secret doit commencer par `-----BEGIN OPENSSH PRIVATE KEY-----` et **pas** par `ssh-ed25519`.
 
 ## Test
 

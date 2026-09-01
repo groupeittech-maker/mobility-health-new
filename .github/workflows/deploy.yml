@@ -21,13 +21,38 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Prepare SSH key
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      run: |
+        python3 << 'PY'
+        import os, sys
+        raw = os.environ.get("SSH_PRIVATE_KEY") or ""
+        if not raw.strip():
+            print("::error::Le secret SSH_PRIVATE_KEY est vide. Recreez-le avec le contenu de apps/mhc/deploy-keys/github_actions_mhc (fichier SANS .pub).")
+            sys.exit(1)
+        key = raw.replace("\r\n", "\n").replace("\r", "\n")
+        if "BEGIN" in key and "\\n" in key:
+            key = key.replace("\\n", "\n")
+        key = key.strip() + "\n"
+        if "BEGIN OPENSSH PRIVATE KEY" not in key and "BEGIN RSA PRIVATE KEY" not in key:
+            print("::error::SSH_PRIVATE_KEY n'est pas une clé privée. N'utilisez pas le fichier .pub ni un chemin Windows.")
+            sys.exit(1)
+        path = os.path.join(os.environ["GITHUB_WORKSPACE"], ".ssh-deploy-key")
+        with open(path, "w", newline="\n") as f:
+            f.write(key)
+        os.chmod(path, 0o600)
+        print("Clé SSH écrite dans le workspace (non affichée).")
+        PY
+        ssh-keygen -y -f "$GITHUB_WORKSPACE/.ssh-deploy-key" >/dev/null
     
     - name: Test SSH connection
       uses: appleboy/ssh-action@v1.2.2
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key_path: .ssh-deploy-key
         port: 22
         timeout: 30s
         command_timeout: 15s
@@ -38,16 +63,6 @@ jobs:
           echo "📅 Date: $(date)"
           echo "💾 Disk space:"
           df -h / | tail -1
-      continue-on-error: true
-    
-    - name: Check SSH connectivity
-      run: |
-        echo "ℹ️ Note: If SSH connection test failed above, the deployment may still work."
-        echo "The timeout could be due to firewall restrictions from GitHub Actions IPs."
-        echo "If deployment fails, check:"
-        echo "  1. Firewall rules on the server (allow GitHub Actions IPs)"
-        echo "  2. SSH service is running and accessible"
-        echo "  3. SSH keys are correctly configured in GitHub Secrets"
     
     - name: Create frontend archive
       run: |
@@ -60,7 +75,7 @@ jobs:
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key_path: .ssh-deploy-key
         port: 22
         source: "frontend.tar.gz"
         target: "/tmp/"
@@ -90,7 +105,7 @@ jobs:
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key_path: .ssh-deploy-key
         port: 22
         source: "app.tar.gz,alembic.tar.gz,docker-compose.yml,docker-compose.prod.yml,Dockerfile,Dockerfile.prod,requirements.txt,alembic.ini"
         target: "/tmp/"
@@ -106,7 +121,7 @@ jobs:
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key_path: .ssh-deploy-key
         port: 22
         timeout: 300s
         command_timeout: 300s
@@ -134,7 +149,7 @@ jobs:
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key_path: .ssh-deploy-key
         port: 22
         timeout: 600s
         command_timeout: 600s
