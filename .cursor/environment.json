@@ -5,7 +5,7 @@
   "terminals": [
     {
       "name": "mhc-api",
-      "command": "cd /workspace/apps/mhc && PYTHONPATH=/workspace/apps/mhc /workspace/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      "command": "bash /workspace/.cursor/start.sh && cd /workspace/apps/mhc && PYTHONPATH=/workspace/apps/mhc /workspace/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     },
     {
       "name": "mhc-frontend",
