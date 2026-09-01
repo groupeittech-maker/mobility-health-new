@@ -51,12 +51,12 @@ jobs:
     
     - name: Create frontend archive
       run: |
-        cd apps/mhc/frontend-simple
-        tar czf ../../frontend.tar.gz .
-        ls -lh ../../frontend.tar.gz
-    
+        tar czf frontend.tar.gz -C apps/mhc/frontend-simple .
+        ls -lah frontend.tar.gz
+        test -s frontend.tar.gz
+
     - name: Copy frontend archive to server
-      uses: appleboy/scp-action@v1.0.0
+      uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
@@ -83,9 +83,10 @@ jobs:
         cp apps/mhc/requirements.txt .
         cp apps/mhc/alembic.ini .
         echo "✅ Backend archives created"
+        ls -lah app.tar.gz alembic.tar.gz docker-compose.yml Dockerfile requirements.txt alembic.ini
     
     - name: Copy backend archives to server
-      uses: appleboy/scp-action@v1.0.0
+      uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
