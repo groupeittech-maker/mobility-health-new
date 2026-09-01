@@ -17,7 +17,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: Test SSH connection
       uses: appleboy/ssh-action@v1.0.0
@@ -49,7 +49,8 @@ jobs:
     - name: Create frontend archive
       run: |
         cd apps/mhc/frontend-simple
-        tar czf ../../../frontend.tar.gz .
+        tar czf ../../frontend.tar.gz .
+        ls -lh ../../frontend.tar.gz
     
     - name: Copy frontend archive to server
       uses: appleboy/scp-action@v0.1.7
@@ -178,6 +179,20 @@ jobs:
             sudo chown deployer:deployer Dockerfile
             rm /tmp/Dockerfile
             echo "✅ Dockerfile copied"
+          fi
+
+          if [ -f "/tmp/Dockerfile.prod" ]; then
+            sudo cp /tmp/Dockerfile.prod .
+            sudo chown deployer:deployer Dockerfile.prod
+            rm /tmp/Dockerfile.prod
+            echo "✅ Dockerfile.prod copied"
+          fi
+
+          if [ -f "/tmp/docker-compose.prod.yml" ]; then
+            sudo cp /tmp/docker-compose.prod.yml .
+            sudo chown deployer:deployer docker-compose.prod.yml
+            rm /tmp/docker-compose.prod.yml
+            echo "✅ docker-compose.prod.yml copied"
           fi
           
           if [ -f "/tmp/requirements.txt" ]; then
