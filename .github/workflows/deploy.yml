@@ -42,9 +42,10 @@ jobs:
         path = os.path.join(os.environ["GITHUB_WORKSPACE"], ".ssh-deploy-key")
         with open(path, "w", newline="\n") as f:
             f.write(key)
-        os.chmod(path, 0o600)
+        os.chmod(path, 0o644)
         print("Clé SSH écrite dans le workspace (non affichée).")
         PY
+        chmod 644 "$GITHUB_WORKSPACE/.ssh-deploy-key"
         ssh-keygen -y -f "$GITHUB_WORKSPACE/.ssh-deploy-key" >/dev/null
     
     - name: Test SSH connection
