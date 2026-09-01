@@ -73,6 +73,31 @@ free_port() {
   fi
 }
 
+cleanup_mhc_stack() {
+  echo "🧹 Nettoyage complet de la stack Mobility Health..."
+  sudo docker compose $COMPOSE_FILES stop -t 15 2>/dev/null || true
+  sudo docker compose $COMPOSE_FILES down -t 15 --remove-orphans 2>/dev/null || true
+
+  local names=(
+    mobility_health_db
+    mobility_health_redis
+    mobility_health_minio
+    mobility_health_api
+    mobility_health_celery_worker
+    mobility_health_celery_beat
+  )
+  for name in "${names[@]}"; do
+    if sudo docker container inspect "$name" >/dev/null 2>&1; then
+      echo "  Suppression forcée du conteneur ${name}..."
+      sudo docker rm -f "$name" || true
+    fi
+  done
+
+  sudo docker ps -aq --filter "name=mobility_health" | xargs -r sudo docker rm -f || true
+  sudo docker network rm mobility_health_default 2>/dev/null || true
+  sleep 2
+}
+
 if [ -f .env ]; then
   sed -i 's|@127.0.0.1:5433|@db:5432|g' .env || true
   sed -i 's|@localhost:5433|@db:5432|g' .env || true
@@ -84,15 +109,15 @@ echo "[1/6] 🔨 Rebuilding Docker images..."
 sudo docker compose $COMPOSE_FILES build --no-cache api celery_worker celery_beat
 
 echo "[2/6] 🛑 Stopping existing services..."
-sudo docker compose $COMPOSE_FILES down --remove-orphans || true
-sudo docker ps -a --filter "name=mobility_health" --format "{{.ID}}" | xargs -r sudo docker rm -f || true
 stop_system_redis
+cleanup_mhc_stack
 for port in 6379 5433 8000 9000 9001; do
   free_port "$port"
 done
+cleanup_mhc_stack
 
 echo "[3/6] 🚀 Starting all services..."
-sudo docker compose $COMPOSE_FILES up -d
+sudo docker compose $COMPOSE_FILES up -d --force-recreate --remove-orphans
 
 echo "[4/6] ⏳ Waiting for services..."
 sleep 20
