@@ -34,6 +34,8 @@ from app.models.hospital_exam_tarif import HospitalExamTarif
 from app.models.hospital_act_tarif import HospitalActTarif
 from app.models.destination import DestinationCountry, DestinationCity
 from app.models.ia_analysis import IAAnalysis, IAAnalysisAssureur, IAAnalysisDocument
+from app.models.mhc_reference_counter import MhcReferenceCounter
+from app.models.mhc_care_document import MhcCareDocument
 from app.models.tarification import (
     TarificationZone,
     TarificationZonePays,
@@ -90,5 +92,7 @@ __all__ = [
     "TarificationGrillePrix",
     "TarificationGrilleFinale",
     "TarificationTrancheAge",
+    "MhcReferenceCounter",
+    "MhcCareDocument",
 ]
 

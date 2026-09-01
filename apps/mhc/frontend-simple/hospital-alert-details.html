@@ -252,6 +252,27 @@
             </div>
         </section>
 
+        <section class="dashboard-section" id="mhcCareDocumentsSection" hidden>
+            <div class="section-header">
+                <h3>Bons et attestations MHC</h3>
+                <p class="muted">
+                    Parcours de prise en charge d'urgence : décision médicale, hospitalisation, sortie et rapatriements.
+                </p>
+            </div>
+            <p id="mhcCareDocStatus" class="muted">Chargement des documents...</p>
+            <ul id="mhcCareDocList" class="card-list" hidden></ul>
+            <div id="mhcCareDocIssue" class="medical-decision-card" hidden>
+                <label for="mhcCareDocType">Émettre un document</label>
+                <select id="mhcCareDocType"></select>
+                <div id="mhcCareDocFields"></div>
+                <label for="mhcCareDocNotes">Notes</label>
+                <textarea id="mhcCareDocNotes" rows="2" placeholder="Motif médical, observations..."></textarea>
+                <div class="medical-decision-actions">
+                    <button type="button" class="btn btn-primary" id="mhcCareDocIssueBtn">Émettre</button>
+                </div>
+            </div>
+        </section>
+
         <section class="dashboard-section" id="medicalDecisionSection">
             <div class="section-header">
                 <h3>Décision médicale</h3>

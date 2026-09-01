@@ -241,15 +241,9 @@ async def start_subscription(
     elif projet and projet.date_retour:
         date_fin = projet.date_retour
     
-    # Générer un numéro de souscription unique
-    numero_souscription = f"SUB-{uuid.uuid4().hex[:8].upper()}-{datetime.utcnow().strftime('%Y%m%d')}"
-    
-    # Vérifier l'unicité du numéro (très peu probable mais on vérifie)
-    existing = db.query(Souscription).filter(
-        Souscription.numero_souscription == numero_souscription
-    ).first()
-    if existing:
-        numero_souscription = f"SUB-{uuid.uuid4().hex[:8].upper()}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+    # Générer un numéro de police MHC (nomenclature)
+    from app.services.mhc_reference_service import allocate_police_number
+    numero_souscription = allocate_police_number(db, country_name=projet.destination if projet else None)
     
     # Certains serveurs peuvent temporairement exécuter un modèle Souscription plus ancien
     # que l'API déployée. On filtre donc les kwargs optionnels pour éviter les 500.

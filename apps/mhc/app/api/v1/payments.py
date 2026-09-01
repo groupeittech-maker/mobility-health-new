@@ -650,12 +650,9 @@ async def get_payment_status(
     )
 
 
-def _generate_subscription_number(db: Session) -> str:
-    numero = f"SUB-{uuid.uuid4().hex[:8].upper()}-{datetime.utcnow().strftime('%Y%m%d')}"
-    existing = db.query(Souscription).filter(Souscription.numero_souscription == numero).first()
-    if existing:
-        numero = f"SUB-{uuid.uuid4().hex[:8].upper()}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
-    return numero
+def _generate_subscription_number(db: Session, souscription: Optional["Souscription"] = None, country_name: Optional[str] = None) -> str:
+    from app.services.mhc_reference_service import allocate_police_number
+    return allocate_police_number(db, souscription=souscription, country_name=country_name)
 
 
 def _upsert_questionnaire(db: Session, subscription_id: int, questionnaire_type: str, responses: Dict[str, Any]):
@@ -812,7 +809,7 @@ async def checkout_payment(
     elif projet.date_retour:
         date_fin = projet.date_retour
 
-    numero_souscription = _generate_subscription_number(db)
+    numero_souscription = _generate_subscription_number(db, country_name=projet.destination if projet else None)
 
     # Construire les notes de la souscription
     subscription_notes = "Souscription générée via checkout"
