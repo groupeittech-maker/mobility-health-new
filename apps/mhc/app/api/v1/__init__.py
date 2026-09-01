@@ -33,6 +33,7 @@ from app.api.v1 import (
     assureur_sinistres,
     assureur_production,
     ia,  # Module IA
+    mhc_care_documents,
 )
 
 from app.api.v1.notifications import _get_notifications_handler, NotificationResponse
@@ -123,6 +124,7 @@ async def api_root():
             "documents": "/api/v1/documents",
             "invoices": "/api/v1/invoices",
             "ia": "/api/v1/ia",  # Module IA
+            "mhc": "/api/v1/mhc",
         },
         "docs": "/docs",
         "health": "/health"
@@ -169,3 +171,4 @@ api_router.include_router(assureur_production.router, prefix="/assureur/producti
 api_router.include_router(destinations.router, prefix="/destinations", tags=["destinations"])
 api_router.include_router(courtiers.router, prefix="/courtiers", tags=["courtiers"])
 api_router.include_router(ia.router, tags=["ia"])  # Module IA - Analyse documents
+api_router.include_router(mhc_care_documents.router, prefix="/mhc", tags=["mhc-prise-en-charge"])

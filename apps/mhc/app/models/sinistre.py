@@ -39,3 +39,9 @@ class Sinistre(Base, TimestampMixin):
         uselist=False,
         cascade="all, delete-orphan"
     )
+    care_documents = relationship(
+        "MhcCareDocument",
+        back_populates="sinistre",
+        cascade="all, delete-orphan",
+        order_by="MhcCareDocument.issued_at",
+    )

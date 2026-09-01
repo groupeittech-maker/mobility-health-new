@@ -1150,7 +1150,26 @@ async def verify_alert_veracity(
             if alerte and alerte.statut == "annulee":
                 alerte.statut = "en_cours"
         if not sinistre.numero_sinistre:
-            sinistre.numero_sinistre = generate_numero_sinistre()
+            from app.services.mhc_reference_service import allocate_sinistre_number
+            if sinistre.souscription_id and sinistre.souscription is None:
+                sinistre.souscription = db.query(Souscription).filter(
+                    Souscription.id == sinistre.souscription_id
+                ).first()
+            if sinistre.hospital_id and sinistre.hospital is None:
+                sinistre.hospital = db.query(Hospital).filter(Hospital.id == sinistre.hospital_id).first()
+            sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
+        from app.services.mhc_care_document_service import issue_decision_documents
+        try:
+            issue_decision_documents(
+                db,
+                sinistre,
+                approve=True,
+                actor=current_user,
+                notes=verification.notes,
+                alerte=alerte,
+            )
+        except ValueError as exc:
+            logger.warning("Émission BPCU ignorée: %s", exc)
         
         # Notifier les agents de réception de l'hôpital que l'alerte est validée
         if sinistre.hospital_id:
@@ -1186,6 +1205,27 @@ async def verify_alert_veracity(
         sinistre.statut = "annule"
         if alerte:
             alerte.statut = "annulee"
+        if not sinistre.numero_sinistre:
+            from app.services.mhc_reference_service import allocate_sinistre_number
+            if sinistre.souscription_id and sinistre.souscription is None:
+                sinistre.souscription = db.query(Souscription).filter(
+                    Souscription.id == sinistre.souscription_id
+                ).first()
+            if sinistre.hospital_id and sinistre.hospital is None:
+                sinistre.hospital = db.query(Hospital).filter(Hospital.id == sinistre.hospital_id).first()
+            sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
+        from app.services.mhc_care_document_service import issue_decision_documents
+        try:
+            issue_decision_documents(
+                db,
+                sinistre,
+                approve=False,
+                actor=current_user,
+                notes=verification.notes,
+                alerte=alerte,
+            )
+        except ValueError as exc:
+            logger.warning("Émission BRPCU ignorée: %s", exc)
 
     mark_notifications_read_for_relation(
         db,

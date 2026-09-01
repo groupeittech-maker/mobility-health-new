@@ -4,7 +4,10 @@ const ALLOWED_HOSPITAL_ROLES = [
     'medecin_referent_mh',
     'medecin_hopital',
     'doctor',
-    'agent_comptable_hopital'
+    'agent_comptable_hopital',
+    'agent_sinistre_mh',
+    'sos_operator',
+    'admin',
 ];
 const ACTIVE_ALERT_STATUSES = new Set(['en_attente', 'en_cours']);
 const ALERTS_FETCH_LIMIT = 200;
@@ -292,6 +295,7 @@ function renderSinistreInfo(sinistre, alerte) {
     renderDoctorReport();
     renderReportValidationSection();
     renderInvoiceSection();
+    loadCareDocuments();
 }
 
 function showReceptionLanding(message) {
@@ -1950,4 +1954,181 @@ function formatCurrency(value) {
     }
     return amount.toLocaleString('fr-FR', { style: 'currency', currency: 'XAF' });
 }
+
+const MHC_DOC_LABELS = {
+    bpcu: "Bon de prise en charge d'urgence",
+    brpcu: "Bon de refus de prise en charge d'urgence",
+    bh: "Bon d'hospitalisation",
+    bph: "Bon de prolongation d'hospitalisation",
+    bs: "Bulletin de sortie",
+    brs: "Bon de rapatriement sanitaire",
+    ars: "Attestation de retour de rapatriement sanitaire",
+    brf: "Bon de rapatriement funéraire",
+    arf: "Attestation de rapatriement funéraire",
+};
+
+async function loadCareDocuments() {
+    const section = document.getElementById('mhcCareDocumentsSection');
+    if (!section || !currentSinistre?.id) {
+        return;
+    }
+    section.hidden = false;
+    const statusEl = document.getElementById('mhcCareDocStatus');
+    const listEl = document.getElementById('mhcCareDocList');
+    const issueBox = document.getElementById('mhcCareDocIssue');
+    try {
+        const data = await apiCall(`/mhc/sinistres/${currentSinistre.id}/care-documents`);
+        const docs = data.documents || [];
+        if (statusEl) {
+            statusEl.textContent = data.numero_sinistre
+                ? `Sinistre ${data.numero_sinistre} — ${docs.length} document(s)`
+                : 'Le numéro de sinistre sera attribué à la validation médicale.';
+        }
+        if (listEl) {
+            if (!docs.length) {
+                listEl.hidden = true;
+                listEl.innerHTML = '';
+            } else {
+                listEl.hidden = false;
+                listEl.innerHTML = docs.map((doc) => `
+                    <li class="card-item">
+                        <strong>${escapeHtml(doc.titre || MHC_DOC_LABELS[doc.document_type] || doc.document_type)}</strong>
+                        <div class="muted">N° <span style="color:#b91c1c;font-weight:700;">${escapeHtml(doc.numero)}</span></div>
+                        <div class="muted">${escapeHtml(formatDateTime(doc.issued_at))}${doc.valid_until ? ` • valable jusqu'au ${escapeHtml(formatDateTime(doc.valid_until))}` : ''}</div>
+                        <div style="margin-top:0.5rem;">
+                            <a class="btn btn-outline btn-sm" href="${API_BASE_URL}/mhc/care-documents/${doc.id}/pdf" target="_blank" rel="noopener" onclick="return openCareDocumentPdf(event, ${doc.id})">Télécharger le PDF</a>
+                        </div>
+                    </li>
+                `).join('');
+            }
+        }
+        renderCareDocumentIssueForm(data.actions_possibles || []);
+        if (issueBox) {
+            issueBox.hidden = !(data.actions_possibles && data.actions_possibles.length);
+        }
+    } catch (error) {
+        if (statusEl) {
+            statusEl.textContent = error.message || 'Impossible de charger les documents MHC.';
+        }
+        if (issueBox) issueBox.hidden = true;
+    }
+}
+
+function renderCareDocumentIssueForm(actions) {
+    const select = document.getElementById('mhcCareDocType');
+    const fields = document.getElementById('mhcCareDocFields');
+    if (!select) return;
+    select.innerHTML = actions.map((type) =>
+        `<option value="${type}">${escapeHtml(MHC_DOC_LABELS[type] || type)}</option>`
+    ).join('');
+    const refreshFields = () => {
+        const type = select.value;
+        let extra = '';
+        if (type === 'bs') {
+            extra = `
+                <label for="mhcExitMode">Mode de sortie</label>
+                <select id="mhcExitMode">
+                    <option value="guerison">Guérison / retour au domicile</option>
+                    <option value="ambulatoire">Sortie sous traitement ambulatoire</option>
+                    <option value="transfert">Transfert inter-hospitalier</option>
+                    <option value="rapatriement_sanitaire">Rapatriement sanitaire organisé par MHC</option>
+                    <option value="autre">Autre modalité</option>
+                </select>
+                <label for="mhcResume">Résumé du rapport final</label>
+                <textarea id="mhcResume" rows="2"></textarea>
+            `;
+        } else if (type === 'bpcu' || type === 'bh') {
+            extra = `
+                <label for="mhcMotif">Motif médical / diagnostic</label>
+                <textarea id="mhcMotif" rows="2"></textarea>
+                <label for="mhcMontant">Montant maximum (si applicable)</label>
+                <input type="text" id="mhcMontant" placeholder="ex. 500000">
+            `;
+        } else if (type === 'bph') {
+            extra = `
+                <label for="mhcMotif">Motif de la prolongation</label>
+                <textarea id="mhcMotif" rows="2"></textarea>
+            `;
+        } else if (type === 'brpcu') {
+            extra = `
+                <label for="mhcMotif">Motif du refus</label>
+                <textarea id="mhcMotif" rows="2"></textarea>
+            `;
+        } else if (type === 'brs' || type === 'brf') {
+            extra = `
+                <label for="mhcDestination">Destination</label>
+                <input type="text" id="mhcDestination">
+                <label for="mhcMotif">Motif / cause</label>
+                <textarea id="mhcMotif" rows="2"></textarea>
+            `;
+        }
+        if (fields) fields.innerHTML = extra;
+    };
+    select.onchange = refreshFields;
+    refreshFields();
+}
+
+async function issueCareDocument() {
+    if (!currentSinistre?.id) return;
+    const type = document.getElementById('mhcCareDocType')?.value;
+    if (!type) return;
+    const notes = document.getElementById('mhcCareDocNotes')?.value || undefined;
+    const payload = {};
+    const motif = document.getElementById('mhcMotif')?.value;
+    const montant = document.getElementById('mhcMontant')?.value;
+    const destination = document.getElementById('mhcDestination')?.value;
+    const resume = document.getElementById('mhcResume')?.value;
+    const mode = document.getElementById('mhcExitMode')?.value;
+    if (motif) {
+        payload.motif_medical = motif;
+        payload.motif_refus = motif;
+        payload.motif_prolongation = motif;
+        payload.diagnostic = motif;
+        payload.cause_deces = motif;
+    }
+    if (montant) payload.montant_max = montant;
+    if (destination) payload.destination = destination;
+    if (resume) payload.resume_rapport = resume;
+    if (mode) payload.mode_sortie = mode;
+    const btn = document.getElementById('mhcCareDocIssueBtn');
+    if (btn) btn.disabled = true;
+    try {
+        await apiCall(`/mhc/sinistres/${currentSinistre.id}/care-documents`, {
+            method: 'POST',
+            body: JSON.stringify({ document_type: type, payload, notes }),
+        });
+        showAlert('Document MHC émis.', 'success');
+        await loadCareDocuments();
+        await loadAlertDetails();
+    } catch (error) {
+        showAlert(error.message || "Impossible d'émettre le document.", 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+function openCareDocumentPdf(event, documentId) {
+    event.preventDefault();
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+    const url = `${API_BASE_URL}/mhc/care-documents/${documentId}/pdf`;
+    fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+        .then((res) => {
+            if (!res.ok) throw new Error('PDF indisponible');
+            return res.blob();
+        })
+        .then((blob) => {
+            const objectUrl = URL.createObjectURL(blob);
+            window.open(objectUrl, '_blank', 'noopener');
+        })
+        .catch((err) => showAlert(err.message || 'Impossible d’ouvrir le PDF.', 'error'));
+    return false;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const issueBtn = document.getElementById('mhcCareDocIssueBtn');
+    if (issueBtn) {
+        issueBtn.addEventListener('click', issueCareDocument);
+    }
+});
+
 
