@@ -47,33 +47,65 @@ copy_tmp docker-compose.prod.yml docker-compose.prod.yml
 copy_tmp requirements.txt requirements.txt
 copy_tmp alembic.ini alembic.ini
 
-echo "[1/6] 🔨 Rebuilding Docker images..."
-sudo docker compose build --no-cache api
-
-echo "[2/6] 🛑 Stopping existing services..."
-sudo docker compose down --remove-orphans || true
-sudo docker ps -a --filter "name=mobility_health" --format "{{.ID}}" | xargs -r sudo docker rm -f || true
-if command -v lsof >/dev/null && sudo lsof -ti:9000 >/dev/null 2>&1; then
-  echo "⚠️ Port 9000 is in use, freeing it..."
-  sudo lsof -ti:9000 | xargs -r sudo kill -9 || true
-  sleep 2
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.prod.yml"
+if [ ! -f docker-compose.prod.yml ]; then
+  COMPOSE_FILES="-f docker-compose.yml"
 fi
 
+stop_system_redis() {
+  for svc in redis-server redis; do
+    if systemctl is-active --quiet "$svc" 2>/dev/null; then
+      echo "⚠️ Arrêt du Redis système ($svc) pour libérer le port 6379..."
+      sudo systemctl stop "$svc" || true
+      sudo systemctl disable "$svc" || true
+    fi
+  done
+}
+
+free_port() {
+  local port="$1"
+  sudo docker ps -q --filter "publish=${port}" | xargs -r sudo docker stop || true
+  sudo docker ps -aq --filter "publish=${port}" | xargs -r sudo docker rm -f || true
+  if command -v lsof >/dev/null && sudo lsof -ti:"${port}" >/dev/null 2>&1; then
+    echo "⚠️ Port ${port} occupé, libération..."
+    sudo lsof -ti:"${port}" | xargs -r sudo kill -9 || true
+    sleep 2
+  fi
+}
+
+if [ -f .env ]; then
+  sed -i 's|@127.0.0.1:5433|@db:5432|g' .env || true
+  sed -i 's|@localhost:5433|@db:5432|g' .env || true
+  sed -i 's|redis://localhost:6379|redis://redis:6379|g' .env || true
+  sed -i 's|MINIO_ENDPOINT=localhost:9000|MINIO_ENDPOINT=minio:9000|g' .env || true
+fi
+
+echo "[1/6] 🔨 Rebuilding Docker images..."
+sudo docker compose $COMPOSE_FILES build --no-cache api celery_worker celery_beat
+
+echo "[2/6] 🛑 Stopping existing services..."
+sudo docker compose $COMPOSE_FILES down --remove-orphans || true
+sudo docker ps -a --filter "name=mobility_health" --format "{{.ID}}" | xargs -r sudo docker rm -f || true
+stop_system_redis
+for port in 6379 5433 8000 9000 9001; do
+  free_port "$port"
+done
+
 echo "[3/6] 🚀 Starting all services..."
-sudo docker compose up -d
+sudo docker compose $COMPOSE_FILES up -d
 
 echo "[4/6] ⏳ Waiting for services..."
 sleep 20
-sudo docker compose ps
-sudo docker compose exec -T db pg_isready -U postgres || true
+sudo docker compose $COMPOSE_FILES ps
+sudo docker compose $COMPOSE_FILES exec -T db pg_isready -U postgres || true
 
 echo "[5/6] 📊 Running database migrations..."
-sudo docker compose exec -T api alembic current || true
-sudo docker compose exec -T api alembic upgrade head
+sudo docker compose $COMPOSE_FILES exec -T api alembic current || true
+sudo docker compose $COMPOSE_FILES exec -T api alembic upgrade head
 
 echo "[6/6] 🔄 Restarting API..."
-sudo docker compose restart api
-sudo docker compose ps
+sudo docker compose $COMPOSE_FILES restart api
+sudo docker compose $COMPOSE_FILES ps
 sudo systemctl reload nginx || true
 
 echo "🧪 Testing API health..."
@@ -93,7 +125,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$API_HEALTHY" = false ]; do
       sleep 5
     else
       echo "❌ API health check failed after $MAX_RETRIES attempts"
-      sudo docker compose logs api --tail 50 || true
+      sudo docker compose $COMPOSE_FILES logs api --tail 50 || true
       exit 1
     fi
   fi

@@ -3,6 +3,15 @@
 # Usage : docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 services:
+  db:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  minio:
+    ports: !reset []
+
   api:
     build:
       context: .
