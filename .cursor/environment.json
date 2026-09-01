@@ -1,13 +1,16 @@
 {
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "install": "pip install --upgrade pip && pip install -r apps/mhc/requirements.txt",
-  "start": "sudo service docker start 2>/dev/null || true",
+  "name": "Mobility Health Care (MHC)",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
   "terminals": [
     {
       "name": "mhc-api",
-      "command": "cd apps/mhc && docker compose up api db redis minio"
+      "command": "cd /workspace/apps/mhc && PYTHONPATH=/workspace/apps/mhc /workspace/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    },
+    {
+      "name": "mhc-frontend",
+      "command": "cd /workspace/apps/mhc/frontend-simple && /workspace/.venv/bin/python server.py 3000"
     }
-  ]
+  ],
+  "ports": [8000, 3000, 9000, 9001]
 }
