@@ -313,7 +313,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const MHLogoHeader(height: 100, compact: true),
+              const MHLogoHeader(height: 72, compact: true),
               const SizedBox(height: 24),
               Text(
                 'Reinitialisation du mot de passe',

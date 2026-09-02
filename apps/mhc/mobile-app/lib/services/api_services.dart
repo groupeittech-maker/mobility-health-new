@@ -625,6 +625,16 @@ class AttestationsService {
   static DateTime? _userAttestationsCacheTime;
   static const Duration _userAttestationsCacheTtl = Duration(minutes: 2);
 
+  static List<Map<String, dynamic>>? peekUserAttestationsCache() {
+    final now = DateTime.now();
+    if (_userAttestationsCache == null ||
+        _userAttestationsCacheTime == null ||
+        now.difference(_userAttestationsCacheTime!) >= _userAttestationsCacheTtl) {
+      return null;
+    }
+    return List<Map<String, dynamic>>.from(_userAttestationsCache!);
+  }
+
   static void clearUserAttestationsCache() {
     _userAttestationsCache = null;
     _userAttestationsCacheTime = null;

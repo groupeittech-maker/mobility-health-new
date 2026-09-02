@@ -5,6 +5,8 @@ import 'package:open_filex/open_filex.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
+import '../../core/widgets/mh_surface_card.dart';
+import '../../core/widgets/mh_text_highlight.dart';
 import '../../services/api_services.dart';
 
 /// Mes attestations – liste et téléchargement PDF / e-carte.
@@ -29,10 +31,26 @@ class _AttestationsScreenState extends State<AttestationsScreen> {
   }
 
   Future<void> _load({bool forceRefresh = false}) async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (!forceRefresh) {
+      final cached = AttestationsService.peekUserAttestationsCache();
+      if (cached != null && mounted) {
+        setState(() {
+          _attestations = cached;
+          _loading = false;
+          _error = null;
+        });
+      } else {
+        setState(() {
+          _loading = true;
+          _error = null;
+        });
+      }
+    } else {
+      setState(() {
+        _loading = _attestations.isEmpty;
+        _error = null;
+      });
+    }
     try {
       final list = await _attestationsService.getUserAttestations(forceRefresh: forceRefresh);
       if (mounted) {
@@ -42,7 +60,7 @@ class _AttestationsScreenState extends State<AttestationsScreen> {
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && _attestations.isEmpty) {
         setState(() {
           _loading = false;
           _error = e.toString().replaceFirst('Exception: ', '');
@@ -117,12 +135,16 @@ class _AttestationsScreenState extends State<AttestationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       backgroundColor: kMhContentBackground,
       appBar: AppBar(
-        title: const Text('Mes attestations'),
+        title: Text(
+          'Mes attestations',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.secondary,
+              ),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -131,17 +153,26 @@ class _AttestationsScreenState extends State<AttestationsScreen> {
       body: RefreshIndicator(
         onRefresh: () => _load(forceRefresh: true),
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
             : _error != null
-                ? _buildError(theme)
+                ? _buildError(Theme.of(context))
                 : _attestations.isEmpty
-                    ? _buildEmpty(theme)
+                    ? _buildEmpty(Theme.of(context))
                     : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _attestations.length,
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                        itemCount: _attestations.length + 1,
                         itemBuilder: (context, index) {
+                          if (index == 0) {
+                            return const Padding(
+                              padding: EdgeInsets.only(bottom: 16),
+                              child: MHSectionTitle(
+                                title: 'Documents d\'assurance',
+                                subtitle: 'Téléchargez vos attestations PDF et e-cartes.',
+                              ),
+                            );
+                          }
                           return _AttestationCard(
-                            attestation: _attestations[index],
+                            attestation: _attestations[index - 1],
                             onDownloadPdf: _downloadPdf,
                             onDownloadEcard: _downloadEcard,
                             downloadingId: _downloadingId,
@@ -189,7 +220,10 @@ class _AttestationsScreenState extends State<AttestationsScreen> {
             const SizedBox(height: 16),
             Text(
               'Aucune attestation',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.secondary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -228,7 +262,8 @@ class _AttestationCard extends StatelessWidget {
     final dateStr = created != null
         ? DateFormat('dd/MM/yyyy').format(DateTime.tryParse(created) ?? DateTime.now())
         : '—';
-    final isDefinitive = type.toLowerCase() == 'definitive';
+    final isDefinitive = type.toLowerCase() == 'definitive' || type.toLowerCase() == 'définitive';
+    final typeLabel = isDefinitive ? 'Définitive' : (type.toLowerCase().contains('provis') ? 'Provisoire' : type);
     final url = attestation['carte_numerique_url'] ?? attestation['carteNumeriqueUrl'];
     final path = attestation['carte_numerique_path'] ?? attestation['carteNumeriquePath'];
     final hasEcard = isDefinitive && (
@@ -237,11 +272,11 @@ class _AttestationCard extends StatelessWidget {
     final pdfDownloading = downloadingId == 'pdf-$id';
     final ecardDownloading = downloadingId == 'ecard-$id';
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: MHSurfaceCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -249,10 +284,10 @@ class _AttestationCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
+                    color: AppColors.secondary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.description, color: AppColors.primary, size: 28),
+                  child: Icon(Icons.verified_outlined, color: AppColors.secondary, size: 28),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -261,12 +296,22 @@ class _AttestationCard extends StatelessWidget {
                     children: [
                       Text(
                         numero,
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.secondary,
+                        ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Type : $type • $dateStr',
-                        style: theme.textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          _TypeChip(label: typeLabel, definitive: isDefinitive),
+                          Text(
+                            dateStr,
+                            style: theme.textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -289,6 +334,7 @@ class _AttestationCard extends StatelessWidget {
                     label: Text(pdfDownloading ? 'Téléchargement…' : 'PDF'),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
                     ),
                   ),
                 ),
@@ -303,17 +349,48 @@ class _AttestationCard extends StatelessWidget {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: theme.colorScheme.primary,
+                                color: AppColors.secondary,
                               ),
                             )
                           : const Icon(Icons.credit_card, size: 20),
                       label: Text(ecardDownloading ? 'Téléchargement…' : 'E-carte'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.secondary,
+                        side: const BorderSide(color: AppColors.secondary),
+                      ),
                     ),
                   ),
                 ],
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TypeChip extends StatelessWidget {
+  const _TypeChip({required this.label, required this.definitive});
+
+  final String label;
+  final bool definitive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = definitive ? AppColors.primary : AppColors.warning;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: color,
         ),
       ),
     );

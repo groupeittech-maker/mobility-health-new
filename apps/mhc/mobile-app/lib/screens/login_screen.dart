@@ -222,7 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildLogo() {
-    return MHLogoHeader(height: 100);
+    return const MHLogoHeader(height: 72);
   }
 
   Widget _buildUsernameField() {

@@ -113,7 +113,7 @@ class _ReferentShellScreenState extends State<ReferentShellScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const MHOfficialLogo(height: 52),
+            const MHOfficialLogo(height: 40),
             const SizedBox(width: 10),
             const Flexible(
               child: Text(

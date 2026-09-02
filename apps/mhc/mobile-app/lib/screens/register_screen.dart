@@ -211,7 +211,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 16),
-                const MHLogoHeader(height: 100, compact: true),
+                const MHLogoHeader(height: 72, compact: true),
                 const SizedBox(height: 24),
                 MHSurfaceCard(
                   padding: const EdgeInsets.all(20),

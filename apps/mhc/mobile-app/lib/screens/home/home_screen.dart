@@ -35,23 +35,12 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Widget _buildBody() {
-    switch (_currentTab) {
-      case _HomeTab.souscription:
-        return const DashboardScreen();
-      case _HomeTab.alerteSos:
-        return const SosScreen();
-      case _HomeTab.historique:
-        return const HistoriqueScreen();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kMhContentBackground,
       appBar: AppBar(
-        toolbarHeight: 84,
+        toolbarHeight: 72,
         backgroundColor: AppColors.cardBg,
         elevation: 0,
         leading: IconButton(
@@ -69,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
               alignment: Alignment.center,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: maxW),
-                child: const MHOfficialLogo(height: 52),
+                child: const MHOfficialLogo(height: 40),
               ),
             );
           },
@@ -87,7 +76,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: _buildBody(),
+      body: IndexedStack(
+        index: _currentTab.index,
+        children: const [
+          DashboardScreen(),
+          SosScreen(),
+          HistoriqueScreen(),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Color(0xFF1E293B),
