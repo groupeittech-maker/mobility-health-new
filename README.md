@@ -30,8 +30,12 @@ Voir [apps/mhc/README.md](apps/mhc/README.md).
 
 ## CI/CD
 
-- **CI** : push/PR sur `main` ou `develop` → tests pytest + build Docker
-- **Deploy** : push `main` ou manuel → VPS Hostinger (`deploy.yml` / `deploy.ps1`)
+Chaîne automatisée : **push → CI → merge auto (PR) → deploy VPS**. Voir [docs/CICD-AUTOMATION.md](docs/CICD-AUTOMATION.md).
+
+- **CI** (`.github/workflows/ci.yml`) — tests backend, frontend, Flutter, Docker
+- **Auto-merge** (`auto-merge.yml`) — fusion PR → `main` si CI vert
+- **Deploy** (`deploy.yml`) — VPS Hostinger après CI vert sur `main`
+- **Sync local** — `./scripts/sync-local-from-main.sh` après déploiement
 
 ## Roadmap services externes
 

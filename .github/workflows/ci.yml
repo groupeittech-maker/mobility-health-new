@@ -10,9 +10,17 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  test:
+  backend-test:
+    name: Backend (pytest + lint)
     runs-on: ubuntu-latest
-    
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mobility_health_test
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: test-secret-key-for-ci
+      MINIO_ENDPOINT: localhost:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+
     services:
       postgres:
         image: postgres:15-alpine
@@ -27,7 +35,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-      
+
       redis:
         image: redis:7-alpine
         options: >-
@@ -37,100 +45,181 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Cache pip dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r apps/mhc/requirements.txt
-    
-    - name: Run linter
-      run: |
-        pip install flake8 black
-        flake8 apps/mhc/app/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        black --check apps/mhc/app/
-      continue-on-error: true
-    
-    - name: Run tests
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mobility_health_test
-        REDIS_URL: redis://localhost:6379/0
-        SECRET_KEY: test-secret-key-for-ci
-        MINIO_ENDPOINT: localhost:9000
-        MINIO_ACCESS_KEY: minioadmin
-        MINIO_SECRET_KEY: minioadmin
-      run: |
-        cd apps/mhc
-        pytest app/tests/ -v --cov=app --cov-report=xml
-      continue-on-error: true
-    
-    - name: Upload coverage
-      uses: codecov/codecov-action@v5
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-      continue-on-error: true
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('apps/mhc/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r apps/mhc/requirements.txt
+
+      - name: Run linter
+        run: |
+          pip install flake8 black
+          flake8 apps/mhc/app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          black --check apps/mhc/app/
+        continue-on-error: true
+
+      - name: Prepare database schema
+        run: |
+          cd apps/mhc
+          alembic upgrade head
+
+      - name: Run brand tests (blocking)
+        run: |
+          cd apps/mhc
+          pytest app/tests/test_brand_assets.py -v --cov-fail-under=0 --tb=short
+
+      - name: Run full test suite
+        run: |
+          cd apps/mhc
+          pytest app/tests/ -v --cov=app --cov-report=xml --cov-fail-under=0 --tb=short
+        continue-on-error: true  # TODO: rendre bloquant après stabilisation conftest Postgres
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: apps/mhc/coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+        continue-on-error: true
+
+  frontend-check:
+    name: Frontend (charte + assets)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vérifier assets et couleurs charte
+        run: bash apps/mhc/scripts/ci-check-frontend.sh
+
+  flutter-check:
+    name: Flutter (analyze + test + build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Préparer l'environnement Flutter (CI)
+        working-directory: apps/mhc/mobile-app
+        run: |
+          cp ci.env .env
+          test -s .env
+
+      - name: Install dependencies
+        working-directory: apps/mhc/mobile-app
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: apps/mhc/mobile-app
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Ensure .env before tests
+        working-directory: apps/mhc/mobile-app
+        run: cp ci.env .env && test -f .env
+
+      - name: Test
+        working-directory: apps/mhc/mobile-app
+        run: flutter test
+
+      - name: Build web (smoke compile)
+        working-directory: apps/mhc/mobile-app
+        run: |
+          cp ci.env .env
+          flutter build web --release
+
+      - name: Vérifier wallpaper mobile
+        run: |
+          test -f apps/mhc/mobile-app/assets/images/wallpaper-brand.jpg
+          grep -q '4e267c' apps/mhc/mobile-app/lib/core/constants/app_colors.dart
+          grep -q '14AE98' apps/mhc/mobile-app/lib/core/constants/app_colors.dart
 
   build:
+    name: Docker build API
     runs-on: ubuntu-latest
-    needs: test
-    
+    needs: [backend-test, frontend-check, flutter-check]
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    
-    - name: Build Docker image
-      uses: docker/build-push-action@v6
-      with:
-        context: apps/mhc
-        push: false
-        tags: mobility-health-api:latest
-        cache-from: type=registry,ref=mobility-health-api:buildcache
-        cache-to: type=inline
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/mhc
+          push: false
+          tags: mobility-health-api:latest
+          cache-from: type=registry,ref=mobility-health-api:buildcache
+          cache-to: type=inline
 
   security:
+    name: Security (Trivy)
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@v0.36.0
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-    
-    - name: Upload Trivy results to GitHub Security
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: 'trivy-results.sarif'
-      continue-on-error: true
+      - uses: actions/checkout@v4
 
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
 
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+        continue-on-error: true
 
+  ci-gate:
+    name: CI Gate
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-check, flutter-check, build]
+    if: always()
 
-
-
-
-
-
+    steps:
+      - name: Vérifier que tous les jobs requis sont verts
+        run: |
+          echo "backend-test: ${{ needs.backend-test.result }}"
+          echo "frontend-check: ${{ needs.frontend-check.result }}"
+          echo "flutter-check: ${{ needs.flutter-check.result }}"
+          echo "build: ${{ needs.build.result }}"
+          for job in backend-test frontend-check flutter-check build; do
+            result=""
+            case "$job" in
+              backend-test) result="${{ needs.backend-test.result }}" ;;
+              frontend-check) result="${{ needs.frontend-check.result }}" ;;
+              flutter-check) result="${{ needs.flutter-check.result }}" ;;
+              build) result="${{ needs.build.result }}" ;;
+            esac
+            if [ "$result" != "success" ]; then
+              echo "❌ Job $job : $result"
+              exit 1
+            fi
+          done
+          echo "✅ CI Gate : tous les jobs requis sont verts"

@@ -1,0 +1,46 @@
+# Fusion automatique des PR vers main lorsque le CI est vert.
+# Nécessite : paramètres repo → autoriser la fusion auto + checks requis sur main (voir docs/CICD-AUTOMATION.md).
+name: Auto Merge PR
+
+on:
+  workflow_run:
+    workflows: [CI Pipeline]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge-if-green:
+    name: Fusion auto (CI OK)
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+
+    steps:
+      - name: Trouver la PR ouverte
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          PR=$(gh pr list --state open --head "$BRANCH" --base main --json number,isDraft,labels --jq '
+            .[0] | select(. != null and .isDraft == false and (([.labels[].name] // []) | contains(["no-auto-merge"]) | not)) | .number // empty')
+          if [ -z "$PR" ]; then
+            echo "Aucune PR éligible sur la branche $BRANCH"
+            echo "number=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "PR #$PR prête à fusionner"
+          echo "number=$PR" >> "$GITHUB_OUTPUT"
+
+      - name: Fusionner dans main
+        if: steps.pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge "${{ steps.pr.outputs.number }}" --merge --delete-branch
+          echo "✅ PR #${{ steps.pr.outputs.number }} fusionnée dans main"

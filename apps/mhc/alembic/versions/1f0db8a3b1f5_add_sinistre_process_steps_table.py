@@ -84,6 +84,29 @@ def upgrade() -> None:
     conn = op.get_bind()
     dialect_name = getattr(conn.dialect, "name", "") or ""
     if "postgresql" in dialect_name:
+        # hospitals doit exister avant sinistres.hospital_id (branche parallèle Alembic)
+        conn.execute(sa.text("""
+            CREATE TABLE IF NOT EXISTS hospitals (
+                id SERIAL PRIMARY KEY,
+                nom VARCHAR(200) NOT NULL,
+                adresse VARCHAR(500),
+                ville VARCHAR(100),
+                pays VARCHAR(100),
+                code_postal VARCHAR(20),
+                telephone VARCHAR(50),
+                email VARCHAR(255),
+                latitude NUMERIC(10, 8) NOT NULL DEFAULT 0,
+                longitude NUMERIC(11, 8) NOT NULL DEFAULT 0,
+                est_actif BOOLEAN NOT NULL DEFAULT true,
+                specialites TEXT,
+                capacite_lits INTEGER,
+                notes TEXT,
+                created_at TIMESTAMP NOT NULL DEFAULT now(),
+                updated_at TIMESTAMP NOT NULL DEFAULT now()
+            )
+        """))
+        conn.execute(sa.text("CREATE INDEX IF NOT EXISTS ix_hospitals_id ON hospitals (id)"))
+        conn.execute(sa.text("CREATE INDEX IF NOT EXISTS ix_hospitals_nom ON hospitals (nom)"))
         # Ensure alertes and sinistres exist (raw SQL so it always runs)
         conn.execute(sa.text("""
             CREATE TABLE IF NOT EXISTS alertes (
