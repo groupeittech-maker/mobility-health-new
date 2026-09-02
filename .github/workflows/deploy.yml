@@ -37,13 +37,47 @@ jobs:
           echo "- Branche : main" >> "$GITHUB_STEP_SUMMARY"
           echo "- Déclencheur : ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Vérifier secrets et réseau (IPv4)
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          for name in SSH_HOST SSH_USER SSH_PRIVATE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Secret $name non configuré (Settings → Secrets → Actions)"
+              exit 1
+            fi
+          done
+          HOST="$(echo "$SSH_HOST" | tr -d '[:space:]')"
+          if [[ "$HOST" == *@* ]]; then
+            echo "::error::SSH_HOST doit être un hostname ou une IP seule (ex. srv1324425.hstgr.cloud), sans user@"
+            exit 1
+          fi
+          echo "Cible : ${SSH_USER}@${HOST} (IPv4 forcé)"
+          echo "Résolution A :"
+          getent ahostsv4 "$HOST" | awk '{print $1}' | sort -u || dig +short A "$HOST" || true
+          echo "Test TCP :22 (8s) :"
+          if timeout 8 bash -c "exec 3<>/dev/tcp/${HOST}/22" 2>/dev/null; then
+            exec 3<&- 3>&-
+            echo "✅ Port 22 joignable en IPv4 depuis le runner GitHub"
+          else
+            echo "::warning::Port 22 injoignable depuis GitHub Actions."
+            echo "Vérifiez : VPS démarré, firewall Hostinger (autoriser plages IP GitHub Actions), SSH_HOST = hostname ou IP publique."
+            echo "Doc : docs/CICD-AUTOMATION.md § Deploy SSH"
+          fi
+
       - name: Prepare SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
         run: |
+          set -euo pipefail
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
+          HOST="$(echo "$SSH_HOST" | tr -d '[:space:]')"
           python3 << 'PY'
           import os, sys
           raw = os.environ.get("SSH_PRIVATE_KEY") or ""
@@ -64,16 +98,23 @@ jobs:
           print("Clé SSH installée dans ~/.ssh/id_ed25519")
           PY
           ssh-keygen -y -f ~/.ssh/id_ed25519 >/dev/null
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -4 -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
           chmod 600 ~/.ssh/known_hosts || true
+          {
+            echo "Host mhc-vps"
+            echo "  HostName ${HOST}"
+            echo "  User ${SSH_USER}"
+            echo "  IdentityFile ~/.ssh/id_ed25519"
+            echo "  AddressFamily inet"
+            echo "  BatchMode yes"
+            echo "  StrictHostKeyChecking accept-new"
+            echo "  ConnectTimeout 20"
+          } >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
 
       - name: Test SSH connection
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
-            "${SSH_USER}@${SSH_HOST}" "echo OK; hostname; date"
+          ssh -4 mhc-vps "echo OK; hostname; date"
 
       - name: Create frontend archive
         run: |
@@ -81,12 +122,8 @@ jobs:
           test -s frontend.tar.gz
 
       - name: Copy frontend archive to server
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-            frontend.tar.gz "${SSH_USER}@${SSH_HOST}:/tmp/frontend.tar.gz"
+          scp -4 frontend.tar.gz mhc-vps:/tmp/frontend.tar.gz
 
       - name: Create backend archives
         run: |
@@ -100,30 +137,18 @@ jobs:
           cp apps/mhc/alembic.ini .
 
       - name: Copy backend archives to server
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-            app.tar.gz alembic.tar.gz docker-compose.yml docker-compose.prod.yml \
+          scp -4 app.tar.gz alembic.tar.gz docker-compose.yml docker-compose.prod.yml \
             Dockerfile Dockerfile.prod requirements.txt alembic.ini \
-            "${SSH_USER}@${SSH_HOST}:/tmp/"
+            mhc-vps:/tmp/
 
       - name: Extract and deploy frontend
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-            "${SSH_USER}@${SSH_HOST}" "bash -s" < .github/scripts/remote-deploy-frontend.sh
+          ssh -4 mhc-vps "bash -s" < .github/scripts/remote-deploy-frontend.sh
 
       - name: Deploy backend and restart services
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-            "${SSH_USER}@${SSH_HOST}" "bash -s" < .github/scripts/remote-deploy-backend.sh
+          ssh -4 mhc-vps "bash -s" < .github/scripts/remote-deploy-backend.sh
 
       - name: Mise à jour locale (instructions)
         run: |
