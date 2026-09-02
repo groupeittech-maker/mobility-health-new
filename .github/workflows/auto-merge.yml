@@ -27,7 +27,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           BRANCH="${{ github.event.workflow_run.head_branch }}"
-          PR=$(gh pr list --state open --head "$BRANCH" --base main --json number,isDraft,labels --jq '
+          REPO="${{ github.repository }}"
+          PR=$(gh pr list --repo "$REPO" --state open --head "$BRANCH" --base main --json number,isDraft,labels --jq '
             .[0] | select(. != null and .isDraft == false and (([.labels[].name] // []) | contains(["no-auto-merge"]) | not)) | .number // empty')
           if [ -z "$PR" ]; then
             echo "Aucune PR éligible sur la branche $BRANCH"
@@ -42,5 +43,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr merge "${{ steps.pr.outputs.number }}" --merge --delete-branch
+          gh pr merge "${{ steps.pr.outputs.number }}" --repo "${{ github.repository }}" --merge --delete-branch
           echo "✅ PR #${{ steps.pr.outputs.number }} fusionnée dans main"
