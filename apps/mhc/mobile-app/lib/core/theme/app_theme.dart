@@ -66,7 +66,8 @@ class AppTheme {
       cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: AppColors.cardBg,
+        color: AppColors.surfaceCard,
+        shadowColor: Colors.black.withValues(alpha: 0.1),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -162,18 +163,10 @@ class MHAuthCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.cardBg,
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-        border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.15),
-        ),
+        border: Border.all(color: AppColors.surfaceCardBorder),
+        boxShadow: AppColors.surfaceCardShadow,
       ),
       child: child,
     );

@@ -265,7 +265,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surfaceCard,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -414,7 +414,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surfaceCard,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -531,7 +531,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: ok ? const Color(0xFFE2E8F0) : AppColors.danger.withValues(alpha: 0.35),

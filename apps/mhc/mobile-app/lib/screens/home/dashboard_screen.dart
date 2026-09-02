@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/config/api_config.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/api_error_helper.dart';
+import '../../core/widgets/mh_surface_card.dart';
 import '../../core/widgets/mh_text_highlight.dart';
 import '../../models/subscription.dart';
 import '../../services/auth_service.dart';
@@ -215,19 +216,9 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    Widget card = Container(
+    Widget card = MHSurfaceCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -267,13 +258,6 @@ class _MetricCard extends StatelessWidget {
         ],
       ),
     );
-    if (onTap != null) {
-      card = InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: card,
-      );
-    }
     return card;
   }
 }
@@ -286,47 +270,38 @@ class _PartnerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: 120,
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (logoUrl != null && logoUrl!.isNotEmpty)
-            SizedBox(
-              height: 56,
-              width: 56,
-              child: Image.network(
-                logoUrl!,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => _avatarFallback(label),
-              ),
-            )
-          else
-            _avatarFallback(label),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: const Color(0xFF475569),
-                  fontWeight: FontWeight.w600,
+      child: MHSurfaceCard(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (logoUrl != null && logoUrl!.isNotEmpty)
+              SizedBox(
+                height: 56,
+                width: 56,
+                child: Image.network(
+                  logoUrl!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => _avatarFallback(label),
                 ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+              )
+            else
+              _avatarFallback(label),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: const Color(0xFF475569),
+                    fontWeight: FontWeight.w600,
+                  ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }

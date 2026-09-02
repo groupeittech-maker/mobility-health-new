@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 
+import '../../core/widgets/mh_surface_card.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
 import '../../models/subscription.dart';
@@ -563,19 +564,8 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
   }
 
   Widget _card(List<Widget> rows) {
-    return Container(
+    return MHSurfaceCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: rows,

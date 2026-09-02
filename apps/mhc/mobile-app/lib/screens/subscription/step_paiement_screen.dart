@@ -120,7 +120,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surfaceCard,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
@@ -172,7 +172,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surfaceCard,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(

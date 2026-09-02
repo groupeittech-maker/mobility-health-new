@@ -198,7 +198,7 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surfaceCard,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
@@ -285,7 +285,7 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surfaceCard,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
@@ -482,7 +482,7 @@ class _ProductCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -712,7 +712,7 @@ class _PhotoMedicaleCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -819,7 +819,7 @@ class _DeclarationsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(

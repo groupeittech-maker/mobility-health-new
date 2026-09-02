@@ -14,7 +14,18 @@ class AppColors {
   static const Color danger = Color(0xFFef4444);
   static const Color warning = Color(0xFFf59e0b);
   static const Color mutedText = Color(0xFF64748b);
-  static const Color cardBg = Color(0xF2FFFFFF);
+  /// Header / AppBar — blanc opaque.
+  static const Color cardBg = Color(0xFFFFFFFF);
+  /// Cartes sur wallpaper — blanc quasi opaque + bordure brand (comme le web).
+  static const Color surfaceCard = Color(0xFAFFFFFF);
+  static const Color surfaceCardBorder = Color(0x144E267C);
+  static List<BoxShadow> get surfaceCardShadow => [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.1),
+          blurRadius: 16,
+          offset: const Offset(0, 4),
+        ),
+      ];
   /// Fond surligné lavande (lisibilité sur wallpaper).
   static const Color textHighlight = Color(0xEBEDE9FE);
 }

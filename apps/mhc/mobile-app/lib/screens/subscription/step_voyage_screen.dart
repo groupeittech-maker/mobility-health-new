@@ -586,7 +586,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.surfaceCard,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
@@ -641,7 +641,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.surfaceCard,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
@@ -783,7 +783,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
     required ThemeData theme,
   }) {
     return Material(
-      color: Colors.white,
+      color: AppColors.surfaceCard,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => _showDocSourceSheet(docType, label),
@@ -1074,7 +1074,7 @@ class _DestinationSearchSheetState extends State<_DestinationSearchSheet> {
       return SizedBox(
         height: height,
         child: Material(
-          color: Colors.white,
+          color: AppColors.surfaceCard,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -1286,7 +1286,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
     return SizedBox(
       height: height,
       child: Material(
-        color: Colors.white,
+        color: AppColors.surfaceCard,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         clipBehavior: Clip.antiAlias,
         child: child,
