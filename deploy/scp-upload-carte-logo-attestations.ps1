@@ -19,7 +19,7 @@ $files = @(
     @{ Local = "app/services/card_service.py"; RemoteDir = "${REMOTE_PATH}/app/services/" }
     @{ Local = "app/services/pdf_service.py"; RemoteDir = "${REMOTE_PATH}/app/services/" }
     @{ Local = "app/api/v1/admin_subscriptions.py"; RemoteDir = "${REMOTE_PATH}/app/api/v1/" }
-    @{ Local = "frontend-simple/assets/logo_mobility_healthcare_officiel.png"; RemoteDir = "${REMOTE_PATH}/frontend-simple/assets/" }
+    @{ Local = "frontend-simple/assets/logo_officiel_mh.png"; RemoteDir = "${REMOTE_PATH}/frontend-simple/assets/" }
 )
 
 foreach ($item in $files) {

@@ -36,11 +36,12 @@ _LOGO_DIR = os.path.join(
 )
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 MOBILITY_LOGO_CANDIDATES = [
-    os.path.join(_LOGO_DIR, "logo_mobility_healthcare_officiel.png"),
-    os.path.join(_LOGO_DIR, "mobility-logo.png"),
+    os.path.join(_LOGO_DIR, "logo_officiel_mh.png"),
+    os.path.join(_ROOT, "mobile-app", "assets", "images", "logo_officiel_mh.png"),
     os.path.join(_LOGO_DIR, "logo_officiel_mh.jpg"),
     os.path.join(_ROOT, "mobile-app", "assets", "images", "logo_officiel_mh.jpg"),
 ]
+_MOBILITY_LOGO_CACHE: Optional[bytes] = None
 # Rétrocompatibilité si MOBILITY_HEALTH_LOGO_PATH pointe vers un seul fichier
 MOBILITY_LOGO_PATH = MOBILITY_LOGO_CANDIDATES[0]
 
@@ -51,7 +52,7 @@ def _mobility_logo_png_to_bytesio(path: str) -> Optional[BytesIO]:
         from PIL import Image
 
         img = Image.open(path).convert("RGBA")
-        if path.endswith("logo_mobility_healthcare_officiel.png"):
+        if "logo_mobility_healthcare_officiel.png" in path:
             pixels = img.load()
             w, h = img.size
             th = 42
@@ -68,17 +69,27 @@ def _mobility_logo_png_to_bytesio(path: str) -> Optional[BytesIO]:
         return None
 
 
+def _cache_logo_bytes(bio: BytesIO) -> BytesIO:
+    global _MOBILITY_LOGO_CACHE
+    data = bio.getvalue()
+    _MOBILITY_LOGO_CACHE = data
+    return BytesIO(data)
+
+
 def _load_logo_bytes_mobility() -> Optional[BytesIO]:
     """Charge le logo Mobility HealthCare officiel (ou repli) en bytes pour le PDF."""
+    global _MOBILITY_LOGO_CACHE
+    if _MOBILITY_LOGO_CACHE:
+        return BytesIO(_MOBILITY_LOGO_CACHE)
     env_path = getattr(settings, "MOBILITY_HEALTH_LOGO_PATH", None)
     if env_path and os.path.isfile(env_path):
         try:
             if env_path.lower().endswith(".png"):
                 bio = _mobility_logo_png_to_bytesio(env_path)
                 if bio:
-                    return bio
+                    return _cache_logo_bytes(bio)
             with open(env_path, "rb") as f:
-                return BytesIO(f.read())
+                return _cache_logo_bytes(BytesIO(f.read()))
         except Exception:
             pass
     for path in MOBILITY_LOGO_CANDIDATES:
@@ -88,9 +99,9 @@ def _load_logo_bytes_mobility() -> Optional[BytesIO]:
             if path.lower().endswith(".png"):
                 bio = _mobility_logo_png_to_bytesio(path)
                 if bio:
-                    return bio
+                    return _cache_logo_bytes(bio)
             with open(path, "rb") as f:
-                return BytesIO(f.read())
+                return _cache_logo_bytes(BytesIO(f.read()))
         except Exception:
             continue
     url = getattr(settings, "MOBILITY_HEALTH_LOGO_URL", None)
@@ -100,7 +111,7 @@ def _load_logo_bytes_mobility() -> Optional[BytesIO]:
             with httpx.Client(timeout=5.0) as client:
                 r = client.get(url)
                 if r.status_code == 200:
-                    return BytesIO(r.content)
+                    return _cache_logo_bytes(BytesIO(r.content))
         except Exception:
             pass
     return None

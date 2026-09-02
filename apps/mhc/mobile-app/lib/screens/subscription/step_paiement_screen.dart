@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
+import '../../core/widgets/mh_text_highlight.dart';
 import '../../services/api_services.dart';
 
 /// Étape 4 : Paiement – "Payer maintenant" appelle le backend pour confirmer le paiement
@@ -101,19 +102,9 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Paiement sécurisé',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Vérifiez le récapitulatif puis choisissez le mode de paiement.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF64748B),
-              ),
+            const MHSectionTitle(
+              title: 'Paiement sécurisé',
+              subtitle: 'Vérifiez le récapitulatif puis choisissez le mode de paiement.',
             ),
             const SizedBox(height: 16),
             // Résumé + Montant (comme web)

@@ -19,7 +19,10 @@
     --warning-color: #f59e0b;
     --info-color: #3b82f6;
     --light-bg: rgba(255, 255, 255, 0.92);
-    --card-bg: rgba(255, 255, 255, 0.95);
+    /* Surfaces (îlots) — aligné mobile */
+    --card-bg: rgba(255, 255, 255, 0.98);
+    --field-fill: #ffffff;
+    --field-border: #e2e8f0;
     --dark-text: #0f172a;
     --muted-text: #64748b;
     --border-color: #e2e8f0;
@@ -510,20 +513,40 @@ body {
     font-size: 0.95rem;
 }
 
-/* Surlignage pour lisibilité sur le fond motif */
+/* Titres de page : couleur brand, sans surlignage (comme le mobile) */
+.dashboard-header h2,
+.page-header h2 {
+    color: var(--secondary-color);
+    font-weight: 700;
+}
+
+.dashboard-header p,
+.page-header p,
+.page-header p.text-muted {
+    color: var(--secondary-color);
+    font-weight: 500;
+    background: none;
+    padding: 0;
+}
+
+label,
+.form-label {
+    font-weight: 700;
+    color: var(--secondary-color);
+}
+
+/* Anciennes classes de surlignage : conservées pour la CI, sans fond lavande */
 .text-highlight {
-    background: var(--text-highlight-bg);
-    padding: 0.15em 0.45em;
-    border-radius: 4px;
-    box-decoration-break: clone;
-    -webkit-box-decoration-break: clone;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
 }
 
 .text-highlight-block {
     display: inline-block;
-    background: var(--text-highlight-bg);
-    padding: 0.5rem 0.85rem;
-    border-radius: 6px;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
     line-height: 1.65;
     max-width: 52rem;
 }
@@ -532,13 +555,14 @@ body {
     color: var(--secondary-dark);
 }
 
-/* Titres de page sur fond motif : léger voile derrière le titre */
 .page-title-highlight {
     display: inline-block;
-    background: var(--text-highlight-bg-strong);
-    padding: 0.25rem 0.65rem;
-    border-radius: 6px;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
     margin-bottom: 0.35rem;
+    color: var(--secondary-color);
+    font-weight: 700;
 }
 
 /* Loading spinner */

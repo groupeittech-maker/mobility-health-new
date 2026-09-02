@@ -37,7 +37,7 @@ class MHSurfaceCard extends StatelessWidget {
           (labelText != null
               ? const TextStyle(
                   color: AppColors.secondary,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.bold,
                   fontSize: 14,
                 )
               : null),
@@ -63,6 +63,11 @@ class MHSurfaceCard extends StatelessWidget {
   static InputDecorationTheme get surfaceInputDecorationTheme => InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surfaceFieldFill,
+        labelStyle: const TextStyle(
+          color: AppColors.secondary,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: AppColors.surfaceFieldBorder),

@@ -525,8 +525,8 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
               Text(
                 'Voyagez-vous avec des enfants mineurs ? *',
                 style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1E293B),
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.secondary,
                 ),
               ),
               Row(
@@ -556,8 +556,8 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                     Text(
                       'Enfants accompagnés',
                       style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF1E293B),
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.secondary,
                       ),
                     ),
                     TextButton.icon(
@@ -617,8 +617,8 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
               Text(
                 'Pièces justificatives',
                 style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1E293B),
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.secondary,
                 ),
               ),
               const SizedBox(height: 4),
@@ -797,7 +797,10 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
             children: [
               Icon(icon, size: 20, color: AppColors.primary),
               const SizedBox(width: 8),
-              Text(label, style: theme.textTheme.labelLarge?.copyWith(color: const Color(0xFF1E293B))),
+              Text(label, style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.secondary,
+              )),
               const SizedBox(width: 4),
               const Icon(Icons.add_circle_outline, size: 18, color: AppColors.primary),
             ],
@@ -1378,8 +1381,8 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
                 Text(
                   'Photo du passeport *',
                   style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1E293B),
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.secondary,
                   ),
                 ),
                 const SizedBox(height: 8),

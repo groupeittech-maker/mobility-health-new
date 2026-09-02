@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
+import '../../core/widgets/mh_text_highlight.dart';
 import '../../services/api_services.dart';
 import '../pdf_viewer_screen.dart';
 
@@ -69,17 +70,9 @@ class _StepAttestationScreenState extends State<StepAttestationScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Vos attestations',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Téléchargez et consultez vos attestations d\'assurance.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.mutedText),
+            const MHSectionTitle(
+              title: 'Vos attestations',
+              subtitle: 'Téléchargez et consultez vos attestations d\'assurance.',
             ),
             const SizedBox(height: 24),
             if (_loading)

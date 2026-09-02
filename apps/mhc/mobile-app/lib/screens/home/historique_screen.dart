@@ -44,8 +44,8 @@ class _HistoriqueScreenState extends State<HistoriqueScreen> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
-                              fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                              color: selected ? AppColors.primary : const Color(0xFF64748B),
+                              fontWeight: FontWeight.bold,
+                              color: selected ? AppColors.secondary : const Color(0xFF64748B),
                             ),
                           ),
                         ),

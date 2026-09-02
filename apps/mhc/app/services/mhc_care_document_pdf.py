@@ -9,10 +9,11 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from app.core.mhc_nomenclature import DOCUMENT_TITLES, EXIT_MODE_LABELS, MhcCareDocumentType
 from app.models.mhc_care_document import MhcCareDocument
+from app.services.pdf_service import _load_logo_bytes_mobility
 
 
 MHC_RED = colors.HexColor("#b91c1c")
@@ -290,6 +291,10 @@ def build_care_document_pdf(document: MhcCareDocument) -> bytes:
         title=document.numero,
     )
     story = []
+    logo_bytes = _load_logo_bytes_mobility()
+    if logo_bytes:
+        story.append(Image(logo_bytes, width=4.2 * cm, height=1.4 * cm))
+        story.append(Spacer(1, 0.25 * cm))
     title = DOCUMENT_TITLES.get(MhcCareDocumentType(document.document_type), document.document_type)
     story.append(Paragraph("MOBILITY HEALTH CARE", styles["title"]))
     story.append(Paragraph(title.upper(), styles["title"]))

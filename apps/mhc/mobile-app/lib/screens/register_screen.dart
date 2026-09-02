@@ -8,7 +8,6 @@ import '../core/constants/app_colors.dart';
 import '../core/network/api_client.dart' as net;
 import '../core/widgets/mh_logo_header.dart';
 import '../core/widgets/mh_surface_card.dart';
-import '../core/widgets/mh_text_highlight.dart';
 import '../models/destination.dart';
 import '../services/api_services.dart';
 
@@ -212,7 +211,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 16),
-                const MHLogoHeader(height: 100, compact: true),
+                const MHLogoHeader(height: 72, compact: true),
                 const SizedBox(height: 24),
                 MHSurfaceCard(
                   padding: const EdgeInsets.all(20),
@@ -398,24 +397,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          MHTextHighlight(
-            child: Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.secondary,
-              ),
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.secondary,
             ),
           ),
           const SizedBox(height: 6),
-          MHTextHighlight(
-            child: Text(
-              subtitle,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: AppColors.mutedText,
-              ),
+          Text(
+            subtitle,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.secondary,
             ),
           ),
         ],
@@ -515,7 +511,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       children: [
         Text(
           'Sexe *',
-          style: GoogleFonts.poppins(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w500),
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: AppColors.secondary,
+          ),
         ),
         const SizedBox(height: 8),
         Row(
@@ -657,7 +657,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       children: [
         Text(
           question,
-          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87),
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: AppColors.secondary,
+          ),
         ),
         const SizedBox(height: 8),
         Row(

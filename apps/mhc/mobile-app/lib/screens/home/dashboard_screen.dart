@@ -64,10 +64,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  void _applyMetrics(List<SubscriptionModel> subs, int attCount, List<Map<String, dynamic>>? assureurs) {
+    final active = subs.where((s) => s.statut == 'active').length;
+    final pending = subs.where((s) => s.statut == 'en_attente' || s.statut == 'pending').length;
+    final expired = subs.where((s) => s.statut == 'expiree' || s.statut == 'expired').length;
+    setState(() {
+      _activeCount = active;
+      _pendingCount = pending;
+      _expiredCount = expired;
+      _attestationsCount = attCount;
+      if (assureurs != null) _assureurs = assureurs;
+      _loading = false;
+    });
+  }
+
   Future<void> _load() async {
     AuthService.instance.getDisplayName().then((name) {
       if (mounted) setState(() => _displayName = name);
     });
+    final cachedSubs = SubscriptionsService.peekSubscriptionsCache();
+    final cachedAtt = AttestationsService.peekUserAttestationsCache();
+    if (cachedSubs != null && mounted) {
+      _applyMetrics(cachedSubs, cachedAtt?.length ?? _attestationsCount, null);
+    }
     try {
       final results = await Future.wait<Object?>([
         SubscriptionsService().getSubscriptions(limit: 1000),
@@ -78,17 +97,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final subs = results[0]! as List<SubscriptionModel>;
       final attCount = results[1]! as int;
       final assureurs = results[2]! as List<Map<String, dynamic>>;
-      final active = subs.where((s) => s.statut == 'active').length;
-      final pending = subs.where((s) => s.statut == 'en_attente' || s.statut == 'pending').length;
-      final expired = subs.where((s) => s.statut == 'expiree' || s.statut == 'expired').length;
-      setState(() {
-        _activeCount = active;
-        _pendingCount = pending;
-        _expiredCount = expired;
-        _attestationsCount = attCount;
-        _assureurs = assureurs;
-        _loading = false;
-      });
+      _applyMetrics(subs, attCount, assureurs);
     } catch (e) {
       if (mounted) setState(() {
         _loading = false;
@@ -155,13 +164,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 28),
-          MHTextHighlight(
-            child: Text(
-              'Nos partenaires assurance',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF1E293B),
-              ),
+          Text(
+            'Nos partenaires assurance',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: AppColors.secondary,
             ),
           ),
           const SizedBox(height: 12),

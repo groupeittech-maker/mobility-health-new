@@ -14,7 +14,7 @@ LOGO_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
     "frontend-simple",
     "assets",
-    "logo_officiel_mh.jpg"
+    "logo_officiel_mh.png",
 )
 
 
@@ -58,11 +58,12 @@ class CardService:
     )
     _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     MOBILITY_LOGO_CANDIDATES = [
-        os.path.join(_ROOT, "frontend-simple", "assets", "logo_mobility_healthcare_officiel.png"),
-        os.path.join(_ROOT, "frontend-simple", "assets", "mobility-logo.png"),
+        os.path.join(_ROOT, "frontend-simple", "assets", "logo_officiel_mh.png"),
+        os.path.join(_ROOT, "mobile-app", "assets", "images", "logo_officiel_mh.png"),
         os.path.join(_ROOT, "frontend-simple", "assets", "logo_officiel_mh.jpg"),
         os.path.join(_ROOT, "mobile-app", "assets", "images", "logo_officiel_mh.jpg"),
     ]
+    _MOBILITY_LOGO_CACHE: Optional[Image.Image] = None
 
     @classmethod
     def generate_insurance_card(
@@ -461,22 +462,25 @@ class CardService:
                     pixels[x, y] = (0, 0, 0, 0)
         return logo
 
-    @staticmethod
-    def _load_mobility_logo() -> Optional[Image.Image]:
-        """Charge le logo officiel Mobility HealthCare (PNG) ou repli sur les anciens fichiers."""
+    @classmethod
+    def _load_mobility_logo(cls) -> Optional[Image.Image]:
+        """Charge le logo officiel Mobility HealthCare (PNG) — cache en mémoire."""
         import logging
 
+        if cls._MOBILITY_LOGO_CACHE is not None:
+            return cls._MOBILITY_LOGO_CACHE.copy()
         log = logging.getLogger(__name__)
-        for path in CardService.MOBILITY_LOGO_CANDIDATES:
+        for path in cls.MOBILITY_LOGO_CANDIDATES:
             try:
                 if os.path.isfile(path):
                     logo = Image.open(path)
                     if logo.mode != "RGBA":
                         logo = logo.convert("RGBA")
-                    if path.endswith("logo_mobility_healthcare_officiel.png"):
-                        logo = CardService._knockout_near_black_background(logo)
+                    if "logo_mobility_healthcare_officiel.png" in path:
+                        logo = cls._knockout_near_black_background(logo)
                     log.info("Logo Mobility e-carte chargé: %s", path)
-                    return logo
+                    cls._MOBILITY_LOGO_CACHE = logo
+                    return logo.copy()
             except Exception as e:
                 log.debug("Logo Mobility ignoré (%s): %s", path, e)
         return None
