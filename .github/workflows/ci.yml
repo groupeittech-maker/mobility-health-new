@@ -40,55 +40,6 @@ jobs:
           - 6379:6379
 
     steps:
-<<<<<<< HEAD
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Cache pip dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r apps/mhc/requirements.txt
-    
-    - name: Run linter
-      run: |
-        pip install flake8 black
-        flake8 apps/mhc/app/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        black --check apps/mhc/app/
-      continue-on-error: true
-    
-    - name: Run tests
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mobility_health_test
-        REDIS_URL: redis://localhost:6379/0
-        SECRET_KEY: test-secret-key-for-ci
-        MINIO_ENDPOINT: localhost:9000
-        MINIO_ACCESS_KEY: minioadmin
-        MINIO_SECRET_KEY: minioadmin
-      run: |
-        cd apps/mhc
-        pytest app/tests/ -v --cov=app --cov-report=xml
-      continue-on-error: true
-    
-    - name: Upload coverage
-      uses: codecov/codecov-action@v5
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-      continue-on-error: true
-=======
       - uses: actions/checkout@v4
 
       - name: Set up Python
@@ -149,7 +100,7 @@ jobs:
         continue-on-error: true  # TODO: rendre bloquant après stabilisation conftest Postgres
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: apps/mhc/coverage.xml
           flags: unittests
@@ -200,7 +151,6 @@ jobs:
           test -f apps/mhc/mobile-app/assets/images/wallpaper-brand.jpg
           grep -q '4e267c' apps/mhc/mobile-app/lib/core/constants/app_colors.dart
           grep -q '14AE98' apps/mhc/mobile-app/lib/core/constants/app_colors.dart
->>>>>>> c7c846b (ci: étendre le pipeline (frontend, Flutter, tests charte))
 
   build:
     name: Docker build API
@@ -208,70 +158,29 @@ jobs:
     needs: [backend-test, frontend-check, flutter-check]
 
     steps:
-<<<<<<< HEAD
-    - uses: actions/checkout@v4
-    
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    
-    - name: Build Docker image
-      uses: docker/build-push-action@v6
-      with:
-        context: apps/mhc
-        push: false
-        tags: mobility-health-api:latest
-        cache-from: type=registry,ref=mobility-health-api:buildcache
-        cache-to: type=inline
-=======
       - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: apps/mhc
           push: false
           tags: mobility-health-api:latest
           cache-from: type=registry,ref=mobility-health-api:buildcache
           cache-to: type=inline
->>>>>>> c7c846b (ci: étendre le pipeline (frontend, Flutter, tests charte))
 
   security:
     name: Security (Trivy)
     runs-on: ubuntu-latest
 
     steps:
-<<<<<<< HEAD
-    - uses: actions/checkout@v4
-    
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@v0.36.0
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-    
-    - name: Upload Trivy results to GitHub Security
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: 'trivy-results.sarif'
-      continue-on-error: true
-
-
-
-
-
-
-
-=======
       - uses: actions/checkout@v4
->>>>>>> c7c846b (ci: étendre le pipeline (frontend, Flutter, tests charte))
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
