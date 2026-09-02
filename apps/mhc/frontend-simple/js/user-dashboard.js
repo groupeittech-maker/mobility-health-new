@@ -73,31 +73,36 @@ function getDashboardUrlForRole(role) {
 
 // Charger toutes les données du dashboard
 async function loadDashboardData() {
-    await Promise.all([
-        loadSubscriptions(),
-        loadStats()
-    ]);
+    await loadSubscriptions();
+    applySubscriptionStats(allSubscriptions);
     initUserNotificationsModule();
 }
 
-// Charger les statistiques
+function applySubscriptionStats(subscriptions) {
+    const list = Array.isArray(subscriptions) ? subscriptions : [];
+    const active = list.filter(s => s.statut === 'active').length;
+    const pending = list.filter(s => s.statut === 'en_attente' || s.statut === 'pending').length;
+    const expired = list.filter(s => s.statut === 'expiree' || s.statut === 'expired').length;
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+    setText('activeSubscriptionsCount', active || 0);
+    setText('pendingSubscriptionsCount', pending || 0);
+    setText('expiredSubscriptionsCount', expired || 0);
+}
+
 async function loadStats() {
     try {
+        if (Array.isArray(allSubscriptions) && allSubscriptions.length) {
+            applySubscriptionStats(allSubscriptions);
+            return;
+        }
         const subscriptions = await apiCall('/subscriptions/?limit=1000');
-        
-        // Compter par statut
-        const active = subscriptions.filter(s => s.statut === 'active').length;
-        const pending = subscriptions.filter(s => s.statut === 'en_attente' || s.statut === 'pending').length;
-        const expired = subscriptions.filter(s => s.statut === 'expiree' || s.statut === 'expired').length;
-        
-        document.getElementById('activeSubscriptionsCount').textContent = active || 0;
-        document.getElementById('pendingSubscriptionsCount').textContent = pending || 0;
-        document.getElementById('expiredSubscriptionsCount').textContent = expired || 0;
+        applySubscriptionStats(subscriptions);
     } catch (error) {
         console.error('Erreur lors du chargement des statistiques:', error);
-        document.getElementById('activeSubscriptionsCount').textContent = '0';
-        document.getElementById('pendingSubscriptionsCount').textContent = '0';
-        document.getElementById('expiredSubscriptionsCount').textContent = '0';
+        applySubscriptionStats([]);
     }
 }
 
