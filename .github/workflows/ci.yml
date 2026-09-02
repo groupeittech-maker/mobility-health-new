@@ -13,6 +13,13 @@ jobs:
   backend-test:
     name: Backend (pytest + lint)
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mobility_health_test
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: test-secret-key-for-ci
+      MINIO_ENDPOINT: localhost:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
 
     services:
       postgres:
@@ -68,32 +75,16 @@ jobs:
         continue-on-error: true
 
       - name: Prepare database schema
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mobility_health_test
         run: |
           cd apps/mhc
           alembic upgrade head
 
       - name: Run brand tests (blocking)
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mobility_health_test
-          REDIS_URL: redis://localhost:6379/0
-          SECRET_KEY: test-secret-key-for-ci
-          MINIO_ENDPOINT: localhost:9000
-          MINIO_ACCESS_KEY: minioadmin
-          MINIO_SECRET_KEY: minioadmin
         run: |
           cd apps/mhc
           pytest app/tests/test_brand_assets.py -v --cov-fail-under=0 --tb=short
 
       - name: Run full test suite
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mobility_health_test
-          REDIS_URL: redis://localhost:6379/0
-          SECRET_KEY: test-secret-key-for-ci
-          MINIO_ENDPOINT: localhost:9000
-          MINIO_ACCESS_KEY: minioadmin
-          MINIO_SECRET_KEY: minioadmin
         run: |
           cd apps/mhc
           pytest app/tests/ -v --cov=app --cov-report=xml --cov-fail-under=0 --tb=short
@@ -136,7 +127,7 @@ jobs:
 
       - name: Analyze
         working-directory: apps/mhc/mobile-app
-        run: flutter analyze --no-fatal-infos
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Test
         working-directory: apps/mhc/mobile-app

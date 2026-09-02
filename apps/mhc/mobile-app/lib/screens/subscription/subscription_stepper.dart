@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
-import '../../app.dart';
 
 /// Stepper 5 étapes (aligné frontend) : Voyage, Produit, Médical, Paiement, Attestation.
 class SubscriptionStepper extends StatelessWidget {
