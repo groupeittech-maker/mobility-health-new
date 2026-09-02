@@ -16,10 +16,14 @@ class AppColors {
   static const Color mutedText = Color(0xFF64748b);
   /// Header / AppBar — blanc opaque.
   static const Color cardBg = Color(0xFFFFFFFF);
-  /// Cartes / champs sur wallpaper — blanc quasi opaque + bordure brand (comme le web).
+  /// Cartes / panneaux sur wallpaper — blanc quasi opaque (~98 %).
   static const Color surfaceCard = Color(0xFAFFFFFF);
-  static const Color surfaceFieldFill = surfaceCard;
-  static const Color surfaceCardBorder = Color(0x144E267C);
+  /// Champs à l'intérieur d'une carte — blanc 100 % pour contraste maximal.
+  static const Color surfaceFieldFill = Color(0xFFFFFFFF);
+  /// Bordure carte — violet brand ~20 %.
+  static const Color surfaceCardBorder = Color(0x334E267C);
+  /// Bordure champ au repos — neutre.
+  static const Color surfaceFieldBorder = Color(0xFFE2E8F0);
   static List<BoxShadow> get surfaceCardShadow => [
         BoxShadow(
           color: Colors.black.withValues(alpha: 0.1),

@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
 import '../../core/widgets/mh_surface_card.dart';
+import '../../core/widgets/mh_text_highlight.dart';
 import '../../models/destination.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
@@ -378,15 +379,13 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Informations sur le voyage',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Divider(color: Color(0xFFE2E8F0), thickness: 1),
+              const MHSectionTitle(title: 'Informations sur le voyage'),
               const SizedBox(height: 16),
+              MHSurfaceCard(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
               if (_loadingDestinations)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
@@ -736,6 +735,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                     ),
                   ),
                   child: const Text('Continuer vers le choix du produit'),
+                ),
+              ),
+                  ],
                 ),
               ),
             ],

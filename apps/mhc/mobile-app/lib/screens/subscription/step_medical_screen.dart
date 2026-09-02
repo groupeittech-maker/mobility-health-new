@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
 import '../../core/widgets/mh_surface_card.dart';
+import '../../core/widgets/mh_text_highlight.dart';
 import '../../services/api_services.dart';
 
 /// Étape 3 : Questionnaire médical. La photo e-carte est prise à l’étape « Choix du produit »
@@ -239,13 +240,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Questionnaire médical',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1E293B),
-                ),
-              ),
+              const MHSectionTitle(title: 'Questionnaire médical'),
               const SizedBox(height: 12),
               _buildEcartePhotoSummary(theme),
               if (_error != null) ...[
@@ -263,19 +258,8 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                 ),
               ],
               const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceCard,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
+              MHSurfaceCard(
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -283,7 +267,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                       'DONNÉES MÉDICALES',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                        color: AppColors.secondary,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -408,34 +392,18 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Container(
+              MHSurfaceCard(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceCard,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CheckboxListTile(
-                      value: _declarationSante,
-                      onChanged: (v) => setState(() => _declarationSante = v ?? false),
-                      title: const Text(
-                        'Je déclare que les informations fournies sont exactes et complètes.',
-                        style: TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
-                      ),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                      activeColor: AppColors.primary,
-                    ),
-                  ],
+                child: CheckboxListTile(
+                  value: _declarationSante,
+                  onChanged: (v) => setState(() => _declarationSante = v ?? false),
+                  title: const Text(
+                    'Je déclare que les informations fournies sont exactes et complètes.',
+                    style: TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.primary,
                 ),
               ),
               const SizedBox(height: 24),

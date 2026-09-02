@@ -8,6 +8,7 @@ import '../core/constants/app_colors.dart';
 import '../core/network/api_client.dart' as net;
 import '../core/widgets/mh_logo_header.dart';
 import '../core/widgets/mh_surface_card.dart';
+import '../core/widgets/mh_text_highlight.dart';
 import '../models/destination.dart';
 import '../services/api_services.dart';
 
@@ -213,138 +214,162 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 16),
                 const MHLogoHeader(height: 100, compact: true),
                 const SizedBox(height: 24),
-                _sectionTitle('Informations civiles', 'Identité et coordonnées'),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildTextField(
-                        controller: _nomController,
-                        label: 'Nom *',
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                MHSurfaceCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _sectionTitle('Informations civiles', 'Identité et coordonnées'),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildTextField(
+                              controller: _nomController,
+                              label: 'Nom *',
+                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildTextField(
+                              controller: _prenomController,
+                              label: 'Prénom *',
+                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildTextField(
-                        controller: _prenomController,
-                        label: 'Prénom *',
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                      const SizedBox(height: 12),
+                      _buildTextField(
+                        controller: _emailController,
+                        label: 'Email *',
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Requis';
+                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) return 'Email invalide';
+                          return null;
+                        },
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  controller: _emailController,
-                  label: 'Email *',
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Requis';
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) return 'Email invalide';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                _buildDateField('Date de naissance *', _dateNaissance, (d) => setState(() => _dateNaissance = d)),
-                const SizedBox(height: 12),
-                _buildSexeField(),
-                const SizedBox(height: 12),
-                _buildPhoneField(
-                  controller: _phoneController,
-                  countryCode: _phoneCountryCode,
-                  onCountryChanged: (c) => setState(() => _phoneCountryCode = c),
-                  label: 'Téléphone *',
-                  isRequired: true,
-                ),
-                const SizedBox(height: 12),
-                _buildSearchableCountryPicker(
-                  'Pays de résidence',
-                  _paysResidence,
-                  (v) => setState(() => _paysResidence = v),
-                ),
-                const SizedBox(height: 12),
-                _buildSearchableCountryPicker(
-                  'Nationalité',
-                  _nationalite,
-                  (v) => setState(() => _nationalite = v),
-                ),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  controller: _passeportController,
-                  label: 'Numéro de passeport',
-                ),
-                const SizedBox(height: 12),
-                _buildDateField('Validité du passeport', _validitePasseport, (d) => setState(() => _validitePasseport = d)),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  controller: _nomContactUrgenceController,
-                  label: 'Nom du contact urgence',
-                ),
-                const SizedBox(height: 12),
-                _buildPhoneField(
-                  controller: _contactUrgenceController,
-                  countryCode: _contactUrgenceCountryCode,
-                  onCountryChanged: (c) => setState(() => _contactUrgenceCountryCode = c),
-                  label: 'Téléphone du contact urgence',
-                  isRequired: false,
-                ),
-                const SizedBox(height: 24),
-                _sectionTitle('Informations médicales', 'Pour votre dossier d’assurance'),
-                _buildYesNoQuestion(
-                  'Avez-vous des maladies chroniques connues ?',
-                  _maladiesChroniques,
-                  (v) => setState(() => _maladiesChroniques = v),
-                  _maladiesPrecisionController,
-                  'Précisez (diabète, HTA, asthme, etc.)',
-                ),
-                const SizedBox(height: 16),
-                _buildYesNoQuestion(
-                  'Êtes-vous sous traitement médical régulier ?',
-                  _traitementEnCours,
-                  (v) => setState(() => _traitementEnCours = v),
-                  _traitementPrecisionController,
-                  'Précisez le type de traitement',
-                ),
-                const SizedBox(height: 24),
-                _sectionTitle('Informations personnelles', 'Identifiants de connexion'),
-                _buildTextField(
-                  controller: _usernameController,
-                  label: 'Nom d\'utilisateur *',
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Requis';
-                    if (v.length < 3) return 'Minimum 3 caractères';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                _buildPasswordField(),
-                const SizedBox(height: 12),
-                _buildConfirmPasswordField(),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: AppColors.danger, fontSize: 14),
-                    textAlign: TextAlign.center,
+                      const SizedBox(height: 12),
+                      _buildDateField('Date de naissance *', _dateNaissance, (d) => setState(() => _dateNaissance = d)),
+                      const SizedBox(height: 12),
+                      _buildSexeField(),
+                      const SizedBox(height: 12),
+                      _buildPhoneField(
+                        controller: _phoneController,
+                        countryCode: _phoneCountryCode,
+                        onCountryChanged: (c) => setState(() => _phoneCountryCode = c),
+                        label: 'Téléphone *',
+                        isRequired: true,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildSearchableCountryPicker(
+                        'Pays de résidence',
+                        _paysResidence,
+                        (v) => setState(() => _paysResidence = v),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildSearchableCountryPicker(
+                        'Nationalité',
+                        _nationalite,
+                        (v) => setState(() => _nationalite = v),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildTextField(
+                        controller: _passeportController,
+                        label: 'Numéro de passeport',
+                      ),
+                      const SizedBox(height: 12),
+                      _buildDateField('Validité du passeport', _validitePasseport, (d) => setState(() => _validitePasseport = d)),
+                      const SizedBox(height: 12),
+                      _buildTextField(
+                        controller: _nomContactUrgenceController,
+                        label: 'Nom du contact urgence',
+                      ),
+                      const SizedBox(height: 12),
+                      _buildPhoneField(
+                        controller: _contactUrgenceController,
+                        countryCode: _contactUrgenceCountryCode,
+                        onCountryChanged: (c) => setState(() => _contactUrgenceCountryCode = c),
+                        label: 'Téléphone du contact urgence',
+                        isRequired: false,
+                      ),
+                    ],
                   ),
-                ],
+                ),
                 const SizedBox(height: 24),
-                SizedBox(
-                  height: 52,
-                  child: FilledButton(
-                    onPressed: _isLoading ? null : _handleRegister,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : Text('S\'inscrire', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                MHSurfaceCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _sectionTitle('Informations médicales', 'Pour votre dossier d’assurance'),
+                      _buildYesNoQuestion(
+                        'Avez-vous des maladies chroniques connues ?',
+                        _maladiesChroniques,
+                        (v) => setState(() => _maladiesChroniques = v),
+                        _maladiesPrecisionController,
+                        'Précisez (diabète, HTA, asthme, etc.)',
+                      ),
+                      const SizedBox(height: 16),
+                      _buildYesNoQuestion(
+                        'Êtes-vous sous traitement médical régulier ?',
+                        _traitementEnCours,
+                        (v) => setState(() => _traitementEnCours = v),
+                        _traitementPrecisionController,
+                        'Précisez le type de traitement',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                MHSurfaceCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _sectionTitle('Informations personnelles', 'Identifiants de connexion'),
+                      _buildTextField(
+                        controller: _usernameController,
+                        label: 'Nom d\'utilisateur *',
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Requis';
+                          if (v.length < 3) return 'Minimum 3 caractères';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _buildPasswordField(),
+                      const SizedBox(height: 12),
+                      _buildConfirmPasswordField(),
+                      if (_errorMessage != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: AppColors.danger, fontSize: 14),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        height: 52,
+                        child: FilledButton(
+                          onPressed: _isLoading ? null : _handleRegister,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : Text('S\'inscrire', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -369,24 +394,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _sectionTitle(String title, String subtitle) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
+          MHTextHighlight(
+            child: Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.secondary,
+              ),
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: AppColors.mutedText,
+          const SizedBox(height: 6),
+          MHTextHighlight(
+            child: Text(
+              subtitle,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: AppColors.mutedText,
+              ),
             ),
           ),
         ],
@@ -404,10 +433,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
-      decoration: MHSurfaceCard.input(
-        labelText: label,
-        labelStyle: TextStyle(color: AppColors.primary),
-      ),
+      decoration: MHSurfaceCard.input(labelText: label),
       enabled: !_isLoading,
     );
   }
@@ -423,7 +449,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       },
       decoration: MHSurfaceCard.input(
         labelText: 'Mot de passe *',
-        labelStyle: TextStyle(color: AppColors.primary),
         suffixIcon: IconButton(
           icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: AppColors.mutedText),
           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -444,7 +469,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       },
       decoration: MHSurfaceCard.input(
         labelText: 'Confirmer le mot de passe *',
-        labelStyle: TextStyle(color: AppColors.primary),
         suffixIcon: IconButton(
           icon: Icon(
             _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
@@ -473,7 +497,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       child: InputDecorator(
         decoration: MHSurfaceCard.input(
           labelText: label,
-          labelStyle: TextStyle(color: AppColors.primary),
           suffixIcon: const Icon(Icons.calendar_today),
         ),
         child: Text(
@@ -602,7 +625,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           boxDecoration: BoxDecoration(
             color: AppColors.surfaceFieldFill,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.surfaceCardBorder),
+            border: Border.all(color: AppColors.surfaceFieldBorder),
           ),
         ),
         const SizedBox(width: 8),
@@ -695,7 +718,7 @@ class _ChoiceChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             border: Border.all(
-              color: selected ? AppColors.primary : AppColors.surfaceCardBorder,
+              color: selected ? AppColors.primary : AppColors.surfaceFieldBorder,
               width: selected ? 2 : 1,
             ),
             borderRadius: BorderRadius.circular(10),

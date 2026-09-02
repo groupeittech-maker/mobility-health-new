@@ -33,17 +33,24 @@ class MHSurfaceCard extends StatelessWidget {
       suffixIcon: suffixIcon,
       prefixIcon: prefixIcon,
       isDense: isDense,
-      labelStyle: labelStyle,
+      labelStyle: labelStyle ??
+          (labelText != null
+              ? const TextStyle(
+                  color: AppColors.secondary,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                )
+              : null),
       errorText: errorText,
       filled: true,
       fillColor: AppColors.surfaceFieldFill,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.surfaceCardBorder),
+        borderSide: const BorderSide(color: AppColors.surfaceFieldBorder),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.surfaceCardBorder),
+        borderSide: const BorderSide(color: AppColors.surfaceFieldBorder),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -58,11 +65,11 @@ class MHSurfaceCard extends StatelessWidget {
         fillColor: AppColors.surfaceFieldFill,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.surfaceCardBorder),
+          borderSide: const BorderSide(color: AppColors.surfaceFieldBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.surfaceCardBorder),
+          borderSide: const BorderSide(color: AppColors.surfaceFieldBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),

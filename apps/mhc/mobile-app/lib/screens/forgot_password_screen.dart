@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../core/constants/app_colors.dart';
 import '../core/widgets/mh_logo_header.dart';
 import '../core/widgets/mh_surface_card.dart';
+import '../core/widgets/mh_text_highlight.dart';
 import '../services/auth_service.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -315,22 +316,26 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             children: [
               const MHLogoHeader(height: 100, compact: true),
               const SizedBox(height: 24),
-              Text(
-                'Reinitialisation du mot de passe',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
+              MHTextHighlight(
+                child: Text(
+                  'Reinitialisation du mot de passe',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.secondary,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                'Suivez les 3 etapes pour recevoir un code, le verifier, puis definir un nouveau mot de passe.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: AppColors.mutedText,
+              MHTextHighlight(
+                child: Text(
+                  'Suivez les 3 etapes pour recevoir un code, le verifier, puis definir un nouveau mot de passe.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: AppColors.mutedText,
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
