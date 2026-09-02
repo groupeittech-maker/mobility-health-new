@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../services/api_services.dart';
 import '../pdf_viewer_screen.dart';
 
@@ -61,7 +62,7 @@ class _StepAttestationScreenState extends State<StepAttestationScreen> {
     final mq = MediaQuery.of(context);
 
     return Container(
-      color: const Color(0xFFE8F0F4),
+      color: kMhContentBackground,
       child: SingleChildScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: EdgeInsets.fromLTRB(20, 20, 20, mq.padding.bottom + mq.viewInsets.bottom + 24),

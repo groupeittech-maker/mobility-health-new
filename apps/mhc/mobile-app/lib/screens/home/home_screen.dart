@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../core/widgets/mh_logo_header.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/auth_service.dart';
@@ -48,8 +49,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kMhContentBackground,
       appBar: AppBar(
-        toolbarHeight: 88,
+        toolbarHeight: 80,
         backgroundColor: AppColors.cardBg,
         elevation: 0,
         leading: IconButton(
@@ -67,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
               alignment: Alignment.center,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: maxW),
-                child: const MHOfficialLogo(height: 56),
+                child: const MHOfficialLogo(height: 48),
               ),
             );
           },

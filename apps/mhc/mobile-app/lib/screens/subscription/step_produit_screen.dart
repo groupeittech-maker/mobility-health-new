@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../models/product.dart';
 import '../../models/subscription_quote.dart';
 import 'product_detail_screen.dart';
@@ -179,7 +180,7 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
     final mq = MediaQuery.of(context);
     final bottomPadding = mq.padding.bottom + mq.viewInsets.bottom + 24;
     return Container(
-      color: const Color(0xFFE8F0F4),
+      color: kMhContentBackground,
       child: SingleChildScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPadding),

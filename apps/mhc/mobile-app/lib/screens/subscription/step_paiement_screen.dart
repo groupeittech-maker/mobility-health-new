@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../services/api_services.dart';
 
 /// Étape 4 : Paiement – "Payer maintenant" appelle le backend pour confirmer le paiement
@@ -93,7 +94,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
     final theme = Theme.of(context);
     final mq = MediaQuery.of(context);
     return Container(
-      color: const Color(0xFFE8F0F4),
+      color: kMhContentBackground,
       child: SingleChildScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: EdgeInsets.fromLTRB(20, 20, 20, mq.padding.bottom + mq.viewInsets.bottom + 24),

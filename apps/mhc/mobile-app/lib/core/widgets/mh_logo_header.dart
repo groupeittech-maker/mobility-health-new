@@ -38,7 +38,7 @@ class MHLogoHeader extends StatelessWidget {
   const MHLogoHeader({
     super.key,
     this.height = 100,
-    this.showSlogan = true,
+    this.showSlogan = false,
     this.compact = false,
   });
 
@@ -55,7 +55,7 @@ class MHLogoHeader extends StatelessWidget {
         if (showSlogan) ...[
           SizedBox(height: compact ? 6 : 12),
           Text(
-            'Travel safe. Life free',
+            'Travel safe, Live free.',
             style: TextStyle(
               color: AppColors.secondary,
               fontSize: compact ? 13 : 16,

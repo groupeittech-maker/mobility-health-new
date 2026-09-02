@@ -98,14 +98,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const bgColor = Color(0xFFE8F0F4);
-
     final bottomPadding = MediaQuery.of(context).padding.bottom + 24;
-    return Container(
-      color: bgColor,
-      child: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
           padding: EdgeInsets.fromLTRB(20, 16, 20, bottomPadding),
           children: [
             Text(
@@ -201,7 +197,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
         ],
-      ),
       ),
     );
   }

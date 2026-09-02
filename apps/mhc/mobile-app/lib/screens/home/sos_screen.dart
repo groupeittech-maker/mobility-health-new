@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../core/constants/mh_layout.dart';
 import '../../core/constants/app_colors.dart';
 import '../../services/api_services.dart';
 import '../../services/sos_eligibility_service.dart';
@@ -214,8 +215,8 @@ class _SosScreenState extends State<SosScreen> {
             ? [AppColors.danger, AppColors.danger.withValues(alpha: 0.85)]
             : [const Color(0xFF94A3B8), const Color(0xFF64748B)];
 
-    return Container(
-      color: const Color(0xFFE8F0F4),
+    return ColoredBox(
+      color: kMhContentBackground,
       child: ListView(
         padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPadding),
         children: [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/api_error_helper.dart';
 import '../../models/subscription.dart';
@@ -19,8 +20,8 @@ class _HistoriqueScreenState extends State<HistoriqueScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFE8F0F4),
+    return ColoredBox(
+      color: kMhContentBackground,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../models/referent_pipeline.dart';
 import '../../services/medecin_referent_service.dart';
 
@@ -220,6 +221,7 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kMhContentBackground,
       appBar: AppBar(
         title: const Text('Dossier sinistre'),
         leading: IconButton(
