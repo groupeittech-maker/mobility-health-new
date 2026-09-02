@@ -192,3 +192,31 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
         continue-on-error: true
+
+  ci-gate:
+    name: CI Gate
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-check, flutter-check, build]
+    if: always()
+
+    steps:
+      - name: Vérifier que tous les jobs requis sont verts
+        run: |
+          echo "backend-test: ${{ needs.backend-test.result }}"
+          echo "frontend-check: ${{ needs.frontend-check.result }}"
+          echo "flutter-check: ${{ needs.flutter-check.result }}"
+          echo "build: ${{ needs.build.result }}"
+          for job in backend-test frontend-check flutter-check build; do
+            result=""
+            case "$job" in
+              backend-test) result="${{ needs.backend-test.result }}" ;;
+              frontend-check) result="${{ needs.frontend-check.result }}" ;;
+              flutter-check) result="${{ needs.flutter-check.result }}" ;;
+              build) result="${{ needs.build.result }}" ;;
+            esac
+            if [ "$result" != "success" ]; then
+              echo "❌ Job $job : $result"
+              exit 1
+            fi
+          done
+          echo "✅ CI Gate : tous les jobs requis sont verts"

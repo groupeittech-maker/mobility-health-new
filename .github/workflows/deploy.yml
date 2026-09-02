@@ -1,110 +1,140 @@
+# Déploiement VPS Hostinger — uniquement après CI vert sur main (ou manuel).
 name: Deploy to Hostinger VPS
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - 'README.md'
-      - 'docs/**'
-      - '*.md'
+  workflow_run:
+    workflows: [CI Pipeline]
+    types: [completed]
+    branches: [main]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
+    name: Déploiement production
     runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
-    - name: Prepare SSH
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        SSH_HOST: ${{ secrets.SSH_HOST }}
-      run: |
-        mkdir -p ~/.ssh
-        chmod 700 ~/.ssh
-        python3 << 'PY'
-        import os, sys
-        raw = os.environ.get("SSH_PRIVATE_KEY") or ""
-        if not raw.strip():
-            print("::error::Le secret SSH_PRIVATE_KEY est vide.")
-            sys.exit(1)
-        key = raw.replace("\r\n", "\n").replace("\r", "\n")
-        if "BEGIN" in key and "\\n" in key:
-            key = key.replace("\\n", "\n")
-        key = key.strip() + "\n"
-        if "BEGIN OPENSSH PRIVATE KEY" not in key and "BEGIN RSA PRIVATE KEY" not in key:
-            print("::error::SSH_PRIVATE_KEY n'est pas une clé privée (fichier sans .pub).")
-            sys.exit(1)
-        path = os.path.expanduser("~/.ssh/id_ed25519")
-        with open(path, "w", newline="\n") as f:
-            f.write(key)
-        os.chmod(path, 0o600)
-        print("Clé SSH installée dans ~/.ssh/id_ed25519")
-        PY
-        ssh-keygen -y -f ~/.ssh/id_ed25519 >/dev/null
-        ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-        chmod 600 ~/.ssh/known_hosts || true
+      - name: Infos déploiement
+        run: |
+          echo "## Déploiement Mobility Health" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit : \`${{ github.event.workflow_run.head_sha || github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Branche : main" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Déclencheur : ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
 
-    - name: Test SSH connection
-      env:
-        SSH_HOST: ${{ secrets.SSH_HOST }}
-        SSH_USER: ${{ secrets.SSH_USER }}
-      run: |
-        ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
-          "${SSH_USER}@${SSH_HOST}" "echo OK; hostname; date"
+      - name: Prepare SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          python3 << 'PY'
+          import os, sys
+          raw = os.environ.get("SSH_PRIVATE_KEY") or ""
+          if not raw.strip():
+              print("::error::Le secret SSH_PRIVATE_KEY est vide.")
+              sys.exit(1)
+          key = raw.replace("\r\n", "\n").replace("\r", "\n")
+          if "BEGIN" in key and "\\n" in key:
+              key = key.replace("\\n", "\n")
+          key = key.strip() + "\n"
+          if "BEGIN OPENSSH PRIVATE KEY" not in key and "BEGIN RSA PRIVATE KEY" not in key:
+              print("::error::SSH_PRIVATE_KEY n'est pas une clé privée (fichier sans .pub).")
+              sys.exit(1)
+          path = os.path.expanduser("~/.ssh/id_ed25519")
+          with open(path, "w", newline="\n") as f:
+              f.write(key)
+          os.chmod(path, 0o600)
+          print("Clé SSH installée dans ~/.ssh/id_ed25519")
+          PY
+          ssh-keygen -y -f ~/.ssh/id_ed25519 >/dev/null
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          chmod 600 ~/.ssh/known_hosts || true
 
-    - name: Create frontend archive
-      run: |
-        tar czf frontend.tar.gz -C apps/mhc/frontend-simple .
-        test -s frontend.tar.gz
+      - name: Test SSH connection
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
+            "${SSH_USER}@${SSH_HOST}" "echo OK; hostname; date"
 
-    - name: Copy frontend archive to server
-      env:
-        SSH_HOST: ${{ secrets.SSH_HOST }}
-        SSH_USER: ${{ secrets.SSH_USER }}
-      run: |
-        scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-          frontend.tar.gz "${SSH_USER}@${SSH_HOST}:/tmp/frontend.tar.gz"
+      - name: Create frontend archive
+        run: |
+          tar czf frontend.tar.gz -C apps/mhc/frontend-simple .
+          test -s frontend.tar.gz
 
-    - name: Create backend archives
-      run: |
-        tar czf app.tar.gz --exclude="__pycache__" --exclude="*.pyc" --exclude="*.pyo" --exclude=".git" -C apps/mhc app/
-        tar czf alembic.tar.gz --exclude="__pycache__" --exclude="*.pyc" --exclude=".git" -C apps/mhc alembic/
-        cp apps/mhc/docker-compose.yml .
-        cp apps/mhc/docker-compose.prod.yml .
-        cp apps/mhc/Dockerfile .
-        cp apps/mhc/Dockerfile.prod .
-        cp apps/mhc/requirements.txt .
-        cp apps/mhc/alembic.ini .
+      - name: Copy frontend archive to server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+            frontend.tar.gz "${SSH_USER}@${SSH_HOST}:/tmp/frontend.tar.gz"
 
-    - name: Copy backend archives to server
-      env:
-        SSH_HOST: ${{ secrets.SSH_HOST }}
-        SSH_USER: ${{ secrets.SSH_USER }}
-      run: |
-        scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-          app.tar.gz alembic.tar.gz docker-compose.yml docker-compose.prod.yml \
-          Dockerfile Dockerfile.prod requirements.txt alembic.ini \
-          "${SSH_USER}@${SSH_HOST}:/tmp/"
+      - name: Create backend archives
+        run: |
+          tar czf app.tar.gz --exclude="__pycache__" --exclude="*.pyc" --exclude="*.pyo" --exclude=".git" -C apps/mhc app/
+          tar czf alembic.tar.gz --exclude="__pycache__" --exclude="*.pyc" --exclude=".git" -C apps/mhc alembic/
+          cp apps/mhc/docker-compose.yml .
+          cp apps/mhc/docker-compose.prod.yml .
+          cp apps/mhc/Dockerfile .
+          cp apps/mhc/Dockerfile.prod .
+          cp apps/mhc/requirements.txt .
+          cp apps/mhc/alembic.ini .
 
-    - name: Extract and deploy frontend
-      env:
-        SSH_HOST: ${{ secrets.SSH_HOST }}
-        SSH_USER: ${{ secrets.SSH_USER }}
-      run: |
-        ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-          "${SSH_USER}@${SSH_HOST}" "bash -s" < .github/scripts/remote-deploy-frontend.sh
+      - name: Copy backend archives to server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+            app.tar.gz alembic.tar.gz docker-compose.yml docker-compose.prod.yml \
+            Dockerfile Dockerfile.prod requirements.txt alembic.ini \
+            "${SSH_USER}@${SSH_HOST}:/tmp/"
 
-    - name: Deploy backend and restart services
-      env:
-        SSH_HOST: ${{ secrets.SSH_HOST }}
-        SSH_USER: ${{ secrets.SSH_USER }}
-      run: |
-        ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-          "${SSH_USER}@${SSH_HOST}" "bash -s" < .github/scripts/remote-deploy-backend.sh
+      - name: Extract and deploy frontend
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+            "${SSH_USER}@${SSH_HOST}" "bash -s" < .github/scripts/remote-deploy-frontend.sh
+
+      - name: Deploy backend and restart services
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+            "${SSH_USER}@${SSH_HOST}" "bash -s" < .github/scripts/remote-deploy-backend.sh
+
+      - name: Mise à jour locale (instructions)
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ✅ Déploiement terminé" >> "$GITHUB_STEP_SUMMARY"
+          echo "Mettez à jour votre dépôt local :" >> "$GITHUB_STEP_SUMMARY"
+          echo '```bash' >> "$GITHUB_STEP_SUMMARY"
+          echo "./scripts/sync-local-from-main.sh" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo '```powershell' >> "$GITHUB_STEP_SUMMARY"
+          echo ".\scripts\sync-local-from-main.ps1" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit déployé : \`$SHA\`" >> "$GITHUB_STEP_SUMMARY"
