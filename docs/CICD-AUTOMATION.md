@@ -89,6 +89,32 @@ Après un déploiement réussi (notification GitHub ou e-mail Actions) :
 | CI rouge sur main | Corriger, PR ou push direct → redeploy après CI vert |
 | Deploy rouge | Voir logs Actions + `docker compose logs api` sur le VPS |
 | Health check API | Vérifier https://srv1324425.hstgr.cloud/health |
+| `Network is unreachable` (SSH) | Voir § [Deploy SSH](#deploy-ssh--network-is-unreachable) ci-dessous |
+
+## Deploy SSH — `Network is unreachable`
+
+Si le job **Test SSH connection** échoue avec `ssh: connect to host … port 22: Network is unreachable` :
+
+1. **Secrets GitHub** (Settings → Secrets → Actions) :
+   - `SSH_HOST` = hostname **ou IP publique** seule (`srv1324425.hstgr.cloud` ou `82.112.242.86`) — **sans** `user@`
+   - `SSH_USER` = `root` ou `deployer`
+   - `SSH_PRIVATE_KEY` = clé privée complète (`-----BEGIN OPENSSH PRIVATE KEY-----`)
+
+2. **VPS Hostinger** : panneau → VPS → démarré, SSH activé (port 22).
+
+3. **Firewall** : autoriser le port **22/TCP** depuis Internet (ou plages IP [GitHub Actions](https://api.github.com/meta) → champ `actions`).
+
+4. **Clé publique** sur le VPS (`~/.ssh/authorized_keys`) — voir `apps/mhc/deploy-keys/README.md`.
+
+5. **Test local** depuis votre PC :
+   ```bash
+   ssh -4 root@srv1324425.hstgr.cloud hostname
+   ```
+   Si local OK mais GitHub Actions KO → firewall bloque les runners (étape 3).
+
+6. Le workflow force **IPv4** (`-4`, `AddressFamily inet`) pour éviter les échecs IPv6 des runners.
+
+Déploiement manuel de secours : `.\deploy.ps1` ou Actions → **Deploy to Hostinger VPS** → Run workflow.
 
 ## Ce qui n'est pas automatisé
 
