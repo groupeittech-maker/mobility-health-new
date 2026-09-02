@@ -290,9 +290,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         : _passwordController.text == _confirmPasswordController.text;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.cardBg,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.primary),

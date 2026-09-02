@@ -390,7 +390,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
@@ -404,7 +404,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
             fontSize: 18,
           ),
         ),
-        backgroundColor: const Color(0xFFf0fdfa),
+        backgroundColor: AppColors.cardBg,
         elevation: 0,
         foregroundColor: const Color(0xFF1E293B),
       ),

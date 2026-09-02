@@ -257,7 +257,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Détail souscription'),
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.cardBg,
           foregroundColor: const Color(0xFF1E293B),
           elevation: 0,
         ),
@@ -295,7 +295,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Détail souscription'),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.cardBg,
         foregroundColor: const Color(0xFF1E293B),
         elevation: 0,
       ),

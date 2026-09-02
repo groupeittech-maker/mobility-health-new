@@ -25,14 +25,13 @@ class CardService:
     HEIGHT = 600
     TEAL_BAND_HEIGHT = 110
     # Charte Mobility HealthCare (logo : violet #512D81 + teal #1DB09C)
-    PURPLE_DARK = "#2d1a4d"  # Violet profond (bord gauche du dégradé)
-    PURPLE_BRAND = "#4D2F87"  # Violet exact validé
-    TEAL_ACCENT = "#0FB39B"  # Vert exact validé
-    TEAL_BORDER = "#0FB39B"  # Bandeau bas
-    TEXT_COLOR = "#FFFFFF"  # Rétrocompat (anciens fonds sombres)
-    # Texte sur fond blanc (charte logo : violet #512D81, teal #1DB09C)
-    TEXT_ON_LIGHT_TITLE = "#512D81"
-    TEXT_ON_LIGHT_LABEL = "#1DB09C"
+    PURPLE_DARK = "#3d1e62"
+    PURPLE_BRAND = "#4e267c"
+    TEAL_ACCENT = "#14AE98"
+    TEAL_BORDER = "#14AE98"
+    TEXT_COLOR = "#FFFFFF"
+    TEXT_ON_LIGHT_TITLE = "#4e267c"
+    TEXT_ON_LIGHT_LABEL = "#14AE98"
     TEXT_ON_LIGHT_VALUE = "#1a1528"
     TEXT_ON_LIGHT_MUTED = "#5c5470"
     PLACEHOLDER_BG = "#eef1f6"  # Neutre clair si pas de photo (sur carte blanche)

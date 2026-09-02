@@ -21,7 +21,7 @@ class ReferentProfileScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.cardBg,
         foregroundColor: AppColors.primary,
         elevation: 0.5,
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/constants/app_colors.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'products_screen.dart';
@@ -29,7 +30,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_tabs[_activeIndex].label),
-        backgroundColor: Colors.teal,
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
