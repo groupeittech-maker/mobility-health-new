@@ -27,7 +27,8 @@ done
 grep -q '#4e267c' "$CSS" || { echo "❌ Couleur brand violet absente de style.css"; exit 1; }
 grep -q '#14AE98' "$CSS" || { echo "❌ Couleur brand teal absente de style.css"; exit 1; }
 grep -q 'wallpaper-brand.jpg' "$CSS" || { echo "❌ Wallpaper non référencé dans style.css"; exit 1; }
-echo "✅ Couleurs et wallpaper CSS"
+grep -q 'text-highlight' "$CSS" || { echo "❌ Classes text-highlight absentes de style.css"; exit 1; }
+echo "✅ Couleurs, wallpaper et surlignage CSS"
 
 # Pages clés référencent le CSS partagé
 for page in index.html login.html register.html; do

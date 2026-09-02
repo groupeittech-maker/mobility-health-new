@@ -25,6 +25,9 @@
     --border-color: #e2e8f0;
     --shadow-color: rgba(15, 23, 42, 0.08);
     --shadow-lg: rgba(15, 23, 42, 0.12);
+    /* Surlignage texte sur fond motif (lavande brand) */
+    --text-highlight-bg: rgba(237, 233, 254, 0.92);
+    --text-highlight-bg-strong: rgba(237, 233, 254, 0.97);
 }
 
 * {
@@ -505,6 +508,37 @@ body {
 .muted {
     color: var(--muted-text);
     font-size: 0.95rem;
+}
+
+/* Surlignage pour lisibilité sur le fond motif */
+.text-highlight {
+    background: var(--text-highlight-bg);
+    padding: 0.15em 0.45em;
+    border-radius: 4px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+.text-highlight-block {
+    display: inline-block;
+    background: var(--text-highlight-bg);
+    padding: 0.5rem 0.85rem;
+    border-radius: 6px;
+    line-height: 1.65;
+    max-width: 52rem;
+}
+
+.text-highlight-block strong {
+    color: var(--secondary-dark);
+}
+
+/* Titres de page sur fond motif : léger voile derrière le titre */
+.page-title-highlight {
+    display: inline-block;
+    background: var(--text-highlight-bg-strong);
+    padding: 0.25rem 0.65rem;
+    border-radius: 6px;
+    margin-bottom: 0.35rem;
 }
 
 /* Loading spinner */
