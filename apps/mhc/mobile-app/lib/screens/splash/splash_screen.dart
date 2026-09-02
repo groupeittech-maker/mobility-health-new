@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/constants/app_colors.dart';
+import '../../core/widgets/mh_logo_header.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/referent_navigation.dart';
 
-/// Écran de démarrage – fondu sur fond blanc avec "Mobility Health Care" et "Travel safe. Life free".
+/// Écran de démarrage – logo officiel Mobility HealthCare sur fond wallpaper.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -82,32 +82,7 @@ class _SplashScreenState extends State<SplashScreen>
                 child: child,
               );
             },
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Mobility Health Care',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                    letterSpacing: 0.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Travel safe. Life free',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    fontStyle: FontStyle.italic,
-                    color: AppColors.secondary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+            child: const MHLogoHeader(height: 120, compact: true),
           ),
         ),
       ),
