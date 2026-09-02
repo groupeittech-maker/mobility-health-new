@@ -5,7 +5,10 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/constants/app_colors.dart';
+import '../core/theme/app_theme.dart';
 import '../core/widgets/mh_logo_header.dart';
+import '../core/widgets/mh_surface_card.dart';
+import '../core/widgets/mh_text_highlight.dart';
 import '../providers/auth_provider.dart';
 import '../services/referent_navigation.dart';
 
@@ -24,8 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   String? _errorMessage;
   bool _queryHandled = false;
-
-  static const _lightGrey = Color(0xFFF5F5F5);
 
   @override
   void dispose() {
@@ -129,49 +130,59 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
                 _buildLogo(),
                 const SizedBox(height: 24),
-                Text(
-                  'Connexion',
-                  style: GoogleFonts.poppins(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _buildUsernameField(),
-                const SizedBox(height: 16),
-                _buildPasswordField(),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red, fontSize: 14),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-                const SizedBox(height: 6),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: context.watch<AuthProvider>().loading
-                        ? null
-                        : () => context.push('/forgot-password'),
-                    child: Text(
-                      'Mot de passe oublié ?',
-                      style: GoogleFonts.poppins(
-                        color: AppColors.primary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
+                MHTextHighlight(
+                  child: Text(
+                    'Connexion',
+                    style: GoogleFonts.poppins(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.secondary,
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
-                _buildLoginButton(),
-                const SizedBox(height: 24),
-                _buildDivider(),
-                const SizedBox(height: 16),
-                _buildRegisterLink(),
+                MHAuthCard(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildUsernameField(),
+                      const SizedBox(height: 16),
+                      _buildPasswordField(),
+                      if (_errorMessage != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.red, fontSize: 14),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: context.watch<AuthProvider>().loading
+                              ? null
+                              : () => context.push('/forgot-password'),
+                          child: Text(
+                            'Mot de passe oublié ?',
+                            style: GoogleFonts.poppins(
+                              color: AppColors.primary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildLoginButton(),
+                      const SizedBox(height: 24),
+                      _buildDivider(),
+                      const SizedBox(height: 16),
+                      _buildRegisterLink(),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 12),
                 TextButton(
                   onPressed: _launchWebsite,
@@ -226,19 +237,13 @@ class _LoginScreenState extends State<LoginScreen> {
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: AppColors.primary,
+            color: AppColors.secondary,
           ),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: _usernameController,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: _lightGrey,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
+          decoration: MHSurfaceCard.input(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
           textInputAction: TextInputAction.next,
@@ -257,20 +262,14 @@ class _LoginScreenState extends State<LoginScreen> {
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: AppColors.primary,
+            color: AppColors.secondary,
           ),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: _passwordController,
           obscureText: _obscurePassword,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: _lightGrey,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
+          decoration: MHSurfaceCard.input(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             suffixIcon: IconButton(
               icon: Icon(

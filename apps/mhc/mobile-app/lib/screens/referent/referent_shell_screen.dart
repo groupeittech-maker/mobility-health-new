@@ -109,11 +109,11 @@ class _ReferentShellScreenState extends State<ReferentShellScreen> {
     return Scaffold(
       backgroundColor: kMhContentBackground,
       appBar: AppBar(
-        toolbarHeight: 72,
+        toolbarHeight: 76,
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const MHOfficialLogo(height: 48),
+            const MHOfficialLogo(height: 52),
             const SizedBox(width: 10),
             const Flexible(
               child: Text(

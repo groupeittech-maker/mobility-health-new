@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
+import '../../core/widgets/mh_surface_card.dart';
+import '../../core/widgets/mh_text_highlight.dart';
 import '../../services/api_services.dart';
 
 /// Étape 3 : Questionnaire médical. La photo e-carte est prise à l’étape « Choix du produit »
@@ -238,13 +240,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Questionnaire médical',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1E293B),
-                ),
-              ),
+              const MHSectionTitle(title: 'Questionnaire médical'),
               const SizedBox(height: 12),
               _buildEcartePhotoSummary(theme),
               if (_error != null) ...[
@@ -262,19 +258,8 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                 ),
               ],
               const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
+              MHSurfaceCard(
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -282,7 +267,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                       'DONNÉES MÉDICALES',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                        color: AppColors.secondary,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -330,11 +315,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _maladiesAutreController,
-                      decoration: const InputDecoration(
-                        labelText: 'Autre (précisez)',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
+                      decoration: MHSurfaceCard.input(labelText: 'Autre (précisez)', isDense: true),
                     ),
                     const SizedBox(height: 12),
                     Text('Traitement médical régulier ?', style: theme.textTheme.labelLarge),
@@ -349,7 +330,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _traitementPrecisionController,
-                        decoration: const InputDecoration(labelText: 'Précisez le type de traitement', border: OutlineInputBorder(), isDense: true),
+                        decoration: MHSurfaceCard.input(labelText: 'Précisez le type de traitement', isDense: true),
                         maxLines: 2,
                       ),
                     ],
@@ -366,7 +347,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _hospitaliseRaisonController,
-                        decoration: const InputDecoration(labelText: 'Raison', border: OutlineInputBorder(), isDense: true),
+                        decoration: MHSurfaceCard.input(labelText: 'Raison', isDense: true),
                         maxLines: 2,
                       ),
                     ],
@@ -411,34 +392,18 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Container(
+              MHSurfaceCard(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CheckboxListTile(
-                      value: _declarationSante,
-                      onChanged: (v) => setState(() => _declarationSante = v ?? false),
-                      title: const Text(
-                        'Je déclare que les informations fournies sont exactes et complètes.',
-                        style: TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
-                      ),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                      activeColor: AppColors.primary,
-                    ),
-                  ],
+                child: CheckboxListTile(
+                  value: _declarationSante,
+                  onChanged: (v) => setState(() => _declarationSante = v ?? false),
+                  title: const Text(
+                    'Je déclare que les informations fournies sont exactes et complètes.',
+                    style: TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.primary,
                 ),
               ),
               const SizedBox(height: 24),
@@ -505,7 +470,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
           if (isAlcool)
             DropdownButtonFormField<String>(
               value: _alcoolFrequence,
-              decoration: const InputDecoration(labelText: 'Fréquence', border: OutlineInputBorder(), isDense: true),
+              decoration: MHSurfaceCard.input(labelText: 'Fréquence', isDense: true),
               items: const [
                 DropdownMenuItem(value: 'occasionnellement', child: Text('Occasionnellement')),
                 DropdownMenuItem(value: 'regulierement', child: Text('Régulièrement (1-2/sem)')),
@@ -516,7 +481,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
           else if (detailController != null && detailLabel != null)
             TextFormField(
               controller: detailController,
-              decoration: InputDecoration(labelText: detailLabel, border: const OutlineInputBorder(), isDense: true),
+              decoration: MHSurfaceCard.input(labelText: detailLabel, isDense: true),
               maxLines: detailLabel.contains('Précisez') ? 2 : 1,
             ),
         ],
@@ -531,7 +496,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: ok ? const Color(0xFFE2E8F0) : AppColors.danger.withValues(alpha: 0.35),
