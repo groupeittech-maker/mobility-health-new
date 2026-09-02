@@ -1,3 +1,4 @@
+import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -18,13 +19,16 @@ from app.core.enums import Role, StatutProjetVoyage, CleRepartition
 from app.core.security import get_password_hash
 
 
-# Create test database
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+# Postgres en CI (DATABASE_URL), SQLite en local par défaut
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
+_engine_kwargs: dict = {}
+if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+    _engine_kwargs = {
+        "connect_args": {"check_same_thread": False},
+        "poolclass": StaticPool,
+    }
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL, **_engine_kwargs)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -64,7 +68,8 @@ def test_user(db):
         hashed_password=get_password_hash("testpassword123"),
         full_name="Test User",
         role=Role.USER,
-        is_active=True
+        is_active=True,
+        email_verified=True,
     )
     db.add(user)
     db.commit()

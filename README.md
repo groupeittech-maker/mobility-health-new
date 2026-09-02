@@ -30,7 +30,12 @@ Voir [apps/mhc/README.md](apps/mhc/README.md).
 
 ## CI/CD
 
-- **CI** : push/PR sur `main` ou `develop` → tests pytest + build Docker
+- **CI** (`.github/workflows/ci.yml`) — sur push/PR vers `main` ou `develop` :
+  - **Backend** : lint + pytest (bloquant)
+  - **Frontend** : assets charte + couleurs CSS (`scripts/ci-check-frontend.sh`)
+  - **Flutter** : `analyze`, `test`, build web
+  - **Docker** : build image API
+  - **Sécurité** : scan Trivy
 - **Deploy** : push `main` ou manuel → VPS Hostinger (`deploy.yml` / `deploy.ps1`)
 
 ## Roadmap services externes
