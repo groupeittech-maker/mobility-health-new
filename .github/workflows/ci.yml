@@ -121,6 +121,12 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Préparer l'environnement Flutter (CI)
+        working-directory: apps/mhc/mobile-app
+        run: |
+          cp ci.env .env
+          test -s .env
+
       - name: Install dependencies
         working-directory: apps/mhc/mobile-app
         run: flutter pub get
@@ -129,13 +135,19 @@ jobs:
         working-directory: apps/mhc/mobile-app
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
+      - name: Ensure .env before tests
+        working-directory: apps/mhc/mobile-app
+        run: cp ci.env .env && test -f .env
+
       - name: Test
         working-directory: apps/mhc/mobile-app
         run: flutter test
 
       - name: Build web (smoke compile)
         working-directory: apps/mhc/mobile-app
-        run: flutter build web --release
+        run: |
+          cp ci.env .env
+          flutter build web --release
 
       - name: Vérifier wallpaper mobile
         run: |
