@@ -20,8 +20,7 @@
 .dashboard-header > div > p,
 .dashboard-header p.text-muted,
 .page-header > p,
-.page-header p.text-muted,
-.page-header .text-muted:not(.stat-card *) {
+.page-header p.text-muted {
     display: inline-block;
     background: var(--text-highlight-bg);
     padding: 0.5rem 0.85rem;
