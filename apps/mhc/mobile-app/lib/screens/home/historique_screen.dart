@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/api_error_helper.dart';
 import '../../models/subscription.dart';
@@ -19,7 +20,9 @@ class _HistoriqueScreenState extends State<HistoriqueScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return ColoredBox(
+      color: kMhContentBackground,
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
@@ -68,6 +71,7 @@ class _HistoriqueScreenState extends State<HistoriqueScreen> {
                     : _HospitalisationsList(),
           ),
         ],
+      ),
     );
   }
 }

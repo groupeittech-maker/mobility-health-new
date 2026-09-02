@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../models/destination.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
@@ -367,7 +368,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
     // Inclure le clavier : sinon Column du formulaire déborde quand un champ a le focus.
     final bottomPadding = mq.padding.bottom + mq.viewInsets.bottom + 24;
     return Container(
-      color: const Color(0xFFE8F0F4),
+      color: kMhContentBackground,
       child: SingleChildScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPadding),

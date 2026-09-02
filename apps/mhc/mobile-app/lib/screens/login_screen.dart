@@ -214,7 +214,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildLogo() {
-    return MHLogoHeader(height: 86, showSlogan: true);
+    return MHLogoHeader(height: 100);
   }
 
   Widget _buildUsernameField() {

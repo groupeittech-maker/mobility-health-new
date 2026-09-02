@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../core/widgets/mh_logo_header.dart';
 import '../../models/referent_pipeline.dart';
 import '../../providers/auth_provider.dart';
@@ -106,12 +107,13 @@ class _ReferentShellScreenState extends State<ReferentShellScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kMhContentBackground,
       appBar: AppBar(
         toolbarHeight: 72,
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const MHOfficialLogo(height: 52),
+            const MHOfficialLogo(height: 48),
             const SizedBox(width: 10),
             const Flexible(
               child: Text(

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../services/medecin_referent_service.dart';
 
 class ReferentInvoiceDetailScreen extends StatefulWidget {
@@ -127,6 +128,7 @@ class _ReferentInvoiceDetailScreenState extends State<ReferentInvoiceDetailScree
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kMhContentBackground,
       appBar: AppBar(
         title: const Text('Facture'),
         leading: IconButton(

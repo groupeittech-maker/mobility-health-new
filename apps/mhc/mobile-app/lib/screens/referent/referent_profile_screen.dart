@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../providers/auth_provider.dart';
 
 /// Écran profil / déconnexion (ouvert depuis la barre d’app du référent).
@@ -15,6 +16,7 @@ class ReferentProfileScreen extends StatelessWidget {
     final name = user?.displayName ?? 'Utilisateur';
 
     return Scaffold(
+      backgroundColor: kMhContentBackground,
       appBar: AppBar(
         title: const Text('Profil'),
         leading: IconButton(

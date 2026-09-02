@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../services/api_services.dart';
 
 /// Mes attestations – liste et téléchargement PDF / e-carte.
@@ -119,6 +120,7 @@ class _AttestationsScreenState extends State<AttestationsScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: kMhContentBackground,
       appBar: AppBar(
         title: const Text('Mes attestations'),
         leading: IconButton(

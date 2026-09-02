@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../services/medecin_referent_service.dart';
 import '../../services/referent_navigation.dart';
 
@@ -190,6 +191,7 @@ class ReferentNotificationsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kMhContentBackground,
       appBar: AppBar(
         title: const Text('Notifications'),
         leading: IconButton(

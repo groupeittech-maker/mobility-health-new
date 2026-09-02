@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../models/product.dart';
 import '../../models/subscription_quote.dart';
 import '../../services/api_services.dart';
@@ -514,7 +515,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
     }
     final labels = {3: 'Médical', 4: 'Paiement', 5: 'Attestation'};
     return Container(
-      color: const Color(0xFFE8F0F4),
+      color: kMhContentBackground,
       padding: const EdgeInsets.all(20),
       child: Center(
         child: Column(

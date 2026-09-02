@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/mh_layout.dart';
 import '../../models/subscription.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
@@ -255,6 +256,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
 
     if (isResiliee) {
       return Scaffold(
+        backgroundColor: kMhContentBackground,
         appBar: AppBar(
           title: const Text('Détail souscription'),
           backgroundColor: AppColors.cardBg,
@@ -293,6 +295,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
     }
 
     return Scaffold(
+      backgroundColor: kMhContentBackground,
       appBar: AppBar(
         title: const Text('Détail souscription'),
         backgroundColor: AppColors.cardBg,

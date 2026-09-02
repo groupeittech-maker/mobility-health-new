@@ -11,6 +11,7 @@ echo "== Frontend charte graphique =="
 required_assets=(
   "$FE/assets/wallpaper-brand.jpg"
   "$FE/assets/logo_officiel_mh.jpg"
+  "$FE/assets/logo_officiel_mh.png"
   "$FE/assets/card-pattern-purple.png"
   "$FE/assets/card-pattern-teal.png"
 )

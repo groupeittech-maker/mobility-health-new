@@ -99,7 +99,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     final bottomPadding = MediaQuery.of(context).padding.bottom + 24;
     return RefreshIndicator(
       onRefresh: _load,
@@ -110,12 +109,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             title: 'Mon Tableau de Bord',
             subtitle: _displayName.isEmpty ? 'Bienvenue' : 'Bienvenue, $_displayName',
           ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 13)),
-            ],
-            const SizedBox(height: 20),
-            GridView.count(
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 13)),
+          ],
+          const SizedBox(height: 20),
+          GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 2,
@@ -177,7 +176,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 final n = _assureurs.isEmpty ? 3 : _assureurs.length;
                 final index = i % n;
                 if (_assureurs.isEmpty) {
-                  final fallbacks = ['ARC', 'AXA afrique', 'NSIA'];
+                  const fallbacks = ['ARC', 'AXA afrique', 'NSIA'];
                   return _PartnerCard(label: fallbacks[index], logoUrl: null);
                 }
                 final a = _assureurs[index];
