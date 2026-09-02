@@ -8,7 +8,6 @@ import '../core/constants/app_colors.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/mh_logo_header.dart';
 import '../core/widgets/mh_surface_card.dart';
-import '../core/widgets/mh_text_highlight.dart';
 import '../providers/auth_provider.dart';
 import '../services/referent_navigation.dart';
 
@@ -130,14 +129,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
                 _buildLogo(),
                 const SizedBox(height: 24),
-                MHTextHighlight(
-                  child: Text(
-                    'Connexion',
-                    style: GoogleFonts.poppins(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.secondary,
-                    ),
+                Text(
+                  'Connexion',
+                  style: GoogleFonts.poppins(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.secondary,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -236,7 +233,7 @@ class _LoginScreenState extends State<LoginScreen> {
           'Nom d\'utilisateur ou Email',
           style: GoogleFonts.poppins(
             fontSize: 14,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.bold,
             color: AppColors.secondary,
           ),
         ),
@@ -261,7 +258,7 @@ class _LoginScreenState extends State<LoginScreen> {
           'Mot de passe',
           style: GoogleFonts.poppins(
             fontSize: 14,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.bold,
             color: AppColors.secondary,
           ),
         ),

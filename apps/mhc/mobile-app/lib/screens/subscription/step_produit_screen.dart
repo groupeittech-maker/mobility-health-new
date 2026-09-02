@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../core/config/api_config.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
+import '../../core/widgets/mh_text_highlight.dart';
 import '../../models/product.dart';
 import '../../models/subscription_quote.dart';
 import 'product_detail_screen.dart';
@@ -187,13 +188,7 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Sélection du produit',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF1E293B),
-              ),
-            ),
+            const MHSectionTitle(title: 'Sélection du produit'),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(14),

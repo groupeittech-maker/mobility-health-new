@@ -7,7 +7,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../core/constants/app_colors.dart';
 import '../core/widgets/mh_logo_header.dart';
 import '../core/widgets/mh_surface_card.dart';
-import '../core/widgets/mh_text_highlight.dart';
 import '../services/auth_service.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -316,26 +315,23 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             children: [
               const MHLogoHeader(height: 100, compact: true),
               const SizedBox(height: 24),
-              MHTextHighlight(
-                child: Text(
-                  'Reinitialisation du mot de passe',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.secondary,
-                  ),
+              Text(
+                'Reinitialisation du mot de passe',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.secondary,
                 ),
               ),
               const SizedBox(height: 8),
-              MHTextHighlight(
-                child: Text(
-                  'Suivez les 3 etapes pour recevoir un code, le verifier, puis definir un nouveau mot de passe.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: AppColors.mutedText,
-                  ),
+              Text(
+                'Suivez les 3 etapes pour recevoir un code, le verifier, puis definir un nouveau mot de passe.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.secondary,
                 ),
               ),
               const SizedBox(height: 24),
@@ -652,8 +648,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           title,
           style: GoogleFonts.poppins(
             fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: AppColors.primary,
+            fontWeight: FontWeight.bold,
+            color: AppColors.secondary,
           ),
         ),
         const SizedBox(height: 4),
@@ -661,7 +657,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           subtitle,
           style: GoogleFonts.poppins(
             fontSize: 13,
-            color: AppColors.mutedText,
+            fontWeight: FontWeight.w500,
+            color: AppColors.secondary,
           ),
         ),
       ],

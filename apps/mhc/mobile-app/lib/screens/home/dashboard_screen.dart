@@ -155,13 +155,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 28),
-          MHTextHighlight(
-            child: Text(
-              'Nos partenaires assurance',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF1E293B),
-              ),
+          Text(
+            'Nos partenaires assurance',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: AppColors.secondary,
             ),
           ),
           const SizedBox(height: 12),

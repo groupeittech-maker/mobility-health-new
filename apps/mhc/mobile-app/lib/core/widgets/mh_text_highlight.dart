@@ -45,7 +45,7 @@ class MHTextHighlight extends StatelessWidget {
   }
 }
 
-/// Titre de section avec surlignage (dashboard mobile).
+/// Titre de section sur wallpaper (sans surlignage, couleur brand).
 class MHSectionTitle extends StatelessWidget {
   const MHSectionTitle({
     super.key,
@@ -56,31 +56,29 @@ class MHSectionTitle extends StatelessWidget {
   final String title;
   final String? subtitle;
 
+  static TextStyle titleStyle(BuildContext context) {
+    return Theme.of(context).textTheme.headlineSmall!.copyWith(
+          fontWeight: FontWeight.bold,
+          color: AppColors.secondary,
+        );
+  }
+
+  static TextStyle subtitleStyle(BuildContext context) {
+    return Theme.of(context).textTheme.bodyLarge!.copyWith(
+          color: AppColors.secondary,
+          fontWeight: FontWeight.w500,
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        MHTextHighlight(
-          child: Text(
-            title,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF1E293B),
-            ),
-          ),
-        ),
+        Text(title, style: titleStyle(context)),
         if (subtitle != null) ...[
           const SizedBox(height: 6),
-          MHTextHighlight(
-            child: Text(
-              subtitle!,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: AppColors.mutedText,
-              ),
-            ),
-          ),
+          Text(subtitle!, style: subtitleStyle(context)),
         ],
       ],
     );

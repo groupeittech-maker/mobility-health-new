@@ -271,7 +271,13 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text('Maladies chroniques', style: theme.textTheme.labelLarge),
+                    Text(
+                      'Maladies chroniques',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.secondary,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 8,
@@ -318,7 +324,13 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                       decoration: MHSurfaceCard.input(labelText: 'Autre (précisez)', isDense: true),
                     ),
                     const SizedBox(height: 12),
-                    Text('Traitement médical régulier ?', style: theme.textTheme.labelLarge),
+                    Text(
+                      'Traitement médical régulier ?',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.secondary,
+                      ),
+                    ),
                     Row(
                       children: [
                         ChoiceChip(label: const Text('Oui'), selected: _traitementRegulier == 'oui', onSelected: (_) => setState(() => _traitementRegulier = 'oui'), selectedColor: AppColors.primary.withValues(alpha: 0.2)),
@@ -335,7 +347,13 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                       ),
                     ],
                     const SizedBox(height: 12),
-                    Text('Hospitalisé au cours des 12 derniers mois ?', style: theme.textTheme.labelLarge),
+                    Text(
+                      'Hospitalisé au cours des 12 derniers mois ?',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.secondary,
+                      ),
+                    ),
                     Row(
                       children: [
                         ChoiceChip(label: const Text('Oui'), selected: _hospitalise12 == 'oui', onSelected: (_) => setState(() => _hospitalise12 = 'oui'), selectedColor: AppColors.primary.withValues(alpha: 0.2)),
@@ -352,7 +370,13 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                       ),
                     ],
                     const SizedBox(height: 12),
-                    Text('Êtes-vous enceinte ?', style: theme.textTheme.labelLarge),
+                    Text(
+                      'Êtes-vous enceinte ?',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.secondary,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 8,
@@ -446,7 +470,13 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.labelLarge),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.secondary,
+              ),
+        ),
         const SizedBox(height: 6),
         Row(
           children: [
