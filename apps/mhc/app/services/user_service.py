@@ -688,10 +688,10 @@ class UserService:
             <style>
                 body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
                 .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background-color: #0d9488; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
+                .header {{ background-color: #14AE98; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
                 .content {{ background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }}
-                .button {{ display: inline-block; padding: 12px 24px; background-color: #0d9488; color: #fff !important; text-decoration: none; border-radius: 6px; font-weight: bold; }}
-                .info {{ background-color: #ecfeff; border-left: 4px solid #0d9488; padding: 15px; margin: 20px 0; }}
+                .button {{ display: inline-block; padding: 12px 24px; background-color: #14AE98; color: #fff !important; text-decoration: none; border-radius: 6px; font-weight: bold; }}
+                .info {{ background-color: #ecfdf8; border-left: 4px solid #14AE98; padding: 15px; margin: 20px 0; }}
             </style>
         </head>
         <body>

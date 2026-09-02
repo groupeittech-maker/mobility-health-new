@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_colors.dart';
+import '../widgets/mh_background.dart';
 
-/// Thème Mobility Health inspiré du frontend et du logo officiel (teal + violet).
+/// Thème Mobility Health Care (charte #4e267c + #14AE98).
 class AppTheme {
   static const _accentGradient = LinearGradient(
     colors: [AppColors.secondary, AppColors.primary],
@@ -12,7 +13,7 @@ class AppTheme {
   );
 
   static const _softGradient = LinearGradient(
-    colors: [AppColors.primary, Color(0xFF5eead4)],
+    colors: [AppColors.primary, AppColors.primaryLight],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -20,14 +21,17 @@ class AppTheme {
   /// Dégradé principal (violet → teal) pour boutons et barres.
   static LinearGradient get accentGradient => _accentGradient;
 
-  /// Fond d'écran type frontend (radial léger).
-  static BoxDecoration get authBackground => BoxDecoration(
-        gradient: RadialGradient(
-          center: const Alignment(0, -0.3),
-          radius: 1.2,
+  /// Fond d'écran charte (motif + léger voile brand).
+  static BoxDecoration get brandBackground => BoxDecoration(
+        image: MHBackground.decoration.image,
+        color: Colors.white,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: [
-            AppColors.primary.withValues(alpha: 0.08),
-            Colors.white,
+            AppColors.secondary.withValues(alpha: 0.04),
+            Colors.white.withValues(alpha: 0.85),
+            AppColors.primary.withValues(alpha: 0.05),
           ],
         ),
       );
@@ -43,15 +47,15 @@ class AppTheme {
         onSecondary: Colors.white,
         error: AppColors.danger,
         onError: Colors.white,
-        surface: Colors.white,
+        surface: AppColors.cardBg,
         onSurface: const Color(0xFF0f172a),
-        surfaceContainerHighest: const Color(0xFFf0fdfa),
+        surfaceContainerHighest: const Color(0xFFf5faf9),
       ),
-      scaffoldBackgroundColor: const Color(0xFFfafdfc),
+      scaffoldBackgroundColor: Colors.transparent,
       appBarTheme: AppBarTheme(
         elevation: 0,
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.cardBg,
         foregroundColor: const Color(0xFF0f172a),
         titleTextStyle: GoogleFonts.inter(
           fontSize: 18,
@@ -62,7 +66,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: Colors.white,
+        color: AppColors.cardBg,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -158,7 +162,7 @@ class MHAuthCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardBg,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -167,6 +171,9 @@ class MHAuthCard extends StatelessWidget {
             offset: const Offset(0, 8),
           ),
         ],
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.15),
+        ),
       ),
       child: child,
     );

@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 
-/// Couleurs Mobility Health (alignées sur le frontend web)
+/// Couleurs officielles Mobility Health Care (#4e267c violet, #14AE98 teal).
 class AppColors {
-  static const Color primary = Color(0xFF0d9488);
-  static const Color primaryDark = Color(0xFF0f766e);
-  static const Color secondary = Color(0xFF5b21b6);
-  static const Color secondaryDark = Color(0xFF4c1d95);
+  static const Color brandPurple = Color(0xFF4e267c);
+  static const Color brandTeal = Color(0xFF14AE98);
+
+  static const Color primary = brandTeal;
+  static const Color primaryDark = Color(0xFF109681);
+  static const Color primaryLight = Color(0xFF6fd4c8);
+  static const Color secondary = brandPurple;
+  static const Color secondaryDark = Color(0xFF3d1e62);
   static const Color success = Color(0xFF10b981);
   static const Color danger = Color(0xFFef4444);
   static const Color warning = Color(0xFFf59e0b);
   static const Color mutedText = Color(0xFF64748b);
+  static const Color cardBg = Color(0xF2FFFFFF);
 }

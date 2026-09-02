@@ -1621,7 +1621,7 @@ footer {
 
 .courtier-card__commission {
     background: rgba(13, 148, 136, 0.12);
-    color: #0f766e;
+    color: #109681;
     border: 1px solid rgba(13, 148, 136, 0.18);
     border-radius: 999px;
     padding: 0.4rem 0.75rem;
@@ -2229,7 +2229,7 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
     font-weight: 500;
     color: var(--dark-text);
     background-color: white;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%230d9488' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2314AE98' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.75rem center;
     background-size: 12px;
@@ -2819,7 +2819,7 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
 
 .questionnaire-civil-panel.doctor-case-panel h4 {
     margin: 0 0 0.5rem;
-    color: var(--primary-color, #0d9488);
+    color: var(--primary-color, #14AE98);
 }
 
 .questionnaire-content--civil-dossier {
@@ -2872,7 +2872,7 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
     padding: 0.25rem 0.65rem;
     border-radius: 999px;
     background: rgba(8, 173, 160, 0.12);
-    color: #0d9488;
+    color: #14AE98;
     border: 1px solid rgba(8, 173, 160, 0.25);
 }
 
@@ -3011,7 +3011,7 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
     letter-spacing: -0.01em;
     font-size: 1rem;
     font-weight: 700;
-    color: #0f766e;
+    color: #109681;
 }
 
 .questionnaire-subsection--medical .questionnaire-content--medical-dossier {
@@ -4048,7 +4048,7 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
     background: #f8fafc;
     border-radius: 10px;
     border: 1px solid #e2e8f0;
-    border-left: 3px solid var(--primary-color, #0d9488);
+    border-left: 3px solid var(--primary-color, #14AE98);
     line-height: 1.55;
     white-space: pre-wrap;
 }
@@ -4511,7 +4511,7 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
     padding: 0.2rem 0.55rem;
     border-radius: 999px;
     background: rgba(42, 157, 143, 0.1);
-    color: #0d9488;
+    color: #14AE98;
     font-weight: 600;
     font-size: 0.8125rem;
 }
@@ -4719,7 +4719,7 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
     margin-top: 0;
     margin-bottom: 1.25rem;
     font-size: 1.25rem;
-    color: var(--primary-color, #0d9488);
+    color: var(--primary-color, #14AE98);
     font-weight: 600;
 }
 .inscription-modal-section {
@@ -4735,7 +4735,7 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
 .inscription-modal-section-title {
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--primary-color, #0d9488);
+    color: var(--primary-color, #14AE98);
     margin-bottom: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -4748,7 +4748,7 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
     border: 1px solid #ccfbf1;
 }
 .inscription-modal-section-medical .inscription-modal-section-title {
-    color: #0f766e;
+    color: #109681;
 }
 .inscription-detail-row {
     display: flex;
@@ -4802,7 +4802,7 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
 .inscription-medical-block-title {
     font-weight: 600;
     font-size: 0.9rem;
-    color: #0f766e;
+    color: #109681;
     margin-bottom: 0.35rem;
 }
 .inscription-medical-block-lines {
@@ -4841,7 +4841,7 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
 }
 .production-minors-table th {
     font-weight: 600;
-    color: var(--primary-color, #0d9488);
+    color: var(--primary-color, #14AE98);
     background: rgba(13, 148, 136, 0.06);
 }
 .production-minors-table tbody tr:last-child td {

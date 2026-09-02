@@ -78,7 +78,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Détails du produit'),
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.cardBg,
           foregroundColor: const Color(0xFF1E293B),
           elevation: 0,
         ),
@@ -89,7 +89,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Détails du produit'),
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.cardBg,
           foregroundColor: const Color(0xFF1E293B),
           elevation: 0,
         ),
@@ -127,10 +127,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         (widget.voyageDureeJours != null && widget.voyageDureeJours! > 0);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Détails du produit'),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.cardBg,
         foregroundColor: const Color(0xFF1E293B),
         elevation: 0,
       ),
@@ -245,7 +245,7 @@ class _TableQuoteBreakdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const headerColor = Color(0xFF0d9488);
+    const headerColor = AppColors.primary;
     final rows = <List<String>>[
       ['Prime d’assurance', '${line.primeAssurance!.toStringAsFixed(0)} $currency'],
       ['Frais de services', '${line.fraisServices!.toStringAsFixed(0)} $currency'],
@@ -328,7 +328,7 @@ class _TableSurprimesAge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const headerColor = Color(0xFF0d9488);
+    const headerColor = AppColors.primary;
     if (rows.isEmpty) {
       return const _SectionValue('Aucune surprime par âge renseignée.');
     }
@@ -431,7 +431,7 @@ class _TableGaranties extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const headerColor = Color(0xFF0d9488);
+    const headerColor = AppColors.primary;
     final rows = <List<String>>[];
     final list = garanties ?? [];
     for (final g in list) {
@@ -538,7 +538,7 @@ class _ExclusionsBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const headerColor = Color(0xFF0d9488);
+    const headerColor = AppColors.primary;
     final lines = <String>[];
     for (final raw in exclusions ?? const <Map<String, dynamic>>[]) {
       final line = _normalizeLine(raw);

@@ -50,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 88,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.cardBg,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.home_outlined),

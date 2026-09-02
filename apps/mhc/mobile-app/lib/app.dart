@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import 'core/theme/app_theme.dart';
+import 'core/widgets/mh_background.dart';
 import 'providers/auth_provider.dart';
 import 'router.dart';
 
@@ -13,19 +14,13 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => AuthProvider(),
       child: MaterialApp.router(
-      title: 'Mobility Health',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0d9488),
-          primary: const Color(0xFF0d9488),
-          secondary: const Color(0xFF5b21b6),
-          brightness: Brightness.light,
-        ),
-        textTheme: GoogleFonts.poppinsTextTheme(),
-      ),
-      routerConfig: appRouter,
+        title: 'Mobility Health',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        builder: (context, child) {
+          return MHBackground(child: child);
+        },
+        routerConfig: appRouter,
       ),
     );
   }

@@ -121,7 +121,7 @@ class _ReferentShellScreenState extends State<ReferentShellScreen> {
             ),
           ],
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.cardBg,
         foregroundColor: AppColors.primary,
         elevation: 0.5,
         actions: [
