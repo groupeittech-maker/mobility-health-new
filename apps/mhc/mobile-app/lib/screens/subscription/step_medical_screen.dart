@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
+import '../../core/widgets/mh_surface_card.dart';
 import '../../services/api_services.dart';
 
 /// Étape 3 : Questionnaire médical. La photo e-carte est prise à l’étape « Choix du produit »
@@ -330,11 +331,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _maladiesAutreController,
-                      decoration: const InputDecoration(
-                        labelText: 'Autre (précisez)',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
+                      decoration: MHSurfaceCard.input(labelText: 'Autre (précisez)', isDense: true),
                     ),
                     const SizedBox(height: 12),
                     Text('Traitement médical régulier ?', style: theme.textTheme.labelLarge),
@@ -349,7 +346,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _traitementPrecisionController,
-                        decoration: const InputDecoration(labelText: 'Précisez le type de traitement', border: OutlineInputBorder(), isDense: true),
+                        decoration: MHSurfaceCard.input(labelText: 'Précisez le type de traitement', isDense: true),
                         maxLines: 2,
                       ),
                     ],
@@ -366,7 +363,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _hospitaliseRaisonController,
-                        decoration: const InputDecoration(labelText: 'Raison', border: OutlineInputBorder(), isDense: true),
+                        decoration: MHSurfaceCard.input(labelText: 'Raison', isDense: true),
                         maxLines: 2,
                       ),
                     ],
@@ -505,7 +502,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
           if (isAlcool)
             DropdownButtonFormField<String>(
               value: _alcoolFrequence,
-              decoration: const InputDecoration(labelText: 'Fréquence', border: OutlineInputBorder(), isDense: true),
+              decoration: MHSurfaceCard.input(labelText: 'Fréquence', isDense: true),
               items: const [
                 DropdownMenuItem(value: 'occasionnellement', child: Text('Occasionnellement')),
                 DropdownMenuItem(value: 'regulierement', child: Text('Régulièrement (1-2/sem)')),
@@ -516,7 +513,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
           else if (detailController != null && detailLabel != null)
             TextFormField(
               controller: detailController,
-              decoration: InputDecoration(labelText: detailLabel, border: const OutlineInputBorder(), isDense: true),
+              decoration: MHSurfaceCard.input(labelText: detailLabel, isDense: true),
               maxLines: detailLabel.contains('Précisez') ? 2 : 1,
             ),
         ],

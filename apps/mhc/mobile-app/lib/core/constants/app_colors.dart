@@ -16,8 +16,9 @@ class AppColors {
   static const Color mutedText = Color(0xFF64748b);
   /// Header / AppBar — blanc opaque.
   static const Color cardBg = Color(0xFFFFFFFF);
-  /// Cartes sur wallpaper — blanc quasi opaque + bordure brand (comme le web).
+  /// Cartes / champs sur wallpaper — blanc quasi opaque + bordure brand (comme le web).
   static const Color surfaceCard = Color(0xFAFFFFFF);
+  static const Color surfaceFieldFill = surfaceCard;
   static const Color surfaceCardBorder = Color(0x144E267C);
   static List<BoxShadow> get surfaceCardShadow => [
         BoxShadow(

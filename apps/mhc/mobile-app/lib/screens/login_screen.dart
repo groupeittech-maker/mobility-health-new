@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/constants/app_colors.dart';
 import '../core/widgets/mh_logo_header.dart';
+import '../core/widgets/mh_surface_card.dart';
 import '../providers/auth_provider.dart';
 import '../services/referent_navigation.dart';
 
@@ -24,8 +25,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   String? _errorMessage;
   bool _queryHandled = false;
-
-  static const _lightGrey = Color(0xFFF5F5F5);
 
   @override
   void dispose() {
@@ -232,13 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _usernameController,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: _lightGrey,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
+          decoration: MHSurfaceCard.input(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
           textInputAction: TextInputAction.next,
@@ -264,13 +257,7 @@ class _LoginScreenState extends State<LoginScreen> {
         TextFormField(
           controller: _passwordController,
           obscureText: _obscurePassword,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: _lightGrey,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
+          decoration: MHSurfaceCard.input(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             suffixIcon: IconButton(
               icon: Icon(

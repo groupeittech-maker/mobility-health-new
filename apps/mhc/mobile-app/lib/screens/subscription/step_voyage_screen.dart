@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
+import '../../core/widgets/mh_surface_card.dart';
 import '../../models/destination.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
@@ -513,12 +514,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
               ),
               const SizedBox(height: 12),
               InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Durée du séjour',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(),
-                ),
+                decoration: MHSurfaceCard.input(labelText: 'Durée du séjour'),
                 child: Text(
                   _dureeJours > 0 ? '$_dureeJours jours' : 'Calcul automatique',
                   style: TextStyle(
@@ -923,12 +919,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
   }) {
     if (!enabled) {
       return InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          filled: true,
-          fillColor: Colors.white,
-          border: const OutlineInputBorder(),
-        ),
+        decoration: MHSurfaceCard.input(labelText: label),
         child: Text(
           emptyLabel,
           style: const TextStyle(color: Color(0xFF64748B)),
@@ -950,15 +941,8 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                   }
                 : null,
             child: InputDecorator(
-              decoration: InputDecoration(
+              decoration: MHSurfaceCard.input(
                 labelText: label,
-                filled: true,
-                fillColor: Colors.white,
-                border: const OutlineInputBorder(),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-                  borderRadius: BorderRadius.circular(8),
-                ),
                 suffixIcon: const Icon(Icons.search),
                 errorText: selectionError,
               ),
@@ -983,16 +967,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
     }
     return DropdownButtonFormField<String>(
       value: value ?? (options.isNotEmpty ? null : null),
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: Colors.white,
-        border: const OutlineInputBorder(),
-        focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
+      decoration: MHSurfaceCard.input(labelText: label),
       items: [const DropdownMenuItem(value: null, child: Text('Sélectionner'))]
           ..addAll(options.map((e) => DropdownMenuItem(value: e, child: Text(e)))),
       onChanged: onChanged,
@@ -1012,12 +987,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
         if (d != null) onChanged(d);
       },
       child: InputDecorator(
-        decoration: InputDecoration(
+        decoration: MHSurfaceCard.input(
           labelText: label,
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(),
-          suffixIcon: Icon(Icons.calendar_today, size: 20),
+          suffixIcon: const Icon(Icons.calendar_today, size: 20),
         ),
         child: Text(
           value != null
@@ -1345,10 +1317,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
               children: [
                 TextField(
                   controller: _nomController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nom de l\'enfant *',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: MHSurfaceCard.input(labelText: 'Nom de l\'enfant *'),
                   textCapitalization: TextCapitalization.words,
                 ),
                 const SizedBox(height: 16),
@@ -1363,10 +1332,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
                     if (d != null && mounted) setState(() => _dateNaissance = d);
                   },
                   child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Date de naissance *',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: MHSurfaceCard.input(labelText: 'Date de naissance *'),
                     child: Text(
                       _dateNaissance != null
                           ? '${_dateNaissance!.day.toString().padLeft(2, '0')}/${_dateNaissance!.month.toString().padLeft(2, '0')}/${_dateNaissance!.year}'
@@ -1380,10 +1346,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _passeportController,
-                  decoration: const InputDecoration(
-                    labelText: 'Numéro de passeport *',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: MHSurfaceCard.input(labelText: 'Numéro de passeport *'),
                   textCapitalization: TextCapitalization.characters,
                 ),
                 const SizedBox(height: 16),
@@ -1398,10 +1361,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
                     if (d != null && mounted) setState(() => _validitePasseport = d);
                   },
                   child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Validité du passeport (expiration) *',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: MHSurfaceCard.input(labelText: 'Validité du passeport (expiration) *'),
                     child: Text(
                       _validitePasseport != null
                           ? '${_validitePasseport!.day.toString().padLeft(2, '0')}/${_validitePasseport!.month.toString().padLeft(2, '0')}/${_validitePasseport!.year}'

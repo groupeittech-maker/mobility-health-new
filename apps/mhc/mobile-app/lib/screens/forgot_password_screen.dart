@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../core/constants/app_colors.dart';
 import '../core/widgets/mh_logo_header.dart';
+import '../core/widgets/mh_surface_card.dart';
 import '../services/auth_service.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -381,20 +382,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Widget _buildStepCard({required Widget child}) {
-    return Container(
+    return MHSurfaceCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x11000000),
-            blurRadius: 14,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
       child: child,
     );
   }
@@ -617,15 +606,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         }
         if (mounted) setState(() {});
       },
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: const Color(0xFFF8FAFC),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-      ),
+      decoration: MHSurfaceCard.input(labelText: label),
     );
   }
 
@@ -645,14 +626,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         }
         if (mounted) setState(() {});
       },
-      decoration: InputDecoration(
+      decoration: MHSurfaceCard.input(
         labelText: label,
-        filled: true,
-        fillColor: const Color(0xFFF8FAFC),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
         suffixIcon: IconButton(
           onPressed: onToggleVisibility,
           icon: Icon(

@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../core/constants/app_colors.dart';
 import '../core/network/api_client.dart' as net;
 import '../core/widgets/mh_logo_header.dart';
+import '../core/widgets/mh_surface_card.dart';
 import '../models/destination.dart';
 import '../services/api_services.dart';
 
@@ -403,12 +404,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
-      decoration: InputDecoration(
+      decoration: MHSurfaceCard.input(
         labelText: label,
-        filled: true,
-        fillColor: const Color(0xFFF5F5F5),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         labelStyle: TextStyle(color: AppColors.primary),
       ),
       enabled: !_isLoading,
@@ -424,12 +421,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (v.length < 8) return 'Minimum 8 caractères';
         return null;
       },
-      decoration: InputDecoration(
+      decoration: MHSurfaceCard.input(
         labelText: 'Mot de passe *',
-        filled: true,
-        fillColor: const Color(0xFFF5F5F5),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         labelStyle: TextStyle(color: AppColors.primary),
         suffixIcon: IconButton(
           icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: AppColors.mutedText),
@@ -449,12 +442,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (v != _passwordController.text) return 'Les mots de passe ne correspondent pas';
         return null;
       },
-      decoration: InputDecoration(
+      decoration: MHSurfaceCard.input(
         labelText: 'Confirmer le mot de passe *',
-        filled: true,
-        fillColor: const Color(0xFFF5F5F5),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         labelStyle: TextStyle(color: AppColors.primary),
         suffixIcon: IconButton(
           icon: Icon(
@@ -482,12 +471,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       },
       borderRadius: BorderRadius.circular(8),
       child: InputDecorator(
-        decoration: InputDecoration(
+        decoration: MHSurfaceCard.input(
           labelText: label,
-          filled: true,
-          fillColor: const Color(0xFFF5F5F5),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           labelStyle: TextStyle(color: AppColors.primary),
           suffixIcon: const Icon(Icons.calendar_today),
         ),
@@ -552,12 +537,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               },
               borderRadius: BorderRadius.circular(8),
               child: InputDecorator(
-                decoration: InputDecoration(
+                decoration: MHSurfaceCard.input(
                   labelText: label,
-                  filled: true,
-                  fillColor: const Color(0xFFF5F5F5),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   suffixIcon: const Icon(Icons.search, color: AppColors.mutedText),
                 ),
                 child: Row(
@@ -619,8 +600,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           dialogTextStyle: const TextStyle(fontSize: 16),
           searchDecoration: const InputDecoration(hintText: 'Rechercher un pays', border: OutlineInputBorder()),
           boxDecoration: BoxDecoration(
-            color: const Color(0xFFF5F5F5),
-            borderRadius: BorderRadius.circular(8),
+            color: AppColors.surfaceFieldFill,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.surfaceCardBorder),
           ),
         ),
         const SizedBox(width: 8),
@@ -629,12 +611,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             controller: controller,
             keyboardType: TextInputType.phone,
             validator: isRequired ? (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null : null,
-            decoration: InputDecoration(
+            decoration: MHSurfaceCard.input(
               labelText: label,
-              filled: true,
-              fillColor: const Color(0xFFF5F5F5),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               hintText: '771234567',
             ),
             enabled: !_isLoading,
@@ -685,11 +663,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(height: 8),
           TextFormField(
             controller: precisionController,
-            decoration: InputDecoration(
+            decoration: MHSurfaceCard.input(
               hintText: precisionHint,
-              filled: true,
-              fillColor: const Color(0xFFF5F5F5),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+              isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
             enabled: !_isLoading,
@@ -710,19 +686,19 @@ class _ChoiceChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.primary.withValues(alpha: 0.15) : const Color(0xFFF5F5F5),
-      borderRadius: BorderRadius.circular(8),
+      color: selected ? AppColors.primary.withValues(alpha: 0.15) : AppColors.surfaceFieldFill,
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             border: Border.all(
-              color: selected ? AppColors.primary : Colors.transparent,
-              width: 2,
+              color: selected ? AppColors.primary : AppColors.surfaceCardBorder,
+              width: selected ? 2 : 1,
             ),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Center(
             child: Text(

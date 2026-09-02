@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_colors.dart';
 import '../widgets/mh_background.dart';
+import '../widgets/mh_surface_card.dart';
 
 /// Thème Mobility Health Care (charte #4e267c + #14AE98).
 class AppTheme {
@@ -69,20 +70,7 @@ class AppTheme {
         color: AppColors.surfaceCard,
         shadowColor: Colors.black.withValues(alpha: 0.1),
       ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFe2e8f0)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
+      inputDecorationTheme: MHSurfaceCard.surfaceInputDecorationTheme,
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.white,

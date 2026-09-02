@@ -51,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: kMhContentBackground,
       appBar: AppBar(
-        toolbarHeight: 88,
+        toolbarHeight: 84,
         backgroundColor: AppColors.cardBg,
         elevation: 0,
         leading: IconButton(
@@ -69,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
               alignment: Alignment.center,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: maxW),
-                child: const MHOfficialLogo(height: 56),
+                child: const MHOfficialLogo(height: 52),
               ),
             );
           },

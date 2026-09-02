@@ -17,6 +17,68 @@ class MHSurfaceCard extends StatelessWidget {
   final double borderRadius;
   final VoidCallback? onTap;
 
+  static InputDecoration input({
+    String? labelText,
+    String? hintText,
+    Widget? suffixIcon,
+    Widget? prefixIcon,
+    bool isDense = false,
+    EdgeInsetsGeometry? contentPadding,
+    TextStyle? labelStyle,
+    String? errorText,
+  }) {
+    return InputDecoration(
+      labelText: labelText,
+      hintText: hintText,
+      suffixIcon: suffixIcon,
+      prefixIcon: prefixIcon,
+      isDense: isDense,
+      labelStyle: labelStyle,
+      errorText: errorText,
+      filled: true,
+      fillColor: AppColors.surfaceFieldFill,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppColors.surfaceCardBorder),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppColors.surfaceCardBorder),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppColors.primary, width: 2),
+      ),
+      contentPadding: contentPadding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
+  }
+
+  static InputDecorationTheme get surfaceInputDecorationTheme => InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.surfaceFieldFill,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.surfaceCardBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.surfaceCardBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.danger),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.danger, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      );
+
   static BoxDecoration decoration({double borderRadius = 16}) => BoxDecoration(
         color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(borderRadius),
