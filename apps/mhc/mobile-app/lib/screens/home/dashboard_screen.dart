@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/config/api_config.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/api_error_helper.dart';
+import '../../core/widgets/mh_text_highlight.dart';
 import '../../models/subscription.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_services.dart';
@@ -98,30 +99,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const bgColor = Color(0xFFE8F0F4);
 
     final bottomPadding = MediaQuery.of(context).padding.bottom + 24;
-    return Container(
-      color: bgColor,
-      child: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(20, 16, 20, bottomPadding),
-          children: [
-            Text(
-              'Mon Tableau de Bord',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _displayName.isEmpty ? 'Bienvenue' : 'Bienvenue, $_displayName',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: AppColors.mutedText,
-              ),
-            ),
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(20, 16, 20, bottomPadding),
+        children: [
+          MHSectionTitle(
+            title: 'Mon Tableau de Bord',
+            subtitle: _displayName.isEmpty ? 'Bienvenue' : 'Bienvenue, $_displayName',
+          ),
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 13)),
@@ -167,11 +155,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 28),
-          Text(
-            'Nos partenaires assurance',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF1E293B),
+          MHTextHighlight(
+            child: Text(
+              'Nos partenaires assurance',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1E293B),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -201,7 +191,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
         ],
-      ),
       ),
     );
   }

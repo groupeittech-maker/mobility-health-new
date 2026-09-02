@@ -214,9 +214,7 @@ class _SosScreenState extends State<SosScreen> {
             ? [AppColors.danger, AppColors.danger.withValues(alpha: 0.85)]
             : [const Color(0xFF94A3B8), const Color(0xFF64748B)];
 
-    return Container(
-      color: const Color(0xFFE8F0F4),
-      child: ListView(
+    return ListView(
         padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPadding),
         children: [
           const SizedBox(height: 16),
@@ -368,7 +366,6 @@ class _SosScreenState extends State<SosScreen> {
                       },
                     ),
         ],
-      ),
     );
   }
 }

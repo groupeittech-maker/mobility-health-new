@@ -19,9 +19,7 @@ class _HistoriqueScreenState extends State<HistoriqueScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFE8F0F4),
-      child: Column(
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
@@ -70,7 +68,6 @@ class _HistoriqueScreenState extends State<HistoriqueScreen> {
                     : _HospitalisationsList(),
           ),
         ],
-      ),
     );
   }
 }

@@ -15,4 +15,6 @@ class AppColors {
   static const Color warning = Color(0xFFf59e0b);
   static const Color mutedText = Color(0xFF64748b);
   static const Color cardBg = Color(0xF2FFFFFF);
+  /// Fond surligné lavande (lisibilité sur wallpaper).
+  static const Color textHighlight = Color(0xEBEDE9FE);
 }
