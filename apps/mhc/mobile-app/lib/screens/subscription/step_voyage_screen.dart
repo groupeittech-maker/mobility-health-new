@@ -529,24 +529,26 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                   color: AppColors.secondary,
                 ),
               ),
-              Row(
-                children: [
-                  Radio<bool>(
-                    value: true,
-                    groupValue: _avecMineurs,
-                    onChanged: (v) => setState(() => _avecMineurs = true),
-                    activeColor: AppColors.primary,
-                  ),
-                  const Text('Oui'),
-                  const SizedBox(width: 24),
-                  Radio<bool>(
-                    value: false,
-                    groupValue: _avecMineurs,
-                    onChanged: (v) => setState(() => _avecMineurs = false),
-                    activeColor: AppColors.primary,
-                  ),
-                  const Text('Non'),
-                ],
+              RadioGroup<bool>(
+                groupValue: _avecMineurs,
+                onChanged: (v) {
+                  if (v != null) setState(() => _avecMineurs = v);
+                },
+                child: Row(
+                  children: [
+                    Radio<bool>(
+                      value: true,
+                      activeColor: AppColors.primary,
+                    ),
+                    const Text('Oui'),
+                    const SizedBox(width: 24),
+                    Radio<bool>(
+                      value: false,
+                      activeColor: AppColors.primary,
+                    ),
+                    const Text('Non'),
+                  ],
+                ),
               ),
               if (_avecMineurs) ...[
                 const SizedBox(height: 12),
@@ -971,10 +973,13 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
       );
     }
     return DropdownButtonFormField<String>(
-      value: value ?? (options.isNotEmpty ? null : null),
+      key: ValueKey(value),
+      initialValue: value,
       decoration: MHSurfaceCard.input(labelText: label),
-      items: [const DropdownMenuItem(value: null, child: Text('Sélectionner'))]
-          ..addAll(options.map((e) => DropdownMenuItem(value: e, child: Text(e)))),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('Sélectionner')),
+        ...options.map((e) => DropdownMenuItem(value: e, child: Text(e))),
+      ],
       onChanged: onChanged,
       validator: label.contains('*') ? (v) => v == null || v.isEmpty ? 'Requis' : null : null,
     );

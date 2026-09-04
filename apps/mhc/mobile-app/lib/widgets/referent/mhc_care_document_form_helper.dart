@@ -46,7 +46,7 @@ class MhcCareDocumentFormHelper {
       'date_entree': toDatetimeLocalValue(stay?['started_at']) ?? '',
       'date_sortie': toDatetimeLocalValue(stay?['ended_at']) ?? '',
       'duree_jours': stay?['report_duree_sejour_heures'] != null
-          ? (stay!['report_duree_sejour_heures'] as num / 24).toStringAsFixed(1)
+          ? ((stay!['report_duree_sejour_heures'] as num) / 24).toStringAsFixed(1)
           : '',
       'resume_rapport': _str(stay?['report_resume']) ?? '',
       'examens_prevus': stay?['report_examens'] is List
