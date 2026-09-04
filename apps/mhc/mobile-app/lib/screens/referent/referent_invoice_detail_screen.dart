@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
 import '../../services/medecin_referent_service.dart';
+import '../../widgets/common/prompt_text_dialog.dart';
 
 class ReferentInvoiceDetailScreen extends StatefulWidget {
   const ReferentInvoiceDetailScreen({super.key, required this.invoiceId});
@@ -72,27 +73,10 @@ class _ReferentInvoiceDetailScreenState extends State<ReferentInvoiceDetailScree
   }
 
   Future<void> _submit(bool approve) async {
-    final controller = TextEditingController();
-    final notes = await showDialog<String?>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(approve ? 'Valider médicalement' : 'Refuser la facture'),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: approve ? 'Commentaire (optionnel)' : 'Motif du refus',
-          ),
-          maxLines: 3,
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Confirmer'),
-          ),
-        ],
-      ),
+    final notes = await showPromptTextDialog(
+      context,
+      title: approve ? 'Valider médicalement' : 'Refuser la facture',
+      hint: approve ? 'Commentaire (optionnel)' : 'Motif du refus',
     );
     if (!mounted || notes == null) return;
 

@@ -7,6 +7,147 @@ import '../../screens/pdf_viewer_screen.dart';
 import '../../services/mhc_care_document_service.dart';
 import 'mhc_care_document_form_helper.dart';
 
+/// Bottom sheet d'émission — contrôleurs possédés par le State (dispose sûr).
+class _IssueCareDocumentSheet extends StatefulWidget {
+  const _IssueCareDocumentSheet({
+    required this.actions,
+    required this.sinistreId,
+    required this.prefill,
+    required this.onIssued,
+  });
+
+  final List<String> actions;
+  final int sinistreId;
+  final Map<String, String> prefill;
+  final Future<void> Function() onIssued;
+
+  @override
+  State<_IssueCareDocumentSheet> createState() => _IssueCareDocumentSheetState();
+}
+
+class _IssueCareDocumentSheetState extends State<_IssueCareDocumentSheet> {
+  final _service = MhcCareDocumentService.instance;
+  late String _selectedType;
+  final _controllers = <String, TextEditingController>{};
+  final _selectedRefusalMotifs = <String>{};
+  late final TextEditingController _notesController;
+  var _issuing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedType = widget.actions.first;
+    _notesController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_issuing) return;
+    setState(() => _issuing = true);
+    try {
+      final payload = MhcCareDocumentFormHelper.collectPayload(
+        _selectedType,
+        _controllers,
+        _selectedRefusalMotifs,
+      );
+      await _service.issueCareDocument(
+        widget.sinistreId,
+        documentType: _selectedType,
+        payload: payload,
+        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      await widget.onIssued();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+      );
+      setState(() => _issuing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fields = MhcCareDocumentFormHelper.buildFieldsForType(
+      _selectedType,
+      _controllers,
+      widget.prefill,
+      _selectedRefusalMotifs,
+      setState,
+    );
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: 16 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Émettre un bon / attestation',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: ValueKey(_selectedType),
+              initialValue: _selectedType,
+              decoration: const InputDecoration(
+                labelText: 'Type de document',
+                border: OutlineInputBorder(),
+              ),
+              items: widget.actions
+                  .map((t) => DropdownMenuItem(
+                        value: t,
+                        child: Text(MhcCareDocumentLabels.labelFor(t), style: const TextStyle(fontSize: 13)),
+                      ))
+                  .toList(),
+              onChanged: _issuing
+                  ? null
+                  : (v) {
+                      if (v == null) return;
+                      setState(() => _selectedType = v);
+                    },
+            ),
+            const SizedBox(height: 16),
+            ...fields,
+            TextField(
+              controller: _notesController,
+              decoration: const InputDecoration(
+                labelText: 'Notes internes (optionnel)',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _issuing ? null : _submit,
+              icon: _issuing
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.description_outlined),
+              label: Text(_issuing ? 'Émission…' : 'Émettre le document'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Section bons / attestations MHC : liste, émission, PDF (aligné web).
 class ReferentCareDocumentsSection extends StatefulWidget {
   const ReferentCareDocumentsSection({
@@ -119,127 +260,24 @@ class _ReferentCareDocumentsSectionState extends State<ReferentCareDocumentsSect
       stay: widget.stay,
     );
 
-    String selectedType = actions.first;
-    final controllers = <String, TextEditingController>{};
-    final selectedRefusalMotifs = <String>{};
-    final notesController = TextEditingController();
-    var issuing = false;
-
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final fields = MhcCareDocumentFormHelper.buildFieldsForType(
-              selectedType,
-              controllers,
-              prefill,
-              selectedRefusalMotifs,
-              setModalState,
-            );
-
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 16,
-                bottom: 16 + MediaQuery.viewInsetsOf(context).bottom,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Émettre un bon / attestation',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey(selectedType),
-                      initialValue: selectedType,
-                      decoration: const InputDecoration(
-                        labelText: 'Type de document',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: actions
-                          .map((t) => DropdownMenuItem(
-                                value: t,
-                                child: Text(MhcCareDocumentLabels.labelFor(t), style: const TextStyle(fontSize: 13)),
-                              ))
-                          .toList(),
-                      onChanged: issuing
-                          ? null
-                          : (v) {
-                              if (v == null) return;
-                              setModalState(() => selectedType = v);
-                            },
-                    ),
-                    const SizedBox(height: 16),
-                    ...fields,
-                    TextField(
-                      controller: notesController,
-                      decoration: const InputDecoration(
-                        labelText: 'Notes internes (optionnel)',
-                        border: OutlineInputBorder(),
-                      ),
-                      maxLines: 2,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: issuing
-                          ? null
-                          : () async {
-                              setModalState(() => issuing = true);
-                              try {
-                                final payload = MhcCareDocumentFormHelper.collectPayload(
-                                  selectedType,
-                                  controllers,
-                                  selectedRefusalMotifs,
-                                );
-                                await _service.issueCareDocument(
-                                  widget.sinistreId,
-                                  documentType: selectedType,
-                                  payload: payload,
-                                  notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
-                                );
-                                if (!context.mounted) return;
-                                Navigator.pop(context);
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(this.context).showSnackBar(
-                                  const SnackBar(content: Text('Document MHC émis.'), backgroundColor: Colors.green),
-                                );
-                                await _load();
-                                widget.onChanged?.call();
-                              } catch (e) {
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-                                );
-                              } finally {
-                                if (context.mounted) setModalState(() => issuing = false);
-                              }
-                            },
-                      icon: issuing
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.description_outlined),
-                      label: Text(issuing ? 'Émission…' : 'Émettre le document'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+      builder: (ctx) => _IssueCareDocumentSheet(
+        actions: actions,
+        sinistreId: widget.sinistreId,
+        prefill: prefill,
+        onIssued: () async {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Document MHC émis.'), backgroundColor: Colors.green),
+          );
+          await _load();
+          widget.onChanged?.call();
+        },
+      ),
     );
-
-    for (final c in controllers.values) {
-      c.dispose();
-    }
-    notesController.dispose();
   }
 
   String _formatDate(dynamic value) {
