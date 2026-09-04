@@ -11,6 +11,10 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+concurrency:
+  group: deploy-production-vps
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -42,6 +46,7 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
           set -euo pipefail
           for name in SSH_HOST SSH_USER SSH_PRIVATE_KEY; do
@@ -51,33 +56,26 @@ jobs:
             fi
           done
           HOST="$(echo "$SSH_HOST" | tr -d '[:space:]')"
+          PORT="$(echo "${SSH_PORT:-22}" | tr -d '[:space:]')"
           if [[ "$HOST" == *@* ]]; then
             echo "::error::SSH_HOST doit être un hostname ou une IP seule (ex. srv1324425.hstgr.cloud), sans user@"
             exit 1
           fi
-          echo "Cible : ${SSH_USER}@${HOST} (IPv4 forcé)"
-          echo "Résolution A :"
-          getent ahostsv4 "$HOST" | awk '{print $1}' | sort -u || dig +short A "$HOST" || true
-          echo "Test TCP :22 (8s) :"
-          if timeout 8 bash -c "exec 3<>/dev/tcp/${HOST}/22" 2>/dev/null; then
-            exec 3<&- 3>&-
-            echo "✅ Port 22 joignable en IPv4 depuis le runner GitHub"
-          else
-            echo "::warning::Port 22 injoignable depuis GitHub Actions."
-            echo "Vérifiez : VPS démarré, firewall Hostinger (autoriser plages IP GitHub Actions), SSH_HOST = hostname ou IP publique."
-            echo "Doc : docs/CICD-AUTOMATION.md § Deploy SSH"
-          fi
+          echo "Cible : ${SSH_USER}@${HOST}:${PORT} (IPv4 forcé)"
+          bash .github/scripts/ssh-connectivity-check.sh "$HOST" "$PORT" 5 15
 
       - name: Prepare SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           HOST="$(echo "$SSH_HOST" | tr -d '[:space:]')"
+          PORT="$(echo "${SSH_PORT:-22}" | tr -d '[:space:]')"
           python3 << 'PY'
           import os, sys
           raw = os.environ.get("SSH_PRIVATE_KEY") or ""
@@ -98,23 +96,38 @@ jobs:
           print("Clé SSH installée dans ~/.ssh/id_ed25519")
           PY
           ssh-keygen -y -f ~/.ssh/id_ed25519 >/dev/null
-          ssh-keyscan -4 -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -4 -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
           chmod 600 ~/.ssh/known_hosts || true
           {
             echo "Host mhc-vps"
             echo "  HostName ${HOST}"
             echo "  User ${SSH_USER}"
+            echo "  Port ${PORT}"
             echo "  IdentityFile ~/.ssh/id_ed25519"
             echo "  AddressFamily inet"
             echo "  BatchMode yes"
             echo "  StrictHostKeyChecking accept-new"
-            echo "  ConnectTimeout 20"
+            echo "  ConnectTimeout 25"
+            echo "  ServerAliveInterval 30"
+            echo "  ServerAliveCountMax 3"
           } >> ~/.ssh/config
           chmod 600 ~/.ssh/config
 
       - name: Test SSH connection
         run: |
-          ssh -4 mhc-vps "echo OK; hostname; date"
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            echo "SSH test (tentative ${attempt}/5)…"
+            if ssh -4 mhc-vps "echo OK; hostname; date"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 5 ]; then
+              echo "SSH échec — nouvel essai dans 15s…"
+              sleep 15
+            fi
+          done
+          echo "::error::SSH Connection timed out après 5 tentatives. Voir docs/CICD-AUTOMATION.md § Deploy SSH"
+          exit 1
 
       - name: Create frontend archive
         run: |
