@@ -297,15 +297,24 @@ else
 fi
 
 echo '[2/6] Arret des services existants...'
-sudo docker compose `$COMPOSE_FILES down || true
+sudo docker compose `$COMPOSE_FILES stop -t 15 2>/dev/null || true
+sudo docker compose `$COMPOSE_FILES down -t 15 --remove-orphans 2>/dev/null || true
+for c in mobility_health_db mobility_health_redis mobility_health_minio mobility_health_api mobility_health_celery_worker mobility_health_celery_beat; do
+  sudo docker rm -f "`$c" 2>/dev/null || true
+done
+sudo docker ps -aq --filter name=mobility_health | xargs -r sudo docker rm -f 2>/dev/null || true
+sudo docker network rm mobility_health_default 2>/dev/null || true
 echo 'Services arretes'
 
 echo '[3/6] Demarrage de tous les services (db, redis, minio, api, celery)...'
-if sudo docker compose `$COMPOSE_FILES up -d; then
+if sudo docker compose `$COMPOSE_FILES up -d --force-recreate --remove-orphans; then
     echo 'Services demarres'
 else
-    echo 'Erreur demarrage services'
-    exit 1
+    echo 'Premier essai echoue — nettoyage puis retry...'
+    for c in mobility_health_db mobility_health_redis mobility_health_minio mobility_health_api mobility_health_celery_worker mobility_health_celery_beat; do
+      sudo docker rm -f "`$c" 2>/dev/null || true
+    done
+    sudo docker compose `$COMPOSE_FILES up -d --force-recreate --remove-orphans
 fi
 
 echo '[4/6] Attente du demarrage complet des services (15 secondes)...'
