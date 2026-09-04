@@ -75,7 +75,9 @@ free_port() {
 
 cleanup_mhc_stack() {
   echo "🧹 Nettoyage complet de la stack Mobility Health..."
+  # shellcheck disable=SC2086
   sudo docker compose $COMPOSE_FILES stop -t 15 2>/dev/null || true
+  # shellcheck disable=SC2086
   sudo docker compose $COMPOSE_FILES down -t 15 --remove-orphans 2>/dev/null || true
 
   local names=(
@@ -87,15 +89,38 @@ cleanup_mhc_stack() {
     mobility_health_celery_beat
   )
   for name in "${names[@]}"; do
-    if sudo docker container inspect "$name" >/dev/null 2>&1; then
+    if sudo docker ps -a --format '{{.Names}}' | grep -qx "$name"; then
       echo "  Suppression forcée du conteneur ${name}..."
       sudo docker rm -f "$name" || true
     fi
   done
 
-  sudo docker ps -aq --filter "name=mobility_health" | xargs -r sudo docker rm -f || true
+  while IFS= read -r cid; do
+    [ -n "$cid" ] || continue
+    sudo docker rm -f "$cid" || true
+  done < <(sudo docker ps -aq --filter "name=mobility_health" 2>/dev/null || true)
+
   sudo docker network rm mobility_health_default 2>/dev/null || true
   sleep 2
+
+  for name in "${names[@]}"; do
+    if sudo docker ps -a --format '{{.Names}}' | grep -qx "$name"; then
+      echo "❌ Impossible de supprimer le conteneur ${name}"
+      sudo docker inspect "$name" --format 'status={{.State.Status}} error={{.State.Error}}' 2>/dev/null || true
+      exit 1
+    fi
+  done
+}
+
+start_mhc_stack() {
+  # shellcheck disable=SC2086
+  if sudo docker compose $COMPOSE_FILES up -d --force-recreate --remove-orphans; then
+    return 0
+  fi
+  echo "⚠️ docker compose up a échoué — second nettoyage puis nouvel essai..."
+  cleanup_mhc_stack
+  # shellcheck disable=SC2086
+  sudo docker compose $COMPOSE_FILES up -d --force-recreate --remove-orphans
 }
 
 if [ -f .env ]; then
@@ -117,7 +142,7 @@ done
 cleanup_mhc_stack
 
 echo "[3/6] 🚀 Starting all services..."
-sudo docker compose $COMPOSE_FILES up -d --force-recreate --remove-orphans
+start_mhc_stack
 
 echo "[4/6] ⏳ Waiting for services..."
 sleep 20

@@ -175,7 +175,48 @@ class TestMhcCareDocumentWorkflow:
         assert pdf[:4] == b"%PDF"
         assert len(pdf) > 500
 
+    def test_bh_payload_enriched_from_hospital_stay(self, db, test_user, test_product, test_hospital, test_doctor):
+        from datetime import datetime
+
+        from app.models.hospital_stay import HospitalStay
+
+        sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)
+        sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
+        issue_care_document(db, sinistre, "bpcu", test_doctor, alerte=alerte)
+        stay = HospitalStay(
+            sinistre_id=sinistre.id,
+            hospital_id=test_hospital.id,
+            patient_id=test_user.id,
+            assigned_doctor_id=test_doctor.id,
+            service_concerne="Urgences",
+            chambre="204",
+            report_motif_consultation="Fièvre persistante",
+            started_at=datetime.utcnow(),
+            status="in_progress",
+        )
+        db.add(stay)
+        db.flush()
+        sinistre.hospital_stay = stay
+        test_doctor.full_name = "Dr. Orientation Test"
+        db.flush()
+
+        bh = issue_care_document(
+            db,
+            sinistre,
+            "bh",
+            test_doctor,
+            payload={"admission_prevue": "2026-09-04T10:00"},
+            alerte=alerte,
+        )
+        payload = bh[0].payload or {}
+        assert payload.get("medecin_traitant") == "Dr. Orientation Test"
+        assert payload.get("service") == "Urgences"
+        assert payload.get("chambre") == "204"
+        assert payload.get("motif_medical") == "Fièvre persistante"
+        assert payload.get("admission_prevue") == "2026-09-04T10:00"
+
     def test_bpcu_brpcu_pdf_templates(self, db, test_user, test_product, test_hospital, test_doctor):
+        """BPCU et BRPCU utilisent le gabarit officiel (sections numérotées, mentions légales)."""
         sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)
         sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
         bpcu = issue_care_document(

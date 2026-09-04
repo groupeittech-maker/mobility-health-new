@@ -680,16 +680,25 @@ async function handleOrientationSubmit(event) {
     }
     const doctorId = Number(document.getElementById('doctorSelect').value);
     const notes = document.getElementById('orientationNotes').value || null;
+    const service = document.getElementById('orientationService')?.value?.trim() || null;
+    const chambre = document.getElementById('orientationChambre')?.value?.trim() || null;
     const submitBtn = event.target.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Orientation en cours...';
     try {
         await apiCall(`/hospital-sinistres/sinistres/${selectedSinistre.id}/stays`, {
             method: 'POST',
-            body: JSON.stringify({ doctor_id: doctorId, orientation_notes: notes }),
+            body: JSON.stringify({
+                doctor_id: doctorId,
+                orientation_notes: notes,
+                service_concerne: service,
+                chambre,
+            }),
         });
         showAlert('Patient orienté vers le médecin sélectionné.', 'success');
         document.getElementById('orientationNotes').value = '';
+        if (document.getElementById('orientationService')) document.getElementById('orientationService').value = '';
+        if (document.getElementById('orientationChambre')) document.getElementById('orientationChambre').value = '';
         await refreshReceptionAlerts();
         currentReceptionTab = 'orientations';
         const tabToTreat = document.getElementById('tabReceptionToTreat');

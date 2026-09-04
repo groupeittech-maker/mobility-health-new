@@ -3,11 +3,11 @@
     "dockerfile": "Dockerfile"
   },
   "install": "pip install --upgrade pip && pip install -r apps/mhc/requirements.txt",
-  "start": "sudo service docker start 2>/dev/null || true",
+  "start": "sudo service docker start 2>/dev/null || true; bash apps/mhc/scripts/docker-stack-cleanup.sh 2>/dev/null || true",
   "terminals": [
     {
       "name": "mhc-api",
-      "command": "cd apps/mhc && docker compose up api db redis minio"
+      "command": "cd apps/mhc && bash scripts/docker-stack-cleanup.sh && docker compose up api db redis minio"
     }
   ]
 }

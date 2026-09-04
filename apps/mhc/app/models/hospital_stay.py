@@ -23,6 +23,8 @@ class HospitalStay(Base, TimestampMixin):
     started_at = Column(DateTime, default=datetime.utcnow, nullable=True)
     ended_at = Column(DateTime, nullable=True)
     orientation_notes = Column(Text, nullable=True)
+    service_concerne = Column(String(120), nullable=True)
+    chambre = Column(String(50), nullable=True)
 
     report_motif_consultation = Column(Text, nullable=True)
     report_motif_hospitalisation = Column(Text, nullable=True)
