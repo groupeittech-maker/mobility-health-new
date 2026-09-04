@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
 import '../../models/referent_pipeline.dart';
 import '../../services/medecin_referent_service.dart';
+import '../../widgets/referent/referent_care_documents_section.dart';
+import '../../widgets/referent/referent_dossier_sections.dart';
 
-/// Détail d'une alerte + sinistre : validation urgence, rapport séjour, lien facture.
+/// Détail d'une alerte + sinistre : aligné sur hospital-alert-details.html (web).
 class ReferentDossierDetailScreen extends StatefulWidget {
   const ReferentDossierDetailScreen({super.key, required this.alerteId});
 
@@ -21,7 +24,6 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
   Map<String, dynamic>? _alerte;
   Map<String, dynamic>? _sinistre;
   bool _loading = true;
-  bool _sinistreLoading = false;
   String? _error;
   bool _actionBusy = false;
 
@@ -44,7 +46,6 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
       _loading = true;
       _error = null;
       _sinistre = null;
-      _sinistreLoading = false;
     });
     try {
       Map<String, dynamic>? alerteResult;
@@ -58,19 +59,16 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
         _alerte = alerteResult;
         _sinistre = sinistreResult;
         _loading = false;
-        _sinistreLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
-        _sinistreLoading = false;
       });
     }
   }
 
-  /// Mise à jour sans écran de chargement plein (ex. après refus).
   Future<void> _refreshDataLight() async {
     Map<String, dynamic>? alerteResult;
     Map<String, dynamic>? sinistreResult;
@@ -105,16 +103,37 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
     return null;
   }
 
+  List<dynamic> get _workflowSteps {
+    final steps = _sinistre?['workflow_steps'];
+    if (steps is List) return steps;
+    return [];
+  }
+
   bool get _canVerifyUrgence {
-    if (_alerte == null || _sinistreLoading || _sinistre == null) return false;
+    if (_alerte == null || _sinistre == null) return false;
+    final step = _workflowSteps.cast<Map?>().firstWhere(
+          (s) => s?['step_key'] == 'verification_urgence',
+          orElse: () => null,
+        );
+    if (step != null) {
+      final st = step['statut']?.toString();
+      if (st == 'completed' || st == 'cancelled') return false;
+    }
     return getReferentStep(_alerte!, _sinistre) == ReferentPipelineStep.sinistre;
   }
 
   bool get _canValidateReport {
     final stay = _stay;
     if (stay == null) return false;
-    final st = (stay['status'] as String?)?.toLowerCase();
-    return st == 'awaiting_validation';
+    return (stay['status'] as String?)?.toLowerCase() == 'awaiting_validation';
+  }
+
+  bool get _canValidateInvoiceMedical {
+    final inv = _invoice;
+    if (inv == null) return false;
+    final st = inv['statut']?.toString();
+    final vm = inv['validation_medicale']?.toString();
+    return st == 'pending_medical' && vm != 'approved' && vm != 'rejected';
   }
 
   Future<void> _decisionUrgence(bool approve) async {
@@ -124,8 +143,7 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
       title: approve ? 'Valider l\'urgence' : 'Refuser l\'urgence',
       hint: approve ? 'Commentaire (optionnel)' : 'Motif du refus',
     );
-    if (!mounted) return;
-    if (notes == null) return;
+    if (!mounted || notes == null) return;
     setState(() => _actionBusy = true);
     try {
       await _service.verifyUrgence(
@@ -138,10 +156,7 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
         context.go('/referent?tab=0&sub=1');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Urgence refusée.'),
-            backgroundColor: Colors.orange.shade800,
-          ),
+          SnackBar(content: const Text('Urgence refusée.'), backgroundColor: Colors.orange.shade800),
         );
         await _refreshDataLight();
       }
@@ -162,8 +177,7 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
       title: approve ? 'Valider le rapport' : 'Refuser le rapport',
       hint: approve ? 'Commentaire (optionnel)' : 'Motif du refus',
     );
-    if (!mounted) return;
-    if (notes == null) return;
+    if (!mounted || notes == null) return;
     setState(() => _actionBusy = true);
     try {
       await _service.validateHospitalStayReport(
@@ -176,10 +190,7 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
         context.go('/referent?tab=1&sub=1');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Rapport refusé.'),
-            backgroundColor: Colors.orange.shade800,
-          ),
+          SnackBar(content: const Text('Rapport refusé.'), backgroundColor: Colors.orange.shade800),
         );
         await _refreshDataLight();
       }
@@ -193,7 +204,41 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
     }
   }
 
-  /// Retourne la note saisie, éventuellement vide ; `null` si annulation.
+  Future<void> _decisionInvoice(bool approve) async {
+    final invoiceId = _invoice?['id'];
+    final id = invoiceId is int ? invoiceId : (invoiceId is num ? invoiceId.toInt() : null);
+    if (id == null) return;
+    final notes = await _promptNotes(
+      title: approve ? 'Valider médicalement la facture' : 'Refuser la facture',
+      hint: approve ? 'Commentaire (optionnel)' : 'Motif du refus',
+    );
+    if (!mounted || notes == null) return;
+    setState(() => _actionBusy = true);
+    try {
+      await _service.validateInvoiceMedical(
+        id,
+        approve: approve,
+        notes: notes.isEmpty ? null : notes,
+      );
+      if (!mounted) return;
+      if (approve) {
+        context.go('/referent?tab=2&sub=1');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: const Text('Facture refusée.'), backgroundColor: Colors.orange.shade800),
+        );
+        await _refreshDataLight();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _actionBusy = false);
+    }
+  }
+
   Future<String?> _promptNotes({required String title, required String hint}) async {
     final controller = TextEditingController();
     final result = await showDialog<String?>(
@@ -218,6 +263,27 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
     return result;
   }
 
+  String _formatDate(dynamic value) {
+    if (value == null) return '—';
+    final d = DateTime.tryParse(value.toString());
+    if (d == null) return value.toString();
+    return DateFormat('dd/MM/yyyy HH:mm').format(d.toLocal());
+  }
+
+  String? _gps() {
+    if (_alerte?['latitude'] == null || _alerte?['longitude'] == null) return null;
+    return '${(_alerte!['latitude'] as num).toStringAsFixed(4)}, ${(_alerte!['longitude'] as num).toStringAsFixed(4)}';
+  }
+
+  String? _assignedDoctorName() {
+    final doctor = _stay?['assigned_doctor'];
+    if (doctor is Map) {
+      return doctor['full_name']?.toString() ?? doctor['email']?.toString();
+    }
+    final id = _stay?['doctor_id'];
+    return id != null ? 'Dr #$id' : null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -231,29 +297,14 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loading || _sinistreLoading || _actionBusy ? null : _load,
+            onPressed: _loading || _actionBusy ? null : _load,
           ),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? SafeArea(
-                  top: false,
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(_error!, textAlign: TextAlign.center),
-                          const SizedBox(height: 16),
-                          FilledButton(onPressed: _load, child: const Text('Réessayer')),
-                        ],
-                      ),
-                    ),
-                  ),
-                )
+              ? _errorView()
               : SafeArea(
                   top: false,
                   child: SingleChildScrollView(
@@ -265,128 +316,193 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _sectionCard(
-                        'Alerte',
-                        [
-                          _kv('N°', _alerte?['numero_alerte']?.toString()),
-                          _kv('Statut', _alerte?['statut']?.toString()),
-                          _kv('Priorité', _alerte?['priorite']?.toString()),
-                          _kv('Adresse', _alerte?['adresse']?.toString()),
-                          _kv('Description', _alerte?['description']?.toString()),
-                        ],
-                      ),
-                      if (_sinistreLoading)
-                        const Card(
-                          child: Padding(
-                            padding: EdgeInsets.all(20),
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                                SizedBox(width: 16),
-                                Expanded(child: Text('Chargement du sinistre…')),
-                              ],
-                            ),
-                          ),
-                        )
-                      else if (_sinistre != null) ...[
+                      children: [
                         _sectionCard(
-                          'Sinistre',
+                          'Alerte',
                           [
-                            _kv('N° sinistre', _sinistre!['numero_sinistre']?.toString() ?? '—'),
-                            _kv('Statut', _sinistre!['statut']?.toString()),
-                            _kv('Médecin réf. (dossier)', _sinistre!['medecin_referent_nom']?.toString()),
+                            _kv('N°', _alerte?['numero_alerte']?.toString()),
+                            _kv('Créée le', _formatDate(_alerte?['created_at'])),
+                            _kv('Statut', _alerte?['statut']?.toString()),
+                            _kv('Priorité', _alerte?['priorite']?.toString()),
+                            _kv('Adresse', _alerte?['adresse']?.toString()),
+                            _kv('Coordonnées GPS', _gps()),
+                            _kv('Description', _alerte?['description']?.toString()),
                           ],
                         ),
-                        _hospitalCard(),
-                        _patientCard(),
-                        if (_stay != null) _stayCard(),
-                        if (_invoice != null) _invoiceCard(),
-                      ] else
-                        const Card(
-                          child: Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Text('Aucun sinistre rattaché à cette alerte.'),
+                        if (_sinistre != null) ...[
+                          ReferentMedicalDecisionBanner(workflowSteps: _workflowSteps),
+                          ReferentWorkflowSection(workflowSteps: _workflowSteps),
+                          _sectionCard(
+                            'Sinistre',
+                            [
+                              _kv('N° sinistre', _sinistre!['numero_sinistre']?.toString() ?? '—'),
+                              _kv('Statut', _sinistre!['statut']?.toString()),
+                              _kv('Souscription', _sinistre!['numero_souscription']?.toString() ??
+                                  (_sinistre!['souscription_id'] != null
+                                      ? 'Souscription #${_sinistre!['souscription_id']}'
+                                      : null)),
+                              _kv('Médecin référent', _sinistre!['medecin_referent_nom']?.toString()),
+                              _kv('Agent sinistre', _sinistre!['agent_sinistre_nom']?.toString()),
+                            ],
                           ),
-                        ),
-                      const SizedBox(height: 24),
-                      if (_canVerifyUrgence) ...[
-                        Text(
-                          'Décision urgence',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FilledButton.icon(
-                                onPressed: _actionBusy ? null : () => _decisionUrgence(true),
-                                icon: const Icon(Icons.check_circle_outline),
-                                label: const Text('Valider l\'urgence'),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: AppColors.success,
-                                ),
-                              ),
+                          _hospitalCard(),
+                          ReferentPatientDossierSection(alerte: _alerte, sinistre: _sinistre),
+                          if (_stay != null) _stayCard(),
+                          if (_invoice != null) _invoiceCard(),
+                          ReferentCareDocumentsSection(
+                            sinistreId: (_sinistre!['id'] is int
+                                ? _sinistre!['id'] as int
+                                : (_sinistre!['id'] as num).toInt()),
+                            alerte: _alerte,
+                            sinistre: _sinistre,
+                            stay: _stay,
+                            onChanged: _refreshDataLight,
+                          ),
+                        ] else
+                          const Card(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text('Aucun sinistre rattaché à cette alerte.'),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _actionBusy ? null : () => _decisionUrgence(false),
-                                icon: const Icon(Icons.cancel_outlined),
-                                label: const Text('Refuser'),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
                         const SizedBox(height: 16),
+                        if (_canVerifyUrgence) _urgenceActions(),
+                        if (_canValidateReport) _reportActions(),
+                        if (_canValidateInvoiceMedical) _invoiceActions(),
+                        if (_actionBusy)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 24),
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
                       ],
-                      if (_canValidateReport) ...[
-                        Text(
-                          'Rapport hospitalier',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FilledButton.icon(
-                                onPressed: _actionBusy ? null : () => _decisionRapport(true),
-                                icon: const Icon(Icons.verified_outlined),
-                                label: const Text('Valider le rapport'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _actionBusy ? null : () => _decisionRapport(false),
-                                icon: const Icon(Icons.undo),
-                                label: const Text('Refuser'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      if (_actionBusy)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 24),
-                          child: Center(child: CircularProgressIndicator()),
-                        ),
-                    ],
+                    ),
                   ),
-                ),
                 ),
     );
   }
 
+  Widget _errorView() {
+    return SafeArea(
+      top: false,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_error!, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              FilledButton(onPressed: _load, child: const Text('Réessayer')),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _urgenceActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Décision urgence', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: _actionBusy ? null : () => _decisionUrgence(true),
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text('Valider l\'urgence'),
+                style: FilledButton.styleFrom(backgroundColor: AppColors.success),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _actionBusy ? null : () => _decisionUrgence(false),
+                icon: const Icon(Icons.cancel_outlined),
+                label: const Text('Refuser'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _reportActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Rapport hospitalier', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: _actionBusy ? null : () => _decisionRapport(true),
+                icon: const Icon(Icons.verified_outlined),
+                label: const Text('Valider le rapport'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _actionBusy ? null : () => _decisionRapport(false),
+                icon: const Icon(Icons.undo),
+                label: const Text('Refuser'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _invoiceActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Validation médicale facture', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: _actionBusy ? null : () => _decisionInvoice(true),
+                icon: const Icon(Icons.check),
+                label: const Text('Accorder'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _actionBusy ? null : () => _decisionInvoice(false),
+                icon: const Icon(Icons.close),
+                label: const Text('Refuser'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () {
+            final raw = _invoice?['id'];
+            final id = raw is int ? raw : (raw is num ? raw.toInt() : null);
+            if (id != null) context.push('/referent/facture/$id');
+          },
+          icon: const Icon(Icons.receipt_long),
+          label: const Text('Voir le détail de la facture'),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
   Widget _sectionCard(String title, List<Widget> children) {
+    final visible = children.where((w) => w is! SizedBox).toList();
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -394,12 +510,9 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const Divider(height: 20),
-            ...children,
+            ...visible,
           ],
         ),
       ),
@@ -407,19 +520,13 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
   }
 
   Widget _kv(String k, String? v) {
-    if (v == null || v.isEmpty) return const SizedBox.shrink();
+    if (v == null || v.isEmpty || v == '—') return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              k,
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
-            ),
-          ),
+          SizedBox(width: 130, child: Text(k, style: TextStyle(color: Colors.grey.shade700, fontSize: 13))),
           Expanded(child: Text(v, style: const TextStyle(fontSize: 14))),
         ],
       ),
@@ -430,26 +537,14 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
     final h = _sinistre?['hospital'];
     if (h is! Map) return const SizedBox.shrink();
     final m = Map<String, dynamic>.from(h);
+    final location = [m['ville'], m['pays']].where((e) => e != null && e.toString().isNotEmpty).join(', ');
     return _sectionCard(
       'Hôpital',
       [
         _kv('Nom', m['nom']?.toString()),
-        _kv('Ville', m['ville']?.toString()),
+        if (location.isNotEmpty) _kv('Localisation', location),
         _kv('Téléphone', m['telephone']?.toString()),
         _kv('Adresse', m['adresse']?.toString()),
-      ],
-    );
-  }
-
-  Widget _patientCard() {
-    final p = _sinistre?['patient'];
-    if (p is! Map) return const SizedBox.shrink();
-    final m = Map<String, dynamic>.from(p);
-    return _sectionCard(
-      'Patient',
-      [
-        _kv('Nom', m['full_name']?.toString()),
-        _kv('Email', m['email']?.toString()),
       ],
     );
   }
@@ -463,22 +558,23 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
       [
         _kv('Statut séjour', s['status']?.toString()),
         _kv('Rapport', s['report_status']?.toString()),
+        _kv('Médecin traitant (orientation)', _assignedDoctorName()),
+        _kv('Service', s['service_concerne']?.toString()),
+        _kv('Chambre', s['chambre']?.toString()),
         _kv('Motif consultation', s['report_motif_consultation']?.toString()),
         _kv('Motif hosp.', s['report_motif_hospitalisation']?.toString()),
         _kv('Durée (h)', s['report_duree_sejour_heures']?.toString()),
         _kv('Résumé', s['report_resume']?.toString()),
         _kv('Observations', s['report_observations']?.toString()),
-        if (actes is List && actes.isNotEmpty)
-          _kv('Actes', actes.map((e) => e.toString()).join(', ')),
-        if (exams is List && exams.isNotEmpty)
-          _kv('Examens', exams.map((e) => e.toString()).join(', ')),
+        if (actes is List && actes.isNotEmpty) _kv('Actes', actes.map((e) => e.toString()).join(', ')),
+        if (exams is List && exams.isNotEmpty) _kv('Examens', exams.map((e) => e.toString()).join(', ')),
       ],
     );
   }
 
   Widget _invoiceCard() {
     final inv = _invoice!;
-    final pending = inv['validation_medicale']?.toString() == 'pending';
+    final pending = _canValidateInvoiceMedical;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -486,29 +582,20 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Facture',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
+            const Text('Facture', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const Divider(height: 20),
             _kv('N°', inv['numero_facture']?.toString()),
             _kv('Montant TTC', inv['montant_ttc']?.toString()),
             _kv('Statut', inv['statut']?.toString()),
             _kv('Validation médicale', inv['validation_medicale']?.toString()),
-            if (pending) ...[
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: () {
-                  final raw = inv['id'];
-                  final id = raw is int ? raw : (raw is num ? raw.toInt() : null);
-                  if (id != null) {
-                    context.push('/referent/facture/$id');
-                  }
-                },
-                icon: const Icon(Icons.receipt_long),
-                label: const Text('Ouvrir pour validation médicale'),
+            if (pending)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Validation médicale en attente — utilisez les boutons ci-dessous ou ouvrez le détail.',
+                  style: TextStyle(fontSize: 13, color: Colors.orange.shade800),
+                ),
               ),
-            ],
           ],
         ),
       ),

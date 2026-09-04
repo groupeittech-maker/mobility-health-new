@@ -341,6 +341,27 @@ class _ReferentPipelineSectionPageState extends State<ReferentPipelineSectionPag
         final pending = step == ReferentPipelineStep.sinistre ||
             step == ReferentPipelineStep.rapport ||
             step == ReferentPipelineStep.facture;
+        final souscription = a['numero_souscription']?.toString();
+        final hospital = a['assigned_hospital'];
+        String? hospitalLine;
+        if (hospital is Map) {
+          final nom = hospital['nom']?.toString();
+          final ville = hospital['ville']?.toString();
+          final pays = hospital['pays']?.toString();
+          final loc = [ville, pays].where((e) => e != null && e.isNotEmpty).join(', ');
+          hospitalLine = [nom, if (loc.isNotEmpty) loc].whereType<String>().join(' • ');
+          final dist = a['distance_to_hospital_km'];
+          if (dist != null) {
+            hospitalLine = '$hospitalLine (${dist.toString()} km)';
+          }
+        }
+        final updated = a['updated_at'];
+        String updatedStr = '';
+        if (updated != null) {
+          try {
+            updatedStr = df.format(DateTime.parse(updated.toString()).toLocal());
+          } catch (_) {}
+        }
 
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
@@ -361,6 +382,16 @@ class _ReferentPipelineSectionPageState extends State<ReferentPipelineSectionPag
               children: [
                 const SizedBox(height: 4),
                 Text(patient),
+                if (souscription != null && souscription.isNotEmpty)
+                  Text(
+                    'Souscription : $souscription',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  ),
+                if (hospitalLine != null && hospitalLine.isNotEmpty)
+                  Text(
+                    hospitalLine,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  ),
                 Text(
                   label,
                   style: TextStyle(
@@ -376,7 +407,12 @@ class _ReferentPipelineSectionPageState extends State<ReferentPipelineSectionPag
                   ),
                 if (dateStr.isNotEmpty)
                   Text(
-                    dateStr,
+                    'Créée le $dateStr',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                if (updatedStr.isNotEmpty)
+                  Text(
+                    'Mise à jour $updatedStr',
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
               ],
