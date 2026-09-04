@@ -30,6 +30,10 @@ from app.schemas.questionnaire import QuestionnaireResponse
 from app.schemas.hospital_stay import HospitalStayResponse
 from app.services.sinistre_workflow_service import ensure_workflow_steps, update_workflow_step
 from app.services.referent_notification_reads import mark_notifications_read_for_relation
+from app.services.referent_pipeline_service import (
+    count_referent_pipeline_steps,
+    get_referent_pipeline_step,
+)
 from pydantic import BaseModel
 import uuid
 import json
@@ -747,35 +751,10 @@ async def trigger_sos(
 ALERTE_STATUTS_CLOTURES = {"resolue", "annulee"}
 
 
-@router.get("", response_model=List[AlerteResponse])
-@router.get("/", response_model=List[AlerteResponse])
-async def get_alertes(
-    skip: int = 0,
-    limit: int = 50,
-    statut: Optional[str] = None,
-    realtime: bool = False,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Obtenir la liste des alertes. Si realtime=true, exclut les alertes clôturées (resolue, annulee)."""
-    skip = max(0, int(skip))
-    raw_limit = max(1, int(limit))
-    # Plafonds : la réception / l’hôpital et le front (sos-dashboard, hospital-reception) demandent souvent limit=200.
-    if current_user.role in (Role.ADMIN, Role.SOS_OPERATOR, Role.AGENT_SINISTRE_MH):
-        limit = min(raw_limit, 500)
-    elif current_user.role in (
-        Role.HOSPITAL_ADMIN,
-        Role.AGENT_RECEPTION_HOPITAL,
-        Role.MEDECIN_HOPITAL,
-        Role.MEDECIN_REFERENT_MH,
-    ):
-        limit = min(raw_limit, 200)
-    else:
-        limit = min(raw_limit, 50)
-
+def _build_alertes_query_for_user(db: Session, current_user: User):
+    """Filtre alertes selon le rôle (identique à GET /sos/)."""
     query = db.query(Alerte).options(joinedload(Alerte.user))
-    
-    # Les utilisateurs normaux ne voient que leurs alertes
+
     if current_user.role not in [Role.ADMIN, Role.SOS_OPERATOR, Role.AGENT_SINISTRE_MH, Role.DOCTOR]:
         hospital_ids: list[int] = []
         if current_user.role in [Role.HOSPITAL_ADMIN, Role.AGENT_RECEPTION_HOPITAL, Role.MEDECIN_HOPITAL]:
@@ -789,34 +768,35 @@ async def get_alertes(
             if current_user.hospital_id:
                 hospital_ids.append(current_user.hospital_id)
         hospital_ids = list(set([hid for hid in hospital_ids if hid]))
-        
+
         if hospital_ids:
             query = query.join(Sinistre, Sinistre.alerte_id == Alerte.id).filter(
                 Sinistre.hospital_id.in_(hospital_ids)
             )
         else:
-            if current_user.role in [Role.HOSPITAL_ADMIN, Role.AGENT_RECEPTION_HOPITAL, Role.MEDECIN_REFERENT_MH, Role.MEDECIN_HOPITAL]:
-                # Aucun hôpital assigné : aucune alerte
+            if current_user.role in [
+                Role.HOSPITAL_ADMIN,
+                Role.AGENT_RECEPTION_HOPITAL,
+                Role.MEDECIN_REFERENT_MH,
+                Role.MEDECIN_HOPITAL,
+            ]:
                 query = query.filter(False)
             else:
                 query = query.filter(Alerte.user_id == current_user.id)
-    
-    if statut:
-        query = query.filter(Alerte.statut == statut)
-    if realtime:
-        query = query.filter(Alerte.statut.notin_(ALERTE_STATUTS_CLOTURES))
-    
-    alertes = query.order_by(Alerte.created_at.desc()).offset(skip).limit(limit).all()
-    
+    return query
+
+
+def _hydrate_alertes_for_response(db: Session, alertes: List[Alerte]) -> bool:
+    """Enrichit les alertes (workflow, pipeline référent). Retourne True si commit requis."""
     if not alertes:
-        return alertes
-    
+        return False
+
     alerte_ids = [alerte.id for alerte in alertes]
     sinistres = (
         db.query(Sinistre)
         .options(
             selectinload(Sinistre.workflow_steps),
-            selectinload(Sinistre.hospital_stay),
+            selectinload(Sinistre.hospital_stay).selectinload(HospitalStay.invoice),
         )
         .filter(Sinistre.alerte_id.in_(alerte_ids))
         .all()
@@ -866,8 +846,78 @@ async def get_alertes(
                     "completed_at": getattr(s, "completed_at", None),
                 })
         setattr(alerte, "workflow_steps", steps)
+        setattr(alerte, "referent_pipeline_step", get_referent_pipeline_step(alerte, sinistre))
 
-    if workflow_modified_any:
+    return workflow_modified_any
+
+
+@router.get("/referent-pipeline/counts")
+async def get_referent_pipeline_counts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Compteurs pipeline médecin référent — source de vérité partagée web/mobile."""
+    if current_user.role != Role.MEDECIN_REFERENT_MH and not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé au médecin référent MH.",
+        )
+
+    query = _build_alertes_query_for_user(db, current_user)
+    alertes = query.order_by(Alerte.created_at.desc()).limit(500).all()
+    if not alertes:
+        counts = count_referent_pipeline_steps([])
+        counts["total"] = 0
+        return counts
+
+    if _hydrate_alertes_for_response(db, alertes):
+        db.commit()
+
+    steps = [getattr(a, "referent_pipeline_step", "sinistre") for a in alertes]
+    counts = count_referent_pipeline_steps(steps)
+    counts["total"] = len(alertes)
+    return counts
+
+
+@router.get("", response_model=List[AlerteResponse])
+@router.get("/", response_model=List[AlerteResponse])
+async def get_alertes(
+    skip: int = 0,
+    limit: int = 50,
+    statut: Optional[str] = None,
+    realtime: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Obtenir la liste des alertes. Si realtime=true, exclut les alertes clôturées (resolue, annulee)."""
+    skip = max(0, int(skip))
+    raw_limit = max(1, int(limit))
+    # Plafonds : la réception / l’hôpital et le front (sos-dashboard, hospital-reception) demandent souvent limit=200.
+    if current_user.role in (Role.ADMIN, Role.SOS_OPERATOR, Role.AGENT_SINISTRE_MH):
+        limit = min(raw_limit, 500)
+    elif current_user.role in (
+        Role.HOSPITAL_ADMIN,
+        Role.AGENT_RECEPTION_HOPITAL,
+        Role.MEDECIN_HOPITAL,
+        Role.MEDECIN_REFERENT_MH,
+    ):
+        limit = min(raw_limit, 200)
+    else:
+        limit = min(raw_limit, 50)
+
+    query = _build_alertes_query_for_user(db, current_user)
+
+    if statut:
+        query = query.filter(Alerte.statut == statut)
+    if realtime:
+        query = query.filter(Alerte.statut.notin_(ALERTE_STATUTS_CLOTURES))
+
+    alertes = query.order_by(Alerte.created_at.desc()).offset(skip).limit(limit).all()
+
+    if not alertes:
+        return alertes
+
+    if _hydrate_alertes_for_response(db, alertes):
         db.commit()
 
     return alertes
