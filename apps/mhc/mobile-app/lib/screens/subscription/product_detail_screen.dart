@@ -167,7 +167,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           if (hasDevisContext) ...[
             const _SectionTitle('Informations du devis'),
             const SizedBox(height: 8),
-            _SectionValue(_devisContextLines(q)),
+            _TableKeyValue(
+              headerLeft: 'Libellé',
+              headerRight: 'Valeur',
+              rows: _devisContextRows(q),
+            ),
             const SizedBox(height: 20),
           ],
           if (q != null && q.hasBreakdown) ...[
@@ -175,15 +179,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             const SizedBox(height: 8),
             _TableQuoteBreakdown(line: q, currency: cur),
             const SizedBox(height: 8),
-            Text(
-              'Règle appliquée : frais de service ≈ ${widget.fraisSurPrimePct.toStringAsFixed(0)} % de la prime d’assurance.',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Text(
+                'Règle appliquée : frais de service ≈ ${widget.fraisSurPrimePct.toStringAsFixed(0)} % de la prime d’assurance.',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B)),
+              ),
             ),
             const SizedBox(height: 20),
           ] else if (q != null) ...[
             const _SectionTitle('Montant du devis'),
             const SizedBox(height: 8),
-            _SectionValue('Total à payer : ${q.prixApplique.toStringAsFixed(0)} $cur'),
+            _TableKeyValue(
+              headerLeft: 'Libellé',
+              headerRight: 'Montant',
+              rows: [
+                ['Total à payer', '${q.prixApplique.toStringAsFixed(0)} $cur'],
+              ],
+            ),
             const SizedBox(height: 20),
           ],
           if (widget.surprimesAge.isNotEmpty) ...[
@@ -203,38 +222,98 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  String _devisContextLines(SubscriptionQuoteLine? q) {
-    final parts = <String>[];
+  List<List<String>> _devisContextRows(SubscriptionQuoteLine? q) {
+    final rows = <List<String>>[];
     if (widget.subscriberAge != null) {
-      parts.add('Âge du souscripteur : ${widget.subscriberAge} ans');
+      rows.add(['Âge du souscripteur', '${widget.subscriberAge} ans']);
     } else {
-      parts.add('Âge du souscripteur : non renseigné');
+      rows.add(['Âge du souscripteur', 'Non renseigné']);
     }
     final zone = q?.zoneLibelleFr?.trim().isNotEmpty == true
         ? q!.zoneLibelleFr!.trim()
         : (q?.zoneGeographiqueCode?.trim().isNotEmpty == true ? 'Code zone : ${q!.zoneGeographiqueCode}' : null);
-    if (zone != null) {
-      parts.add('Zone tarifaire : $zone');
-    } else {
-      parts.add('Zone tarifaire : selon grille produit');
-    }
+    rows.add(['Zone tarifaire', zone ?? 'Selon grille produit']);
     final res = widget.residenceCountryName?.trim();
     final dest = widget.destinationCountryName?.trim();
-    parts.add('Pays de résidence : ${res != null && res.isNotEmpty ? res : '—'}');
-    parts.add('Pays de destination : ${dest != null && dest.isNotEmpty ? dest : '—'}');
+    rows.add(['Pays de résidence', (res != null && res.isNotEmpty) ? res : '—']);
+    rows.add(['Pays de destination', (dest != null && dest.isNotEmpty) ? dest : '—']);
     final d = widget.voyageDureeJours;
     if (d != null && d > 0) {
-      parts.add('Durée du voyage : $d jour${d > 1 ? 's' : ''}');
+      rows.add(['Durée du voyage', '$d jour${d > 1 ? 's' : ''}']);
     } else {
-      parts.add('Durée du voyage : —');
+      rows.add(['Durée du voyage', '—']);
     }
     final tr = q?.trancheDureeLabelFr;
     if (tr != null && tr.isNotEmpty) {
-      parts.add('Tranche durée (grille) : $tr');
+      rows.add(['Tranche durée (grille)', tr]);
     }
-    return parts.join('\n');
+    return rows;
   }
 
+}
+
+class _TableKeyValue extends StatelessWidget {
+  const _TableKeyValue({
+    required this.headerLeft,
+    required this.headerRight,
+    required this.rows,
+  });
+
+  final String headerLeft;
+  final String headerRight;
+  final List<List<String>> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    const headerColor = AppColors.primary;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Table(
+        columnWidths: const {
+          0: FlexColumnWidth(1.4),
+          1: FlexColumnWidth(1),
+        },
+        children: [
+          TableRow(
+            decoration: const BoxDecoration(color: headerColor),
+            children: [
+              _cell(headerLeft, isHeader: true),
+              _cell(headerRight, isHeader: true),
+            ],
+          ),
+          ...rows.asMap().entries.map((e) {
+            return TableRow(
+              decoration: BoxDecoration(
+                color: e.key.isEven ? Colors.white : const Color(0xFFF8FAFC),
+              ),
+              children: [
+                _cell(e.value[0], bold: false),
+                _cell(e.value[1], bold: false),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _cell(String text, {bool isHeader = false, bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: isHeader || bold ? FontWeight.w600 : FontWeight.normal,
+          color: isHeader ? Colors.white : const Color(0xFF1E293B),
+        ),
+      ),
+    );
+  }
 }
 
 class _TableQuoteBreakdown extends StatelessWidget {
@@ -256,6 +335,7 @@ class _TableQuoteBreakdown extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Table(
         columnWidths: const {
           0: FlexColumnWidth(1.4),
@@ -337,6 +417,7 @@ class _TableSurprimesAge extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Table(
         columnWidths: const {
           0: FlexColumnWidth(2),
@@ -413,12 +494,21 @@ class _SectionValue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 14,
-        color: Color(0xFF475569),
-        height: 1.4,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 14,
+          color: Color(0xFF1E293B),
+          height: 1.4,
+        ),
       ),
     );
   }
@@ -465,6 +555,7 @@ class _TableGaranties extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Table(
         columnWidths: const {
           0: FlexColumnWidth(1.4),
