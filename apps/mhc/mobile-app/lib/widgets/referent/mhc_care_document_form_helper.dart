@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/utils/json_value.dart';
 import '../../models/mhc_care_document.dart';
 
 /// Préremplissage et collecte des champs d'émission (aligné web).
@@ -45,9 +46,10 @@ class MhcCareDocumentFormHelper {
       'admission_prevue': toDatetimeLocalValue(stay?['started_at']) ?? '',
       'date_entree': toDatetimeLocalValue(stay?['started_at']) ?? '',
       'date_sortie': toDatetimeLocalValue(stay?['ended_at']) ?? '',
-      'duree_jours': stay?['report_duree_sejour_heures'] != null
-          ? ((stay!['report_duree_sejour_heures'] as num) / 24).toStringAsFixed(1)
-          : '',
+      'duree_jours': () {
+        final heures = parseJsonNum(stay?['report_duree_sejour_heures']);
+        return heures != null ? (heures / 24).toStringAsFixed(1) : '';
+      }(),
       'resume_rapport': _str(stay?['report_resume']) ?? '',
       'examens_prevus': stay?['report_examens'] is List
           ? (stay!['report_examens'] as List).map((e) => e.toString()).join(', ')

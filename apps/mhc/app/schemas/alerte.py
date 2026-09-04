@@ -63,5 +63,6 @@ class AlerteResponse(AlerteBase):
     is_validated: bool = False
     is_oriented: bool = False
     workflow_steps: Optional[List[WorkflowStepSummary]] = None  # Étapes de prise en charge (si sinistre)
+    referent_pipeline_step: Optional[str] = None  # sinistre|sinistre_valide|rapport|…|resolu
 
     model_config = ConfigDict(from_attributes=True)

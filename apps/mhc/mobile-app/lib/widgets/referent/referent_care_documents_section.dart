@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/utils/json_value.dart';
 import '../../models/mhc_care_document.dart';
 import '../../screens/pdf_viewer_screen.dart';
 import '../../services/mhc_care_document_service.dart';
@@ -292,7 +293,7 @@ class _ReferentCareDocumentsSectionState extends State<ReferentCareDocumentsSect
                 Text('Aucun document émis.', style: TextStyle(color: Colors.grey.shade600))
               else
                 ..._documents.map((doc) {
-                  final docId = doc['id'] is int ? doc['id'] as int : (doc['id'] as num?)?.toInt();
+                  final docId = parseJsonInt(doc['id']);
                   final type = doc['document_type']?.toString() ?? '';
                   final title = doc['titre']?.toString() ?? MhcCareDocumentLabels.labelFor(type);
                   final loading = docId != null && _downloadingId == docId;

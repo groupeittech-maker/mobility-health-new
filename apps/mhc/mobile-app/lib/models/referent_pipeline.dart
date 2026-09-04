@@ -1,4 +1,6 @@
-// Aligné sur frontend-simple/js/review-dashboard.js — getReferentStep
+// Aligné sur app/services/referent_pipeline_service.py et review-dashboard.js
+
+import '../core/utils/json_value.dart';
 
 /// Étapes du pipeline médecin référent (onglets web).
 enum ReferentPipelineStep {
@@ -26,91 +28,65 @@ class ReferentDossierItem {
   final Map<String, dynamic> alerte;
   final Map<String, dynamic>? sinistre;
 
-  int get alerteId => (alerte['id'] as num).toInt();
+  int get alerteId => parseJsonInt(alerte['id']) ?? 0;
 
-  ReferentPipelineStep get step => getReferentStep(alerte, sinistre);
-}
-
-/// Étapes workflow présentes sur l’alerte (GET /sos/) ou sur le détail sinistre.
-List<dynamic> _workflowStepsForClassification(
-  Map<String, dynamic> alerte,
-  Map<String, dynamic>? sinistre,
-) {
-  if (sinistre != null && sinistre['workflow_steps'] is List) {
-    return sinistre['workflow_steps'] as List<dynamic>;
-  }
-  if (alerte['workflow_steps'] is List) {
-    return alerte['workflow_steps'] as List<dynamic>;
-  }
-  return const [];
-}
-
-String? _stepStatut(List<dynamic> steps, String stepKey) {
-  for (final s in steps) {
-    if (s is Map && s['step_key'] == stepKey) {
-      return (s['statut'] as String?)?.toLowerCase() ?? '';
+  ReferentPipelineStep get step {
+    final apiStep = alerte['referent_pipeline_step']?.toString();
+    if (apiStep != null && apiStep.isNotEmpty) {
+      return referentPipelineStepFromApi(apiStep);
     }
+    return getReferentStep(alerte, sinistre);
   }
-  return null;
 }
 
-/// Classement sans GET `/sos/{id}/sinistre` : `workflow_steps`, `is_oriented` sur l’alerte (liste SOS).
-ReferentPipelineStep _referentStepFromAlerteOnly(Map<String, dynamic> alerte) {
-  final steps = _workflowStepsForClassification(alerte, null);
-
-  final statutUrgence = _stepStatut(steps, 'verification_urgence') ?? '';
-  if (statutUrgence.isEmpty ||
-      (statutUrgence != 'completed' && statutUrgence != 'cancelled')) {
-    return ReferentPipelineStep.sinistre;
-  }
-
-  final isOriented = alerte['is_oriented'] == true;
-  final factureEmise = _stepStatut(steps, 'facture_emise') ?? '';
-  final med = _stepStatut(steps, 'validation_facture_medicale') ?? '';
-  final compta = _stepStatut(steps, 'validation_facture_comptable') ?? '';
-
-  if (compta == 'completed') {
-    return ReferentPipelineStep.resolu;
-  }
-  if (med == 'cancelled') {
-    return ReferentPipelineStep.resolu;
-  }
-
-  if (factureEmise == 'completed') {
-    if (med == 'pending' || med == 'in_progress') {
+ReferentPipelineStep referentPipelineStepFromApi(String value) {
+  switch (value) {
+    case 'sinistre_valide':
+      return ReferentPipelineStep.sinistreValide;
+    case 'rapport':
+      return ReferentPipelineStep.rapport;
+    case 'rapport_valide':
+      return ReferentPipelineStep.rapportValide;
+    case 'facture':
       return ReferentPipelineStep.facture;
-    }
-    if (med == 'completed' || med == 'approved') {
+    case 'facture_valide':
       return ReferentPipelineStep.factureValide;
-    }
+    case 'resolu':
+      return ReferentPipelineStep.resolu;
+    case 'sinistre':
+    default:
+      return ReferentPipelineStep.sinistre;
   }
-
-  if (!isOriented) {
-    return ReferentPipelineStep.sinistreValide;
-  }
-
-  if (factureEmise == 'in_progress') {
-    return ReferentPipelineStep.rapportValide;
-  }
-
-  return ReferentPipelineStep.rapport;
 }
 
-/// Détermine l'étape d'affichage (même ordre de priorité que le web).
-/// Sans [sinistre] : s’appuie sur les champs de l’alerte API (`workflow_steps`, `is_oriented`, `is_validated`)
-/// pour éviter un GET /sos/{id}/sinistre par ligne dans les listes.
+String referentPipelineStepToApi(ReferentPipelineStep step) {
+  switch (step) {
+    case ReferentPipelineStep.sinistre:
+      return 'sinistre';
+    case ReferentPipelineStep.sinistreValide:
+      return 'sinistre_valide';
+    case ReferentPipelineStep.rapport:
+      return 'rapport';
+    case ReferentPipelineStep.rapportValide:
+      return 'rapport_valide';
+    case ReferentPipelineStep.facture:
+      return 'facture';
+    case ReferentPipelineStep.factureValide:
+      return 'facture_valide';
+    case ReferentPipelineStep.resolu:
+      return 'resolu';
+  }
+}
+
+/// Fallback client si l'API n'a pas encore renvoyé referent_pipeline_step.
 ReferentPipelineStep getReferentStep(
   Map<String, dynamic> alerte,
   Map<String, dynamic>? sinistre,
 ) {
   if (sinistre == null) {
     final st = (alerte['statut'] as String?)?.toLowerCase() ?? '';
-    if (st == 'annulee' || st == 'resolue') return ReferentPipelineStep.resolu;
-    final sid = alerte['sinistre_id'];
-    if (sid == null) {
-      return ReferentPipelineStep.sinistre;
-    }
-    return _referentStepFromAlerteOnly(alerte);
+    if (st == 'annulee') return ReferentPipelineStep.resolu;
+    return ReferentPipelineStep.sinistre;
   }
 
   final stayRaw = sinistre['hospital_stay'];
@@ -178,6 +154,19 @@ ReferentPipelineStep getReferentStep(
   return ReferentPipelineStep.sinistreValide;
 }
 
+List<dynamic> _workflowStepsForClassification(
+  Map<String, dynamic> alerte,
+  Map<String, dynamic>? sinistre,
+) {
+  if (sinistre != null && sinistre['workflow_steps'] is List) {
+    return sinistre['workflow_steps'] as List<dynamic>;
+  }
+  if (alerte['workflow_steps'] is List) {
+    return alerte['workflow_steps'] as List<dynamic>;
+  }
+  return const [];
+}
+
 String referentStepLabel(ReferentPipelineStep step) {
   switch (step) {
     case ReferentPipelineStep.sinistre:
@@ -194,5 +183,22 @@ String referentStepLabel(ReferentPipelineStep step) {
       return 'Facture validée';
     case ReferentPipelineStep.resolu:
       return 'Dossier résolu';
+  }
+}
+
+/// Compteurs serveur → sous-onglets mobile (À valider / Validé).
+(int, int) referentSubTabCountsFromServer(
+  ReferentFooterSection section,
+  Map<String, int> counts,
+) {
+  switch (section) {
+    case ReferentFooterSection.sinistre:
+      return (counts['sinistre'] ?? 0, counts['sinistre_valide'] ?? 0);
+    case ReferentFooterSection.rapport:
+      return (counts['rapport'] ?? 0, counts['rapport_valide'] ?? 0);
+    case ReferentFooterSection.facture:
+      return (counts['facture'] ?? 0, counts['facture_valide'] ?? 0);
+    case ReferentFooterSection.resolu:
+      return (counts['resolu'] ?? 0, 0);
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+
+import '../../core/utils/json_value.dart';
 
 /// Affichage du dossier patient (civil + questionnaire médical) aligné web.
 class ReferentPatientDossierSection extends StatelessWidget {
@@ -71,11 +72,9 @@ class ReferentPatientDossierSection extends StatelessWidget {
         (sinistre?['souscription_id'] != null ? 'Souscription #${sinistre!['souscription_id']}' : null);
     final priorite = alerte?['priorite']?.toString();
     final adresse = alerte?['adresse']?.toString();
-    final lat = alerte?['latitude'];
-    final lng = alerte?['longitude'];
-    final gps = lat != null && lng != null
-        ? '${(lat as num).toStringAsFixed(4)}, ${(lng as num).toStringAsFixed(4)}'
-        : null;
+    final latStr = formatJsonCoord(alerte?['latitude']);
+    final lngStr = formatJsonCoord(alerte?['longitude']);
+    final gps = latStr != null && lngStr != null ? '$latStr, $lngStr' : null;
 
     return [
       _kv('Patient', name),
@@ -159,96 +158,6 @@ class ReferentPatientDossierSection extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-/// Timeline workflow sinistre (aligné web).
-class ReferentWorkflowSection extends StatelessWidget {
-  const ReferentWorkflowSection({super.key, required this.workflowSteps});
-
-  final List<dynamic> workflowSteps;
-
-  @override
-  Widget build(BuildContext context) {
-    if (workflowSteps.isEmpty) return const SizedBox.shrink();
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Étapes du dossier',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const Divider(height: 20),
-            ...workflowSteps.map((step) {
-              if (step is! Map) return const SizedBox.shrink();
-              final m = Map<String, dynamic>.from(step);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(m['titre']?.toString() ?? m['step_key']?.toString() ?? 'Étape',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    if (m['description'] != null)
-                      Text(m['description'].toString(), style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        _statusChip(m['statut']?.toString()),
-                        if (m['completed_at'] != null) ...[
-                          const SizedBox(width: 8),
-                          Text(_formatDate(m['completed_at']), style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statusChip(String? statut) {
-    final s = (statut ?? '').toLowerCase();
-    Color bg;
-    String label;
-    switch (s) {
-      case 'completed':
-        bg = Colors.green.shade100;
-        label = 'Terminé';
-        break;
-      case 'cancelled':
-        bg = Colors.red.shade100;
-        label = 'Annulé';
-        break;
-      case 'in_progress':
-        bg = Colors.blue.shade100;
-        label = 'En cours';
-        break;
-      default:
-        bg = Colors.grey.shade200;
-        label = statut ?? '—';
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-      child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-    );
-  }
-
-  String _formatDate(dynamic value) {
-    if (value == null) return '';
-    final d = DateTime.tryParse(value.toString());
-    if (d == null) return value.toString();
-    return DateFormat('dd/MM/yyyy HH:mm').format(d.toLocal());
   }
 }
 
