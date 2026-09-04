@@ -122,6 +122,14 @@ ssh: connect to host *** port 22: Connection timed out
 
 **Relancer le déploiement** : Actions → **Deploy to Hostinger VPS** → Run workflow (le workflow réessaie 5× avec pause 15 s).
 
+### Solution durable : runner self-hosted (sans ouvrir le port 22)
+
+Si le firewall Hostinger ne peut pas autoriser toutes les IP GitHub (~7000 plages) :
+
+1. Suivre **`deploy/README-GITHUB-RUNNER.md`** — installer le runner sur le VPS (SSH depuis votre PC suffit).
+2. Variable GitHub **`USE_SELF_HOSTED_DEPLOY`** = `true`.
+3. Le job **Déploiement (runner VPS)** s’exécute localement sur le serveur — plus de SSH entrant depuis `20.x.x.x`.
+
 ### `Network is unreachable`
 
 Si le job **Test SSH connection** échoue avec `ssh: connect to host … port 22: Network is unreachable` :

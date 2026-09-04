@@ -33,5 +33,7 @@ echo "Actions :"
 echo "  1. hPanel → VPS → Firewall → autoriser TCP ${PORT} depuis Internet (recommandé avec clé SSH uniquement)"
 echo "  2. Ou exécuter sur le VPS : bash deploy/fix-github-actions-ssh-firewall.sh"
 echo "  3. IP du runner bloqué : ${RUNNER_IP} (si liste blanche manuelle)"
+echo "  4. Solution durable : runner self-hosted sur le VPS → deploy/README-GITHUB-RUNNER.md"
+echo "     puis variable GitHub USE_SELF_HOSTED_DEPLOY=true"
 echo "Doc : docs/CICD-AUTOMATION.md § Deploy SSH"
 exit 1
