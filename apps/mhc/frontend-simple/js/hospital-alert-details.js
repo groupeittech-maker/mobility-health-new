@@ -1255,6 +1255,14 @@ async function renderReceptionActions() {
                     </select>
                 </div>
                 <div class="form-group">
+                    <label for="orientationService">Service concerné</label>
+                    <input type="text" id="orientationService" placeholder="Ex. Urgences, médecine interne">
+                </div>
+                <div class="form-group">
+                    <label for="orientationChambre">Chambre / unité (si connue)</label>
+                    <input type="text" id="orientationChambre" placeholder="Ex. 204, USI">
+                </div>
+                <div class="form-group">
                     <label for="orientationNotes">Notes pour l'équipe médicale</label>
                     <textarea id="orientationNotes" rows="2" placeholder="Précisions pour l'accueil ou le médecin"></textarea>
                 </div>
@@ -1336,13 +1344,20 @@ async function handleOrientationSubmit(event) {
     event.preventDefault();
     const doctorId = Number(document.getElementById('doctorSelect').value);
     const notes = document.getElementById('orientationNotes').value || null;
+    const service = document.getElementById('orientationService')?.value?.trim() || null;
+    const chambre = document.getElementById('orientationChambre')?.value?.trim() || null;
     const submitBtn = event.target.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Orientation en cours...';
     try {
         await apiCall(`/hospital-sinistres/sinistres/${currentSinistre.id}/stays`, {
             method: 'POST',
-            body: JSON.stringify({ doctor_id: doctorId, orientation_notes: notes }),
+            body: JSON.stringify({
+                doctor_id: doctorId,
+                orientation_notes: notes,
+                service_concerne: service,
+                chambre,
+            }),
         });
         showAlert('Patient orienté vers le médecin sélectionné.', 'success');
         await loadAlertDetails();
@@ -1967,6 +1982,346 @@ const MHC_DOC_LABELS = {
     arf: "Attestation de rapatriement funéraire",
 };
 
+const MHC_REFUSAL_MOTIFS = [
+    "Prestation ou pathologie exclue des garanties la police d'assurance voyage.",
+    "Absence du caractère d'urgence médicale obligatoire.",
+    "Sinistre survenu en dehors des dates de validité ou d'effet du contrat.",
+    "Situation médicale présente avant la souscription de la police d'assurance",
+];
+
+function toDatetimeLocalValue(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function getAssignedDoctorName() {
+    const stay = currentStay;
+    if (!stay) return '';
+    if (stay.assigned_doctor?.full_name) return stay.assigned_doctor.full_name;
+    if (stay.assigned_doctor?.email) return stay.assigned_doctor.email;
+    const doc = hospitalDoctors.find((d) => d.id === stay.doctor_id);
+    return doc?.full_name || doc?.email || '';
+}
+
+function getCareDocumentPrefill() {
+    const stay = currentStay;
+    const motifConsultation = document.getElementById('motifConsultation')?.value
+        || stay?.report_motif_consultation
+        || '';
+    const motifHospitalisation = document.getElementById('motifHospitalisation')?.value
+        || stay?.report_motif_hospitalisation
+        || '';
+    const motif = motifHospitalisation || motifConsultation || currentAlerte?.description || '';
+    return {
+        medecin_traitant: getAssignedDoctorName(),
+        medecin_referent: currentSinistre?.medecin_referent_nom || '',
+        service: stay?.service_concerne || '',
+        chambre: stay?.chambre || '',
+        motif_medical: motif,
+        diagnostic: motif,
+        admission_prevue: toDatetimeLocalValue(stay?.started_at),
+        date_entree: toDatetimeLocalValue(stay?.started_at),
+        date_sortie: toDatetimeLocalValue(stay?.ended_at),
+        duree_jours: stay?.report_duree_sejour_heures != null
+            ? String(Math.round((stay.report_duree_sejour_heures / 24) * 10) / 10)
+            : '',
+        resume_rapport: stay?.report_resume || document.getElementById('resumeSejour')?.value || '',
+        examens_prevus: Array.isArray(stay?.report_examens) ? stay.report_examens.join(', ') : '',
+        devise: 'XAF',
+    };
+}
+
+function setInputValue(id, value) {
+    const el = document.getElementById(id);
+    if (el && value != null && value !== '') {
+        el.value = value;
+    }
+}
+
+function applyCareDocumentPrefill(type) {
+    const prefill = getCareDocumentPrefill();
+    if (type === 'bh') {
+        setInputValue('mhcAdmission', prefill.admission_prevue);
+        setInputValue('mhcService', prefill.service);
+        setInputValue('mhcMedecinTraitant', prefill.medecin_traitant);
+        setInputValue('mhcChambre', prefill.chambre);
+        setInputValue('mhcMotif', prefill.motif_medical);
+    } else if (type === 'bpcu') {
+        setInputValue('mhcMotif', prefill.motif_medical);
+        setInputValue('mhcService', prefill.service);
+        setInputValue('mhcMedecinReferent', prefill.medecin_referent);
+        setInputValue('mhcDevise', prefill.devise);
+    } else if (type === 'bph') {
+        setInputValue('mhcMotif', prefill.motif_medical);
+        setInputValue('mhcExamens', prefill.examens_prevus);
+        setInputValue('mhcDevise', prefill.devise);
+    } else if (type === 'bs') {
+        setInputValue('mhcDateEntree', prefill.date_entree);
+        setInputValue('mhcDateSortie', prefill.date_sortie);
+        setInputValue('mhcDureeJours', prefill.duree_jours);
+        setInputValue('mhcResume', prefill.resume_rapport);
+    } else if (type === 'brs' || type === 'brf') {
+        setInputValue('mhcMotif', prefill.motif_medical);
+        setInputValue('mhcDevise', prefill.devise);
+    }
+}
+
+function buildCareDocumentFieldsHtml(type) {
+    const refusalChecks = MHC_REFUSAL_MOTIFS.map((motif, idx) => `
+        <label class="checkbox-inline" style="display:block;margin:0.35rem 0;">
+            <input type="checkbox" name="mhcRefusalMotif" value="${escapeHtml(motif)}" id="mhcRefusal${idx}">
+            ${escapeHtml(motif)}
+        </label>
+    `).join('');
+
+    switch (type) {
+    case 'bpcu':
+        return `
+            <label for="mhcMotif">Motif médical / diagnostic</label>
+            <textarea id="mhcMotif" rows="2" required></textarea>
+            <label for="mhcService">Service concerné</label>
+            <input type="text" id="mhcService" placeholder="Ex. Urgences, médecine interne">
+            <label for="mhcMontant">Montant maximum autorisé</label>
+            <input type="text" id="mhcMontant" placeholder="ex. 500000">
+            <label for="mhcDevise">Devise</label>
+            <input type="text" id="mhcDevise" value="XAF">
+            <label for="mhcMedecinReferent">Médecin référent MHC</label>
+            <input type="text" id="mhcMedecinReferent" placeholder="Médecin-conseil MHC">
+        `;
+    case 'brpcu':
+        return `
+            <fieldset style="margin:0.75rem 0;border:1px solid #cbd5e1;padding:0.75rem;border-radius:8px;">
+                <legend>Motifs de refus contractuels</legend>
+                ${refusalChecks}
+            </fieldset>
+            <label for="mhcMotif">Autres motifs / précisions</label>
+            <textarea id="mhcMotif" rows="2" placeholder="Motif complémentaire si nécessaire"></textarea>
+        `;
+    case 'bh':
+        return `
+            <label for="mhcAdmission">Date / heure d'admission prévue</label>
+            <input type="datetime-local" id="mhcAdmission" required>
+            <label for="mhcService">Service d'admission</label>
+            <input type="text" id="mhcService" placeholder="Ex. Urgences, chirurgie" required>
+            <label for="mhcMedecinTraitant">Médecin traitant (orientation réception)</label>
+            <input type="text" id="mhcMedecinTraitant" readonly title="Médecin vers lequel la réception a orienté le patient">
+            <label for="mhcChambre">Chambre / unité</label>
+            <input type="text" id="mhcChambre" placeholder="Ex. 204, USI">
+            <label for="mhcMotif">Diagnostic / motif d'hospitalisation</label>
+            <textarea id="mhcMotif" rows="2" required></textarea>
+        `;
+    case 'bph':
+        return `
+            <label for="mhcMotif">Motif de la prolongation</label>
+            <textarea id="mhcMotif" rows="2" required></textarea>
+            <label for="mhcExamens">Examens / traitements prévus</label>
+            <textarea id="mhcExamens" rows="2"></textarea>
+            <label for="mhcCoutAdd">Coût additionnel autorisé</label>
+            <input type="text" id="mhcCoutAdd" placeholder="Montant">
+            <label for="mhcCoutTotal">Coût total à ce jour</label>
+            <input type="text" id="mhcCoutTotal" placeholder="Montant cumulé">
+            <label for="mhcDevise">Devise</label>
+            <input type="text" id="mhcDevise" value="XAF">
+        `;
+    case 'bs':
+        return `
+            <label for="mhcDateEntree">Date d'entrée</label>
+            <input type="datetime-local" id="mhcDateEntree">
+            <label for="mhcDateSortie">Date de sortie</label>
+            <input type="datetime-local" id="mhcDateSortie">
+            <label for="mhcDureeJours">Durée totale (jours)</label>
+            <input type="text" id="mhcDureeJours" placeholder="Ex. 3">
+            <label for="mhcExitMode">Mode de sortie</label>
+            <select id="mhcExitMode">
+                <option value="guerison">Guérison / retour au domicile</option>
+                <option value="ambulatoire">Sortie sous traitement ambulatoire</option>
+                <option value="transfert">Transfert inter-hospitalier</option>
+                <option value="rapatriement_sanitaire">Rapatriement sanitaire organisé par MHC</option>
+                <option value="autre">Autre modalité</option>
+            </select>
+            <label for="mhcResume">Résumé du rapport final</label>
+            <textarea id="mhcResume" rows="3"></textarea>
+            <label for="mhcDocsRemis">Documentation remise</label>
+            <input type="text" id="mhcDocsRemis" placeholder="Ordonnance, compte-rendu...">
+        `;
+    case 'brs':
+        return `
+            <label for="mhcDepart">Date / heure de départ prévues</label>
+            <input type="datetime-local" id="mhcDepart">
+            <label for="mhcDestination">Destination</label>
+            <input type="text" id="mhcDestination" required>
+            <label for="mhcTransport">Moyen de transport</label>
+            <input type="text" id="mhcTransport" placeholder="Avion sanitaire, ambulance...">
+            <label for="mhcTransporteur">Société de transport</label>
+            <input type="text" id="mhcTransporteur">
+            <label for="mhcEscorte">Escorte médicale</label>
+            <input type="text" id="mhcEscorte" placeholder="Oui / Non / Détails">
+            <label for="mhcMotif">Motif médical</label>
+            <textarea id="mhcMotif" rows="2"></textarea>
+            <label for="mhcCoutRapat">Coût total autorisé</label>
+            <input type="text" id="mhcCoutRapat">
+            <label for="mhcDevise">Devise</label>
+            <input type="text" id="mhcDevise" value="XAF">
+        `;
+    case 'ars':
+        return `
+            <label for="mhcLieuDepart">Lieu de départ</label>
+            <input type="text" id="mhcLieuDepart">
+            <label for="mhcStructureDepart">Structure de départ</label>
+            <input type="text" id="mhcStructureDepart">
+            <label for="mhcDestination">Destination finale</label>
+            <input type="text" id="mhcDestination">
+            <label for="mhcStructureArrivee">Structure d'arrivée</label>
+            <input type="text" id="mhcStructureArrivee">
+            <label for="mhcDateDepart">Départ</label>
+            <input type="datetime-local" id="mhcDateDepart">
+            <label for="mhcDateArrivee">Arrivée</label>
+            <input type="datetime-local" id="mhcDateArrivee">
+            <label for="mhcEtatArrivee">État à l'arrivée</label>
+            <input type="text" id="mhcEtatArrivee">
+            <label for="mhcBonneReception">Bonne réception</label>
+            <select id="mhcBonneReception">
+                <option value="">—</option>
+                <option value="oui">Oui</option>
+                <option value="non">Non</option>
+            </select>
+            <label for="mhcObservations">Observations</label>
+            <textarea id="mhcObservations" rows="2"></textarea>
+        `;
+    case 'brf':
+        return `
+            <label for="mhcDateDeces">Date et heure du décès</label>
+            <input type="datetime-local" id="mhcDateDeces">
+            <label for="mhcMotif">Cause du décès</label>
+            <textarea id="mhcMotif" rows="2"></textarea>
+            <label for="mhcPaysDepart">Pays de départ</label>
+            <input type="text" id="mhcPaysDepart">
+            <label for="mhcDestination">Pays de destination</label>
+            <input type="text" id="mhcDestination">
+            <label for="mhcTransport">Moyen de transport du corps</label>
+            <input type="text" id="mhcTransport">
+            <label for="mhcTransporteur">Société de transport</label>
+            <input type="text" id="mhcTransporteur">
+            <label for="mhcContactFamille">Contact famille</label>
+            <input type="text" id="mhcContactFamille">
+            <label for="mhcCoutRapat">Coût total autorisé</label>
+            <input type="text" id="mhcCoutRapat">
+            <label for="mhcDevise">Devise</label>
+            <input type="text" id="mhcDevise" value="XAF">
+        `;
+    case 'arf':
+        return `
+            <label for="mhcDateDeces">Date et lieu du décès</label>
+            <input type="text" id="mhcDateDeces" placeholder="Date et lieu">
+            <label for="mhcNumActe">N° acte / certificat de décès</label>
+            <input type="text" id="mhcNumActe">
+            <label for="mhcLieuDepart">Lieu de départ</label>
+            <input type="text" id="mhcLieuDepart">
+            <label for="mhcDestination">Destination finale</label>
+            <input type="text" id="mhcDestination">
+            <label for="mhcReceptionnaire">Réceptionnaire de la dépouille</label>
+            <input type="text" id="mhcReceptionnaire">
+            <label for="mhcDateRemise">Date / heure de remise</label>
+            <input type="datetime-local" id="mhcDateRemise">
+            <label for="mhcBonneReception">Bonne réception</label>
+            <select id="mhcBonneReception">
+                <option value="">—</option>
+                <option value="oui">Oui</option>
+                <option value="non">Non</option>
+            </select>
+            <label for="mhcObservations">Réserves / observations</label>
+            <textarea id="mhcObservations" rows="2"></textarea>
+        `;
+    default:
+        return '';
+    }
+}
+
+function collectCareDocumentPayload(type) {
+    const val = (id) => document.getElementById(id)?.value?.trim() || undefined;
+    const payload = {};
+    const motif = val('mhcMotif');
+
+    if (type === 'bpcu') {
+        if (motif) { payload.motif_medical = motif; payload.diagnostic = motif; }
+        payload.service = val('mhcService');
+        payload.montant_max = val('mhcMontant');
+        payload.devise = val('mhcDevise');
+        payload.medecin_referent = val('mhcMedecinReferent');
+    } else if (type === 'brpcu') {
+        const motifs = Array.from(document.querySelectorAll('input[name="mhcRefusalMotif"]:checked'))
+            .map((el) => el.value);
+        if (motifs.length) payload.motifs_refus = motifs;
+        if (motif) payload.autres_motifs = motif;
+        if (motif && !motifs.length) payload.motif_refus = motif;
+    } else if (type === 'bh') {
+        payload.admission_prevue = val('mhcAdmission');
+        payload.service = val('mhcService');
+        payload.medecin_traitant = val('mhcMedecinTraitant');
+        payload.chambre = val('mhcChambre');
+        if (motif) { payload.motif_medical = motif; payload.diagnostic = motif; }
+    } else if (type === 'bph') {
+        if (motif) payload.motif_prolongation = motif;
+        payload.examens_prevus = val('mhcExamens');
+        payload.cout_additionnel = val('mhcCoutAdd');
+        payload.cout_total = val('mhcCoutTotal');
+        payload.devise = val('mhcDevise');
+    } else if (type === 'bs') {
+        payload.date_entree = val('mhcDateEntree');
+        payload.date_sortie = val('mhcDateSortie');
+        payload.duree_jours = val('mhcDureeJours');
+        payload.mode_sortie = val('mhcExitMode');
+        payload.resume_rapport = val('mhcResume');
+        const docs = val('mhcDocsRemis');
+        if (docs) payload.documents_remis = docs.split(',').map((s) => s.trim()).filter(Boolean);
+    } else if (type === 'brs') {
+        payload.depart_prevu = val('mhcDepart');
+        payload.destination = val('mhcDestination');
+        payload.moyen_transport = val('mhcTransport');
+        payload.transporteur = val('mhcTransporteur');
+        payload.escorte_medicale = val('mhcEscorte');
+        if (motif) { payload.motif_medical = motif; payload.diagnostic = motif; }
+        payload.cout_rapatriement = val('mhcCoutRapat');
+        payload.devise = val('mhcDevise');
+    } else if (type === 'ars') {
+        payload.lieu_depart = val('mhcLieuDepart');
+        payload.structure_depart = val('mhcStructureDepart');
+        payload.destination = val('mhcDestination');
+        payload.structure_arrivee = val('mhcStructureArrivee');
+        payload.date_depart = val('mhcDateDepart');
+        payload.date_arrivee = val('mhcDateArrivee');
+        payload.etat_arrivee = val('mhcEtatArrivee');
+        payload.bonne_reception = val('mhcBonneReception');
+        payload.observations = val('mhcObservations');
+    } else if (type === 'brf') {
+        payload.date_deces = val('mhcDateDeces');
+        if (motif) payload.cause_deces = motif;
+        payload.pays_depart = val('mhcPaysDepart');
+        payload.pays_destination = val('mhcDestination');
+        payload.moyen_transport = val('mhcTransport');
+        payload.transporteur = val('mhcTransporteur');
+        payload.contact_famille = val('mhcContactFamille');
+        payload.cout_rapatriement = val('mhcCoutRapat');
+        payload.devise = val('mhcDevise');
+    } else if (type === 'arf') {
+        payload.date_deces = val('mhcDateDeces');
+        payload.numero_acte_deces = val('mhcNumActe');
+        payload.lieu_depart = val('mhcLieuDepart');
+        payload.destination = val('mhcDestination');
+        payload.receptionnaire = val('mhcReceptionnaire');
+        payload.date_remise = val('mhcDateRemise');
+        payload.bonne_reception = val('mhcBonneReception');
+        payload.observations = val('mhcObservations');
+    }
+    Object.keys(payload).forEach((key) => {
+        if (payload[key] === undefined) delete payload[key];
+    });
+    return payload;
+}
+
 async function loadCareDocuments() {
     const section = document.getElementById('mhcCareDocumentsSection');
     if (!section || !currentSinistre?.id) {
@@ -2023,46 +2378,10 @@ function renderCareDocumentIssueForm(actions) {
     ).join('');
     const refreshFields = () => {
         const type = select.value;
-        let extra = '';
-        if (type === 'bs') {
-            extra = `
-                <label for="mhcExitMode">Mode de sortie</label>
-                <select id="mhcExitMode">
-                    <option value="guerison">Guérison / retour au domicile</option>
-                    <option value="ambulatoire">Sortie sous traitement ambulatoire</option>
-                    <option value="transfert">Transfert inter-hospitalier</option>
-                    <option value="rapatriement_sanitaire">Rapatriement sanitaire organisé par MHC</option>
-                    <option value="autre">Autre modalité</option>
-                </select>
-                <label for="mhcResume">Résumé du rapport final</label>
-                <textarea id="mhcResume" rows="2"></textarea>
-            `;
-        } else if (type === 'bpcu' || type === 'bh') {
-            extra = `
-                <label for="mhcMotif">Motif médical / diagnostic</label>
-                <textarea id="mhcMotif" rows="2"></textarea>
-                <label for="mhcMontant">Montant maximum (si applicable)</label>
-                <input type="text" id="mhcMontant" placeholder="ex. 500000">
-            `;
-        } else if (type === 'bph') {
-            extra = `
-                <label for="mhcMotif">Motif de la prolongation</label>
-                <textarea id="mhcMotif" rows="2"></textarea>
-            `;
-        } else if (type === 'brpcu') {
-            extra = `
-                <label for="mhcMotif">Motif du refus</label>
-                <textarea id="mhcMotif" rows="2"></textarea>
-            `;
-        } else if (type === 'brs' || type === 'brf') {
-            extra = `
-                <label for="mhcDestination">Destination</label>
-                <input type="text" id="mhcDestination">
-                <label for="mhcMotif">Motif / cause</label>
-                <textarea id="mhcMotif" rows="2"></textarea>
-            `;
+        if (fields) {
+            fields.innerHTML = buildCareDocumentFieldsHtml(type);
+            applyCareDocumentPrefill(type);
         }
-        if (fields) fields.innerHTML = extra;
     };
     select.onchange = refreshFields;
     refreshFields();
@@ -2073,23 +2392,7 @@ async function issueCareDocument() {
     const type = document.getElementById('mhcCareDocType')?.value;
     if (!type) return;
     const notes = document.getElementById('mhcCareDocNotes')?.value || undefined;
-    const payload = {};
-    const motif = document.getElementById('mhcMotif')?.value;
-    const montant = document.getElementById('mhcMontant')?.value;
-    const destination = document.getElementById('mhcDestination')?.value;
-    const resume = document.getElementById('mhcResume')?.value;
-    const mode = document.getElementById('mhcExitMode')?.value;
-    if (motif) {
-        payload.motif_medical = motif;
-        payload.motif_refus = motif;
-        payload.motif_prolongation = motif;
-        payload.diagnostic = motif;
-        payload.cause_deces = motif;
-    }
-    if (montant) payload.montant_max = montant;
-    if (destination) payload.destination = destination;
-    if (resume) payload.resume_rapport = resume;
-    if (mode) payload.mode_sortie = mode;
+    const payload = collectCareDocumentPayload(type);
     const btn = document.getElementById('mhcCareDocIssueBtn');
     if (btn) btn.disabled = true;
     try {
