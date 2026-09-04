@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/utils/json_value.dart';
+
 /// Affichage du dossier patient (civil + questionnaire médical) aligné web.
 class ReferentPatientDossierSection extends StatelessWidget {
   const ReferentPatientDossierSection({
@@ -71,11 +73,9 @@ class ReferentPatientDossierSection extends StatelessWidget {
         (sinistre?['souscription_id'] != null ? 'Souscription #${sinistre!['souscription_id']}' : null);
     final priorite = alerte?['priorite']?.toString();
     final adresse = alerte?['adresse']?.toString();
-    final lat = alerte?['latitude'];
-    final lng = alerte?['longitude'];
-    final gps = lat != null && lng != null
-        ? '${(lat as num).toStringAsFixed(4)}, ${(lng as num).toStringAsFixed(4)}'
-        : null;
+    final latStr = formatJsonCoord(alerte?['latitude']);
+    final lngStr = formatJsonCoord(alerte?['longitude']);
+    final gps = latStr != null && lngStr != null ? '$latStr, $lngStr' : null;
 
     return [
       _kv('Patient', name),

@@ -1,5 +1,7 @@
 // Aligné sur frontend-simple/js/review-dashboard.js — getReferentStep
 
+import '../core/utils/json_value.dart';
+
 /// Étapes du pipeline médecin référent (onglets web).
 enum ReferentPipelineStep {
   sinistre,
@@ -26,7 +28,7 @@ class ReferentDossierItem {
   final Map<String, dynamic> alerte;
   final Map<String, dynamic>? sinistre;
 
-  int get alerteId => (alerte['id'] as num).toInt();
+  int get alerteId => parseJsonInt(alerte['id']) ?? 0;
 
   ReferentPipelineStep get step => getReferentStep(alerte, sinistre);
 }

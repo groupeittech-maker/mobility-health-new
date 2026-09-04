@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
+import '../../core/utils/json_value.dart';
 import '../../models/referent_pipeline.dart';
 import '../../services/medecin_referent_service.dart';
 import '../../widgets/referent/referent_care_documents_section.dart';
@@ -137,7 +138,7 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
   }
 
   Future<void> _decisionUrgence(bool approve) async {
-    final sinistreId = _sinistre?['id'] as int?;
+    final sinistreId = parseJsonInt(_sinistre?['id']);
     if (sinistreId == null) return;
     final notes = await _promptNotes(
       title: approve ? 'Valider l\'urgence' : 'Refuser l\'urgence',
@@ -171,7 +172,7 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
   }
 
   Future<void> _decisionRapport(bool approve) async {
-    final stayId = _stay?['id'] as int?;
+    final stayId = parseJsonInt(_stay?['id']);
     if (stayId == null) return;
     final notes = await _promptNotes(
       title: approve ? 'Valider le rapport' : 'Refuser le rapport',
@@ -271,8 +272,10 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
   }
 
   String? _gps() {
-    if (_alerte?['latitude'] == null || _alerte?['longitude'] == null) return null;
-    return '${(_alerte!['latitude'] as num).toStringAsFixed(4)}, ${(_alerte!['longitude'] as num).toStringAsFixed(4)}';
+    final lat = formatJsonCoord(_alerte?['latitude']);
+    final lng = formatJsonCoord(_alerte?['longitude']);
+    if (lat == null || lng == null) return null;
+    return '$lat, $lng';
   }
 
   String? _assignedDoctorName() {
@@ -350,9 +353,7 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
                           if (_stay != null) _stayCard(),
                           if (_invoice != null) _invoiceCard(),
                           ReferentCareDocumentsSection(
-                            sinistreId: (_sinistre!['id'] is int
-                                ? _sinistre!['id'] as int
-                                : (_sinistre!['id'] as num).toInt()),
+                            sinistreId: parseJsonInt(_sinistre!['id'])!,
                             alerte: _alerte,
                             sinistre: _sinistre,
                             stay: _stay,
