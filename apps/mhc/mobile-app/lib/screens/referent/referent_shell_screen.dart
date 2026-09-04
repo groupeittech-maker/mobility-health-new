@@ -24,7 +24,8 @@ class ReferentShellScreen extends StatefulWidget {
   /// Sous-onglet « À valider » / « Validé » ([GoRoute] `?sub=` 0 ou 1).
   final int initialSubTab;
 
-  static const int pageSize = 20;
+  /// Aligné sur le web (review-dashboard.js : limit=200).
+  static const int pageSize = 200;
 
   @override
   State<ReferentShellScreen> createState() => _ReferentShellScreenState();
@@ -33,6 +34,7 @@ class ReferentShellScreen extends StatefulWidget {
 class _ReferentShellScreenState extends State<ReferentShellScreen> {
   late int _navIndex;
   List<ReferentDossierItem> _dossiers = [];
+  Map<String, int> _serverCounts = {};
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = true;
@@ -60,13 +62,19 @@ class _ReferentShellScreenState extends State<ReferentShellScreen> {
       _nextSkip = 0;
     });
     try {
-      final list = await MedecinReferentService.instance.loadEnrichedDossiersPage(
-        skip: 0,
-        limit: ReferentShellScreen.pageSize,
-      );
+      final results = await Future.wait([
+        MedecinReferentService.instance.loadEnrichedDossiersPage(
+          skip: 0,
+          limit: ReferentShellScreen.pageSize,
+        ),
+        MedecinReferentService.instance.fetchReferentPipelineCounts(),
+      ]);
+      final list = results[0] as List<ReferentDossierItem>;
+      final counts = results[1] as Map<String, int>;
       if (!mounted) return;
       setState(() {
         _dossiers = list;
+        _serverCounts = counts;
         _nextSkip = list.length;
         _hasMore = list.length >= ReferentShellScreen.pageSize;
         _loading = false;
@@ -148,6 +156,7 @@ class _ReferentShellScreenState extends State<ReferentShellScreen> {
             section: ReferentFooterSection.sinistre,
             initialSubTab: widget.initialNavIndex == 0 ? widget.initialSubTab : null,
             items: _dossiers,
+            serverCounts: _serverCounts,
             loading: _loading,
             error: _error,
             onRefresh: _refresh,
@@ -159,6 +168,7 @@ class _ReferentShellScreenState extends State<ReferentShellScreen> {
             section: ReferentFooterSection.rapport,
             initialSubTab: widget.initialNavIndex == 1 ? widget.initialSubTab : null,
             items: _dossiers,
+            serverCounts: _serverCounts,
             loading: _loading,
             error: _error,
             onRefresh: _refresh,
@@ -170,6 +180,7 @@ class _ReferentShellScreenState extends State<ReferentShellScreen> {
             section: ReferentFooterSection.facture,
             initialSubTab: widget.initialNavIndex == 2 ? widget.initialSubTab : null,
             items: _dossiers,
+            serverCounts: _serverCounts,
             loading: _loading,
             error: _error,
             onRefresh: _refresh,
@@ -181,6 +192,7 @@ class _ReferentShellScreenState extends State<ReferentShellScreen> {
             section: ReferentFooterSection.resolu,
             initialSubTab: widget.initialNavIndex == 3 ? widget.initialSubTab : null,
             items: _dossiers,
+            serverCounts: _serverCounts,
             loading: _loading,
             error: _error,
             onRefresh: _refresh,

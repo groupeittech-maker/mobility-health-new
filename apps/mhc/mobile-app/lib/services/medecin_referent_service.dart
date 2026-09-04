@@ -1,4 +1,5 @@
 import '../core/network/api_client.dart';
+import '../core/utils/json_value.dart';
 import '../models/referent_pipeline.dart';
 
 /// API médecin référent MH : dossiers SOS, validation urgences, rapports séjour, factures médicales, notifications.
@@ -8,10 +9,10 @@ class MedecinReferentService {
 
   final ApiClient _api = ApiClient();
 
-  /// Page d’alertes (défaut 20 — éviter les réponses trop lourdes / coupures réseau).
+  /// Page d’alertes (alignée web : limit=200).
   Future<List<Map<String, dynamic>>> fetchAlertes({
-    bool realtime = true,
-    int limit = 20,
+    bool realtime = false,
+    int limit = 200,
     int skip = 0,
   }) async {
     final list = await _api.get<List<dynamic>>(
@@ -26,12 +27,11 @@ class MedecinReferentService {
     return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
-  /// Une page de dossiers référent : une seule requête `GET /sos/` (workflow_steps, is_oriented sur chaque alerte).
-  /// Le détail sinistre n’est chargé que sur l’écran dossier, pas N× par liste.
+  /// Une page de dossiers référent : GET /sos/ (referent_pipeline_step calculé côté API).
   Future<List<ReferentDossierItem>> loadEnrichedDossiersPage({
     bool realtime = false,
     int skip = 0,
-    int limit = 20,
+    int limit = 200,
   }) async {
     final alertes = await fetchAlertes(
       realtime: realtime,
@@ -41,6 +41,15 @@ class MedecinReferentService {
     return alertes
         .map((a) => ReferentDossierItem(Map<String, dynamic>.from(a), null))
         .toList();
+  }
+
+  /// Compteurs pipeline (source de vérité partagée avec le web).
+  Future<Map<String, int>> fetchReferentPipelineCounts() async {
+    final data = await _api.get<Map<String, dynamic>>(
+      '/sos/referent-pipeline/counts',
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+    return data.map((k, v) => MapEntry(k, parseJsonInt(v) ?? 0));
   }
 
   Future<Map<String, dynamic>> fetchAlerte(int alerteId) async {

@@ -12,6 +12,7 @@ class ReferentPipelineSectionPage extends StatefulWidget {
     required this.section,
     this.initialSubTab,
     required this.items,
+    this.serverCounts,
     required this.loading,
     this.error,
     required this.onRefresh,
@@ -24,6 +25,8 @@ class ReferentPipelineSectionPage extends StatefulWidget {
   /// Si non null : sous-onglet initial 0 = à valider, 1 = validé.
   final int? initialSubTab;
   final List<ReferentDossierItem> items;
+  /// Compteurs GET /sos/referent-pipeline/counts (source de vérité partagée avec le web).
+  final Map<String, int>? serverCounts;
   final bool loading;
   final String? error;
   final Future<void> Function() onRefresh;
@@ -160,7 +163,9 @@ class _ReferentPipelineSectionPageState extends State<ReferentPipelineSectionPag
   Widget build(BuildContext context) {
     final df = DateFormat('dd/MM/yyyy HH:mm');
     final base = _itemsForFooterSection();
-    final (c0, c1) = _counts(base);
+    final (c0, c1) = widget.serverCounts != null && widget.serverCounts!.isNotEmpty
+        ? referentSubTabCountsFromServer(widget.section, widget.serverCounts!)
+        : _counts(base);
     final displayed = _applySubTab(base);
 
     return Column(

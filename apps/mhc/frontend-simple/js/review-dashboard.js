@@ -3396,17 +3396,21 @@ function setReferentTab(tabKey) {
     renderAlertValidationRows(alertValidationState.data);
 }
 
-function updateReferentTabCounts(alerts) {
-    const counts = {
-        sinistre: 0, sinistre_valide: 0, rapport: 0, rapport_valide: 0,
-        facture: 0, facture_valide: 0, resolu: 0,
-    };
-    (alerts || []).forEach((a) => {
-        const step = getReferentStep(a);
-        if (counts[step] !== undefined) {
-            counts[step]++;
-        }
-    });
+function updateReferentTabCounts(alerts, serverCounts) {
+    const counts = serverCounts && typeof serverCounts === 'object'
+        ? { ...serverCounts }
+        : {
+            sinistre: 0, sinistre_valide: 0, rapport: 0, rapport_valide: 0,
+            facture: 0, facture_valide: 0, resolu: 0,
+        };
+    if (!serverCounts) {
+        (alerts || []).forEach((a) => {
+            const step = getReferentStep(a);
+            if (counts[step] !== undefined) {
+                counts[step]++;
+            }
+        });
+    }
     alertValidationState.tabCounts = counts;
     REFERENT_STEP_KEYS.forEach((key) => {
         const el = alertValidationState.elements.tabCounts && alertValidationState.elements.tabCounts[key];
@@ -3442,10 +3446,16 @@ async function loadAlertValidationItems(showToast = false) {
     const cacheBust = `_t=${Date.now()}`;
 
     try {
-        const alertes = await apiCall(`/sos/?limit=200&${cacheBust}`);
+        const [alertes, pipelineCounts] = await Promise.all([
+            apiCall(`/sos/?limit=200&${cacheBust}`),
+            apiCall(`/sos/referent-pipeline/counts?${cacheBust}`).catch((err) => {
+                console.warn('Compteurs pipeline référent indisponibles, fallback local:', err);
+                return null;
+            }),
+        ]);
         const alertesArray = Array.isArray(alertes) ? alertes : [];
         
-        // Charger les sinistres avec workflow_steps pour chaque alerte (données fraîches)
+        // Charger les sinistres pour l'affichage détaillé des cartes (classification via referent_pipeline_step API)
         const alertesWithSinistres = await Promise.all(
             alertesArray.map(async (alerte) => {
                 if (alerte.sinistre_id) {
@@ -3464,7 +3474,7 @@ async function loadAlertValidationItems(showToast = false) {
         alertValidationState.data = alertesWithSinistres;
         const activeCount = alertesWithSinistres.filter((a) => ALERT_ACTIVE_STATUSES.has(a.statut)).length;
         updateNavAlertesCount(activeCount);
-        updateReferentTabCounts(alertValidationState.data);
+        updateReferentTabCounts(alertValidationState.data, pipelineCounts);
 
         // Appliquer l'onglet depuis l'URL après chargement (ex. ?tab=sinistre_valide)
         if (alertValidationState.tabFromUrl) {
@@ -3830,6 +3840,10 @@ function getLastActionTimestamp(alert) {
 function getReferentStep(alert) {
     if (!alert) {
         return 'resolu';
+    }
+    const apiStep = alert.referent_pipeline_step;
+    if (apiStep && REFERENT_STEP_KEYS.includes(apiStep)) {
+        return apiStep;
     }
     // Alerte sans sinistre : si annulée, considérer comme résolu ; sinon afficher dans sinistre (éviter de cacher des dossiers en cours)
     if (!alert.sinistre) {
