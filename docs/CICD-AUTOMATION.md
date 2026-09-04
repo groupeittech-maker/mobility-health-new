@@ -33,9 +33,10 @@ flowchart TD
 
 | Secret | Description |
 |--------|-------------|
-| `SSH_HOST` | Hostname VPS (ex. `srv1324425.hstgr.cloud`) |
+| `SSH_HOST` | Hostname VPS (ex. `srv1324425.hstgr.cloud`) — **pas** une ancienne IP figée |
 | `SSH_USER` | Utilisateur SSH (ex. `root` ou `deployer`) |
 | `SSH_PRIVATE_KEY` | Clé privée SSH (contenu du fichier, pas le `.pub`) |
+| `SSH_PORT` | *(optionnel)* Port SSH si différent de 22 |
 
 ### 2. Protection de la branche `main` (Settings → Branches)
 
@@ -89,9 +90,39 @@ Après un déploiement réussi (notification GitHub ou e-mail Actions) :
 | CI rouge sur main | Corriger, PR ou push direct → redeploy après CI vert |
 | Deploy rouge | Voir logs Actions + `docker compose logs api` sur le VPS |
 | Health check API | Vérifier https://srv1324425.hstgr.cloud/health |
-| `Network is unreachable` (SSH) | Voir § [Deploy SSH](#deploy-ssh--network-is-unreachable) ci-dessous |
+| `Network is unreachable` (SSH) | Voir § [Deploy SSH](#deploy-ssh--problèmes-de-connexion) ci-dessous |
+| `Connection timed out` port 22 | Firewall Hostinger bloque le runner GitHub — voir § Deploy SSH |
 
-## Deploy SSH — `Network is unreachable`
+## Deploy SSH — problèmes de connexion
+
+### `Connection timed out` (port 22)
+
+Symptôme dans Actions :
+
+```text
+ssh: connect to host *** port 22: Connection timed out
+```
+
+**Diagnostic (logs du job)** : l’étape « Vérifier secrets et réseau » affiche l’IP du runner GitHub et indique si le port TCP est joignable.
+
+**Cause la plus fréquente** : le **firewall Hostinger** (hPanel) n’autorise pas toutes les IP des runners GitHub Actions (~7000 plages). Le déploiement peut réussir puis échouer au run suivant (IP runner différente).
+
+**Correctifs (sur le VPS / hPanel)** :
+
+1. **hPanel → VPS → Security → Firewall** : règle **TCP 22** depuis **Anywhere** (`0.0.0.0/0`). L’accès reste protégé par clé SSH (`authorized_keys`), pas par mot de passe.
+2. Sur le VPS (SSH depuis votre PC) :
+   ```bash
+   bash deploy/fix-github-actions-ssh-firewall.sh
+   ```
+3. Vérifier **fail2ban** si des IP GitHub ont été bannies :
+   ```bash
+   fail2ban-client status sshd
+   ```
+4. Secret **`SSH_HOST`** = hostname `srv1324425.hstgr.cloud` (résout l’IP actuelle `76.13.36.246`), **pas** l’ancienne IP `82.112.242.86`.
+
+**Relancer le déploiement** : Actions → **Deploy to Hostinger VPS** → Run workflow (le workflow réessaie 5× avec pause 15 s).
+
+### `Network is unreachable`
 
 Si le job **Test SSH connection** échoue avec `ssh: connect to host … port 22: Network is unreachable` :
 
