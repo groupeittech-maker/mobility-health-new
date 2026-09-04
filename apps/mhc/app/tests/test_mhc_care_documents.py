@@ -175,6 +175,36 @@ class TestMhcCareDocumentWorkflow:
         assert pdf[:4] == b"%PDF"
         assert len(pdf) > 500
 
+    def test_bpcu_brpcu_pdf_templates(self, db, test_user, test_product, test_hospital, test_doctor):
+        sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)
+        sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
+        bpcu = issue_care_document(
+            db,
+            sinistre,
+            "bpcu",
+            test_doctor,
+            payload={"motif_medical": "Traumatisme crânien", "montant_max": "750000", "devise": "XAF"},
+            alerte=alerte,
+        )
+        bpcu_pdf = build_care_document_pdf(bpcu[0])
+        assert bpcu_pdf[:4] == b"%PDF"
+        assert len(bpcu_pdf) > 3000
+
+        sinistre2, alerte2, _ = _open_sinistre(db, test_user, test_product, test_hospital)
+        sinistre2.numero_sinistre = allocate_sinistre_number(db, sinistre2)
+        brpcu = issue_care_document(
+            db,
+            sinistre2,
+            "brpcu",
+            test_doctor,
+            payload={"motif_refus": "Hors garanties contractuelles"},
+            alerte=alerte2,
+        )
+        brpcu_pdf = build_care_document_pdf(brpcu[0])
+        assert brpcu_pdf[:4] == b"%PDF"
+        assert len(brpcu_pdf) > 3000
+        assert bpcu_pdf != brpcu_pdf
+
 
 class TestMhcCareDocumentApi:
     def test_referentiel_and_issue_via_api(
