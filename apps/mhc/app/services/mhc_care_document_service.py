@@ -23,6 +23,7 @@ from app.core.mhc_nomenclature import (
 )
 from app.models.alerte import Alerte
 from app.models.hospital import Hospital
+from app.models.hospital_stay import HospitalStay
 from app.models.mhc_care_document import MhcCareDocument
 from app.models.produit_assurance import ProduitAssurance
 from app.models.sinistre import Sinistre
@@ -172,6 +173,73 @@ def _build_party_snapshot(sinistre: Sinistre) -> Dict[str, Any]:
     return snapshot
 
 
+def _doctor_display(user: Optional[User]) -> Optional[str]:
+    if not user:
+        return None
+    return getattr(user, "full_name", None) or getattr(user, "email", None) or getattr(user, "username", None)
+
+
+def _enrich_payload_from_sinistre(
+    sinistre: Sinistre,
+    doc_type: MhcCareDocumentType,
+    payload: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Complète le payload utilisateur avec les données du séjour et du dossier."""
+    enriched = dict(payload or {})
+    stay: Optional[HospitalStay] = getattr(sinistre, "hospital_stay", None)
+    alerte = getattr(sinistre, "alerte", None)
+
+    if stay:
+        doctor_name = _doctor_display(getattr(stay, "assigned_doctor", None))
+        if doctor_name and not enriched.get("medecin_traitant"):
+            enriched["medecin_traitant"] = doctor_name
+        if stay.service_concerne and not enriched.get("service"):
+            enriched["service"] = stay.service_concerne
+        if stay.chambre and not enriched.get("chambre"):
+            enriched["chambre"] = stay.chambre
+
+        motif = stay.report_motif_hospitalisation or stay.report_motif_consultation
+        if motif:
+            enriched.setdefault("motif_medical", motif)
+            enriched.setdefault("diagnostic", motif)
+
+        if stay.started_at:
+            started = stay.started_at.isoformat()
+            enriched.setdefault("admission_prevue", started)
+            enriched.setdefault("date_entree", stay.started_at.strftime("%Y-%m-%d %H:%M"))
+        if stay.ended_at:
+            enriched.setdefault("date_sortie", stay.ended_at.strftime("%Y-%m-%d %H:%M"))
+        if stay.report_duree_sejour_heures is not None and not enriched.get("duree_jours"):
+            enriched["duree_jours"] = str(round(stay.report_duree_sejour_heures / 24, 1))
+        if stay.report_resume and not enriched.get("resume_rapport"):
+            enriched["resume_rapport"] = stay.report_resume
+        if stay.report_examens and not enriched.get("examens_prevus"):
+            examens = stay.report_examens
+            if isinstance(examens, list):
+                enriched["examens_prevus"] = ", ".join(str(x) for x in examens)
+
+    referent_name = _doctor_display(getattr(sinistre, "medecin_referent", None))
+    if referent_name:
+        enriched.setdefault("medecin_referent", referent_name)
+
+    if alerte and alerte.description:
+        enriched.setdefault("motif_medical", alerte.description)
+        enriched.setdefault("diagnostic", alerte.description)
+
+    if doc_type == MhcCareDocumentType.BH and stay and stay.started_at and not enriched.get("admission_prevue"):
+        enriched["admission_prevue"] = stay.started_at.isoformat()
+
+    partenaire = dict(enriched.get("partenaire_sante") or {})
+    if enriched.get("service"):
+        partenaire.setdefault("service", enriched["service"])
+    if enriched.get("medecin_traitant"):
+        partenaire.setdefault("medecin_referent", enriched["medecin_traitant"])
+    if partenaire:
+        enriched["partenaire_sante"] = partenaire
+
+    return enriched
+
+
 def _related_numbers(docs: Sequence[MhcCareDocument]) -> Dict[str, Optional[str]]:
     return {
         "numero_bpcu": (_latest(docs, MhcCareDocumentType.BPCU).numero if _latest(docs, MhcCareDocumentType.BPCU) else None),
@@ -215,7 +283,8 @@ def _create_document(
     )
     snapshot = _build_party_snapshot(sinistre)
     snapshot.update(_related_numbers(docs))
-    merged_payload = {**snapshot, **(payload or {})}
+    user_payload = _enrich_payload_from_sinistre(sinistre, doc_type, payload)
+    merged_payload = {**snapshot, **user_payload}
     merged_payload["heure_emission"] = issued_at.strftime("%H:%M")
     merged_payload["date_emission"] = issued_at.strftime("%Y-%m-%d")
     if valid_until:
@@ -342,6 +411,8 @@ def load_sinistre_for_care(db: Session, sinistre_id: int) -> Optional[Sinistre]:
         .options(
             selectinload(Sinistre.care_documents),
             selectinload(Sinistre.hospital),
+            selectinload(Sinistre.medecin_referent),
+            selectinload(Sinistre.hospital_stay).selectinload(HospitalStay.assigned_doctor),
             selectinload(Sinistre.souscription).selectinload(Souscription.user),
             selectinload(Sinistre.souscription).selectinload(Souscription.produit_assurance).selectinload(ProduitAssurance.assureur_obj),
             selectinload(Sinistre.alerte).selectinload(Alerte.user),

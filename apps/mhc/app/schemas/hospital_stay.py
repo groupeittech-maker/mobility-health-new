@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, AliasChoices
 class HospitalStayBase(BaseModel):
     doctor_id: int
     orientation_notes: Optional[str] = None
+    service_concerne: Optional[str] = Field(default=None, max_length=120)
+    chambre: Optional[str] = Field(default=None, max_length=50)
 
 
 class HospitalStayCreate(HospitalStayBase):
@@ -126,6 +128,8 @@ class HospitalStayResponse(BaseModel):
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
     orientation_notes: Optional[str] = None
+    service_concerne: Optional[str] = None
+    chambre: Optional[str] = None
     report_motif_consultation: Optional[str] = None
     report_motif_hospitalisation: Optional[str] = None
     report_duree_sejour_heures: Optional[int] = None

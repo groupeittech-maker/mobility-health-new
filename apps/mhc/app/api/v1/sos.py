@@ -16,6 +16,7 @@ from app.models.attestation import Attestation
 from app.models.questionnaire import Questionnaire
 from app.models.notification import Notification
 from app.models.prestation import Prestation
+from app.models.hospital_stay import HospitalStay
 from app.schemas.alerte import AlerteCreate, AlerteResponse
 from app.schemas.sinistre import (
     SinistreResponse,
@@ -962,7 +963,15 @@ async def get_sinistre_by_alerte(
         )
     
     # Récupérer le sinistre associé
-    sinistre = db.query(Sinistre).filter(Sinistre.alerte_id == alerte_id).first()
+    sinistre = (
+        db.query(Sinistre)
+        .options(
+            selectinload(Sinistre.hospital_stay).selectinload(HospitalStay.assigned_doctor),
+            selectinload(Sinistre.medecin_referent),
+        )
+        .filter(Sinistre.alerte_id == alerte_id)
+        .first()
+    )
     
     allowed_roles = [Role.ADMIN, Role.SOS_OPERATOR, Role.AGENT_SINISTRE_MH, Role.DOCTOR, Role.MEDECIN_HOPITAL]
     if current_user.role not in allowed_roles:

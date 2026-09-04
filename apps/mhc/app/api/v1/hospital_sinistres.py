@@ -505,6 +505,8 @@ async def create_hospital_stay(
         assigned_doctor_id=doctor.id,
         created_by_id=current_user.id,
         orientation_notes=request.orientation_notes,
+        service_concerne=request.service_concerne,
+        chambre=request.chambre,
         started_at=datetime.utcnow(),
         status="in_progress",
     )
