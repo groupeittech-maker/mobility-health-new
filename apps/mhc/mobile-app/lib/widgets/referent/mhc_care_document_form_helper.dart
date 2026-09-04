@@ -414,7 +414,8 @@ class MhcCareDocumentFormHelper {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<String>(
-        value: options.containsKey(current) ? current : 'guerison',
+        key: ValueKey(current),
+        initialValue: options.containsKey(current) ? current : 'guerison',
         decoration: const InputDecoration(
           labelText: 'Mode de sortie',
           border: OutlineInputBorder(),

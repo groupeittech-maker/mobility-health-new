@@ -157,7 +157,8 @@ class _ReferentCareDocumentsSectionState extends State<ReferentCareDocumentsSect
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: selectedType,
+                      key: ValueKey(selectedType),
+                      initialValue: selectedType,
                       decoration: const InputDecoration(
                         labelText: 'Type de document',
                         border: OutlineInputBorder(),
@@ -205,6 +206,7 @@ class _ReferentCareDocumentsSectionState extends State<ReferentCareDocumentsSect
                                 );
                                 if (!context.mounted) return;
                                 Navigator.pop(context);
+                                if (!mounted) return;
                                 ScaffoldMessenger.of(this.context).showSnackBar(
                                   const SnackBar(content: Text('Document MHC émis.'), backgroundColor: Colors.green),
                                 );

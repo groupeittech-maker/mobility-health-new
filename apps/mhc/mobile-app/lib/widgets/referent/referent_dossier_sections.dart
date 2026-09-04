@@ -71,8 +71,10 @@ class ReferentPatientDossierSection extends StatelessWidget {
         (sinistre?['souscription_id'] != null ? 'Souscription #${sinistre!['souscription_id']}' : null);
     final priorite = alerte?['priorite']?.toString();
     final adresse = alerte?['adresse']?.toString();
-    final gps = alerte?['latitude'] != null && alerte?['longitude'] != null
-        ? '${(alerte!['latitude'] as num).toStringAsFixed(4)}, ${(alerte['longitude'] as num).toStringAsFixed(4)}'
+    final lat = alerte?['latitude'];
+    final lng = alerte?['longitude'];
+    final gps = lat != null && lng != null
+        ? '${(lat as num).toStringAsFixed(4)}, ${(lng as num).toStringAsFixed(4)}'
         : null;
 
     return [
