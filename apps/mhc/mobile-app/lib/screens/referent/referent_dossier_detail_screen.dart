@@ -206,8 +206,7 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
   }
 
   Future<void> _decisionInvoice(bool approve) async {
-    final invoiceId = _invoice?['id'];
-    final id = invoiceId is int ? invoiceId : (invoiceId is num ? invoiceId.toInt() : null);
+    final id = parseJsonInt(_invoice?['id']);
     if (id == null) return;
     final notes = await _promptNotes(
       title: approve ? 'Valider médicalement la facture' : 'Refuser la facture',
@@ -334,7 +333,6 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
                         ),
                         if (_sinistre != null) ...[
                           ReferentMedicalDecisionBanner(workflowSteps: _workflowSteps),
-                          ReferentWorkflowSection(workflowSteps: _workflowSteps),
                           _sectionCard(
                             'Sinistre',
                             [
@@ -490,8 +488,7 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
         const SizedBox(height: 8),
         OutlinedButton.icon(
           onPressed: () {
-            final raw = _invoice?['id'];
-            final id = raw is int ? raw : (raw is num ? raw.toInt() : null);
+            final id = parseJsonInt(_invoice?['id']);
             if (id != null) context.push('/referent/facture/$id');
           },
           icon: const Icon(Icons.receipt_long),
