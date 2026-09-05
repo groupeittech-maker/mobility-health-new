@@ -535,18 +535,18 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                   if (v != null) setState(() => _avecMineurs = v);
                 },
                 child: Row(
-                  children: [
+                  children: const [
                     Radio<bool>(
                       value: true,
                       activeColor: AppColors.primary,
                     ),
-                    const Text('Oui'),
-                    const SizedBox(width: 24),
+                    Text('Oui'),
+                    SizedBox(width: 24),
                     Radio<bool>(
                       value: false,
                       activeColor: AppColors.primary,
                     ),
-                    const Text('Non'),
+                    Text('Non'),
                   ],
                 ),
               ),

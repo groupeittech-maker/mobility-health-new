@@ -173,8 +173,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       style: const TextStyle(fontSize: 24, letterSpacing: 8, fontWeight: FontWeight.bold),
                       decoration: MHSurfaceCard.input(
                         labelText: 'Code de vérification *',
-                        counterText: '',
-                      ),
+                      ).copyWith(counterText: ''),
                       enabled: !_loading,
                       onFieldSubmitted: (_) => _verify(),
                     ),
