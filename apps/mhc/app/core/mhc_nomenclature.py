@@ -37,6 +37,7 @@ class MhcCareDocumentType(str, Enum):
     ARS = "ars"
     BRF = "brf"
     ARF = "arf"
+    CERTIFICAT_DECES = "certificat_deces"
 
 
 class MhcCareDocumentStatus(str, Enum):
@@ -82,6 +83,7 @@ DOCUMENT_TYPE_TO_OPERATION: Dict[MhcCareDocumentType, MhcOperationCode] = {
     MhcCareDocumentType.BRF: MhcOperationCode.BRF,
     MhcCareDocumentType.ARS: MhcOperationCode.ARS,
     MhcCareDocumentType.ARF: MhcOperationCode.ARF,
+    MhcCareDocumentType.CERTIFICAT_DECES: MhcOperationCode.CERTIFICAT_DECES,
 }
 
 DOCUMENT_TITLES: Dict[MhcCareDocumentType, str] = {
@@ -94,6 +96,7 @@ DOCUMENT_TITLES: Dict[MhcCareDocumentType, str] = {
     MhcCareDocumentType.ARS: "Attestation de retour de rapatriement sanitaire",
     MhcCareDocumentType.BRF: "Bon de rapatriement funéraire",
     MhcCareDocumentType.ARF: "Attestation de rapatriement funéraire",
+    MhcCareDocumentType.CERTIFICAT_DECES: "Certificat de décès",
 }
 
 # Validité en heures (None = pas de délai contractuel d'expiration)
@@ -107,6 +110,7 @@ DOCUMENT_VALIDITY_HOURS: Dict[MhcCareDocumentType, Optional[int]] = {
     MhcCareDocumentType.ARS: None,
     MhcCareDocumentType.BRF: None,
     MhcCareDocumentType.ARF: None,
+    MhcCareDocumentType.CERTIFICAT_DECES: None,
 }
 
 EXIT_MODE_LABELS: Dict[str, str] = {

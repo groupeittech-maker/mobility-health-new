@@ -79,44 +79,74 @@ def _expire_if_needed(doc: MhcCareDocument) -> None:
         doc.statut = MhcCareDocumentStatus.EXPIRE.value
 
 
+def _inject_certificat_deces(actions: List[str], docs: Iterable[MhcCareDocument]) -> List[str]:
+    """Propose le certificat de décès dans la branche funéraire (téléchargement par le médecin traitant)."""
+    if _has_type(docs, MhcCareDocumentType.CERTIFICAT_DECES):
+        return actions
+    if not actions:
+        return actions
+    if MhcCareDocumentType.BRF.value in actions or MhcCareDocumentType.ARF.value in actions:
+        return [MhcCareDocumentType.CERTIFICAT_DECES.value] + actions
+    return actions
+
+
 def allowed_next_actions(sinistre: Sinistre) -> List[str]:
     docs = _docs(sinistre)
     for doc in docs:
         _expire_if_needed(doc)
 
     if _has_type(docs, MhcCareDocumentType.ARF):
-        return []
+        return _inject_certificat_deces([], docs)
     if _has_type(docs, MhcCareDocumentType.ARS):
-        return []
+        return _inject_certificat_deces([], docs)
     if _has_type(docs, MhcCareDocumentType.BRPCU):
-        return []
+        return _inject_certificat_deces([], docs)
     if _has_type(docs, MhcCareDocumentType.BRF):
-        return [MhcCareDocumentType.ARF.value]
+        return _inject_certificat_deces([MhcCareDocumentType.ARF.value], docs)
     if _has_type(docs, MhcCareDocumentType.BRS) and not _has_type(docs, MhcCareDocumentType.ARS):
-        return [MhcCareDocumentType.ARS.value, MhcCareDocumentType.BRF.value]
+        return _inject_certificat_deces(
+            [MhcCareDocumentType.ARS.value, MhcCareDocumentType.BRF.value],
+            docs,
+        )
 
     if _has_type(docs, MhcCareDocumentType.BS):
         bs = _latest(docs, MhcCareDocumentType.BS)
         mode = (bs.payload or {}).get("mode_sortie") if bs else None
         if mode == MhcExitMode.RAPATRIEMENT_SANITAIRE.value and not _has_type(docs, MhcCareDocumentType.BRS):
-            return [MhcCareDocumentType.BRS.value, MhcCareDocumentType.BRF.value]
-        return [MhcCareDocumentType.BRF.value] if not _dossier_closed(docs) else []
+            return _inject_certificat_deces(
+                [MhcCareDocumentType.BRS.value, MhcCareDocumentType.BRF.value],
+                docs,
+            )
+        actions = [MhcCareDocumentType.BRF.value] if not _dossier_closed(docs) else []
+        return _inject_certificat_deces(actions, docs)
 
     if _has_type(docs, MhcCareDocumentType.BPH) or _has_type(docs, MhcCareDocumentType.BH):
-        return [
-            MhcCareDocumentType.BPH.value,
-            MhcCareDocumentType.BS.value,
-            MhcCareDocumentType.BRF.value,
-        ]
+        return _inject_certificat_deces(
+            [
+                MhcCareDocumentType.BPH.value,
+                MhcCareDocumentType.BS.value,
+                MhcCareDocumentType.BRF.value,
+            ],
+            docs,
+        )
     if _has_type(docs, MhcCareDocumentType.BPCU):
-        return [
-            MhcCareDocumentType.BH.value,
-            MhcCareDocumentType.BS.value,
-            MhcCareDocumentType.BRF.value,
-        ]
+        return _inject_certificat_deces(
+            [
+                MhcCareDocumentType.BH.value,
+                MhcCareDocumentType.BS.value,
+                MhcCareDocumentType.BRF.value,
+            ],
+            docs,
+        )
     if sinistre.numero_sinistre:
-        return [MhcCareDocumentType.BPCU.value, MhcCareDocumentType.BRPCU.value, MhcCareDocumentType.BRF.value]
-    return [MhcCareDocumentType.BPCU.value, MhcCareDocumentType.BRPCU.value, MhcCareDocumentType.BRF.value]
+        return _inject_certificat_deces(
+            [MhcCareDocumentType.BPCU.value, MhcCareDocumentType.BRPCU.value, MhcCareDocumentType.BRF.value],
+            docs,
+        )
+    return _inject_certificat_deces(
+        [MhcCareDocumentType.BPCU.value, MhcCareDocumentType.BRPCU.value, MhcCareDocumentType.BRF.value],
+        docs,
+    )
 
 
 def _require_allowed(sinistre: Sinistre, doc_type: MhcCareDocumentType) -> None:
@@ -327,7 +357,10 @@ def issue_care_document(
     payload = dict(payload or {})
     alerte = alerte or getattr(sinistre, "alerte", None)
 
-    if not sinistre.numero_sinistre and doc_type != MhcCareDocumentType.BRF:
+    if not sinistre.numero_sinistre and doc_type not in {
+        MhcCareDocumentType.BRF,
+        MhcCareDocumentType.CERTIFICAT_DECES,
+    }:
         raise ValueError("Le numéro de sinistre doit être attribué avant l'émission d'un bon.")
 
     created: List[MhcCareDocument] = []
