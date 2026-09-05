@@ -54,7 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Vérifiez votre boîte e-mail : après activation du compte sur le web (code à 6 chiffres), vous pourrez vous connecter ici.',
+              'Vérifiez votre boîte e-mail : saisissez le code à 6 chiffres sur le site web pour activer votre compte, puis connectez-vous ici avec votre adresse e-mail.',
             ),
             backgroundColor: AppColors.success,
           ),

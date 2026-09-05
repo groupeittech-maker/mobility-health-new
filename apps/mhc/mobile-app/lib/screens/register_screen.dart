@@ -11,7 +11,7 @@ import '../core/widgets/mh_surface_card.dart';
 import '../models/destination.dart';
 import '../services/api_services.dart';
 
-/// Page d'inscription : informations civiles, médicales (2 questions), personnelles.
+/// Page d'inscription simplifiée : informations civiles et identifiants.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -26,24 +26,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _prenomController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _passeportController = TextEditingController();
   final _nomContactUrgenceController = TextEditingController();
   final _contactUrgenceController = TextEditingController();
-  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _maladiesPrecisionController = TextEditingController();
-  final _traitementPrecisionController = TextEditingController();
 
   DateTime? _dateNaissance;
-  DateTime? _validitePasseport;
   String _sexe = '';
   String? _paysResidence;
   String? _nationalite;
   late CountryCode _phoneCountryCode;
   late CountryCode _contactUrgenceCountryCode;
-  bool _maladiesChroniques = true;
-  bool _traitementEnCours = true;
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -66,14 +59,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _prenomController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _passeportController.dispose();
     _nomContactUrgenceController.dispose();
     _contactUrgenceController.dispose();
-    _usernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _maladiesPrecisionController.dispose();
-    _traitementPrecisionController.dispose();
     super.dispose();
   }
 
@@ -95,27 +84,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final nom = _nomController.text.trim();
     final prenom = _prenomController.text.trim();
     final fullName = [nom, prenom].where((part) => part.isNotEmpty).join(' ');
+    final email = _emailController.text.trim();
 
     final body = <String, dynamic>{
-      'email': _emailController.text.trim(),
-      'username': _usernameController.text.trim(),
+      'email': email,
+      'username': email,
       'password': _passwordController.text,
       'full_name': fullName.isEmpty ? null : fullName,
       'date_naissance': _dateNaissance!.toIso8601String().substring(0, 10),
-      'telephone': _phoneController.text.trim().isEmpty ? null : '${_phoneCountryCode.dialCode ?? ''}${_phoneController.text.trim().replaceAll(RegExp(r'[\s\-\.]'), '')}',
+      'telephone': _phoneController.text.trim().isEmpty
+          ? null
+          : '${_phoneCountryCode.dialCode ?? ''}${_phoneController.text.trim().replaceAll(RegExp(r'[\s\-\.]'), '')}',
       'sexe': _sexe,
       'pays_residence': _paysResidence,
       'nationalite': _nationalite,
-      'numero_passeport': _passeportController.text.trim().isEmpty ? null : _passeportController.text.trim(),
-      'validite_passeport': _validitePasseport?.toIso8601String().substring(0, 10),
-      'nom_contact_urgence': _nomContactUrgenceController.text.trim().isEmpty ? null : _nomContactUrgenceController.text.trim(),
-      'contact_urgence': _contactUrgenceController.text.trim().isEmpty ? null : '${_contactUrgenceCountryCode.dialCode ?? ''}${_contactUrgenceController.text.trim().replaceAll(RegExp(r'[\s\-\.]'), '')}',
-      'maladies_chroniques': _maladiesChroniques
-          ? (_maladiesPrecisionController.text.trim().isEmpty ? 'Oui' : _maladiesPrecisionController.text.trim())
-          : 'Non',
-      'traitements_en_cours': _traitementEnCours
-          ? (_traitementPrecisionController.text.trim().isEmpty ? 'Oui' : _traitementPrecisionController.text.trim())
-          : 'Non',
+      'nom_contact_urgence': _nomContactUrgenceController.text.trim().isEmpty
+          ? null
+          : _nomContactUrgenceController.text.trim(),
+      'contact_urgence': _contactUrgenceController.text.trim().isEmpty
+          ? null
+          : '${_contactUrgenceCountryCode.dialCode ?? ''}${_contactUrgenceController.text.trim().replaceAll(RegExp(r'[\s\-\.]'), '')}',
     };
 
     try {
@@ -126,11 +114,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       if (!mounted) return;
       setState(() => _isLoading = false);
-      final email = _emailController.text.trim();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Inscription enregistrée. Un code de vérification a été envoyé par e-mail : saisissez-le sur le site web (vérification e-mail) pour activer le compte, puis connectez-vous.',
+            'Inscription enregistrée. Saisissez le code reçu par e-mail sur le site web pour activer votre compte, puis connectez-vous ici.',
           ),
           backgroundColor: AppColors.success,
         ),
@@ -140,7 +127,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
     } on DioException catch (e) {
       if (!mounted) return;
-      String msg = e.response?.data is Map && e.response!.data['detail'] != null
+      final msg = e.response?.data is Map && e.response!.data['detail'] != null
           ? e.response!.data['detail'].toString()
           : e.toString().replaceFirst('DioException: ', '');
       setState(() {
@@ -275,13 +262,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 12),
                       _buildTextField(
-                        controller: _passeportController,
-                        label: 'Numéro de passeport',
-                      ),
-                      const SizedBox(height: 12),
-                      _buildDateField('Validité du passeport', _validitePasseport, (d) => setState(() => _validitePasseport = d)),
-                      const SizedBox(height: 12),
-                      _buildTextField(
                         controller: _nomContactUrgenceController,
                         label: 'Nom du contact urgence',
                       ),
@@ -302,42 +282,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _sectionTitle('Informations médicales', 'Pour votre dossier d’assurance'),
-                      _buildYesNoQuestion(
-                        'Avez-vous des maladies chroniques connues ?',
-                        _maladiesChroniques,
-                        (v) => setState(() => _maladiesChroniques = v),
-                        _maladiesPrecisionController,
-                        'Précisez (diabète, HTA, asthme, etc.)',
-                      ),
-                      const SizedBox(height: 16),
-                      _buildYesNoQuestion(
-                        'Êtes-vous sous traitement médical régulier ?',
-                        _traitementEnCours,
-                        (v) => setState(() => _traitementEnCours = v),
-                        _traitementPrecisionController,
-                        'Précisez le type de traitement',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                MHSurfaceCard(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _sectionTitle('Informations personnelles', 'Identifiants de connexion'),
-                      _buildTextField(
-                        controller: _usernameController,
-                        label: 'Nom d\'utilisateur *',
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Requis';
-                          if (v.length < 3) return 'Minimum 3 caractères';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
+                      _sectionTitle('Identifiants de connexion', 'Votre adresse e-mail servira d\'identifiant'),
                       _buildPasswordField(),
                       const SizedBox(height: 12),
                       _buildConfirmPasswordField(),
@@ -478,17 +423,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildDateField(String label, DateTime? value, void Function(DateTime?) onChanged) {
-    final required = label.endsWith('*');
     return InkWell(
-      onTap: _isLoading ? null : () async {
-        final date = await showDatePicker(
-          context: context,
-          initialDate: value ?? (label.contains('Validité') ? DateTime.now().add(const Duration(days: 365)) : DateTime(2000)),
-          firstDate: label.contains('Validité') ? DateTime.now() : DateTime(1900),
-          lastDate: DateTime(2100),
-        );
-        if (date != null) onChanged(date);
-      },
+      onTap: _isLoading
+          ? null
+          : () async {
+              final date = await showDatePicker(
+                context: context,
+                initialDate: value ?? DateTime(2000),
+                firstDate: DateTime(1900),
+                lastDate: DateTime(2100),
+              );
+              if (date != null) onChanged(date);
+            },
       borderRadius: BorderRadius.circular(8),
       child: InputDecorator(
         decoration: MHSurfaceCard.input(
@@ -544,41 +490,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget _buildSearchableCountryPicker(String label, String? value, void Function(String?) onChanged) {
     return FormField<String?>(
       initialValue: value,
-      validator: (v) => null,
       builder: (state) {
         final displayValue = _countryLabelFromCode(value);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             InkWell(
-              onTap: (_isLoading || _loadingReferenceCountries) ? null : () async {
-                final selected = await _showCountrySearchDialog(label, value);
-                if (selected != null && mounted) {
-                  onChanged(selected);
-                  state.didChange(selected);
-                }
-              },
+              onTap: (_isLoading || _loadingReferenceCountries)
+                  ? null
+                  : () async {
+                      final selected = await _showCountrySearchDialog(label, value);
+                      if (selected != null && mounted) {
+                        onChanged(selected);
+                        state.didChange(selected);
+                      }
+                    },
               borderRadius: BorderRadius.circular(8),
               child: InputDecorator(
                 decoration: MHSurfaceCard.input(
                   labelText: label,
                   suffixIcon: const Icon(Icons.search, color: AppColors.mutedText),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _loadingReferenceCountries
-                            ? 'Chargement...'
-                            : (displayValue ?? 'Choisir...'),
-                        style: TextStyle(
-                          color: displayValue != null ? Colors.black87 : AppColors.mutedText,
-                          fontSize: 16,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  _loadingReferenceCountries ? 'Chargement...' : (displayValue ?? 'Choisir...'),
+                  style: TextStyle(
+                    color: displayValue != null ? Colors.black87 : AppColors.mutedText,
+                    fontSize: 16,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
@@ -641,63 +580,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             enabled: !_isLoading,
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildYesNoQuestion(
-    String question,
-    bool value,
-    void Function(bool) onChanged,
-    TextEditingController precisionController,
-    String precisionHint,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          question,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: AppColors.secondary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _ChoiceChip(
-                label: 'Oui',
-                selected: value,
-                onTap: () => onChanged(true),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _ChoiceChip(
-                label: 'Non',
-                selected: !value,
-                onTap: () {
-                  precisionController.clear();
-                  onChanged(false);
-                },
-              ),
-            ),
-          ],
-        ),
-        if (value) ...[
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: precisionController,
-            decoration: MHSurfaceCard.input(
-              hintText: precisionHint,
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-            enabled: !_isLoading,
-          ),
-        ],
       ],
     );
   }

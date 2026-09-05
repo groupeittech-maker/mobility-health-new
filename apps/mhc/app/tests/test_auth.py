@@ -17,7 +17,6 @@ def test_register_user(client):
         "/api/v1/auth/register",
         json={
             "email": "test@example.com",
-            "username": "testuser",
             "password": "testpassword123",
             "full_name": "Test User",
         },
@@ -25,7 +24,7 @@ def test_register_user(client):
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
     assert data["email"] == "test@example.com"
-    assert data["username"] == "testuser"
+    assert data["username"] == "test@example.com"
     assert "password" not in data
 
 
@@ -35,16 +34,15 @@ def test_login_user(client, db):
         "/api/v1/auth/register",
         json={
             "email": "login@example.com",
-            "username": "loginuser",
             "password": "loginpassword123",
         },
     )
-    _activate_user(db, "loginuser")
+    _activate_user(db, "login@example.com")
 
     response = client.post(
         "/api/v1/auth/login",
         data={
-            "username": "loginuser",
+            "username": "login@example.com",
             "password": "loginpassword123",
         },
     )
@@ -61,16 +59,15 @@ def test_get_current_user(client, db):
         "/api/v1/auth/register",
         json={
             "email": "me@example.com",
-            "username": "meuser",
             "password": "mepassword123",
         },
     )
-    _activate_user(db, "meuser")
+    _activate_user(db, "me@example.com")
 
     login_response = client.post(
         "/api/v1/auth/login",
         data={
-            "username": "meuser",
+            "username": "me@example.com",
             "password": "mepassword123",
         },
     )
@@ -82,4 +79,4 @@ def test_get_current_user(client, db):
     )
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["username"] == "meuser"
+    assert data["username"] == "me@example.com"
