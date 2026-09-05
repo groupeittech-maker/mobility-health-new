@@ -4,8 +4,11 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../core/constants/mh_layout.dart';
 import '../../core/constants/app_colors.dart';
+import '../../models/medecin_conseil.dart';
 import '../../services/api_services.dart';
+import '../../services/medecin_conseil_service.dart';
 import '../../services/sos_eligibility_service.dart';
+import '../../widgets/medecin_conseil_card.dart';
 
 /// Retourne un message d'erreur lisible à partir d'une exception (Dio 400/404/500 ou autre).
 String _messageFromError(dynamic e) {
@@ -39,7 +42,10 @@ class SosScreen extends StatefulWidget {
 
 class _SosScreenState extends State<SosScreen> {
   final SosService _sosService = SosService();
+  final MedecinConseilService _medecinConseilService = MedecinConseilService();
   List<Map<String, dynamic>> _alertes = [];
+  List<MedecinConseilAssignment> _medecinConseil = [];
+  bool _medecinConseilFromCache = false;
   bool _loadingAlertes = true;
   bool _sending = false;
   String? _error;
@@ -61,7 +67,29 @@ class _SosScreenState extends State<SosScreen> {
     await Future.wait([
       _loadEligibility(),
       _loadAlertes(),
+      _loadMedecinConseil(),
     ]);
+  }
+
+  Future<void> _loadMedecinConseil() async {
+    final cached = await _medecinConseilService.loadCached();
+    if (mounted && cached.isNotEmpty) {
+      setState(() {
+        _medecinConseil = cached;
+        _medecinConseilFromCache = true;
+      });
+    }
+    try {
+      final fresh = await _medecinConseilService.refresh();
+      if (mounted) {
+        setState(() {
+          _medecinConseil = fresh;
+          _medecinConseilFromCache = false;
+        });
+      }
+    } catch (_) {
+      // Hors ligne : on conserve le cache local déjà affiché.
+    }
   }
 
   Future<void> _loadEligibility() async {
@@ -298,6 +326,11 @@ class _SosScreenState extends State<SosScreen> {
                           ),
               ),
             ),
+          ),
+          const SizedBox(height: 24),
+          MedecinConseilCard(
+            assignments: _medecinConseil,
+            fromCache: _medecinConseilFromCache,
           ),
           const SizedBox(height: 24),
           Text(

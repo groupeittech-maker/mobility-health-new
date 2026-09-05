@@ -12,6 +12,7 @@ from app.models.alerte import Alerte
 from app.models.sinistre import Sinistre
 from app.models.hospital import Hospital
 from app.models.souscription import Souscription
+from app.services.medecin_conseil import list_medecin_conseil_for_user
 from app.models.attestation import Attestation
 from app.models.questionnaire import Questionnaire
 from app.models.notification import Notification
@@ -506,6 +507,40 @@ async def notify_hospital_reception(
             notification_id=notification.id,
             channels=["push"],
         )
+
+
+class MedecinConseilContactResponse(BaseModel):
+    id: int
+    nom: Optional[str] = None
+    telephone: Optional[str] = None
+    email: Optional[str] = None
+
+
+class MedecinConseilAssignmentResponse(BaseModel):
+    souscription_id: int
+    numero_souscription: Optional[str] = None
+    statut_souscription: Optional[str] = None
+    destination: Optional[str] = None
+    destination_country_id: Optional[int] = None
+    destination_country_name: Optional[str] = None
+    medecin_conseil: Optional[MedecinConseilContactResponse] = None
+
+
+@router.get("/medecin-conseil", response_model=List[MedecinConseilAssignmentResponse])
+async def get_medecin_conseil(
+    souscription_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Coordonnées du médecin-conseil liées à la destination de souscription.
+    Destiné à être mis en cache localement pour consultation hors ligne.
+    """
+    return list_medecin_conseil_for_user(
+        db,
+        current_user,
+        souscription_id=souscription_id,
+    )
 
 
 def generate_numero_sinistre() -> str:
