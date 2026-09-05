@@ -11,7 +11,7 @@ import '../core/widgets/mh_surface_card.dart';
 import '../models/destination.dart';
 import '../services/api_services.dart';
 
-/// Page d'inscription simplifiée : informations civiles et identifiants.
+/// Inscription alignée sur register.html : civilité, identifiants, consentements.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -22,11 +22,9 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final DestinationsService _destinationsService = DestinationsService();
-  final _nomController = TextEditingController();
-  final _prenomController = TextEditingController();
+  final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _nomContactUrgenceController = TextEditingController();
   final _contactUrgenceController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -36,7 +34,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _paysResidence;
   String? _nationalite;
   late CountryCode _phoneCountryCode;
-  late CountryCode _contactUrgenceCountryCode;
+  bool _consentCgu = false;
+  bool _consentConfidentialite = false;
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -49,17 +48,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void initState() {
     super.initState();
     _phoneCountryCode = CountryCode.fromCountryCode('SN');
-    _contactUrgenceCountryCode = CountryCode.fromCountryCode('SN');
     _loadReferenceCountries();
   }
 
   @override
   void dispose() {
-    _nomController.dispose();
-    _prenomController.dispose();
+    _fullNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _nomContactUrgenceController.dispose();
     _contactUrgenceController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -76,21 +72,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _errorMessage = 'Veuillez sélectionner votre sexe');
       return;
     }
+    if (!_consentCgu || !_consentConfidentialite) {
+      setState(() => _errorMessage = 'Veuillez accepter les CGU et la politique de confidentialité');
+      return;
+    }
+
     setState(() {
       _errorMessage = null;
       _isLoading = true;
     });
 
-    final nom = _nomController.text.trim();
-    final prenom = _prenomController.text.trim();
-    final fullName = [nom, prenom].where((part) => part.isNotEmpty).join(' ');
     final email = _emailController.text.trim();
-
+    final contactRaw = _contactUrgenceController.text.trim();
     final body = <String, dynamic>{
       'email': email,
       'username': email,
       'password': _passwordController.text,
-      'full_name': fullName.isEmpty ? null : fullName,
+      'full_name': _fullNameController.text.trim(),
       'date_naissance': _dateNaissance!.toIso8601String().substring(0, 10),
       'telephone': _phoneController.text.trim().isEmpty
           ? null
@@ -98,12 +96,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       'sexe': _sexe,
       'pays_residence': _paysResidence,
       'nationalite': _nationalite,
-      'nom_contact_urgence': _nomContactUrgenceController.text.trim().isEmpty
-          ? null
-          : _nomContactUrgenceController.text.trim(),
-      'contact_urgence': _contactUrgenceController.text.trim().isEmpty
-          ? null
-          : '${_contactUrgenceCountryCode.dialCode ?? ''}${_contactUrgenceController.text.trim().replaceAll(RegExp(r'[\s\-\.]'), '')}',
+      'contact_urgence': contactRaw.isEmpty ? null : contactRaw,
     };
 
     try {
@@ -117,14 +110,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Inscription enregistrée. Saisissez le code reçu par e-mail sur le site web pour activer votre compte, puis connectez-vous ici.',
+            'Inscription enregistrée. Saisissez le code reçu par e-mail pour activer votre compte.',
           ),
           backgroundColor: AppColors.success,
         ),
       );
-      context.go(
-        '/login?username=${Uri.encodeComponent(email)}&pending_email_verify=1',
-      );
+      context.go('/verify-email?email=${Uri.encodeComponent(email)}');
     } on DioException catch (e) {
       if (!mounted) return;
       final msg = e.response?.data is Map && e.response!.data['detail'] != null
@@ -183,10 +174,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         title: Text(
           'Inscription',
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
-            color: AppColors.primary,
-          ),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppColors.primary),
         ),
       ),
       body: SafeArea(
@@ -199,6 +187,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 const SizedBox(height: 16),
                 const MHLogoHeader(height: 72, compact: true),
+                const SizedBox(height: 8),
+                Text(
+                  'Rejoignez la communauté Mobility HealthCare et protégez vos voyages.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(fontSize: 13, color: AppColors.mutedText),
+                ),
                 const SizedBox(height: 24),
                 MHSurfaceCard(
                   padding: const EdgeInsets.all(20),
@@ -206,24 +200,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _sectionTitle('Informations civiles', 'Identité et coordonnées'),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildTextField(
-                              controller: _nomController,
-                              label: 'Nom *',
-                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildTextField(
-                              controller: _prenomController,
-                              label: 'Prénom *',
-                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
-                            ),
-                          ),
-                        ],
+                      _buildTextField(
+                        controller: _fullNameController,
+                        label: 'Nom complet *',
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
                       ),
                       const SizedBox(height: 12),
                       _buildTextField(
@@ -262,16 +242,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 12),
                       _buildTextField(
-                        controller: _nomContactUrgenceController,
-                        label: 'Nom du contact urgence',
-                      ),
-                      const SizedBox(height: 12),
-                      _buildPhoneField(
                         controller: _contactUrgenceController,
-                        countryCode: _contactUrgenceCountryCode,
-                        onCountryChanged: (c) => setState(() => _contactUrgenceCountryCode = c),
-                        label: 'Téléphone du contact urgence',
-                        isRequired: false,
+                        label: 'Personne à contacter en cas d\'urgence',
+                        keyboardType: TextInputType.phone,
+                        hint: 'Ex. +33 6 12 34 56 78',
                       ),
                     ],
                   ),
@@ -286,6 +260,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       _buildPasswordField(),
                       const SizedBox(height: 12),
                       _buildConfirmPasswordField(),
+                      const SizedBox(height: 16),
+                      _buildConsentSection(),
                       if (_errorMessage != null) ...[
                         const SizedBox(height: 12),
                         Text(
@@ -323,7 +299,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Text('Déjà un compte ? ', style: GoogleFonts.poppins(color: AppColors.mutedText)),
                     TextButton(
                       onPressed: () => context.go('/login'),
-                      child: Text('Se connecter', style: GoogleFonts.poppins(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'Se connecter',
+                        style: GoogleFonts.poppins(color: AppColors.primary, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
@@ -336,6 +315,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  Widget _buildConsentSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Consentements *',
+          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.secondary),
+        ),
+        const SizedBox(height: 8),
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          value: _consentCgu,
+          onChanged: _isLoading ? null : (v) => setState(() => _consentCgu = v ?? false),
+          title: Text(
+            "J'accepte les conditions générales d'utilisation (CGU).",
+            style: GoogleFonts.poppins(fontSize: 13, color: AppColors.secondary),
+          ),
+        ),
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          value: _consentConfidentialite,
+          onChanged: _isLoading ? null : (v) => setState(() => _consentConfidentialite = v ?? false),
+          title: Text(
+            "J'accepte la politique de confidentialité.",
+            style: GoogleFonts.poppins(fontSize: 13, color: AppColors.secondary),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _sectionTitle(String title, String subtitle) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -344,20 +356,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         children: [
           Text(
             title,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppColors.secondary,
-            ),
+            style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.secondary),
           ),
           const SizedBox(height: 6),
           Text(
             subtitle,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.secondary,
-            ),
+            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.secondary),
           ),
         ],
       ),
@@ -368,13 +372,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required TextEditingController controller,
     required String label,
     TextInputType? keyboardType,
+    String? hint,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
-      decoration: MHSurfaceCard.input(labelText: label),
+      decoration: MHSurfaceCard.input(labelText: label, hintText: hint),
       enabled: !_isLoading,
     );
   }
@@ -457,31 +462,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
       children: [
         Text(
           'Sexe *',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: AppColors.secondary,
-          ),
+          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.secondary),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _ChoiceChip(
-                label: 'Homme',
-                selected: _sexe == 'M',
-                onTap: () => setState(() => _sexe = 'M'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _ChoiceChip(
-                label: 'Femme',
-                selected: _sexe == 'F',
-                onTap: () => setState(() => _sexe = 'F'),
-              ),
-            ),
+        DropdownButtonFormField<String>(
+          value: _sexe.isEmpty ? null : _sexe,
+          decoration: MHSurfaceCard.input(labelText: 'Choisir...'),
+          items: const [
+            DropdownMenuItem(value: 'M', child: Text('Homme')),
+            DropdownMenuItem(value: 'F', child: Text('Femme')),
+            DropdownMenuItem(value: 'Autre', child: Text('Autre')),
           ],
+          onChanged: _isLoading ? null : (v) => setState(() => _sexe = v ?? ''),
+          validator: (_) => _sexe.isEmpty ? 'Requis' : null,
         ),
       ],
     );
@@ -492,42 +485,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
       initialValue: value,
       builder: (state) {
         final displayValue = _countryLabelFromCode(value);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            InkWell(
-              onTap: (_isLoading || _loadingReferenceCountries)
-                  ? null
-                  : () async {
-                      final selected = await _showCountrySearchDialog(label, value);
-                      if (selected != null && mounted) {
-                        onChanged(selected);
-                        state.didChange(selected);
-                      }
-                    },
-              borderRadius: BorderRadius.circular(8),
-              child: InputDecorator(
-                decoration: MHSurfaceCard.input(
-                  labelText: label,
-                  suffixIcon: const Icon(Icons.search, color: AppColors.mutedText),
-                ),
-                child: Text(
-                  _loadingReferenceCountries ? 'Chargement...' : (displayValue ?? 'Choisir...'),
-                  style: TextStyle(
-                    color: displayValue != null ? Colors.black87 : AppColors.mutedText,
-                    fontSize: 16,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+        return InkWell(
+          onTap: (_isLoading || _loadingReferenceCountries)
+              ? null
+              : () async {
+                  final selected = await _showCountrySearchDialog(label, value);
+                  if (selected != null && mounted) {
+                    onChanged(selected);
+                    state.didChange(selected);
+                  }
+                },
+          borderRadius: BorderRadius.circular(8),
+          child: InputDecorator(
+            decoration: MHSurfaceCard.input(
+              labelText: label,
+              suffixIcon: const Icon(Icons.search, color: AppColors.mutedText),
             ),
-          ],
+            child: Text(
+              _loadingReferenceCountries ? 'Chargement...' : (displayValue ?? 'Choisir...'),
+              style: TextStyle(
+                color: displayValue != null ? Colors.black87 : AppColors.mutedText,
+                fontSize: 16,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         );
       },
     );
   }
 
-  Future<String?> _showCountrySearchDialog(String label, String? currentValue) async {
+  Future<String?> _showCountrySearchDialog(String label, String? currentValue) {
     return Navigator.of(context).push<String>(
       MaterialPageRoute(
         fullscreenDialog: true,
@@ -573,53 +561,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             controller: controller,
             keyboardType: TextInputType.phone,
             validator: isRequired ? (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null : null,
-            decoration: MHSurfaceCard.input(
-              labelText: label,
-              hintText: '771234567',
-            ),
+            decoration: MHSurfaceCard.input(labelText: label, hintText: '771234567'),
             enabled: !_isLoading,
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ChoiceChip extends StatelessWidget {
-  const _ChoiceChip({required this.label, required this.selected, required this.onTap});
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.primary.withValues(alpha: 0.15) : AppColors.surfaceFieldFill,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: selected ? AppColors.primary : AppColors.surfaceFieldBorder,
-              width: selected ? 2 : 1,
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                color: selected ? AppColors.primary : AppColors.mutedText,
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -661,18 +607,14 @@ class _CountrySearchPageState extends State<_CountrySearchPage> {
     setState(() {
       _filteredList = normalizedQuery.isEmpty
           ? List.from(widget.countries)
-          : widget.countries
-              .where((country) => country.nom.toLowerCase().contains(normalizedQuery))
-              .toList();
+          : widget.countries.where((country) => country.nom.toLowerCase().contains(normalizedQuery)).toList();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.label),
-      ),
+      appBar: AppBar(title: Text(widget.label)),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
@@ -693,12 +635,7 @@ class _CountrySearchPageState extends State<_CountrySearchPage> {
               const SizedBox(height: 12),
               Expanded(
                 child: _filteredList.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Aucun résultat',
-                          style: TextStyle(color: Color(0xFF64748B)),
-                        ),
-                      )
+                    ? const Center(child: Text('Aucun résultat', style: TextStyle(color: Color(0xFF64748B))))
                     : ListView.builder(
                         itemCount: _filteredList.length,
                         itemBuilder: (_, i) {
