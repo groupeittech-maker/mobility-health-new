@@ -42,20 +42,18 @@ class _LoginScreenState extends State<LoginScreen> {
     final query = GoRouterState.of(context).uri.queryParameters;
     final usernameOrEmail = query['username'];
     final passwordResetDone = query['password_reset'] == '1';
-    final pendingEmailVerify = query['pending_email_verify'] == '1';
+    final verified = query['verified'] == '1';
 
     if (usernameOrEmail != null && usernameOrEmail.isNotEmpty) {
       _usernameController.text = usernameOrEmail;
     }
 
-    if (pendingEmailVerify) {
+    if (verified) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Vérifiez votre boîte e-mail : après activation du compte sur le web (code à 6 chiffres), vous pourrez vous connecter ici.',
-            ),
+            content: Text('E-mail vérifié avec succès ! Vous pouvez vous connecter.'),
             backgroundColor: AppColors.success,
           ),
         );
@@ -100,7 +98,31 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _errorMessage = e.toString().replaceFirst('Exception: ', ''));
+      final message = e.toString().replaceFirst('Exception: ', '');
+      final email = _usernameController.text.trim();
+      final isUnverifiedEmail = message.toLowerCase().contains('vérifi') ||
+          message.toLowerCase().contains('verifie') ||
+          message.toLowerCase().contains('verified');
+      if (isUnverifiedEmail && email.contains('@')) {
+        final goVerify = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('E-mail non vérifié'),
+            content: const Text(
+              'Votre adresse e-mail n\'a pas encore été vérifiée. Souhaitez-vous saisir le code de vérification ?',
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Vérifier')),
+            ],
+          ),
+        );
+        if (goVerify == true && mounted) {
+          context.go('/verify-email?email=${Uri.encodeComponent(email)}');
+          return;
+        }
+      }
+      setState(() => _errorMessage = message);
     }
   }
 
@@ -230,16 +252,22 @@ class _LoginScreenState extends State<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Nom d\'utilisateur ou Email',
+          'Nom d\'utilisateur ou e-mail',
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.bold,
             color: AppColors.secondary,
           ),
         ),
+        const SizedBox(height: 4),
+        Text(
+          'Voyageurs : e-mail. Administrateurs et personnel : nom d\'utilisateur.',
+          style: GoogleFonts.poppins(fontSize: 12, color: AppColors.mutedText),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           controller: _usernameController,
+          keyboardType: TextInputType.text,
           decoration: MHSurfaceCard.input(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
