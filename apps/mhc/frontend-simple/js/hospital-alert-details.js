@@ -1980,6 +1980,7 @@ const MHC_DOC_LABELS = {
     ars: "Attestation de retour de rapatriement sanitaire",
     brf: "Bon de rapatriement funéraire",
     arf: "Attestation de rapatriement funéraire",
+    certificat_deces: "Certificat de décès",
 };
 
 const MHC_REFUSAL_MOTIFS = [
@@ -2063,9 +2064,13 @@ function applyCareDocumentPrefill(type) {
         setInputValue('mhcDateSortie', prefill.date_sortie);
         setInputValue('mhcDureeJours', prefill.duree_jours);
         setInputValue('mhcResume', prefill.resume_rapport);
-    } else if (type === 'brs' || type === 'brf') {
+    } else if (type === 'brs' || type === 'brf' || type === 'certificat_deces') {
         setInputValue('mhcMotif', prefill.motif_medical);
         setInputValue('mhcDevise', prefill.devise);
+        if (type === 'certificat_deces') {
+            setInputValue('mhcMedecinTraitant', prefill.medecin_traitant);
+            setInputValue('mhcService', prefill.service);
+        }
     }
 }
 
@@ -2191,6 +2196,21 @@ function buildCareDocumentFieldsHtml(type) {
             <label for="mhcObservations">Observations</label>
             <textarea id="mhcObservations" rows="2"></textarea>
         `;
+    case 'certificat_deces':
+        return `
+            <label for="mhcDateDeces">Date et heure du décès <span style="color:var(--danger-color)">*</span></label>
+            <input type="datetime-local" id="mhcDateDeces" required>
+            <label for="mhcLieuDeces">Lieu du décès</label>
+            <input type="text" id="mhcLieuDeces" placeholder="Ville, établissement">
+            <label for="mhcMotif">Cause du décès <span style="color:var(--danger-color)">*</span></label>
+            <textarea id="mhcMotif" rows="2" required></textarea>
+            <label for="mhcMedecinTraitant">Médecin traitant</label>
+            <input type="text" id="mhcMedecinTraitant" placeholder="Nom du médecin traitant">
+            <label for="mhcNumActe">N° acte / registre de décès (si connu)</label>
+            <input type="text" id="mhcNumActe" placeholder="Référence acte officiel">
+            <label for="mhcObservations">Observations</label>
+            <textarea id="mhcObservations" rows="2"></textarea>
+        `;
     case 'brf':
         return `
             <label for="mhcDateDeces">Date et heure du décès</label>
@@ -2295,6 +2315,13 @@ function collectCareDocumentPayload(type) {
         payload.date_arrivee = val('mhcDateArrivee');
         payload.etat_arrivee = val('mhcEtatArrivee');
         payload.bonne_reception = val('mhcBonneReception');
+        payload.observations = val('mhcObservations');
+    } else if (type === 'certificat_deces') {
+        payload.date_deces = val('mhcDateDeces');
+        payload.lieu_deces = val('mhcLieuDeces');
+        if (motif) payload.cause_deces = motif;
+        payload.medecin_traitant = val('mhcMedecinTraitant');
+        payload.numero_acte_deces = val('mhcNumActe');
         payload.observations = val('mhcObservations');
     } else if (type === 'brf') {
         payload.date_deces = val('mhcDateDeces');

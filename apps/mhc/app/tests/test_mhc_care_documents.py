@@ -149,6 +149,19 @@ class TestMhcCareDocumentWorkflow:
     def test_funeral_branch(self, db, test_user, test_product, test_hospital, test_doctor):
         sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)
         sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
+        cert = issue_care_document(
+            db,
+            sinistre,
+            "certificat_deces",
+            test_doctor,
+            payload={"cause_deces": "AVC", "date_deces": "2026-01-15 10:30", "medecin_traitant": "Dr. Test"},
+            alerte=alerte,
+        )
+        db.flush()
+        assert cert[0].document_type == "certificat_deces"
+        assert "-118" in cert[0].numero
+        pdf = build_care_document_pdf(cert[0])
+        assert pdf[:4] == b"%PDF"
         brf = issue_care_document(db, sinistre, "brf", test_doctor, payload={"cause_deces": "AVC"}, alerte=alerte)
         db.flush()
         assert brf[0].document_type == "brf"
@@ -157,6 +170,20 @@ class TestMhcCareDocumentWorkflow:
         db.commit()
         assert arf[0].document_type == "arf"
         assert sinistre.statut == "resolu"
+
+    def test_certificat_deces_without_sinistre_number(self, db, test_user, test_product, test_hospital, test_doctor):
+        sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)
+        assert sinistre.numero_sinistre is None
+        cert = issue_care_document(
+            db,
+            sinistre,
+            "certificat_deces",
+            test_doctor,
+            payload={"cause_deces": "Arrêt cardiaque", "date_deces": "2026-02-01 08:00"},
+            alerte=alerte,
+        )
+        db.commit()
+        assert cert[0].document_type == "certificat_deces"
 
     def test_invalid_transition(self, db, test_user, test_product, test_hospital, test_doctor):
         sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)

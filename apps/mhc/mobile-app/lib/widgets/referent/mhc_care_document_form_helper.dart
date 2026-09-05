@@ -146,6 +146,14 @@ class MhcCareDocumentFormHelper {
         payload['bonne_reception'] = val('mhcBonneReception');
         payload['observations'] = val('mhcObservations');
         break;
+      case 'certificat_deces':
+        payload['date_deces'] = val('mhcDateDeces');
+        payload['lieu_deces'] = val('mhcLieuDeces');
+        if (motif != null) payload['cause_deces'] = motif;
+        payload['medecin_traitant'] = val('mhcMedecinTraitant');
+        payload['numero_acte_deces'] = val('mhcNumActe');
+        payload['observations'] = val('mhcObservations');
+        break;
       case 'brf':
         payload['date_deces'] = val('mhcDateDeces');
         if (motif != null) payload['cause_deces'] = motif;
@@ -300,6 +308,21 @@ class MhcCareDocumentFormHelper {
           _field('Arrivée', controllers['mhcDateArrivee']!),
           _field("État à l'arrivée", controllers['mhcEtatArrivee']!),
           _field('Bonne réception (oui/non)', controllers['mhcBonneReception']!),
+          _field('Observations', controllers['mhcObservations']!, maxLines: 2),
+        ];
+      case 'certificat_deces':
+        bind('mhcDateDeces');
+        bind('mhcLieuDeces');
+        bind('mhcMotif', initial: p('motif_medical'));
+        bind('mhcMedecinTraitant', initial: p('medecin_traitant'));
+        bind('mhcNumActe');
+        bind('mhcObservations');
+        return [
+          _field('Date et heure du décès', controllers['mhcDateDeces']!, required: true),
+          _field('Lieu du décès', controllers['mhcLieuDeces']!),
+          _field('Cause du décès', controllers['mhcMotif']!, maxLines: 2, required: true),
+          _field('Médecin traitant', controllers['mhcMedecinTraitant']!, readOnly: true),
+          _field('N° acte / registre de décès', controllers['mhcNumActe']!),
           _field('Observations', controllers['mhcObservations']!, maxLines: 2),
         ];
       case 'brf':
