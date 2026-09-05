@@ -124,13 +124,13 @@ class TokenStorage {
   }
 
   bool _isKeystoreCorruption(PlatformException e) {
-    final message = '${e.message ?? ''} ${e.details ?? ''}'.toLowerCase();
+    final message = '${e.code} ${e.message ?? ''} ${e.details ?? ''}'.toLowerCase();
     return message.contains('verification failed') ||
-        message.contains('verif') ||
-        message.contains('keystore') ||
-        message.contains('decrypt') ||
-        message.contains('mac') ||
-        message.contains('signature');
+        message.contains('verification_failed') ||
+        message.contains('keystoreexception') ||
+        message.contains('decryption failed') ||
+        message.contains('bad padding') ||
+        message.contains('signature/mac');
   }
 
   Future<void> _recoverFromKeystoreFailure(PlatformException e, StackTrace st) async {

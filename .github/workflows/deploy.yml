@@ -19,14 +19,17 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
-    name: Déploiement production
-    runs-on: ubuntu-latest
+  # Recommandé si le firewall Hostinger bloque le port 22 aux runners GitHub cloud.
+  # Voir deploy/README-GITHUB-RUNNER.md + variable USE_SELF_HOSTED_DEPLOY=true
+  deploy-self-hosted:
+    name: Déploiement (runner VPS)
+    runs-on: [self-hosted, mhc-vps]
     if: >
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main')
+      vars.USE_SELF_HOSTED_DEPLOY == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main'))
 
     steps:
       - name: Checkout code
@@ -36,10 +39,44 @@ jobs:
 
       - name: Infos déploiement
         run: |
-          echo "## Déploiement Mobility Health" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Déploiement Mobility Health (self-hosted)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit : \`${{ github.event.workflow_run.head_sha || github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runner : self-hosted sur VPS (pas de SSH entrant)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deploy on VPS
+        run: bash .github/scripts/vps-local-deploy.sh
+
+      - name: Mise à jour locale (instructions)
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ✅ Déploiement terminé" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit déployé : \`$SHA\`" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-ssh:
+    name: Déploiement (SSH cloud)
+    runs-on: ubuntu-latest
+    if: >
+      vars.USE_SELF_HOSTED_DEPLOY != 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main'))
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+
+      - name: Infos déploiement
+        run: |
+          echo "## Déploiement Mobility Health (SSH)" >> "$GITHUB_STEP_SUMMARY"
           echo "- Commit : \`${{ github.event.workflow_run.head_sha || github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Branche : main" >> "$GITHUB_STEP_SUMMARY"
           echo "- Déclencheur : ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "> Si le port 22 est bloqué : installer le runner VPS (deploy/README-GITHUB-RUNNER.md) et \`USE_SELF_HOSTED_DEPLOY=true\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Vérifier secrets et réseau (IPv4)
         env:
@@ -126,7 +163,7 @@ jobs:
               sleep 15
             fi
           done
-          echo "::error::SSH Connection timed out après 5 tentatives. Voir docs/CICD-AUTOMATION.md § Deploy SSH"
+          echo "::error::SSH Connection timed out. Installez le runner VPS : deploy/README-GITHUB-RUNNER.md puis USE_SELF_HOSTED_DEPLOY=true"
           exit 1
 
       - name: Create frontend archive

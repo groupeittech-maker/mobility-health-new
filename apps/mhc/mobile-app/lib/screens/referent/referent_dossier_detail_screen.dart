@@ -7,6 +7,7 @@ import '../../core/constants/mh_layout.dart';
 import '../../core/utils/json_value.dart';
 import '../../models/referent_pipeline.dart';
 import '../../services/medecin_referent_service.dart';
+import '../../widgets/common/prompt_text_dialog.dart';
 import '../../widgets/referent/referent_care_documents_section.dart';
 import '../../widgets/referent/referent_dossier_sections.dart';
 
@@ -239,28 +240,8 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
     }
   }
 
-  Future<String?> _promptNotes({required String title, required String hint}) async {
-    final controller = TextEditingController();
-    final result = await showDialog<String?>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(hintText: hint),
-          maxLines: 3,
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Confirmer'),
-          ),
-        ],
-      ),
-    );
-    return result;
+  Future<String?> _promptNotes({required String title, required String hint}) {
+    return showPromptTextDialog(context, title: title, hint: hint);
   }
 
   String _formatDate(dynamic value) {
