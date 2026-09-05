@@ -25,7 +25,7 @@ from app.core.enums import Role
 from app.models.user import User
 from app.models.hospital import Hospital
 from app.services.user_service import UserService
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -101,7 +101,7 @@ class TokenData(BaseModel):
 
 class UserCreate(BaseModel):
     email: EmailStr
-    username: str
+    username: str | None = None
     password: str
     full_name: str | None = None
     date_naissance: str | None = None  # Format ISO: YYYY-MM-DD
@@ -113,25 +113,35 @@ class UserCreate(BaseModel):
     validite_passeport: str | None = None  # Format ISO: YYYY-MM-DD
     nom_contact_urgence: str | None = None
     contact_urgence: str | None = None
-    # Informations médicales à l'inscription
-    maladies_chroniques: str | None = None   # diabète, HTA, asthme, épilepsie, drépanocytose, cardiopathie, etc.
-    traitements_en_cours: str | None = None  # médicaments réguliers
-    antecedents_recents: str | None = None   # hospitalisation, chirurgie, suivi < 6 mois
-    grossesse: bool | None = None             # si concernée
-    
+    maladies_chroniques: str | None = None
+    traitements_en_cours: str | None = None
+    antecedents_recents: str | None = None
+    grossesse: bool | None = None
+
+    @model_validator(mode="after")
+    def set_username_from_email(self):
+        """Auto-inscription : le nom d'utilisateur est l'adresse e-mail."""
+        self.username = str(self.email).strip()
+        return self
+
     @field_validator('username')
     @classmethod
-    def validate_username(cls, v: str) -> str:
-        """Valider le nom d'utilisateur"""
+    def validate_username(cls, v: str | None) -> str:
+        """Valider le nom d'utilisateur (e-mail ou identifiant classique)."""
         if not v or len(v.strip()) == 0:
             raise ValueError("Le nom d'utilisateur ne peut pas être vide")
+        v = v.strip()
+        if "@" in v:
+            if len(v) > 255:
+                raise ValueError("L'adresse e-mail est trop longue")
+            return v
         if len(v) < 3:
             raise ValueError("Le nom d'utilisateur doit contenir au moins 3 caractères")
         if len(v) > 50:
             raise ValueError("Le nom d'utilisateur ne peut pas dépasser 50 caractères")
         if not v.replace('_', '').replace('-', '').isalnum():
             raise ValueError("Le nom d'utilisateur ne peut contenir que des lettres, chiffres, tirets et underscores")
-        return v.strip()
+        return v
     
     @field_validator('password')
     @classmethod
@@ -229,7 +239,7 @@ def get_current_user(
     q = text("""
         SELECT id, username, email, full_name, is_active, hospital_id,
                date_naissance, telephone, sexe, validite_passeport,
-               COALESCE(role::text, 'user') AS role_str,
+               COALESCE(CAST(role AS TEXT), 'user') AS role_str,
                pays_residence, nationalite, numero_passeport,
                nom_contact_urgence, contact_urgence
         FROM users WHERE username = :u LIMIT 1
@@ -284,7 +294,7 @@ def get_current_user_optional(
     q = text("""
         SELECT id, username, email, full_name, is_active, hospital_id,
                date_naissance, telephone, sexe, validite_passeport,
-               COALESCE(role::text, 'user') AS role_str,
+               COALESCE(CAST(role AS TEXT), 'user') AS role_str,
                pays_residence, nationalite, numero_passeport,
                nom_contact_urgence, contact_urgence
         FROM users WHERE username = :u LIMIT 1
@@ -332,14 +342,15 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     Après validation du code via POST /verify-email, le compte est activé.
     """
     
-    logger.info(f"Tentative d'inscription: username={user_data.username}, email={user_data.email}")
-    
+    registration_username = str(user_data.email).strip()
+    logger.info(f"Tentative d'inscription: username={registration_username}, email={user_data.email}")
+
     try:
         # Auto-inscription : is_active=False jusqu'à verify-email
         user = UserService.create_user(
             db=db,
             email=user_data.email,
-            username=user_data.username,
+            username=registration_username,
             password=user_data.password,
             full_name=user_data.full_name,
             date_naissance=user_data.date_naissance,
@@ -402,7 +413,7 @@ async def login(
     q = text("""
         SELECT id, username, email, hashed_password, is_active, validation_inscription,
                COALESCE(email_verified, false) AS email_verified,
-               COALESCE(role::text, 'user') AS role_str
+               COALESCE(CAST(role AS TEXT), 'user') AS role_str
         FROM users
         WHERE username = :u OR email = :u
         LIMIT 1
@@ -451,21 +462,27 @@ async def login(
             detail_msg = (
                 "Veuillez saisir le code de vérification reçu par e-mail pour activer votre compte."
             )
+        elif validation_inscription == "approved" and email_verified:
+            db.execute(
+                text("UPDATE users SET is_active = true WHERE id = :id"),
+                {"id": user_id},
+            )
+            db.commit()
+            is_active = True
+            logger.info(f"Compte auto-activé à la connexion (e-mail déjà vérifié): {username}")
         elif validation_inscription == "pending":
             detail_msg = (
                 "Votre inscription est en cours de validation. Vous recevrez un e-mail lorsque votre compte sera activé."
             )
-        elif validation_inscription == "approved":
-            detail_msg = (
-                "Votre e-mail est vérifié. Utilisez le lien d'activation reçu par e-mail ou contactez le support."
-            )
         else:
             detail_msg = "Compte désactivé. Contactez le service client."
-        logger.warning(f"Tentative de connexion compte non actif: {form_data.username} (validation_inscription={validation_inscription})")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=detail_msg
-        )
+
+        if not is_active:
+            logger.warning(f"Tentative de connexion compte non actif: {form_data.username} (validation_inscription={validation_inscription})")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=detail_msg
+            )
     try:
         if not settings.SECRET_KEY or settings.SECRET_KEY == "your-secret-key-change-in-production":
             logger.error("SECRET_KEY n'est pas configuré correctement")
@@ -527,7 +544,7 @@ async def refresh_token(
     username: str = payload.get("sub")
     if not username:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
-    q = text("SELECT id, username, is_active, COALESCE(role::text, 'user') AS role_str FROM users WHERE username = :u LIMIT 1")
+    q = text("SELECT id, username, is_active, COALESCE(CAST(role AS TEXT), 'user') AS role_str FROM users WHERE username = :u LIMIT 1")
     row = db.execute(q, {"u": username}).fetchone()
     if not row or not row.is_active:
         raise HTTPException(
@@ -1003,14 +1020,18 @@ async def verify_email(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Inscription refusée. L'activation est impossible.",
             )
+        if vi == "approved":
+            user.is_active = True
+            db.commit()
+            logger.info(f"Compte activé (e-mail déjà vérifié): {user.username} ({user.email})")
+            return {"message": "Compte activé. Vous pouvez vous connecter."}
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "Cette adresse e-mail est déjà vérifiée. Utilisez le lien d'activation reçu par e-mail "
-                "ou contactez le support."
+                "Cette adresse e-mail est déjà vérifiée. Votre compte est en attente de validation."
             ),
         )
-    
+
     # Vérifier le code dans Redis
     try:
         redis = get_redis()
