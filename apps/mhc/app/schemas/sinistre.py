@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.schemas.questionnaire import QuestionnaireResponse
 from app.schemas.hospital_stay import HospitalStayResponse
+from app.schemas.sinistre_attachment import SinistreAttachmentInfo
 
 
 class SinistreBase(BaseModel):
@@ -88,6 +89,7 @@ class SinistreDetailResponse(SinistreResponse):
     medical_questionnaire: Optional[QuestionnaireResponse] = None
     patient: Optional[PatientInfo] = None
     hospital_stay: Optional[HospitalStayResponse] = None
+    certificat_deces: Optional[SinistreAttachmentInfo] = None
 
 
 class SinistreVerificationRequest(BaseModel):
