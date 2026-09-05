@@ -306,6 +306,46 @@ class TestAuthFlows:
         db.refresh(user)
         assert user.is_active is True
 
+    def test_admin_login_with_username(self, client, test_admin):
+        """Les administrateurs se connectent avec leur nom d'utilisateur, pas l'e-mail."""
+        response = client.post(
+            "/api/v1/auth/login",
+            data={
+                "username": test_admin.username,
+                "password": "adminpassword123",
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert "access_token" in response.json()
+
+    def test_admin_inactive_not_prompted_for_email_otp(self, client, db):
+        """Un compte admin inactif ne doit pas être bloqué par le flux OTP voyageur."""
+        from app.models.user import User
+        from app.core.security import get_password_hash
+        from app.core.enums import Role
+
+        admin = User(
+            email="inactive.admin@example.com",
+            username="inactive_admin",
+            hashed_password=get_password_hash("adminpassword123"),
+            full_name="Inactive Admin",
+            role=Role.ADMIN,
+            is_active=False,
+            email_verified=False,
+            validation_inscription="approved",
+        )
+        db.add(admin)
+        db.commit()
+
+        response = client.post(
+            "/api/v1/auth/login",
+            data={
+                "username": "inactive_admin",
+                "password": "adminpassword123",
+            },
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "code de vérification" not in response.json()["detail"].lower()
 
 
 

@@ -433,6 +433,7 @@ async def login(
     validation_inscription = row.validation_inscription or ""
     email_verified = _sql_bool(getattr(row, "email_verified", None))
     role_value = (row.role_str or "user").lower().strip()
+    requires_email_verification = role_value == Role.USER.value
 
     if not hashed_password:
         logger.error(f"Utilisateur {form_data.username} n'a pas de mot de passe hashé")
@@ -458,11 +459,11 @@ async def login(
     if not is_active:
         if validation_inscription == "rejected":
             detail_msg = "Votre inscription a été refusée. Veuillez contacter le service client."
-        elif not email_verified:
+        elif requires_email_verification and not email_verified:
             detail_msg = (
                 "Veuillez saisir le code de vérification reçu par e-mail pour activer votre compte."
             )
-        elif validation_inscription == "approved" and email_verified:
+        elif requires_email_verification and validation_inscription == "approved" and email_verified:
             db.execute(
                 text("UPDATE users SET is_active = true WHERE id = :id"),
                 {"id": user_id},
@@ -470,7 +471,7 @@ async def login(
             db.commit()
             is_active = True
             logger.info(f"Compte auto-activé à la connexion (e-mail déjà vérifié): {username}")
-        elif validation_inscription == "pending":
+        elif requires_email_verification and validation_inscription == "pending":
             detail_msg = (
                 "Votre inscription est en cours de validation. Vous recevrez un e-mail lorsque votre compte sera activé."
             )

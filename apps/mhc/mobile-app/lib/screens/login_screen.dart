@@ -252,17 +252,22 @@ class _LoginScreenState extends State<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Adresse e-mail',
+          'Nom d\'utilisateur ou e-mail',
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.bold,
             color: AppColors.secondary,
           ),
         ),
+        const SizedBox(height: 4),
+        Text(
+          'Voyageurs : e-mail. Administrateurs et personnel : nom d\'utilisateur.',
+          style: GoogleFonts.poppins(fontSize: 12, color: AppColors.mutedText),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           controller: _usernameController,
-          keyboardType: TextInputType.emailAddress,
+          keyboardType: TextInputType.text,
           decoration: MHSurfaceCard.input(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
