@@ -550,18 +550,6 @@ def _specific_fields(doc_type: str, payload: Dict[str, Any]) -> Tuple[str, List[
                 ("Observations", payload.get("observations")),
             ],
         )
-    if doc_type == MhcCareDocumentType.CERTIFICAT_DECES.value:
-        return (
-            "Certificat de décès",
-            [
-                ("Date et heure du décès", payload.get("date_deces")),
-                ("Lieu du décès", payload.get("lieu_deces")),
-                ("Cause du décès", payload.get("cause_deces")),
-                ("Médecin traitant", payload.get("medecin_traitant")),
-                ("N° acte / registre de décès", payload.get("numero_acte_deces")),
-                ("Observations", payload.get("observations")),
-            ],
-        )
     if doc_type == MhcCareDocumentType.BRF.value:
         return (
             "Rapatriement funéraire",
@@ -626,12 +614,6 @@ def _legal_text_html(doc_type: str) -> str:
             "Le présent bon autorise l'organisation et la prise en charge du transport du corps vers "
             "la destination indiquée, sous réserve de la transmission du certificat et de l'acte de décès."
         ),
-        MhcCareDocumentType.CERTIFICAT_DECES.value: (
-            "Le présent certificat atteste du décès du patient voyageur assuré, constaté par le médecin "
-            "traitant du partenaire-santé. Il est établi pour les formalités administratives, funéraires "
-            "et d'assurance. Ce document ne se substitue pas à l'acte de décès officiel délivré par "
-            "l'autorité compétente du pays concerné."
-        ),
         MhcCareDocumentType.ARF.value: (
             "Nous attestons que le rapatriement funéraire a été effectivement réalisé et que la dépouille "
             "a été remise à la destination prévue. Cette attestation ne vaut pas quittance financière."
@@ -655,7 +637,6 @@ def _signatory_labels(doc_type: str) -> List[str]:
         MhcCareDocumentType.BRS.value: ["DU PARTENAIRE-SANTÉ", "DU MEDECIN-CONSEIL", "DU PÔLE MÉDICAL MHC"],
         MhcCareDocumentType.ARS.value: ["DU PÔLE MÉDICAL MHC", "DU VOYAGEUR ASSURÉ"],
         MhcCareDocumentType.BRF.value: ["DE L'OPÉRATEUR FUNÉRAIRE", "DU MEDECIN-CONSEIL", "DU PÔLE MÉDICAL MHC"],
-        MhcCareDocumentType.CERTIFICAT_DECES.value: ["DU MEDECIN TRAITANT", "DU PÔLE MÉDICAL MHC"],
         MhcCareDocumentType.ARF.value: ["DU PÔLE MÉDICAL MHC", "DU RÉCEPTIONNAIRE DE LA DÉPOUILLE"],
     }
     return mapping.get(doc_type, ["MOBILITY HEALTH CARE"])

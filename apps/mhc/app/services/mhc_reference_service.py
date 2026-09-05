@@ -139,7 +139,6 @@ def allocate_document_number(
         MhcCareDocumentType.BRF: MhcOperationCode.BRF,
         MhcCareDocumentType.ARS: MhcOperationCode.ARS,
         MhcCareDocumentType.ARF: MhcOperationCode.ARF,
-        MhcCareDocumentType.CERTIFICAT_DECES: MhcOperationCode.CERTIFICAT_DECES,
     }
     operation = operation_map[document_type]
     order = next_order(db, document_type.value, year)

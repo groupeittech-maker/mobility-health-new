@@ -175,6 +175,24 @@
             </form>
         </section>
 
+        <section class="dashboard-section" id="certificatDecesSection" hidden>
+            <div class="section-header">
+                <h3>Certificat de décès</h3>
+                <p class="muted">
+                    Joignez le certificat de décès émis par l'hôpital au dossier (PDF ou image, max 10 Mo).
+                </p>
+            </div>
+            <div id="certificatDecesExisting" class="info-grid" hidden></div>
+            <div id="certificatDecesUpload" class="medical-decision-card" hidden>
+                <label for="certificatDecesFile">Fichier joint</label>
+                <input type="file" id="certificatDecesFile" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+                <div class="medical-decision-actions" style="margin-top:0.75rem;">
+                    <button type="button" class="btn btn-primary" id="certificatDecesUploadBtn">Ajouter au dossier</button>
+                </div>
+            </div>
+            <p id="certificatDecesStatus" class="muted" hidden></p>
+        </section>
+
         <section class="dashboard-section" id="reportValidationSection" hidden>
             <h3>Validation du rapport</h3>
             <p class="muted">

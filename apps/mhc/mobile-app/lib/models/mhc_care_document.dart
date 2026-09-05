@@ -12,7 +12,6 @@ class MhcCareDocumentLabels {
     'ars': 'Attestation de retour de rapatriement sanitaire',
     'brf': 'Bon de rapatriement funéraire',
     'arf': 'Attestation de rapatriement funéraire',
-    'certificat_deces': 'Certificat de décès',
   };
 
   static const refusalMotifs = [

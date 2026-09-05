@@ -295,6 +295,7 @@ function renderSinistreInfo(sinistre, alerte) {
     renderDoctorReport();
     renderReportValidationSection();
     renderInvoiceSection();
+    renderCertificatDecesSection();
     loadCareDocuments();
 }
 
@@ -1980,7 +1981,6 @@ const MHC_DOC_LABELS = {
     ars: "Attestation de retour de rapatriement sanitaire",
     brf: "Bon de rapatriement funéraire",
     arf: "Attestation de rapatriement funéraire",
-    certificat_deces: "Certificat de décès",
 };
 
 const MHC_REFUSAL_MOTIFS = [
@@ -2064,13 +2064,9 @@ function applyCareDocumentPrefill(type) {
         setInputValue('mhcDateSortie', prefill.date_sortie);
         setInputValue('mhcDureeJours', prefill.duree_jours);
         setInputValue('mhcResume', prefill.resume_rapport);
-    } else if (type === 'brs' || type === 'brf' || type === 'certificat_deces') {
+    } else if (type === 'brs' || type === 'brf') {
         setInputValue('mhcMotif', prefill.motif_medical);
         setInputValue('mhcDevise', prefill.devise);
-        if (type === 'certificat_deces') {
-            setInputValue('mhcMedecinTraitant', prefill.medecin_traitant);
-            setInputValue('mhcService', prefill.service);
-        }
     }
 }
 
@@ -2196,21 +2192,6 @@ function buildCareDocumentFieldsHtml(type) {
             <label for="mhcObservations">Observations</label>
             <textarea id="mhcObservations" rows="2"></textarea>
         `;
-    case 'certificat_deces':
-        return `
-            <label for="mhcDateDeces">Date et heure du décès <span style="color:var(--danger-color)">*</span></label>
-            <input type="datetime-local" id="mhcDateDeces" required>
-            <label for="mhcLieuDeces">Lieu du décès</label>
-            <input type="text" id="mhcLieuDeces" placeholder="Ville, établissement">
-            <label for="mhcMotif">Cause du décès <span style="color:var(--danger-color)">*</span></label>
-            <textarea id="mhcMotif" rows="2" required></textarea>
-            <label for="mhcMedecinTraitant">Médecin traitant</label>
-            <input type="text" id="mhcMedecinTraitant" placeholder="Nom du médecin traitant">
-            <label for="mhcNumActe">N° acte / registre de décès (si connu)</label>
-            <input type="text" id="mhcNumActe" placeholder="Référence acte officiel">
-            <label for="mhcObservations">Observations</label>
-            <textarea id="mhcObservations" rows="2"></textarea>
-        `;
     case 'brf':
         return `
             <label for="mhcDateDeces">Date et heure du décès</label>
@@ -2315,13 +2296,6 @@ function collectCareDocumentPayload(type) {
         payload.date_arrivee = val('mhcDateArrivee');
         payload.etat_arrivee = val('mhcEtatArrivee');
         payload.bonne_reception = val('mhcBonneReception');
-        payload.observations = val('mhcObservations');
-    } else if (type === 'certificat_deces') {
-        payload.date_deces = val('mhcDateDeces');
-        payload.lieu_deces = val('mhcLieuDeces');
-        if (motif) payload.cause_deces = motif;
-        payload.medecin_traitant = val('mhcMedecinTraitant');
-        payload.numero_acte_deces = val('mhcNumActe');
         payload.observations = val('mhcObservations');
     } else if (type === 'brf') {
         payload.date_deces = val('mhcDateDeces');
@@ -2459,6 +2433,144 @@ document.addEventListener('DOMContentLoaded', () => {
     if (issueBtn) {
         issueBtn.addEventListener('click', issueCareDocument);
     }
+    const certificatUploadBtn = document.getElementById('certificatDecesUploadBtn');
+    if (certificatUploadBtn) {
+        certificatUploadBtn.addEventListener('click', uploadCertificatDeces);
+    }
 });
+
+function formatFileSize(bytes) {
+    if (bytes == null || Number.isNaN(Number(bytes))) return '';
+    const size = Number(bytes);
+    if (size < 1024) return `${size} o`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} Ko`;
+    return `${(size / (1024 * 1024)).toFixed(1)} Mo`;
+}
+
+function renderCertificatDecesSection() {
+    const section = document.getElementById('certificatDecesSection');
+    if (!section || !currentSinistre?.id) {
+        if (section) section.hidden = true;
+        return;
+    }
+
+    const isAssignedDoctor = currentStay && currentStay.doctor_id === currentUserId;
+    const isReferent = isReferentForCurrentCase();
+    const canView = isAssignedDoctor || isReferent || REPORT_VALIDATION_ROLES.includes(currentUserRole || '');
+    if (!canView) {
+        section.hidden = true;
+        return;
+    }
+
+    section.hidden = false;
+    const attachment = currentSinistre.certificat_deces || null;
+    const existingEl = document.getElementById('certificatDecesExisting');
+    const uploadEl = document.getElementById('certificatDecesUpload');
+    const statusEl = document.getElementById('certificatDecesStatus');
+    const fileInput = document.getElementById('certificatDecesFile');
+
+    if (existingEl) {
+        if (attachment) {
+            existingEl.hidden = false;
+            const sizeLabel = attachment.file_size ? ` • ${formatFileSize(attachment.file_size)}` : '';
+            const uploader = attachment.uploaded_by_name ? ` • par ${escapeHtml(attachment.uploaded_by_name)}` : '';
+            existingEl.innerHTML = `
+                <div>
+                    <strong>Fichier joint</strong>
+                    <div>${escapeHtml(attachment.file_name)}</div>
+                    <div class="muted">Ajouté le ${escapeHtml(formatDateTime(attachment.created_at))}${sizeLabel}${uploader}</div>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-outline btn-sm" id="certificatDecesDownloadBtn">Télécharger</button>
+                </div>
+            `;
+            const downloadBtn = document.getElementById('certificatDecesDownloadBtn');
+            if (downloadBtn) {
+                downloadBtn.onclick = () => downloadCertificatDeces();
+            }
+        } else {
+            existingEl.hidden = true;
+            existingEl.innerHTML = '';
+        }
+    }
+
+    if (uploadEl) {
+        uploadEl.hidden = !isAssignedDoctor;
+    }
+    if (fileInput && !isAssignedDoctor) {
+        fileInput.value = '';
+    }
+    if (statusEl) {
+        statusEl.hidden = true;
+        statusEl.textContent = '';
+    }
+}
+
+async function downloadCertificatDeces() {
+    if (!currentSinistre?.id) return;
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(
+            `${API_BASE_URL}/hospital-sinistres/sinistres/${currentSinistre.id}/attachments/certificat-deces`,
+            { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+        );
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || 'Téléchargement impossible.');
+        }
+        const blob = await response.blob();
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="([^"]+)"/i);
+        const filename = match ? match[1] : (currentSinistre.certificat_deces?.file_name || 'certificat-deces.pdf');
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+        showAlert(error.message || 'Impossible de télécharger le certificat.', 'error');
+    }
+}
+
+async function uploadCertificatDeces() {
+    if (!currentSinistre?.id) return;
+    const fileInput = document.getElementById('certificatDecesFile');
+    const uploadBtn = document.getElementById('certificatDecesUploadBtn');
+    const statusEl = document.getElementById('certificatDecesStatus');
+    const file = fileInput?.files?.[0];
+    if (!file) {
+        showAlert('Sélectionnez un fichier (PDF ou image).', 'warning');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    if (uploadBtn) uploadBtn.disabled = true;
+    if (statusEl) {
+        statusEl.hidden = false;
+        statusEl.textContent = 'Envoi en cours…';
+    }
+    try {
+        const result = await apiCall(
+            `/hospital-sinistres/sinistres/${currentSinistre.id}/attachments/certificat-deces`,
+            { method: 'POST', body: formData },
+        );
+        currentSinistre.certificat_deces = result;
+        if (fileInput) fileInput.value = '';
+        renderCertificatDecesSection();
+        showAlert('Certificat de décès ajouté au dossier.', 'success');
+    } catch (error) {
+        if (statusEl) statusEl.textContent = error.message || 'Échec de l’envoi.';
+        showAlert(error.message || 'Impossible d’ajouter le fichier.', 'error');
+    } finally {
+        if (uploadBtn) uploadBtn.disabled = false;
+        if (statusEl && statusEl.textContent === 'Envoi en cours…') {
+            statusEl.hidden = true;
+        }
+    }
+}
 
 

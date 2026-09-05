@@ -18,6 +18,7 @@ from app.models.questionnaire import Questionnaire
 from app.models.notification import Notification
 from app.models.prestation import Prestation
 from app.models.hospital_stay import HospitalStay
+from app.services.sinistre_attachment_service import attachment_to_info, get_certificat_deces_attachment
 from app.schemas.alerte import AlerteCreate, AlerteResponse
 from app.schemas.sinistre import (
     SinistreResponse,
@@ -1156,6 +1157,11 @@ async def get_sinistre_by_alerte(
         if souscription:
             numero_souscription = souscription.numero_souscription
 
+    certificat_deces_attachment = get_certificat_deces_attachment(db, sinistre.id)
+    certificat_deces_payload = (
+        attachment_to_info(certificat_deces_attachment) if certificat_deces_attachment else None
+    )
+
     return SinistreDetailResponse(
         id=sinistre.id,
         alerte_id=sinistre.alerte_id,
@@ -1178,6 +1184,7 @@ async def get_sinistre_by_alerte(
         medical_questionnaire=medical_questionnaire_payload,
         patient=patient_info,
         hospital_stay=hospital_stay_payload,
+        certificat_deces=certificat_deces_payload,
     )
 
 

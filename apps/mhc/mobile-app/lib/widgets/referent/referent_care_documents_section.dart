@@ -359,9 +359,7 @@ class _ReferentCareDocumentsSectionState extends State<ReferentCareDocumentsSect
                           icon: loading
                               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                          label: Text(
-                            type == 'certificat_deces' ? 'Télécharger le certificat' : 'Voir le PDF',
-                          ),
+                          label: const Text('Voir le PDF'),
                         ),
                       ],
                     ),

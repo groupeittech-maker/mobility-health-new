@@ -9,6 +9,7 @@ import '../../models/referent_pipeline.dart';
 import '../../services/medecin_referent_service.dart';
 import '../../widgets/common/prompt_text_dialog.dart';
 import '../../widgets/referent/referent_care_documents_section.dart';
+import '../../widgets/referent/referent_certificat_deces_section.dart';
 import '../../widgets/referent/referent_dossier_sections.dart';
 
 /// Détail d'une alerte + sinistre : aligné sur hospital-alert-details.html (web).
@@ -331,6 +332,14 @@ class _ReferentDossierDetailScreenState extends State<ReferentDossierDetailScree
                           ReferentPatientDossierSection(alerte: _alerte, sinistre: _sinistre),
                           if (_stay != null) _stayCard(),
                           if (_invoice != null) _invoiceCard(),
+                          ReferentCertificatDecesSection(
+                            sinistreId: parseJsonInt(_sinistre!['id'])!,
+                            attachment: _sinistre!['certificat_deces'] is Map
+                                ? Map<String, dynamic>.from(_sinistre!['certificat_deces'] as Map)
+                                : null,
+                            canUpload: false,
+                            onChanged: _refreshDataLight,
+                          ),
                           ReferentCareDocumentsSection(
                             sinistreId: parseJsonInt(_sinistre!['id'])!,
                             alerte: _alerte,

@@ -45,3 +45,8 @@ class Sinistre(Base, TimestampMixin):
         cascade="all, delete-orphan",
         order_by="MhcCareDocument.issued_at",
     )
+    attachments = relationship(
+        "SinistreAttachment",
+        back_populates="sinistre",
+        cascade="all, delete-orphan",
+    )
