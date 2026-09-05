@@ -56,8 +56,11 @@
             
             <form id="loginForm" method="POST" action="#" onsubmit="return false;">
                 <div class="form-group">
-                    <label for="username">Adresse e-mail</label>
-                    <input type="email" id="username" name="username" required autocomplete="email">
+                    <label for="username">Nom d'utilisateur ou e-mail</label>
+                    <input type="text" id="username" name="username" required autocomplete="username">
+                    <small style="color: var(--secondary-color); display: block; margin-top: 0.35rem;">
+                        Voyageurs : utilisez votre adresse e-mail. Administrateurs et personnel : votre nom d'utilisateur.
+                    </small>
                 </div>
 
                 <div class="form-group">
