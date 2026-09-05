@@ -4,6 +4,7 @@ import '../core/network/api_client.dart';
 import '../core/storage/token_storage.dart';
 import '../models/user.dart';
 import 'api_services.dart';
+import 'medecin_conseil_service.dart';
 import 'referent_push_service.dart';
 
 /// Authentification et compte (singleton — utilisé par [AuthProvider] et écrans associés).
@@ -104,6 +105,7 @@ class AuthService {
     AttestationsService.clearUserAttestationsCache();
     SosService.clearSosAlertesCache();
     HospitalStaysService.clearHospitalStaysCache();
+    await MedecinConseilService().clearCache();
     await _storage.clearAll();
   }
 

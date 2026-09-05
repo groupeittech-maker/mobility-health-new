@@ -4,9 +4,12 @@ import 'package:open_filex/open_filex.dart';
 import '../../core/widgets/mh_surface_card.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
+import '../../models/medecin_conseil.dart';
 import '../../models/subscription.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
+import '../../services/medecin_conseil_service.dart';
+import '../../widgets/medecin_conseil_card.dart';
 import '../pdf_viewer_screen.dart';
 
 /// Détail d'une souscription : identité, récap souscription, attestations, e-carte (si généré).
@@ -25,8 +28,11 @@ class SubscriptionDetailScreen extends StatefulWidget {
 class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
   final AttestationsService _attestationsService = AttestationsService();
   final SubscriptionsService _subscriptionsService = SubscriptionsService();
+  final MedecinConseilService _medecinConseilService = MedecinConseilService();
   late SubscriptionModel _subscription;
   List<Map<String, dynamic>> _attestations = [];
+  List<MedecinConseilAssignment> _medecinConseil = [];
+  bool _medecinConseilFromCache = false;
   Map<String, dynamic>? _user;
   bool _loading = true;
   String? _error;
@@ -64,10 +70,24 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
         };
       } catch (_) {}
       final att = await _attestationsService.getSubscriptionAttestations(_subscription.id);
+      final cachedConseil = await _medecinConseilService.loadCached();
+      final cachedForSub = cachedConseil
+          .where((item) => item.souscriptionId == _subscription.id)
+          .toList();
+      List<MedecinConseilAssignment> conseil = cachedForSub;
+      var conseilFromCache = cachedForSub.isNotEmpty;
+      try {
+        conseil = await _medecinConseilService.refresh(souscriptionId: _subscription.id);
+        conseilFromCache = false;
+      } catch (_) {
+        // Hors ligne : on conserve le cache local.
+      }
       if (!mounted) return;
       setState(() {
         _user = userMap;
         _attestations = att;
+        _medecinConseil = conseil;
+        _medecinConseilFromCache = conseilFromCache;
         _loading = false;
       });
     } catch (e) {
@@ -337,6 +357,11 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                     _row('Fin', _formatDate(s.dateFin)),
                     _row('Prix', '${s.prixApplique.toStringAsFixed(0)} XAF'),
                   ]),
+                  const SizedBox(height: 20),
+                  MedecinConseilCard(
+                    assignments: _medecinConseil,
+                    fromCache: _medecinConseilFromCache,
+                  ),
                   if (s.canRequestResiliation)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),

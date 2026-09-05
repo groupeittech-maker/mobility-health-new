@@ -83,6 +83,11 @@ class User(Base, TimestampMixin):
         back_populates="medecin_referent",
         foreign_keys="Hospital.medecin_referent_id"
     )
+    medecin_conseil_destinations = relationship(
+        "DestinationCountry",
+        back_populates="medecin_conseil",
+        foreign_keys="DestinationCountry.medecin_conseil_id",
+    )
     hospital_stays_created = relationship(
         "HospitalStay",
         foreign_keys="HospitalStay.created_by_id",
