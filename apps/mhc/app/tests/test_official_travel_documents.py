@@ -158,3 +158,26 @@ class TestDigitalCard:
         parts = number.split()
         assert len(parts) == 4
         assert all(len(part) == 4 for part in parts)
+
+    def test_ayants_droit_one_adult_three_children(self):
+        assert CardService.format_ayants_droit_label(1, 3) == "1 - 03"
+        assert CardService.format_ayants_droit_label(1, 0) == "1 - 00"
+        notes = (
+            "Voyage avec enfants mineurs: Oui\n"
+            "Nombre d'enfants mineurs: 3\n"
+            "  Enfant 1: A (né(e) le 01/01/2018)\n"
+            "  Enfant 2: B (né(e) le 01/01/2020)\n"
+            "  Enfant 3: C (né(e) le 01/01/2022)\n"
+        )
+        souscription = _souscription(notes=notes, projet_voyage=SimpleNamespace(notes=notes, nombre_participants=4))
+        adults, children = CardService.resolve_ayants_droit(souscription, {})
+        assert (adults, children) == (1, 3)
+        assert CardService.format_ayants_droit_label(adults, children) == "1 - 03"
+
+    def test_ayants_droit_from_mobile_notes(self):
+        notes = (
+            "Mineurs accompagnés: Lea (né(e) le 02/02/2019); passeport X; "
+            "Noah (né(e) le 03/03/2021); passeport Y"
+        )
+        adults, children = CardService.resolve_ayants_droit(_souscription(notes=notes), {})
+        assert (adults, children) == (1, 2)

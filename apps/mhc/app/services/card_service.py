@@ -102,16 +102,17 @@ class CardService:
         font_tagline = cls._font(14)
 
         plan = cls._plan_label(souscription)
-        badge_x, badge_y = 40, 36
-        badge_w, badge_h = 250, 56
+        badge_x, badge_y = 40, 38
+        badge_pad_x, badge_pad_y = 22, 10
+        badge_box = draw.textbbox((0, 0), plan, font=font_badge)
+        badge_w = (badge_box[2] - badge_box[0]) + badge_pad_x * 2
+        badge_h = (badge_box[3] - badge_box[1]) + badge_pad_y * 2
         draw.rounded_rectangle(
             [badge_x, badge_y, badge_x + badge_w, badge_y + badge_h],
-            radius=8,
+            radius=6,
             fill=cls.TEAL_ACCENT,
         )
-        draw.ellipse([badge_x + 10, badge_y + 10, badge_x + 46, badge_y + 46], fill=(255, 255, 255))
-        draw.text((badge_x + 20, badge_y + 14), plan[:1], font=font_label, fill=cls.TEAL_ACCENT)
-        draw.text((badge_x + 58, badge_y + 12), plan, font=font_badge, fill=(255, 255, 255))
+        draw.text((badge_x + badge_pad_x, badge_y + badge_pad_y - 2), plan, font=font_badge, fill=(255, 255, 255))
 
         mobility_logo = cls._load_mobility_logo()
         if mobility_logo:
@@ -141,14 +142,12 @@ class CardService:
         if not full_name:
             full_name = getattr(user, "full_name", None) or getattr(user, "username", "") or "—"
 
-        photo = cls._prepare_photo(photo_bytes)
-        photo_w, photo_h = 220, 250
-        if photo.size != (photo_w, photo_h):
-            photo = ImageOps.fit(photo, (photo_w, photo_h), method=RESAMPLE_METHOD)
-        photo_x = cls.WIDTH - photo_w - 64
-        photo_y = 150
+        photo_w, photo_h = 230, 230
+        photo = cls._prepare_photo(photo_bytes, target_size=(photo_w, photo_h))
+        photo_x = cls.WIDTH - photo_w - 70
+        photo_y = 148
         draw.rectangle(
-            [photo_x - 8, photo_y - 8, photo_x + photo_w + 8, photo_y + photo_h + 8],
+            [photo_x - 6, photo_y - 6, photo_x + photo_w + 6, photo_y + photo_h + 6],
             fill=(255, 255, 255),
         )
         card.paste(photo, (photo_x, photo_y))
@@ -168,16 +167,121 @@ class CardService:
         draw.text((48, 380), f"Du  {start_date}", font=font_value, fill=(255, 255, 255))
         draw.text((48, 418), f"Au  {end_date}", font=font_value, fill=(255, 255, 255))
 
-        group_label = "1 - 01"
-        if traveler_info:
-            group_label = str(traveler_info.get("groupLabel") or traveler_info.get("group_label") or group_label)
-        draw.text((photo_x, photo_y + photo_h + 22), group_label, font=font_value, fill=(255, 255, 255))
+        adults, children = cls.resolve_ayants_droit(souscription, traveler_info)
+        group_label = cls.format_ayants_droit_label(adults, children)
+        icon_x = photo_x
+        icon_y = photo_y + photo_h + 18
+        cls._draw_group_icon(draw, icon_x, icon_y, size=32, fill=(255, 255, 255))
+        draw.text((icon_x + 44, icon_y + 2), group_label, font=font_value, fill=(255, 255, 255))
 
         card = cls._add_rounded_corners(card, radius=28)
         buffer = BytesIO()
         card.save(buffer, format="PNG", optimize=True)
         buffer.seek(0)
         return buffer
+
+    @staticmethod
+    def format_ayants_droit_label(adults: int, children: int) -> str:
+        """Affiche « 1 - 03 » : 1 adulte et 3 enfants ayant droit."""
+        adults = max(1, int(adults or 1))
+        children = max(0, int(children or 0))
+        return f"{adults} - {children:02d}"
+
+    @classmethod
+    def resolve_ayants_droit(cls, souscription, traveler_info: Optional[Dict[str, Any]] = None) -> tuple:
+        """Retourne (nb_adultes, nb_enfants) à partir du voyage / des notes."""
+        info = traveler_info or {}
+        adults = cls._optional_int(
+            info.get("adultsCount") or info.get("nb_adultes") or info.get("nombre_adultes")
+        )
+        children = cls._optional_int(
+            info.get("childrenCount") or info.get("nb_enfants") or info.get("nombre_enfants")
+        )
+        notes = "\n".join(
+            part
+            for part in (
+                getattr(souscription, "notes", None),
+                getattr(getattr(souscription, "projet_voyage", None), "notes", None),
+            )
+            if part
+        )
+        parsed_children = cls.count_children_from_notes(notes)
+        if children is None:
+            children = parsed_children
+        elif parsed_children:
+            children = max(children, parsed_children)
+
+        projet = getattr(souscription, "projet_voyage", None)
+        participants = cls._optional_int(getattr(projet, "nombre_participants", None)) if projet else None
+        if not children and participants and participants > 1 and cls._notes_mention_minors(notes):
+            children = max(0, participants - (adults or 1))
+
+        if not children:
+            import re
+            label = str(info.get("groupLabel") or info.get("group_label") or "")
+            match = re.match(r"^\s*(\d+)\s*-\s*(\d+)\s*$", label)
+            if match:
+                adults = adults or int(match.group(1))
+                children = int(match.group(2))
+
+        return (adults or 1), (children or 0)
+
+    @staticmethod
+    def _optional_int(value) -> Optional[int]:
+        if value in (None, ""):
+            return None
+        try:
+            return int(str(value).strip())
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _notes_mention_minors(notes: str) -> bool:
+        import re
+        return bool(re.search(r"mineur|minors|enfant", notes or "", re.IGNORECASE))
+
+    @staticmethod
+    def count_children_from_notes(notes: Optional[str]) -> int:
+        """Compte les enfants ayant droit dans les notes projet / souscription."""
+        import re
+        if not notes:
+            return 0
+        match = re.search(r"Nombre d['’]enfants mineurs\s*:\s*(\d+)", notes, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+        match = re.search(r"Minors count\s*:\s*(\d+)", notes, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+        enfants = re.findall(r"^\s*Enfant\s+\d+\s*:", notes, re.IGNORECASE | re.MULTILINE)
+        if enfants:
+            return len(enfants)
+        match = re.search(r"Mineurs accompagnés\s*:\s*(.+)$", notes, re.IGNORECASE | re.MULTILINE)
+        if match:
+            born = re.findall(r"né\(e\)\s+le", match.group(1), re.IGNORECASE)
+            if born:
+                return len(born)
+            parts = [part.strip() for part in match.group(1).split(";") if part.strip() and "passeport" not in part.lower() and "validité" not in part.lower()]
+            return len(parts)
+        return 0
+
+    @staticmethod
+    def _draw_group_icon(draw: ImageDraw.Draw, x: int, y: int, size: int = 32, fill=(255, 255, 255)) -> None:
+        """Icône « groupe » (3 silhouettes) sous la photo."""
+        head = max(4, size // 6)
+        body_h = size - head - 4
+
+        def person(cx: int, cy: int, scale: float = 1.0) -> None:
+            r = int(head * scale)
+            draw.ellipse([cx - r, cy, cx + r, cy + 2 * r], fill=fill)
+            top = cy + 2 * r + 1
+            draw.ellipse(
+                [cx - int(r * 1.7), top, cx + int(r * 1.7), top + int(body_h * scale)],
+                fill=fill,
+            )
+
+        person(x + int(size * 0.22), y + 4, 0.78)
+        person(x + int(size * 0.78), y + 4, 0.78)
+        person(x + int(size * 0.50), y, 1.0)
 
     @staticmethod
     def _plan_label(souscription) -> str:
@@ -568,33 +672,39 @@ class CardService:
         return truncated + ellipsis if truncated != text else text
 
     @staticmethod
-    def _prepare_photo(photo_bytes: Optional[bytes]) -> Image.Image:
-        """Prépare la photo de profil (utilise la photo réelle si disponible)."""
+    def _prepare_photo(photo_bytes: Optional[bytes], target_size: tuple = (230, 230)) -> Image.Image:
+        """Prépare la photo de profil (photo réelle ou silhouette)."""
         import logging
         logger = logging.getLogger(__name__)
-        target_size = (260, 300)
-        
+
         if photo_bytes:
             try:
-                logger.info(f"Traitement de la photo: {len(photo_bytes)} bytes")
                 photo = Image.open(BytesIO(photo_bytes)).convert("RGB")
-                # Corriger l'orientation selon les métadonnées EXIF (évite photo de travers)
                 try:
                     photo = ImageOps.exif_transpose(photo)
                 except Exception as ex:
                     logger.debug(f"exif_transpose ignoré: {ex}")
-                logger.info(f"Photo ouverte: {photo.size[0]}x{photo.size[1]}")
-                # Redimensionner en gardant le ratio et en centrant
-                photo = ImageOps.fit(photo, target_size, method=RESAMPLE_METHOD)
-                logger.info(f"Photo redimensionnée: {photo.size[0]}x{photo.size[1]}")
-                return photo
+                return ImageOps.fit(photo, target_size, method=RESAMPLE_METHOD)
             except Exception as e:
                 logger.error(f"Erreur lors du traitement de la photo: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
 
-        # Pas de photo : zone réservée unie (sans silhouette)
-        return Image.new("RGB", target_size, CardService.PLACEHOLDER_BG)
+        return CardService._placeholder_portrait(target_size)
+
+    @staticmethod
+    def _placeholder_portrait(target_size: tuple) -> Image.Image:
+        """Silhouette type e-carte lorsqu'aucune photo n'est encore disponible."""
+        w, h = target_size
+        image = Image.new("RGB", target_size, (214, 220, 230))
+        draw = ImageDraw.Draw(image)
+        head_r = int(min(w, h) * 0.16)
+        cx, cy = w // 2, int(h * 0.36)
+        draw.ellipse([cx - head_r, cy - head_r, cx + head_r, cy + head_r], fill=(168, 176, 188))
+        shoulder_top = cy + head_r + 8
+        draw.ellipse(
+            [int(w * 0.18), shoulder_top, int(w * 0.82), h + int(h * 0.25)],
+            fill=(168, 176, 188),
+        )
+        return image
 
     @staticmethod
     def _load_fonts():

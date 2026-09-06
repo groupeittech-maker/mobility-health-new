@@ -949,10 +949,7 @@ class AttestationService:
         import re
         if not notes:
             return []
-        if not re.search(r"Voyage avec enfants mineurs\s*:\s*Oui", notes, re.IGNORECASE):
-            return []
         minors = []
-        # Lignes du type "  Enfant 1: Prénom Nom (né(e) le DD/MM/YYYY)"
         pattern = re.compile(
             r"^\s*Enfant\s+\d+\s*:\s*(.+?)\s*\(né\(e\)\s+le\s+([^)]+)\)",
             re.IGNORECASE | re.MULTILINE,
@@ -962,6 +959,19 @@ class AttestationService:
             date_naissance = (match.group(2) or "").strip()
             if nom_complet or date_naissance:
                 minors.append({"nom_complet": nom_complet, "date_naissance": date_naissance})
+        if minors:
+            return minors
+        mobile = re.search(r"Mineurs accompagnés\s*:\s*(.+)$", notes, re.IGNORECASE | re.MULTILINE)
+        if mobile:
+            for part in mobile.group(1).split(";"):
+                chunk = part.strip()
+                if not chunk:
+                    continue
+                born = re.search(r"(.+?)\s*\(né\(e\)\s+le\s+([^)]+)\)", chunk, re.IGNORECASE)
+                if born:
+                    minors.append({"nom_complet": born.group(1).strip(), "date_naissance": born.group(2).strip()})
+                else:
+                    minors.append({"nom_complet": chunk, "date_naissance": ""})
         return minors
 
     @staticmethod
@@ -1372,10 +1382,18 @@ class AttestationService:
         minors_info: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         info = dict(traveler_info or {})
+        notes = souscription.notes or ""
+        projet = getattr(souscription, "projet_voyage", None)
+        if projet and getattr(projet, "notes", None):
+            notes = f"{notes}\n{projet.notes}"
         if not minors_info:
-            minors_info = AttestationService._extract_minors_from_notes(souscription.notes or "")
-        total = 1 + len(minors_info or [])
-        info.setdefault("groupLabel", f"1 - {total:02d}")
+            minors_info = AttestationService._extract_minors_from_notes(notes)
+        if minors_info:
+            info["childrenCount"] = len(minors_info)
+        adults, children = CardService.resolve_ayants_droit(souscription, info)
+        info["adultsCount"] = adults
+        info["childrenCount"] = children
+        info["groupLabel"] = CardService.format_ayants_droit_label(adults, children)
         return info
 
     @staticmethod
