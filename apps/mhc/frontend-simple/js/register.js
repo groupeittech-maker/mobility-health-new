@@ -44,9 +44,39 @@ document.addEventListener('DOMContentLoaded', function() {
                         name: String(country.nom || '').trim(),
                     }))
                     .filter((country) => country.code && country.name);
+                return;
             }
         } catch (error) {
-            console.warn('Impossible de charger les pays de référence depuis l’API, fallback local utilisé.', error);
+            console.warn('Impossible de charger les pays depuis l’API MHC.', error);
+        }
+
+        try {
+            const response = await fetch(
+                'https://restcountries.com/v3.1/all?fields=cca2,translations'
+            );
+            if (response.ok) {
+                const payload = await response.json();
+                if (Array.isArray(payload) && payload.length > 0) {
+                    referenceCountries = payload
+                        .map((country) => ({
+                            code: String(country.cca2 || '').trim().toUpperCase(),
+                            name: String(country.translations?.fra?.common || '').trim(),
+                        }))
+                        .filter((country) => country.code && country.name)
+                        .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+                    if (referenceCountries.length > 0) {
+                        console.info('Liste des pays chargée via RestCountries.');
+                        return;
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Fallback RestCountries indisponible.', error);
+        }
+
+        if (typeof COUNTRIES !== 'undefined' && COUNTRIES.length > 0) {
+            referenceCountries = COUNTRIES.map(country => ({ code: country.code, name: country.name }));
+            console.info('Liste des pays locale utilisée.');
         }
     }
 

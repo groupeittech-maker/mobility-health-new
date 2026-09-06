@@ -151,7 +151,12 @@ sudo docker compose $COMPOSE_FILES exec -T db pg_isready -U postgres || true
 
 echo "[5/6] 📊 Running database migrations..."
 sudo docker compose $COMPOSE_FILES exec -T api alembic current || true
-sudo docker compose $COMPOSE_FILES exec -T api alembic upgrade head
+if ! sudo docker compose $COMPOSE_FILES exec -T api alembic upgrade head; then
+  echo "❌ Échec des migrations Alembic"
+  sudo docker compose $COMPOSE_FILES logs api --tail 80 || true
+  exit 1
+fi
+sudo docker compose $COMPOSE_FILES exec -T api alembic current || true
 
 echo "[6/6] 🔄 Restarting API..."
 sudo docker compose $COMPOSE_FILES restart api
@@ -180,5 +185,24 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$API_HEALTHY" = false ]; do
     fi
   fi
 done
+
+echo "🧪 Testing reference countries endpoint..."
+REF_COUNTRIES_OK=false
+for attempt in 1 2 3; do
+  HTTP_CODE=$(curl -s -o /tmp/ref_countries.json -w "%{http_code}" \
+    "https://srv1324425.hstgr.cloud/api/v1/destinations/reference-countries?actif_seulement=true" || true)
+  if [ "$HTTP_CODE" = "200" ] && [ -s /tmp/ref_countries.json ]; then
+    REF_COUNTRIES_OK=true
+    echo "✅ reference-countries OK (HTTP $HTTP_CODE, $(wc -c < /tmp/ref_countries.json) bytes)"
+    break
+  fi
+  echo "⚠️ reference-countries HTTP $HTTP_CODE (attempt $attempt/3)"
+  sleep 5
+done
+if [ "$REF_COUNTRIES_OK" = false ]; then
+  echo "❌ reference-countries endpoint unavailable after deploy"
+  head -c 400 /tmp/ref_countries.json 2>/dev/null || true
+  exit 1
+fi
 
 echo "✅ Backend deployment completed successfully!"

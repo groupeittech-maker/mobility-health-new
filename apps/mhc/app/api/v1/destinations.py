@@ -67,18 +67,13 @@ async def list_destination_countries(
     return result
 
 
-@router.get("/reference-countries")
-async def list_reference_countries(
-    force_refresh: bool = Query(False, description="Forcer le rafraîchissement du cache"),
-    actif_seulement: bool = Query(True, description="Ne retourner que les pays actifs"),
-    db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_optional),
-):
-    """
-    Retourne la liste des pays de référence pour les sélecteurs de pays de résidence.
-    La source de vérité est volontairement la même que pour les pays de destination,
-    afin d'éviter les écarts de libellés du type "Congo" vs "Congo-Brazzaville".
-    """
+def _reference_countries_from_db(
+    db: Session,
+    *,
+    actif_seulement: bool,
+    force_refresh: bool,
+) -> Optional[List[dict]]:
+    """Retourne les pays depuis la base, ou None si indisponible / vide."""
     existing_count = db.query(DestinationCountry).count()
     if force_refresh or existing_count < 150:
         try:
@@ -92,15 +87,45 @@ async def list_reference_countries(
         query = query.filter(DestinationCountry.est_actif == True)
 
     pays = query.order_by(DestinationCountry.ordre_affichage, DestinationCountry.nom).all()
-    if pays:
-        return [
-            {
-                "code": (p.code or "").strip().upper(),
-                "nom": p.nom,
-                "region": None,
-            }
-            for p in pays
-        ]
+    if not pays:
+        return None
+
+    return [
+        {
+            "code": (p.code or "").strip().upper(),
+            "nom": p.nom,
+            "region": None,
+        }
+        for p in pays
+    ]
+
+
+@router.get("/reference-countries")
+async def list_reference_countries(
+    force_refresh: bool = Query(False, description="Forcer le rafraîchissement du cache"),
+    actif_seulement: bool = Query(True, description="Ne retourner que les pays actifs"),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+):
+    """
+    Retourne la liste des pays de référence pour les sélecteurs de pays de résidence.
+    La source de vérité est volontairement la même que pour les pays de destination,
+    afin d'éviter les écarts de libellés du type "Congo" vs "Congo-Brazzaville".
+    """
+    try:
+        countries = _reference_countries_from_db(
+            db,
+            actif_seulement=actif_seulement,
+            force_refresh=force_refresh,
+        )
+        if countries:
+            return countries
+    except Exception as exc:
+        db.rollback()
+        print(
+            "Accès destination_countries impossible (schéma ou base), "
+            f"fallback RestCountries: {exc}"
+        )
 
     return get_reference_countries(force_refresh=force_refresh)
 
