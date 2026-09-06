@@ -83,6 +83,7 @@ function clearAuth() {
     localStorage.removeItem('user_pays_residence');
     localStorage.removeItem('hospital_id');
     localStorage.removeItem('hospital_name');
+    localStorage.removeItem('mhc_medecin_conseil_assignments_v1');
 }
 
 // Fonction pour vérifier si l'utilisateur a un rôle spécifique

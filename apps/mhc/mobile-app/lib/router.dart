@@ -11,6 +11,7 @@ import 'screens/referent/referent_notifications_screen.dart';
 import 'screens/referent/referent_profile_screen.dart';
 import 'screens/referent/referent_shell_screen.dart';
 import 'screens/register_screen.dart';
+import 'screens/verify_email_screen.dart';
 import 'screens/splash/splash_screen.dart';
 import 'screens/subscription/nouvelle_souscription_screen.dart';
 
@@ -28,6 +29,16 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/register',
       builder: (context, state) => const RegisterScreen(),
+    ),
+    GoRoute(
+      path: '/verify-email',
+      builder: (context, state) {
+        final email = state.uri.queryParameters['email'] ?? '';
+        if (email.trim().isEmpty) {
+          return const RegisterScreen();
+        }
+        return VerifyEmailScreen(email: email.trim());
+      },
     ),
     GoRoute(
       path: '/forgot-password',

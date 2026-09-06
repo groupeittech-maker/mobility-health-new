@@ -12,11 +12,13 @@ from app.models.alerte import Alerte
 from app.models.sinistre import Sinistre
 from app.models.hospital import Hospital
 from app.models.souscription import Souscription
+from app.services.medecin_conseil import list_medecin_conseil_for_user
 from app.models.attestation import Attestation
 from app.models.questionnaire import Questionnaire
 from app.models.notification import Notification
 from app.models.prestation import Prestation
 from app.models.hospital_stay import HospitalStay
+from app.services.sinistre_attachment_service import attachment_to_info, get_certificat_deces_attachment
 from app.schemas.alerte import AlerteCreate, AlerteResponse
 from app.schemas.sinistre import (
     SinistreResponse,
@@ -506,6 +508,40 @@ async def notify_hospital_reception(
             notification_id=notification.id,
             channels=["push"],
         )
+
+
+class MedecinConseilContactResponse(BaseModel):
+    id: int
+    nom: Optional[str] = None
+    telephone: Optional[str] = None
+    email: Optional[str] = None
+
+
+class MedecinConseilAssignmentResponse(BaseModel):
+    souscription_id: int
+    numero_souscription: Optional[str] = None
+    statut_souscription: Optional[str] = None
+    destination: Optional[str] = None
+    destination_country_id: Optional[int] = None
+    destination_country_name: Optional[str] = None
+    medecin_conseil: Optional[MedecinConseilContactResponse] = None
+
+
+@router.get("/medecin-conseil", response_model=List[MedecinConseilAssignmentResponse])
+async def get_medecin_conseil(
+    souscription_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Coordonnées du médecin-conseil liées à la destination de souscription.
+    Destiné à être mis en cache localement pour consultation hors ligne.
+    """
+    return list_medecin_conseil_for_user(
+        db,
+        current_user,
+        souscription_id=souscription_id,
+    )
 
 
 def generate_numero_sinistre() -> str:
@@ -1121,6 +1157,11 @@ async def get_sinistre_by_alerte(
         if souscription:
             numero_souscription = souscription.numero_souscription
 
+    certificat_deces_attachment = get_certificat_deces_attachment(db, sinistre.id)
+    certificat_deces_payload = (
+        attachment_to_info(certificat_deces_attachment) if certificat_deces_attachment else None
+    )
+
     return SinistreDetailResponse(
         id=sinistre.id,
         alerte_id=sinistre.alerte_id,
@@ -1143,6 +1184,7 @@ async def get_sinistre_by_alerte(
         medical_questionnaire=medical_questionnaire_payload,
         patient=patient_info,
         hospital_stay=hospital_stay_payload,
+        certificat_deces=certificat_deces_payload,
     )
 
 

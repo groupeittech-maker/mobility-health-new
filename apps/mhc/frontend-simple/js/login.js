@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (urlParams.get('inscription_pending') === '1') {
         const successMessage = document.getElementById('registrationSuccess');
         if (successMessage) {
-            successMessage.textContent = 'Votre inscription est en cours de validation par le médecin MH. Vous recevrez un email lorsque votre compte sera activé.';
+            successMessage.textContent = 'Vérifiez votre boîte e-mail : saisissez le code reçu pour activer votre compte, puis connectez-vous.';
             successMessage.style.display = 'block';
             successMessage.style.backgroundColor = '#cce5ff';
             successMessage.style.borderColor = '#b8daff';

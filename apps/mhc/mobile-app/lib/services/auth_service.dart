@@ -4,6 +4,7 @@ import '../core/network/api_client.dart';
 import '../core/storage/token_storage.dart';
 import '../models/user.dart';
 import 'api_services.dart';
+import 'medecin_conseil_service.dart';
 import 'referent_push_service.dart';
 
 /// Authentification et compte (singleton — utilisé par [AuthProvider] et écrans associés).
@@ -104,6 +105,7 @@ class AuthService {
     AttestationsService.clearUserAttestationsCache();
     SosService.clearSosAlertesCache();
     HospitalStaysService.clearHospitalStaysCache();
+    await MedecinConseilService().clearCache();
     await _storage.clearAll();
   }
 
@@ -116,6 +118,36 @@ class AuthService {
       );
     } on DioException catch (e) {
       throw Exception(_dioDetail(e) ?? 'Erreur lors de la recherche du compte');
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    try {
+      return await _api.post<Map<String, dynamic>>(
+        '/auth/verify-email',
+        body: {
+          'email': email.trim(),
+          'code': code.trim(),
+        },
+        fromJson: (d) => d as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      throw Exception(_dioDetail(e) ?? 'Code de vérification invalide');
+    }
+  }
+
+  Future<Map<String, dynamic>> resendVerificationCode(String email) async {
+    try {
+      return await _api.post<Map<String, dynamic>>(
+        '/auth/resend-verification-code',
+        body: {'email': email.trim()},
+        fromJson: (d) => d as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      throw Exception(_dioDetail(e) ?? 'Impossible de renvoyer le code');
     }
   }
 

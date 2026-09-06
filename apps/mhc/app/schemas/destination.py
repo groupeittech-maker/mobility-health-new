@@ -3,6 +3,13 @@ from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 
+class MedecinConseilContact(BaseModel):
+    id: int
+    nom: Optional[str] = None
+    telephone: Optional[str] = None
+    email: Optional[str] = None
+
+
 class DestinationCityBase(BaseModel):
     nom: str
     est_actif: bool = True
@@ -36,6 +43,7 @@ class DestinationCountryBase(BaseModel):
     est_actif: bool = True
     ordre_affichage: int = 0
     notes: Optional[str] = None
+    medecin_conseil_id: Optional[int] = None
 
 
 class DestinationCountryCreate(DestinationCountryBase):
@@ -48,6 +56,7 @@ class DestinationCountryUpdate(BaseModel):
     est_actif: Optional[bool] = None
     ordre_affichage: Optional[int] = None
     notes: Optional[str] = None
+    medecin_conseil_id: Optional[int] = None
 
 
 class DestinationCountryResponse(DestinationCountryBase):
@@ -55,6 +64,7 @@ class DestinationCountryResponse(DestinationCountryBase):
     created_at: datetime
     updated_at: datetime
     villes: List[DestinationCityResponse] = []
+    medecin_conseil: Optional[MedecinConseilContact] = None
     
     model_config = ConfigDict(from_attributes=True)
 

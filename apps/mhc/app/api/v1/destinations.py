@@ -1,13 +1,17 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.api.v1.auth import get_current_user, get_current_user_optional, require_admin_user
 from app.models.user import User
 from app.models.destination import DestinationCountry, DestinationCity
 from app.services.country_reference import get_reference_countries
 from app.services.destination_reference import sync_destination_reference_to_db
+from app.services.medecin_conseil import (
+    ensure_medecin_conseil,
+    serialize_city,
+    serialize_destination_country,
+)
 from app.schemas.destination import (
     DestinationCountryCreate,
     DestinationCountryUpdate,
@@ -43,7 +47,7 @@ async def list_destination_countries(
             # Ne pas bloquer la requête si la synchronisation auto échoue.
             print(f"Synchronisation auto des destinations impossible: {exc}")
 
-    query = db.query(DestinationCountry)
+    query = db.query(DestinationCountry).options(joinedload(DestinationCountry.medecin_conseil))
     
     if actif_seulement:
         query = query.filter(DestinationCountry.est_actif == True)
@@ -52,36 +56,13 @@ async def list_destination_countries(
     
     result = []
     for p in pays:
-        pays_dict = {
-            "id": p.id,
-            "code": p.code,
-            "nom": p.nom,
-            "est_actif": p.est_actif,
-            "ordre_affichage": p.ordre_affichage,
-            "notes": p.notes,
-            "created_at": p.created_at,
-            "updated_at": p.updated_at,
-            "villes": [],
-        }
+        villes = []
         if include_cities:
             villes_query = db.query(DestinationCity).filter(DestinationCity.pays_id == p.id)
             if actif_seulement:
                 villes_query = villes_query.filter(DestinationCity.est_actif == True)
-            villes = villes_query.order_by(DestinationCity.ordre_affichage, DestinationCity.nom).all()
-            pays_dict["villes"] = [
-                {
-                    "id": v.id,
-                    "pays_id": v.pays_id,
-                    "nom": v.nom,
-                    "est_actif": v.est_actif,
-                    "ordre_affichage": v.ordre_affichage,
-                    "notes": v.notes,
-                    "created_at": v.created_at,
-                    "updated_at": v.updated_at,
-                }
-                for v in villes
-            ]
-        result.append(pays_dict)
+            villes = [serialize_city(v) for v in villes_query.order_by(DestinationCity.ordre_affichage, DestinationCity.nom).all()]
+        result.append(serialize_destination_country(p, villes=villes))
     
     return result
 
@@ -164,11 +145,18 @@ async def create_destination_country(
             detail=f"Un pays avec le code '{country_data.code}' existe déjà"
         )
     
-    pays = DestinationCountry(**country_data.model_dump())
+    payload = country_data.model_dump()
+    ensure_medecin_conseil(db, payload.get("medecin_conseil_id"))
+    pays = DestinationCountry(**payload)
     db.add(pays)
     db.commit()
-    db.refresh(pays)
-    return pays
+    pays = (
+        db.query(DestinationCountry)
+        .options(joinedload(DestinationCountry.medecin_conseil))
+        .filter(DestinationCountry.id == pays.id)
+        .first()
+    )
+    return serialize_destination_country(pays, villes=[])
 
 
 @router.get("/admin/countries", response_model=List[DestinationCountryWithCitiesResponse])
@@ -178,7 +166,7 @@ async def list_all_destination_countries(
     current_user: User = Depends(require_admin_user)
 ):
     """Liste tous les pays de destination (admin)"""
-    query = db.query(DestinationCountry)
+    query = db.query(DestinationCountry).options(joinedload(DestinationCountry.medecin_conseil))
     
     if actif_seulement is not None:
         query = query.filter(DestinationCountry.est_actif == actif_seulement)
@@ -190,31 +178,7 @@ async def list_all_destination_countries(
         villes = db.query(DestinationCity).filter(DestinationCity.pays_id == p.id).order_by(
             DestinationCity.ordre_affichage, DestinationCity.nom
         ).all()
-        
-        pays_dict = {
-            "id": p.id,
-            "code": p.code,
-            "nom": p.nom,
-            "est_actif": p.est_actif,
-            "ordre_affichage": p.ordre_affichage,
-            "notes": p.notes,
-            "created_at": p.created_at,
-            "updated_at": p.updated_at,
-            "villes": [
-                {
-                    "id": v.id,
-                    "pays_id": v.pays_id,
-                    "nom": v.nom,
-                    "est_actif": v.est_actif,
-                    "ordre_affichage": v.ordre_affichage,
-                    "notes": v.notes,
-                    "created_at": v.created_at,
-                    "updated_at": v.updated_at,
-                }
-                for v in villes
-            ]
-        }
-        result.append(pays_dict)
+        result.append(serialize_destination_country(p, villes=[serialize_city(v) for v in villes]))
     
     return result
 
@@ -250,40 +214,22 @@ async def get_destination_country(
     current_user: User = Depends(require_admin_user)
 ):
     """Récupérer un pays de destination par ID"""
-    pays = db.query(DestinationCountry).filter(DestinationCountry.id == country_id).first()
+    pays = (
+        db.query(DestinationCountry)
+        .options(joinedload(DestinationCountry.medecin_conseil))
+        .filter(DestinationCountry.id == country_id)
+        .first()
+    )
     if not pays:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Pays de destination non trouvé"
         )
-    
+
     villes = db.query(DestinationCity).filter(DestinationCity.pays_id == country_id).order_by(
         DestinationCity.ordre_affichage, DestinationCity.nom
     ).all()
-    
-    return {
-        "id": pays.id,
-        "code": pays.code,
-        "nom": pays.nom,
-        "est_actif": pays.est_actif,
-        "ordre_affichage": pays.ordre_affichage,
-        "notes": pays.notes,
-        "created_at": pays.created_at,
-        "updated_at": pays.updated_at,
-        "villes": [
-            {
-                "id": v.id,
-                "pays_id": v.pays_id,
-                "nom": v.nom,
-                "est_actif": v.est_actif,
-                "ordre_affichage": v.ordre_affichage,
-                "notes": v.notes,
-                "created_at": v.created_at,
-                "updated_at": v.updated_at,
-            }
-            for v in villes
-        ]
-    }
+    return serialize_destination_country(pays, villes=[serialize_city(v) for v in villes])
 
 
 @router.put("/admin/countries/{country_id}", response_model=DestinationCountryResponse)
@@ -311,12 +257,19 @@ async def update_destination_country(
             )
     
     update_data = country_data.model_dump(exclude_unset=True)
+    if "medecin_conseil_id" in update_data:
+        ensure_medecin_conseil(db, update_data.get("medecin_conseil_id"))
     for field, value in update_data.items():
         setattr(pays, field, value)
     
     db.commit()
-    db.refresh(pays)
-    return pays
+    pays = (
+        db.query(DestinationCountry)
+        .options(joinedload(DestinationCountry.medecin_conseil))
+        .filter(DestinationCountry.id == country_id)
+        .first()
+    )
+    return serialize_destination_country(pays, villes=[])
 
 
 @router.delete("/admin/countries/{country_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -83,6 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderSubscriptionDetails(subscription, container);
         updateActionLinks(subscription, attestationsLink, sosLink, resiliationBtn);
         await maybeAttachEcardSection(subscription, container);
+        await renderMedecinConseilForSubscription(subscription, container);
     } catch (error) {
         clearTimeout(timeoutId);
         console.error('Erreur lors du chargement de la souscription:', error);
@@ -150,6 +151,7 @@ function renderSubscriptionDetails(subscription, container) {
 
             ${renderProductSection(product, subscription)}
             ${renderProjectSection(project, quoteCur)}
+            <div id="medecinConseilDetails"></div>
             ${renderValidationsSection(subscription)}
             ${renderResiliationSection(subscription)}
             ${subscription.notes ? `
@@ -198,6 +200,19 @@ function renderProductSection(product, subscription) {
             ${product.description ? `<p class="muted-text">${escapeHtml(product.description)}</p>` : ''}
         </div>
     `;
+}
+
+async function renderMedecinConseilForSubscription(subscription, container) {
+    const holder = container.querySelector('#medecinConseilDetails');
+    if (!holder) return;
+    const cached = readMedecinConseilCache().filter(
+        (item) => String(item.souscription_id) === String(subscription.id)
+    );
+    if (cached.length) {
+        holder.innerHTML = renderMedecinConseilSection(cached, { fromCache: true });
+    }
+    const result = await loadMedecinConseilAssignments({ souscriptionId: subscription.id });
+    holder.innerHTML = renderMedecinConseilSection(result.items, { fromCache: result.fromCache });
 }
 
 function renderProjectSection(project, quoteCurrency) {

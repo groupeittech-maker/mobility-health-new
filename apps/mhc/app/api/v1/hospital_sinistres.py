@@ -3,7 +3,8 @@ from decimal import Decimal
 from typing import List, Optional, Tuple
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
+from fastapi.responses import Response
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload, aliased
 
@@ -27,7 +28,7 @@ from app.models.invoice import Invoice, InvoiceItem, InvoiceStatus
 from app.services.invoice_history import record_invoice_history
 from app.models.notification import Notification
 from app.models.sinistre import Sinistre
-from app.models.sinistre_process_step import SinistreProcessStep
+from app.models.sinistre_attachment import SinistreAttachment, ATTACHMENT_CERTIFICAT_DECES
 from app.models.user import User
 from app.api.v1.sos import manager as websocket_manager
 from app.schemas.hospital_stay import (
@@ -41,7 +42,15 @@ from app.schemas.hospital_stay import (
 )
 from app.schemas.sinistre import SinistreResponse, SinistreWorkflowStepResponse
 from app.services.sinistre_workflow_service import update_workflow_step
-from app.services.referent_notification_reads import mark_notifications_read_for_relation
+from app.schemas.sinistre_attachment import SinistreAttachmentInfo
+from app.services.sinistre_attachment_service import attachment_to_info, get_certificat_deces_attachment
+from app.services.sinistre_attachment_storage import (
+    ALLOWED_EXTENSIONS,
+    MAX_ATTACHMENT_SIZE,
+    read_sinistre_attachment_bytes,
+    sanitize_filename,
+    store_sinistre_attachment_file,
+)
 
 router = APIRouter()
 
@@ -1015,4 +1024,144 @@ async def create_invoice_for_stay(
     db.commit()
     db.refresh(stay)
     return HospitalStayResponse.model_validate(stay)
+
+
+def _extension_allowed(filename: str, content_type: str) -> bool:
+    sanitized = sanitize_filename(filename)
+    if "." in sanitized:
+        ext = sanitized.rsplit(".", 1)[-1].lower()
+        if ext in ALLOWED_EXTENSIONS:
+            return True
+    ct = (content_type or "").lower()
+    if "pdf" in ct or "jpeg" in ct or "jpg" in ct or "png" in ct:
+        return True
+    return False
+
+
+def _user_is_assigned_doctor_for_sinistre(db: Session, user: User, sinistre: Sinistre) -> bool:
+    stay = (
+        db.query(HospitalStay)
+        .filter(HospitalStay.sinistre_id == sinistre.id)
+        .first()
+    )
+    return stay is not None and stay.assigned_doctor_id == user.id
+
+
+def _require_certificat_deces_upload_access(db: Session, user: User, sinistre: Sinistre) -> None:
+    if not _user_is_assigned_doctor_for_sinistre(db, user, sinistre):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seul le médecin traitant assigné peut joindre le certificat de décès.",
+        )
+    if user.hospital_id and sinistre.hospital_id and user.hospital_id != sinistre.hospital_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cet hôpital n'est pas associé à votre compte.",
+        )
+
+
+@router.post(
+    "/sinistres/{sinistre_id}/attachments/certificat-deces",
+    response_model=SinistreAttachmentInfo,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_certificat_deces(
+    sinistre_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Joindre le certificat de décès émis par l'hôpital au dossier sinistre."""
+    sinistre = _get_sinistre_or_404(db, sinistre_id)
+    _require_certificat_deces_upload_access(db, current_user, sinistre)
+
+    if not file.filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Fichier requis.")
+    content_type = file.content_type or "application/octet-stream"
+    if not _extension_allowed(file.filename, content_type):
+        allowed = ", ".join(sorted(ALLOWED_EXTENSIONS))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Format non autorisé. Extensions acceptées : {allowed}.",
+        )
+
+    file_bytes = await file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Fichier vide.")
+    if len(file_bytes) > MAX_ATTACHMENT_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Fichier trop volumineux (max {MAX_ATTACHMENT_SIZE // (1024 * 1024)} Mo).",
+        )
+
+    try:
+        bucket_name, object_name = store_sinistre_attachment_file(
+            sinistre.id,
+            file_bytes,
+            file.filename,
+            content_type,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Stockage de fichiers indisponible.",
+        ) from exc
+
+    existing = get_certificat_deces_attachment(db, sinistre.id)
+    if existing:
+        existing.bucket_name = bucket_name
+        existing.object_name = object_name
+        existing.file_name = sanitize_filename(file.filename)
+        existing.content_type = content_type
+        existing.file_size = len(file_bytes)
+        existing.uploaded_by_id = current_user.id
+        attachment = existing
+    else:
+        attachment = SinistreAttachment(
+            sinistre_id=sinistre.id,
+            attachment_type=ATTACHMENT_CERTIFICAT_DECES,
+            bucket_name=bucket_name,
+            object_name=object_name,
+            file_name=sanitize_filename(file.filename),
+            content_type=content_type,
+            file_size=len(file_bytes),
+            uploaded_by_id=current_user.id,
+        )
+        db.add(attachment)
+
+    db.commit()
+    saved = get_certificat_deces_attachment(db, sinistre.id)
+    return attachment_to_info(saved)
+
+
+@router.get("/sinistres/{sinistre_id}/attachments/certificat-deces")
+async def download_certificat_deces(
+    sinistre_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Télécharger le certificat de décès joint au dossier."""
+    sinistre = _get_sinistre_or_404(db, sinistre_id)
+    if not _user_can_view_sinistre(current_user, sinistre):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès refusé")
+
+    attachment = get_certificat_deces_attachment(db, sinistre.id)
+    if not attachment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Aucun certificat de décès joint à ce dossier.",
+        )
+
+    file_bytes = read_sinistre_attachment_bytes(attachment.bucket_name, attachment.object_name)
+    if not file_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Fichier introuvable en stockage.",
+        )
+
+    media_type = attachment.content_type or "application/octet-stream"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{attachment.file_name}"',
+    }
+    return Response(content=file_bytes, media_type=media_type, headers=headers)
 

@@ -15,7 +15,6 @@ class TestAuthFlows:
             "/api/v1/auth/register",
             json={
                 "email": "newuser@example.com",
-                "username": "newuser",
                 "password": "newpassword123",
                 "full_name": "New User"
             }
@@ -23,7 +22,7 @@ class TestAuthFlows:
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
         assert data["email"] == "newuser@example.com"
-        assert data["username"] == "newuser"
+        assert data["username"] == "newuser@example.com"
         assert data["full_name"] == "New User"
         assert "password" not in data
         assert "hashed_password" not in data
@@ -45,18 +44,18 @@ class TestAuthFlows:
         detail = response.json()["detail"].lower()
         assert "déjà" in detail or "already" in detail
     
-    def test_register_duplicate_username(self, client, test_user):
-        """Test registration with duplicate username"""
+    def test_register_duplicate_username_uses_email(self, client, test_user):
+        """Le nom d'utilisateur est toujours l'e-mail : doublon = e-mail déjà pris."""
         response = client.post(
             "/api/v1/auth/register",
             json={
-                "email": "different@example.com",
-                "username": test_user.username,
+                "email": test_user.email,
                 "password": "password123"
             }
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "username already taken" in response.json()["detail"].lower()
+        detail = response.json()["detail"].lower()
+        assert "déjà" in detail or "already" in detail
     
     def test_register_invalid_email(self, client):
         """Test registration with invalid email"""
@@ -243,13 +242,11 @@ class TestAuthFlows:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
     
     def test_register_and_login_flow(self, client, db):
-        """Test complete register -> login flow"""
-        # Register
+        """Test complete register -> activate -> login flow"""
         register_response = client.post(
             "/api/v1/auth/register",
             json={
                 "email": "flowtest@example.com",
-                "username": "flowtest",
                 "password": "flowpassword123",
                 "full_name": "Flow Test User"
             }
@@ -258,32 +255,97 @@ class TestAuthFlows:
 
         from app.models.user import User
 
-        u = db.query(User).filter(User.username == "flowtest").first()
+        u = db.query(User).filter(User.username == "flowtest@example.com").first()
         assert u is not None
         u.is_active = True
         u.email_verified = True
         db.commit()
-        
-        # Login
+
         login_response = client.post(
             "/api/v1/auth/login",
             data={
-                "username": "flowtest",
+                "username": "flowtest@example.com",
                 "password": "flowpassword123"
             }
         )
         assert login_response.status_code == status.HTTP_200_OK
         assert "access_token" in login_response.json()
-        
-        # Get current user
+
         token = login_response.json()["access_token"]
         me_response = client.get(
             "/api/v1/auth/me",
             headers={"Authorization": f"Bearer {token}"}
         )
         assert me_response.status_code == status.HTTP_200_OK
-        assert me_response.json()["username"] == "flowtest"
+        assert me_response.json()["username"] == "flowtest@example.com"
 
+    def test_login_auto_activates_verified_approved_user(self, client, db):
+        """Compte e-mail vérifié et approuvé mais inactif : connexion autorisée."""
+        from app.models.user import User
+        from app.core.security import get_password_hash
+
+        user = User(
+            email="verified@example.com",
+            username="verified@example.com",
+            hashed_password=get_password_hash("password123"),
+            is_active=False,
+            email_verified=True,
+            validation_inscription="approved",
+        )
+        db.add(user)
+        db.commit()
+
+        response = client.post(
+            "/api/v1/auth/login",
+            data={
+                "username": "verified@example.com",
+                "password": "password123",
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        db.refresh(user)
+        assert user.is_active is True
+
+    def test_admin_login_with_username(self, client, test_admin):
+        """Les administrateurs se connectent avec leur nom d'utilisateur, pas l'e-mail."""
+        response = client.post(
+            "/api/v1/auth/login",
+            data={
+                "username": test_admin.username,
+                "password": "adminpassword123",
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert "access_token" in response.json()
+
+    def test_admin_inactive_not_prompted_for_email_otp(self, client, db):
+        """Un compte admin inactif ne doit pas être bloqué par le flux OTP voyageur."""
+        from app.models.user import User
+        from app.core.security import get_password_hash
+        from app.core.enums import Role
+
+        admin = User(
+            email="inactive.admin@example.com",
+            username="inactive_admin",
+            hashed_password=get_password_hash("adminpassword123"),
+            full_name="Inactive Admin",
+            role=Role.ADMIN,
+            is_active=False,
+            email_verified=False,
+            validation_inscription="approved",
+        )
+        db.add(admin)
+        db.commit()
+
+        response = client.post(
+            "/api/v1/auth/login",
+            data={
+                "username": "inactive_admin",
+                "password": "adminpassword123",
+            },
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "code de vérification" not in response.json()["detail"].lower()
 
 
 

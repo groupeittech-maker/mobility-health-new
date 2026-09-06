@@ -36,6 +36,7 @@ from app.models.destination import DestinationCountry, DestinationCity
 from app.models.ia_analysis import IAAnalysis, IAAnalysisAssureur, IAAnalysisDocument
 from app.models.mhc_reference_counter import MhcReferenceCounter
 from app.models.mhc_care_document import MhcCareDocument
+from app.models.sinistre_attachment import SinistreAttachment
 from app.models.tarification import (
     TarificationZone,
     TarificationZonePays,
@@ -94,5 +95,6 @@ __all__ = [
     "TarificationTrancheAge",
     "MhcReferenceCounter",
     "MhcCareDocument",
+    "SinistreAttachment",
 ]
 

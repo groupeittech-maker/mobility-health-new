@@ -9,7 +9,27 @@
     
     // Charger les souscriptions actives
     await loadActiveSubscriptions();
+    await loadMedecinConseilBlock();
 })();
+
+async function loadMedecinConseilBlock() {
+    const container = document.getElementById('medecinConseilContainer');
+    if (!container) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const subscriptionIdParam = urlParams.get('subscription_id');
+    const souscriptionId = subscriptionIdParam ? parseInt(subscriptionIdParam, 10) : null;
+    const cached = readMedecinConseilCache();
+    const cachedItems = souscriptionId
+        ? cached.filter((item) => String(item.souscription_id) === String(souscriptionId))
+        : cached;
+    if (cachedItems.length) {
+        container.innerHTML = renderMedecinConseilSection(cachedItems, { fromCache: true });
+    }
+    const result = await loadMedecinConseilAssignments({
+        souscriptionId: Number.isNaN(souscriptionId) ? null : souscriptionId,
+    });
+    container.innerHTML = renderMedecinConseilSection(result.items, { fromCache: result.fromCache });
+}
 
 // Charger les souscriptions actives
 async function loadActiveSubscriptions() {

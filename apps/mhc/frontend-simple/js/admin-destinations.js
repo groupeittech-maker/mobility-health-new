@@ -1,6 +1,7 @@
 // Gestion des destinations (pays et villes)
 let currentSelectedCountryId = null;
 let countriesData = [];
+let medecinConseilOptions = [];
 let searchCountriesTerm = '';
 let searchCitiesTerm = '';
 let citiesListData = [];
@@ -23,8 +24,47 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+    await loadMedecinConseilOptions();
     await loadDestinations();
 });
+
+async function loadMedecinConseilOptions() {
+    try {
+        const medReferents = await apiCall('/users?role=medecin_referent_mh&limit=500');
+        let doctors = Array.isArray(medReferents) ? medReferents : [];
+        if (!doctors.length) {
+            const fallback = await apiCall('/users?role=doctor&limit=500');
+            doctors = Array.isArray(fallback) ? fallback : [];
+        }
+        medecinConseilOptions = doctors;
+    } catch (error) {
+        console.error('Erreur lors du chargement des médecins-conseils:', error);
+        medecinConseilOptions = [];
+    }
+    populateMedecinConseilSelect();
+}
+
+function populateMedecinConseilSelect(selectedId = '') {
+    const select = document.getElementById('countryMedecinConseil');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Aucun médecin-conseil --</option>';
+    medecinConseilOptions.forEach((doctor) => {
+        const option = document.createElement('option');
+        option.value = doctor.id;
+        const phone = doctor.telephone ? ` — ${doctor.telephone}` : '';
+        option.textContent = `${doctor.full_name || doctor.email || doctor.username}${phone}`;
+        select.appendChild(option);
+    });
+    select.value = selectedId ? String(selectedId) : '';
+}
+
+function medecinConseilLabel(country) {
+    const contact = country.medecin_conseil;
+    if (contact && (contact.nom || contact.telephone)) {
+        return contact.nom || contact.telephone;
+    }
+    return null;
+}
 
 async function loadDestinations() {
     const statusFilter = document.getElementById('statusFilter').value;
@@ -143,7 +183,7 @@ function renderCountries() {
                      style="cursor: pointer;">
                     <div class="country-info">
                         <div class="country-name">${countryName}</div>
-                        <div class="country-code">Code: ${countryCode}</div>
+                        <div class="country-code">Code: ${countryCode}${medecinConseilLabel(country) ? ` · Médecin-conseil: ${escapeHtml(medecinConseilLabel(country))}` : ''}</div>
                     </div>
                     <div class="item-actions" onclick="event.stopPropagation()">
                         <button class="btn-icon edit" onclick="editCountry(${countryId})" title="Modifier">
@@ -330,6 +370,7 @@ function showCountryModal(countryId = null) {
             document.getElementById('countryActive').checked = country.est_actif;
             document.getElementById('countryNotes').value = country.notes || '';
             document.getElementById('countryCode').disabled = true; // Ne pas modifier le code
+            populateMedecinConseilSelect(country.medecin_conseil_id || country.medecin_conseil?.id || '');
         }
     } else {
         title.textContent = 'Ajouter un pays';
@@ -338,6 +379,7 @@ function showCountryModal(countryId = null) {
         document.getElementById('countryCode').disabled = false;
         document.getElementById('countryActive').checked = true;
         document.getElementById('countryOrder').value = 0;
+        populateMedecinConseilSelect('');
     }
     
     modal.style.display = 'flex';
@@ -376,6 +418,9 @@ async function saveCountry(event) {
         ordre_affichage: parseInt(document.getElementById('countryOrder').value) || 0,
         est_actif: document.getElementById('countryActive').checked,
         notes: document.getElementById('countryNotes').value.trim() || null,
+        medecin_conseil_id: document.getElementById('countryMedecinConseil').value
+            ? Number(document.getElementById('countryMedecinConseil').value)
+            : null,
     };
     
     let createdCountry = null;
