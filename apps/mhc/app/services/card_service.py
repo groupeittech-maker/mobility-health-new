@@ -477,7 +477,7 @@ class CardService:
 
     @classmethod
     def _create_card_background(cls) -> Image.Image:
-        """Fond maquette : dégradé indigo, vagues topographiques à gauche, grillage de points à droite."""
+        """Fond maquette : dégradé indigo, vagues à gauche, globe pointillé à droite."""
         import math
 
         width, height = cls.WIDTH, cls.HEIGHT
@@ -505,31 +505,89 @@ class CardService:
         overlay = Image.new("RGBA", card.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
 
-        # Vagues parallèles à gauche (lignes continues, pas un grillage).
-        wave_limit = int(width * 0.58)
-        for i in range(16):
-            y0 = 10 + i * 38
+        # Vagues discrètes à gauche, pour ne pas concurrencer le globe.
+        wave_limit = int(width * 0.48)
+        for i in range(12):
+            y0 = 20 + i * 48
             points = []
-            for x in range(0, wave_limit, 3):
+            for x in range(0, wave_limit, 4):
                 fade_x = 1 - (x / wave_limit)
-                yy = y0 + 26 * math.sin(x / 78.0 + i * 0.22) * (0.55 + 0.45 * fade_x)
+                yy = y0 + 18 * math.sin(x / 86.0 + i * 0.2) * (0.4 + 0.6 * fade_x)
                 points.append((x, int(yy)))
             if len(points) > 1:
-                draw.line(points, fill=(186, 188, 226, 42), width=2)
+                draw.line(points, fill=(186, 188, 226, 28), width=2)
 
-        # Grillage régulier de points cyan : moitié droite uniquement.
-        step = 7
-        fade_start = int(width * 0.46)
-        full_from = int(width * 0.58)
-        for row, y in enumerate(range(6, height - 6, step)):
-            for col, x in enumerate(range(fade_start, width - 6, step)):
-                if x < full_from:
-                    alpha = int(40 + 80 * ((x - fade_start) / max(full_from - fade_start, 1)))
-                else:
-                    alpha = 120
-                draw.ellipse((x, y, x + 2, y + 2), fill=(186, 214, 236, alpha))
-
+        cls._draw_dotted_globe(draw, width, height)
         return Image.alpha_composite(card.convert("RGBA"), overlay).convert("RGB")
+
+    @staticmethod
+    def _draw_dotted_globe(draw: ImageDraw.Draw, width: int, height: int) -> None:
+        """Pointillés en projection orthographique : méridiens/parallèles d'un globe."""
+        import math
+
+        cx = int(width * 0.82)
+        cy = int(height * 0.50)
+        radius = int(height * 0.70)
+        lon0 = math.radians(12)
+        tilt = math.radians(18)
+        ink = (198, 220, 238)
+
+        def to_xyz(lat: float, lon: float):
+            x = math.cos(lat) * math.sin(lon - lon0)
+            y = math.sin(lat)
+            z = math.cos(lat) * math.cos(lon - lon0)
+            y2 = y * math.cos(tilt) - z * math.sin(tilt)
+            z2 = y * math.sin(tilt) + z * math.cos(tilt)
+            return x, y2, z2
+
+        def project(lat: float, lon: float):
+            x, y, z = to_xyz(lat, lon)
+            if z <= 0.04:
+                return None
+            return int(cx + radius * x), int(cy - radius * y), z
+
+        def stamp(x: int, y: int, depth: float, size: int = 2) -> None:
+            alpha = int(48 + 175 * max(0.0, min(1.0, depth ** 0.85)))
+            draw.ellipse((x, y, x + size, y + size), fill=(*ink, alpha))
+
+        def dotted_curve(samples, min_gap: int = 8, size: int = 2) -> None:
+            last = None
+            for lat, lon in samples:
+                point = project(lat, lon)
+                if point is None:
+                    last = None
+                    continue
+                px, py, depth = point
+                if last is not None:
+                    dx = px - last[0]
+                    dy = py - last[1]
+                    if dx * dx + dy * dy < min_gap * min_gap:
+                        continue
+                stamp(px, py, depth, size=size)
+                last = (px, py)
+
+        for lat_deg in range(-75, 76, 15):
+            lat = math.radians(lat_deg)
+            samples = [(lat, math.radians(lon)) for lon in range(-180, 181, 2)]
+            dotted_curve(samples, min_gap=8, size=2)
+
+        for lon_deg in range(-180, 180, 20):
+            lon = math.radians(lon_deg)
+            samples = [(math.radians(lat), lon) for lat in range(-90, 91, 2)]
+            dotted_curve(samples, min_gap=8, size=2)
+
+        equator = [(0.0, math.radians(lon)) for lon in range(-180, 181, 2)]
+        dotted_curve(equator, min_gap=6, size=3)
+
+        for angle in range(0, 360, 3):
+            rad = math.radians(angle)
+            facing = 0.28 + 0.72 * max(0.0, 0.55 + 0.45 * math.cos(rad - math.radians(20)))
+            stamp(
+                int(cx + radius * math.cos(rad)),
+                int(cy - radius * math.sin(rad)),
+                facing,
+                size=2,
+            )
 
     @classmethod
     def _tile_pattern_band_from_asset(

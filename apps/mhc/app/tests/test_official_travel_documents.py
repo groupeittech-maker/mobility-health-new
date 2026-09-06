@@ -4,7 +4,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from app.core.mhc_nomenclature import (
     format_attestation_number,
@@ -181,3 +181,25 @@ class TestDigitalCard:
         )
         adults, children = CardService.resolve_ayants_droit(_souscription(notes=notes), {})
         assert (adults, children) == (1, 2)
+
+    def test_dotted_globe_is_spherical_not_flat_grid(self):
+        overlay = Image.new("RGBA", (CardService.WIDTH, CardService.HEIGHT), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+        CardService._draw_dotted_globe(draw, CardService.WIDTH, CardService.HEIGHT)
+        pixels = overlay.load()
+        cx = int(CardService.WIDTH * 0.82)
+        cy = int(CardService.HEIGHT * 0.50)
+        radius = int(CardService.HEIGHT * 0.70)
+
+        def inked(x: int, y: int, radius_px: int = 6) -> bool:
+            for yy in range(max(0, y - radius_px), min(CardService.HEIGHT, y + radius_px + 1)):
+                for xx in range(max(0, x - radius_px), min(CardService.WIDTH, x + radius_px + 1)):
+                    if pixels[xx, yy][3] > 0:
+                        return True
+            return False
+
+        assert inked(cx - radius, cy), "le limbe ouest doit dessiner le disque"
+        assert inked(cx, cy, radius_px=24), "le réseau de méridiens passe près du centre"
+        assert not inked(40, 40, radius_px=8), "un coin hors sphère ne doit pas être grillagé"
+        # Un grillage plat continuerait à x = limbe, plus haut ; une sphère non.
+        assert not inked(cx - radius, 80, radius_px=8), "hors du disque, pas de grillage plat"
