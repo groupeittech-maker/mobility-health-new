@@ -172,10 +172,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
           icon: const Icon(Icons.arrow_back, color: AppColors.primary),
           onPressed: () => context.pop(),
         ),
-        title: Text(
-          'Inscription',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppColors.primary),
-        ),
+        title:                 Text(
+                  'Inscription',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppColors.primary),
+                ),
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Center(
+                      child: Text(
+                        'v1.0.0+3',
+                        style: GoogleFonts.poppins(fontSize: 11, color: AppColors.mutedText),
+                      ),
+                    ),
+                  ),
+                ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
