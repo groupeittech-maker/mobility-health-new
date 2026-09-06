@@ -31,7 +31,7 @@ String apiErrorToUserMessage(Object e) {
       default:
         break;
     }
-    if (_isCertificateFailure(e)) {
+    if (isTlsCertificateFailure(e)) {
       return _certificateMessage;
     }
     final detail = e.response?.data;
@@ -51,8 +51,12 @@ String apiErrorToUserMessage(Object e) {
 const _certificateMessage =
     'Connexion sécurisée impossible (certificat serveur expiré ou invalide). Réessayez dans un instant.';
 
-bool _isCertificateFailure(DioException e) {
-  return _looksLikeCertificateFailure('${e.error ?? ''} ${e.message ?? ''} $e');
+bool isTlsCertificateFailure(Object e) {
+  if (e is DioException) {
+    if (e.type == DioExceptionType.badCertificate) return true;
+    return _looksLikeCertificateFailure('${e.error ?? ''} ${e.message ?? ''} $e');
+  }
+  return _looksLikeCertificateFailure(e.toString());
 }
 
 bool _looksLikeCertificateFailure(String text) {

@@ -2,7 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
 
 import '../config/api_config.dart';
+import '../config/api_hosts.dart';
 import '../storage/token_storage.dart';
+import '../utils/api_error_helper.dart';
 
 /// Client HTTP pour l'API Mobility Health (équivalent api.js + refresh token).
 class ApiClient {
@@ -30,6 +32,12 @@ class ApiClient {
   Dio get dio => _dio;
 
   Future<void> _onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+    if (_dio.options.baseUrl.contains(kLegacyApiHost)) {
+      _dio.options.baseUrl = canonicalizeApiBaseUrl(_dio.options.baseUrl);
+    }
+    if (options.baseUrl.contains(kLegacyApiHost)) {
+      options.baseUrl = canonicalizeApiBaseUrl(options.baseUrl);
+    }
     final token = await _storage.getAccessToken();
     if (token != null && token.isNotEmpty && options.headers['Authorization'] == null) {
       options.headers['Authorization'] = 'Bearer $token';
@@ -38,6 +46,24 @@ class ApiClient {
   }
 
   Future<void> _onError(DioException err, ErrorInterceptorHandler handler) async {
+    if (isTlsCertificateFailure(err) && err.requestOptions.extra['apexRetry'] != true) {
+      final from = err.requestOptions.baseUrl.isNotEmpty
+          ? err.requestOptions.baseUrl
+          : _dio.options.baseUrl;
+      if (from.contains(kLegacyApiHost)) {
+        final next = canonicalizeApiBaseUrl(from);
+        _dio.options.baseUrl = next;
+        final opts = err.requestOptions;
+        opts.baseUrl = next;
+        opts.extra['apexRetry'] = true;
+        try {
+          return handler.resolve(await _dio.fetch(opts));
+        } catch (e) {
+          handler.next(e is DioException ? e : err);
+          return;
+        }
+      }
+    }
     if (err.response?.statusCode != 401) {
       handler.next(err);
       return;

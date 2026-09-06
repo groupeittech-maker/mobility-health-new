@@ -3,6 +3,7 @@
 const kLegacyApiHost = 'api.srv1324425.hstgr.cloud';
 const kProductionApiHost = 'srv1324425.hstgr.cloud';
 const kProductionApiBaseUrl = 'https://$kProductionApiHost/api/v1';
+const kAppVersionLabel = '1.0.0+4';
 
 /// Réécrit l'ancien hôte API vers le domaine au certificat valide.
 String canonicalizeApiBaseUrl(String url) {

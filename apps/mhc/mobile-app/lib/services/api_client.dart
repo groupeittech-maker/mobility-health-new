@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../config/env_config.dart';
+import '../core/config/api_hosts.dart';
 
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
@@ -10,7 +11,7 @@ class ApiClient {
 
   ApiClient._internal() {
     _dio = Dio(BaseOptions(
-      baseUrl: EnvConfig.apiBaseUrl,
+      baseUrl: canonicalizeApiBaseUrl(EnvConfig.apiBaseUrl),
       connectTimeout: Duration(milliseconds: EnvConfig.apiTimeout),
       receiveTimeout: Duration(milliseconds: EnvConfig.apiTimeout),
       headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},

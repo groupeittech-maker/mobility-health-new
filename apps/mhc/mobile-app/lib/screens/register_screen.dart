@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../core/config/api_hosts.dart';
 import '../core/constants/app_colors.dart';
 import '../core/network/api_client.dart' as net;
 import '../core/utils/api_error_helper.dart';
@@ -177,6 +178,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'Inscription',
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppColors.primary),
         ),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: Center(
+              child: Text(
+                'v$kAppVersionLabel',
+                style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
