@@ -169,10 +169,14 @@ class CardService:
 
         adults, children = cls.resolve_ayants_droit(souscription, traveler_info)
         group_label = cls.format_ayants_droit_label(adults, children)
-        icon_x = photo_x
+        icon_size = 32
+        label_box = draw.textbbox((0, 0), group_label, font=font_value)
+        label_w = label_box[2] - label_box[0]
+        group_w = icon_size + 12 + label_w
+        icon_x = photo_x + max(0, (photo_w - group_w) // 2)
         icon_y = photo_y + photo_h + 18
-        cls._draw_group_icon(draw, icon_x, icon_y, size=32, fill=(255, 255, 255))
-        draw.text((icon_x + 44, icon_y + 2), group_label, font=font_value, fill=(255, 255, 255))
+        cls._draw_group_icon(draw, icon_x, icon_y, size=icon_size, fill=(255, 255, 255))
+        draw.text((icon_x + icon_size + 12, icon_y + 2), group_label, font=font_value, fill=(255, 255, 255))
 
         card = cls._add_rounded_corners(card, radius=28)
         buffer = BytesIO()
@@ -473,35 +477,58 @@ class CardService:
 
     @classmethod
     def _create_card_background(cls) -> Image.Image:
-        """Fond e-carte : dégradé violet nuit et points clairs à droite."""
+        """Fond maquette : dégradé indigo, vagues topographiques à gauche, grillage de points à droite."""
         import math
 
-        card = Image.new("RGB", (cls.WIDTH, cls.HEIGHT), (26, 10, 48))
+        width, height = cls.WIDTH, cls.HEIGHT
+        card = Image.new("RGB", (width, height), (12, 8, 28))
         pixels = card.load()
-        left = (42, 18, 78)
-        right = (16, 8, 38)
-        for x in range(cls.WIDTH):
-            t = x / max(cls.WIDTH - 1, 1)
-            r = int(left[0] + (right[0] - left[0]) * t)
-            g = int(left[1] + (right[1] - left[1]) * t)
-            b = int(left[2] + (right[2] - left[2]) * t)
-            for y in range(cls.HEIGHT):
-                v = 1 - (y / cls.HEIGHT) * 0.14
+        left = (58, 22, 108)
+        mid = (32, 14, 62)
+        right = (8, 6, 22)
+        for x in range(width):
+            t = x / max(width - 1, 1)
+            if t < 0.45:
+                u = t / 0.45
+                r = int(left[0] + (mid[0] - left[0]) * u)
+                g = int(left[1] + (mid[1] - left[1]) * u)
+                b = int(left[2] + (mid[2] - left[2]) * u)
+            else:
+                u = (t - 0.45) / 0.55
+                r = int(mid[0] + (right[0] - mid[0]) * u)
+                g = int(mid[1] + (right[1] - mid[1]) * u)
+                b = int(mid[2] + (right[2] - mid[2]) * u)
+            for y in range(height):
+                v = 1 - (y / height) * 0.10
                 pixels[x, y] = (max(0, int(r * v)), max(0, int(g * v)), max(0, int(b * v)))
 
         overlay = Image.new("RGBA", card.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
-        start_x = int(cls.WIDTH * 0.52)
-        step = 11
-        for y in range(18, cls.HEIGHT - 14, step):
-            for x in range(start_x, cls.WIDTH - 12, step):
-                alpha = 40 + ((x + y) % 45)
-                draw.ellipse((x, y, x + 3, y + 3), fill=(170, 200, 235, min(alpha, 95)))
-        for i, y0 in enumerate((90, 240, 420)):
+
+        # Vagues parallèles à gauche (lignes continues, pas un grillage).
+        wave_limit = int(width * 0.58)
+        for i in range(16):
+            y0 = 10 + i * 38
             points = []
-            for x in range(0, cls.WIDTH, 8):
-                points.append((x, y0 + int(16 * math.sin((x + i * 50) / 72.0))))
-            draw.line(points, fill=(110, 70, 160, 36), width=2)
+            for x in range(0, wave_limit, 3):
+                fade_x = 1 - (x / wave_limit)
+                yy = y0 + 26 * math.sin(x / 78.0 + i * 0.22) * (0.55 + 0.45 * fade_x)
+                points.append((x, int(yy)))
+            if len(points) > 1:
+                draw.line(points, fill=(186, 188, 226, 42), width=2)
+
+        # Grillage régulier de points cyan : moitié droite uniquement.
+        step = 7
+        fade_start = int(width * 0.46)
+        full_from = int(width * 0.58)
+        for row, y in enumerate(range(6, height - 6, step)):
+            for col, x in enumerate(range(fade_start, width - 6, step)):
+                if x < full_from:
+                    alpha = int(40 + 80 * ((x - fade_start) / max(full_from - fade_start, 1)))
+                else:
+                    alpha = 120
+                draw.ellipse((x, y, x + 2, y + 2), fill=(186, 214, 236, alpha))
+
         return Image.alpha_composite(card.convert("RGBA"), overlay).convert("RGB")
 
     @classmethod
@@ -694,15 +721,18 @@ class CardService:
     def _placeholder_portrait(target_size: tuple) -> Image.Image:
         """Silhouette type e-carte lorsqu'aucune photo n'est encore disponible."""
         w, h = target_size
-        image = Image.new("RGB", target_size, (214, 220, 230))
+        image = Image.new("RGB", target_size, (198, 214, 230))
         draw = ImageDraw.Draw(image)
-        head_r = int(min(w, h) * 0.16)
-        cx, cy = w // 2, int(h * 0.36)
-        draw.ellipse([cx - head_r, cy - head_r, cx + head_r, cy + head_r], fill=(168, 176, 188))
-        shoulder_top = cy + head_r + 8
-        draw.ellipse(
-            [int(w * 0.18), shoulder_top, int(w * 0.82), h + int(h * 0.25)],
-            fill=(168, 176, 188),
+        fill = (236, 242, 248)
+        head_r = int(min(w, h) * 0.15)
+        cx, cy = w // 2, int(h * 0.34)
+        draw.ellipse([cx - head_r, cy - head_r, cx + head_r, cy + head_r], fill=fill)
+        shoulder_top = cy + head_r + 6
+        draw.pieslice(
+            [int(w * 0.16), shoulder_top, int(w * 0.84), h + int(h * 0.35)],
+            start=180,
+            end=360,
+            fill=fill,
         )
         return image
 
