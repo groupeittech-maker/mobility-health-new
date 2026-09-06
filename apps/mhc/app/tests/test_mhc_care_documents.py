@@ -5,8 +5,12 @@ from decimal import Decimal
 from fastapi import status
 
 from app.core.mhc_nomenclature import (
+    MhcOperationCode,
+    format_attestation_number,
+    format_avenant_annulation_number,
     format_bph_number,
     format_police_number,
+    format_quittance_number,
     format_sinistre_number,
     parse_sinistre_order,
 )
@@ -66,6 +70,11 @@ class TestMhcNomenclature:
         assert format_sinistre_number(2500, 30, 52, 2026) == "002500-11-030-052-2026"
         assert format_bph_number(1350, 2, 2500) == "001350/02-002500-117"
         assert parse_sinistre_order("002500-11-030-052-2026") == 2500
+        assert format_attestation_number(1) == "000001-101"
+        assert format_avenant_annulation_number(92) == "000092-102"
+        assert format_quittance_number(252) == "000252-119"
+        assert MhcOperationCode.QUITTANCE_REGLEMENT.value == "119"
+        assert MhcOperationCode.ARS.value == "121"
 
     def test_repartition_20_pct(self):
         split = split_prime_nette(Decimal("6500"), Decimal("20"))

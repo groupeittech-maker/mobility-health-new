@@ -245,6 +245,12 @@ async def create_medical_questionnaire(
             detail="Souscription non trouvée"
         )
 
+    from app.services.medical_eligibility import MedicalEligibilityError, validate_medical_eligibility
+    try:
+        validate_medical_eligibility(reponses)
+    except MedicalEligibilityError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
     # Photo e-carte : non exigée à l'enregistrement du questionnaire (ex. app mobile sans champ photo).
     # Elle reste obligatoire au checkout (/payments/checkout) et pour l'attestation définitive / e-carte.
 

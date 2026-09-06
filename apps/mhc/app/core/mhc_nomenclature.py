@@ -23,8 +23,9 @@ class MhcOperationCode(str, Enum):
     BRF = "116"
     BPH = "117"
     CERTIFICAT_DECES = "118"
-    ARS = "119"  # Attestation de retour de rapatriement sanitaire (code non fourni dans le tableur)
-    ARF = "120"  # Attestation de rapatriement funéraire (code non fourni dans le tableur)
+    QUITTANCE_REGLEMENT = "119"
+    ARS = "121"  # Attestation de retour de rapatriement sanitaire (code non fourni dans le tableur)
+    ARF = "122"  # Attestation de rapatriement funéraire (code non fourni dans le tableur)
 
 
 class MhcCareDocumentType(str, Enum):
@@ -68,6 +69,7 @@ OPERATION_LABELS: Dict[str, str] = {
     MhcOperationCode.BRF.value: "Bon de rapatriement funéraire",
     MhcOperationCode.BPH.value: "Bon de prolongation d'hospitalisation",
     MhcOperationCode.CERTIFICAT_DECES.value: "Certificat de décès",
+    MhcOperationCode.QUITTANCE_REGLEMENT.value: "Quittance de règlement",
     MhcOperationCode.ARS.value: "Attestation de retour de rapatriement sanitaire",
     MhcOperationCode.ARF.value: "Attestation de rapatriement funéraire",
 }
@@ -283,6 +285,21 @@ def format_bpcu_like_number(
 
 def format_simple_document_number(order: int, sinistre_order: int, operation: MhcOperationCode) -> str:
     return f"{pad6(order)}-{pad6(sinistre_order)}-{operation.value}"
+
+
+def format_attestation_number(order: int) -> str:
+    """Attestation d'assistance voyage — code 101."""
+    return f"{pad6(order)}-{MhcOperationCode.ATTESTATION_ASSURANCE.value}"
+
+
+def format_avenant_annulation_number(order: int) -> str:
+    """Avenant d'annulation de police — code 102 (suit le n° de police)."""
+    return f"{pad6(order)}-{MhcOperationCode.BON_ANNULATION_POLICE.value}"
+
+
+def format_quittance_number(order: int) -> str:
+    """Quittance de règlement — code 119 (suit le n° de police)."""
+    return f"{pad6(order)}-{MhcOperationCode.QUITTANCE_REGLEMENT.value}"
 
 
 def format_bph_number(bh_order: int, sequence: int, sinistre_order: int) -> str:

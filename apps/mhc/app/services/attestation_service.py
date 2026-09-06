@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from base64 import b64encode, b64decode
+from io import BytesIO
 import json
 import logging
 import uuid
@@ -49,8 +50,15 @@ class AttestationService:
     """Service pour gérer les attestations"""
     
     @staticmethod
-    def generate_numero_attestation(souscription: Souscription, type_attestation: str) -> str:
-        """Génère un numéro d'attestation unique"""
+    def generate_numero_attestation(
+        souscription: Souscription,
+        type_attestation: str,
+        db: Optional[Session] = None,
+    ) -> str:
+        """Génère un numéro d'attestation unique selon la nomenclature MHC (code 101)."""
+        if db is not None:
+            from app.services.mhc_reference_service import allocate_attestation_number
+            return allocate_attestation_number(db)
         prefix = "ATT-PROV" if type_attestation == "provisoire" else "ATT-DEF"
         date_str = datetime.now().strftime("%Y%m%d")
         unique_id = uuid.uuid4().hex[:8].upper()
@@ -80,7 +88,7 @@ class AttestationService:
         """
         from app.models.user import User as UserModel
 
-        numero_attestation = AttestationService.generate_numero_attestation(souscription, "provisoire")
+        numero_attestation = AttestationService.generate_numero_attestation(souscription, "provisoire", db)
         verification_url = AttestationService.build_verification_url(numero_attestation)
         qr_buffer = QRCodeService.generate_qr_image(verification_url)
 
@@ -108,6 +116,24 @@ class AttestationService:
                 f"⚠️ traveler_info est vide ou None pour souscription {souscription.id}"
             )
 
+        traveler_info = AttestationService._with_group_label(traveler_info, souscription)
+        try:
+            identity_photo = AttestationService._extract_identity_photo_bytes(db, souscription.id)
+        except Exception as photo_error:
+            logger.warning("Photo e-carte indisponible pour l'attestation provisoire %s: %s", souscription.id, photo_error)
+            identity_photo = None
+        card_bytes, card_path, card_bucket, card_url, card_expires = AttestationService._generate_card_assets(
+            user_obj,
+            souscription,
+            numero_attestation,
+            verification_url,
+            identity_photo,
+            traveler_info,
+            qr_bytes=qr_buffer.getvalue() if qr_buffer else None,
+            allow_missing_photo=True,
+        )
+        card_image = BytesIO(card_bytes) if card_bytes else None
+
         pdf_buffer = PDFService.generate_attestation_provisoire(
             souscription,
             paiement,
@@ -115,7 +141,8 @@ class AttestationService:
             numero_attestation,
             qr_image_data=qr_buffer,
             verification_url=verification_url,
-            traveler_info=traveler_info  # Informations du voyageur (tiers si souscription pour un tiers, sinon abonné)
+            traveler_info=traveler_info,  # Informations du voyageur (tiers si souscription pour un tiers, sinon abonné)
+            card_image=card_image,
         )
         pdf_bytes = pdf_buffer.read()
         
@@ -156,6 +183,10 @@ class AttestationService:
             bucket_minio=bucket,
             url_signee=url_signee,
             date_expiration_url=date_expiration_url,
+            carte_numerique_path=card_path,
+            carte_numerique_bucket=card_bucket,
+            carte_numerique_url=card_url,
+            carte_numerique_expires_at=card_expires,
             est_valide=True
         )
         
@@ -182,7 +213,7 @@ class AttestationService:
         - L'objet user passé en paramètre est l'abonné (souscripteur), utilisé comme fallback
           si les informations du voyageur ne sont pas disponibles dans le questionnaire
         """
-        numero_attestation = AttestationService.generate_numero_attestation(souscription, "definitive")
+        numero_attestation = AttestationService.generate_numero_attestation(souscription, "definitive", db)
         verification_url = AttestationService.build_verification_url(numero_attestation)
         qr_buffer = QRCodeService.generate_qr_image(verification_url)
         qr_bytes = qr_buffer.getvalue()
@@ -225,6 +256,19 @@ class AttestationService:
                 len(minors_info),
             )
 
+        traveler_info = AttestationService._with_group_label(traveler_info, souscription, minors_info)
+        card_bytes, card_path, card_bucket, card_url, card_expires = AttestationService._generate_card_assets(
+            user_obj,
+            souscription,
+            numero_attestation,
+            verification_url,
+            identity_photo,
+            traveler_info,
+            qr_bytes=qr_bytes,
+            allow_missing_photo=False,
+        )
+        card_image = BytesIO(card_bytes) if card_bytes else None
+
         pdf_buffer = PDFService.generate_attestation_definitive(
             souscription,
             paiement,
@@ -234,6 +278,7 @@ class AttestationService:
             verification_url=verification_url,
             traveler_info=traveler_info,  # Informations du voyageur (tiers si souscription pour un tiers, sinon abonné)
             minors_info=minors_info,  # Enfants mineurs à charge (affichés dans l'attestation définitive)
+            card_image=card_image,
         )
         pdf_bytes = pdf_buffer.read()
         
@@ -263,100 +308,6 @@ class AttestationService:
                 storage_error,
             )
 
-        # Génération de la carte numérique (PNG)
-        card_path = None
-        card_bucket = None
-        card_url = None
-        card_expires = None
-        card_bytes = None
-        try:
-            logger.info("Début de la génération de la carte numérique pour %s (souscription ID: %s)", 
-                       numero_attestation, souscription.id)
-            logger.info(
-                "Photo d'identité (déjà validée en amont): %d octets",
-                len(identity_photo),
-            )
-            logger.info("QR bytes disponibles: %s", "Oui" if qr_bytes else "Non")
-            
-            # Générer la carte même si la photo n'est pas disponible (elle utilisera un placeholder)
-            card_buffer = CardService.generate_insurance_card(
-                user_obj,
-                souscription,
-                numero_attestation,
-                verification_url,
-                photo_bytes=identity_photo,
-                qr_bytes=qr_bytes,
-                traveler_info=traveler_info
-            )
-            card_bytes = card_buffer.getvalue()
-            logger.info("Carte numérique générée avec succès, taille: %d bytes", len(card_bytes))
-            
-            # Upload sur Minio
-            try:
-                card_path = MinioService.upload_card_image(
-                    card_bytes,
-                    souscription.id,
-                    numero_attestation
-                )
-                card_bucket = MinioService.BUCKET_ATTESTATIONS
-                card_url = MinioService.generate_signed_url(
-                    card_bucket,
-                    card_path,
-                    expires=timedelta(hours=24)
-                )
-                card_expires = datetime.utcnow() + timedelta(hours=24)
-                logger.info(
-                    "Carte numérique générée et uploadée avec succès pour %s",
-                    numero_attestation
-                )
-            except Exception as upload_error:
-                # Fallback: stockage inline si Minio échoue
-                logger.warning(
-                    "Échec de l'upload de la carte numérique sur Minio pour %s: %s. Utilisation du stockage inline.",
-                    numero_attestation,
-                    upload_error,
-                )
-                inline_payload = b64encode(card_bytes).decode("ascii")
-                card_url = f"data:image/png;base64,{inline_payload}"
-                card_path = INLINE_OBJECT_KEY
-                card_bucket = INLINE_BUCKET_NAME
-                card_expires = None
-        except Exception as card_error:
-            # Log l'erreur complète avec traceback pour le débogage
-            import traceback
-            logger.error(
-                "Erreur lors de la génération de la carte numérique pour %s: %s\nTraceback: %s",
-                numero_attestation,
-                str(card_error),
-                traceback.format_exc(),
-            )
-            # Si card_bytes existe (génération réussie mais erreur après), utiliser le fallback inline
-            if card_bytes:
-                try:
-                    inline_payload = b64encode(card_bytes).decode("ascii")
-                    card_url = f"data:image/png;base64,{inline_payload}"
-                    card_path = INLINE_OBJECT_KEY
-                    card_bucket = INLINE_BUCKET_NAME
-                    card_expires = None
-                    logger.warning(
-                        "Carte numérique générée mais erreur lors de l'upload. Utilisation du stockage inline pour %s",
-                        numero_attestation
-                    )
-                except Exception as inline_error:
-                    logger.error(
-                        "Impossible de sauvegarder la carte numérique en mode inline pour %s: %s",
-                        numero_attestation,
-                        inline_error
-                    )
-            else:
-                logger.error(
-                    "Impossible de générer la carte numérique pour %s. Aucune carte ne sera créée. "
-                    "L'attestation sera créée sans carte, mais elle pourra être générée ultérieurement lors de la validation de production.",
-                    numero_attestation
-                )
-                # Ne pas bloquer la création de l'attestation même si la carte échoue
-                # La carte sera générée lors de la validation de production
-        
         # Créer l'attestation en base
         attestation = Attestation(
             souscription_id=souscription.id,
@@ -1413,4 +1364,172 @@ class AttestationService:
                 len(decoded),
             )
         return decoded
+
+    @staticmethod
+    def _with_group_label(
+        traveler_info: Optional[Dict[str, Any]],
+        souscription: Souscription,
+        minors_info: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        info = dict(traveler_info or {})
+        if not minors_info:
+            minors_info = AttestationService._extract_minors_from_notes(souscription.notes or "")
+        total = 1 + len(minors_info or [])
+        info.setdefault("groupLabel", f"1 - {total:02d}")
+        return info
+
+    @staticmethod
+    def _generate_card_assets(
+        user_obj,
+        souscription: Souscription,
+        numero_attestation: str,
+        verification_url: str,
+        identity_photo: Optional[bytes],
+        traveler_info: Optional[Dict[str, Any]],
+        *,
+        qr_bytes: Optional[bytes] = None,
+        allow_missing_photo: bool = True,
+    ) -> Tuple[Optional[bytes], Optional[str], Optional[str], Optional[str], Optional[datetime]]:
+        try:
+            card_buffer = CardService.generate_insurance_card(
+                user_obj,
+                souscription,
+                numero_attestation,
+                verification_url,
+                photo_bytes=identity_photo,
+                qr_bytes=qr_bytes,
+                traveler_info=traveler_info,
+                allow_missing_photo=allow_missing_photo or not identity_photo,
+            )
+            card_bytes = card_buffer.getvalue()
+        except Exception as card_error:
+            logger.warning("Carte digitale non générée pour %s: %s", numero_attestation, card_error)
+            return None, None, None, None, None
+
+        try:
+            card_path = MinioService.upload_card_image(card_bytes, souscription.id, numero_attestation)
+            card_bucket = MinioService.BUCKET_ATTESTATIONS
+            card_url = MinioService.generate_signed_url(
+                card_bucket, card_path, expires=timedelta(hours=24)
+            )
+            return card_bytes, card_path, card_bucket, card_url, datetime.utcnow() + timedelta(hours=24)
+        except Exception as upload_error:
+            logger.warning("Upload carte digitale indisponible pour %s: %s", numero_attestation, upload_error)
+            inline_payload = b64encode(card_bytes).decode("ascii")
+            return (
+                card_bytes,
+                INLINE_OBJECT_KEY,
+                INLINE_BUCKET_NAME,
+                f"data:image/png;base64,{inline_payload}",
+                None,
+            )
+
+    @staticmethod
+    def issue_quittance_paiement(
+        db: Session,
+        souscription: Souscription,
+        paiement: Paiement,
+        user: Optional[User] = None,
+    ) -> dict:
+        """Génère la quittance de règlement (code 119) après paiement."""
+        from app.services.mhc_reference_service import allocate_quittance_number
+        from app.services.official_travel_documents import generate_quittance_paiement
+
+        numero = allocate_quittance_number(db)
+        traveler_info = AttestationService._extract_traveler_info(db, souscription.id)
+        pdf_buffer = generate_quittance_paiement(
+            souscription,
+            paiement,
+            user,
+            numero,
+            traveler_info=traveler_info,
+        )
+        pdf_bytes = pdf_buffer.read()
+        payload = {
+            "numero": numero,
+            "bucket": MinioService.BUCKET_ATTESTATIONS,
+            "path": None,
+        }
+        try:
+            payload["path"] = MinioService.upload_pdf(
+                pdf_bytes,
+                souscription.id,
+                "quittance",
+                numero,
+            )
+        except Exception as exc:
+            inline_payload = b64encode(pdf_bytes).decode("ascii")
+            payload["path"] = INLINE_OBJECT_KEY
+            payload["bucket"] = INLINE_BUCKET_NAME
+            payload["inline"] = f"data:application/pdf;base64,{inline_payload}"
+            logger.warning("Minio indisponible pour la quittance %s: %s", numero, exc)
+
+        existing: dict = {}
+        if paiement.notes:
+            try:
+                parsed = json.loads(paiement.notes)
+                if isinstance(parsed, dict):
+                    existing = parsed
+            except Exception:
+                existing = {"previous_notes": paiement.notes}
+        existing["quittance"] = payload
+        paiement.notes = json.dumps(existing, ensure_ascii=False)
+        db.add(paiement)
+        db.flush()
+        return payload
+
+    @staticmethod
+    def issue_avenant_annulation(db: Session, souscription: Souscription) -> dict:
+        """Invalide les attestations et génère un avenant d'annulation distinct."""
+        from app.services.mhc_reference_service import allocate_avenant_annulation_number
+        from app.services.official_travel_documents import generate_avenant_annulation
+
+        attestations = (
+            db.query(Attestation)
+            .filter(Attestation.souscription_id == souscription.id)
+            .order_by(Attestation.created_at.desc())
+            .all()
+        )
+        for attestation in attestations:
+            attestation.est_valide = False
+
+        numero = allocate_avenant_annulation_number(db)
+        user = db.query(User).filter(User.id == souscription.user_id).first()
+        traveler_info = AttestationService._extract_traveler_info(db, souscription.id)
+        pdf_buffer = generate_avenant_annulation(
+            souscription,
+            user,
+            numero,
+            traveler_info=traveler_info,
+        )
+        pdf_bytes = pdf_buffer.read()
+        payload = {
+            "numero": numero,
+            "bucket": MinioService.BUCKET_ATTESTATIONS,
+            "path": None,
+        }
+        try:
+            path = MinioService.upload_pdf(
+                pdf_bytes,
+                souscription.id,
+                "avenant",
+                numero,
+            )
+            payload["path"] = path
+        except Exception as exc:
+            inline_payload = b64encode(pdf_bytes).decode("ascii")
+            payload["path"] = INLINE_OBJECT_KEY
+            payload["bucket"] = INLINE_BUCKET_NAME
+            payload["inline"] = f"data:application/pdf;base64,{inline_payload}"
+            logger.warning("Minio indisponible pour l'avenant %s: %s", numero, exc)
+
+        if attestations:
+            attestations[0].notes = json.dumps(
+                {
+                    "avenant_annulation": payload,
+                    "previous_notes": attestations[0].notes,
+                },
+                ensure_ascii=False,
+            )
+        return payload
 

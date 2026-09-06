@@ -1,0 +1,156 @@
+"""Documents officiels MHC : nomenclature, éligibilité grossesse, PDF et carte."""
+from datetime import date, datetime
+from decimal import Decimal
+from types import SimpleNamespace
+
+import pytest
+from PIL import Image
+
+from app.core.mhc_nomenclature import (
+    format_attestation_number,
+    format_avenant_annulation_number,
+    format_quittance_number,
+)
+from app.services.card_service import CardService
+from app.services.medical_eligibility import (
+    PREGNANCY_INELIGIBLE_MESSAGE,
+    MedicalEligibilityError,
+    validate_medical_eligibility,
+)
+from app.services.official_travel_documents import (
+    _amount_in_words,
+    generate_attestation_assistance_voyage,
+    generate_avenant_annulation,
+    generate_quittance_paiement,
+)
+
+
+def _souscription(**overrides):
+    defaults = dict(
+        id=1,
+        numero_souscription="001300-10-030-052-2026",
+        date_debut=date(2026, 1, 1),
+        date_fin=date(2026, 1, 7),
+        prix_applique=Decimal("65000"),
+        prime_assurance=Decimal("50000"),
+        produit_assurance=SimpleNamespace(
+            nom="Formule Standard",
+            zone_geographique="Afrique",
+            assureur="NSIA",
+            garanties=None,
+        ),
+        projet_voyage=SimpleNamespace(destination="France", destination_country=None, zone_code="EU"),
+        notes="",
+    )
+    defaults.update(overrides)
+    return SimpleNamespace(**defaults)
+
+
+def _user():
+    return SimpleNamespace(
+        full_name="Joseph PRONTON",
+        username="jpronton",
+        date_naissance=date(1990, 5, 12),
+        numero_passeport="AB123456",
+        nationalite="Sénégalaise",
+        pays_residence="Sénégal",
+    )
+
+
+class TestNomenclatureDocuments:
+    def test_attestation_avenant_quittance_formats(self):
+        assert format_attestation_number(1) == "000001-101"
+        assert format_avenant_annulation_number(92) == "000092-102"
+        assert format_quittance_number(252) == "000252-119"
+
+
+class TestMedicalEligibility:
+    def test_pregnancy_over_five_months_blocked(self):
+        with pytest.raises(MedicalEligibilityError, match="5 mois"):
+            validate_medical_eligibility({"enceinte": "oui", "moisGrossesse": 6})
+
+    def test_pregnancy_five_months_allowed(self):
+        validate_medical_eligibility({"enceinte": "oui", "mois_grossesse": 5})
+
+    def test_not_pregnant_allowed(self):
+        validate_medical_eligibility({"enceinte": "non"})
+
+    def test_missing_months_rejected(self):
+        with pytest.raises(MedicalEligibilityError):
+            validate_medical_eligibility({"pregnancy": "oui"})
+
+    def test_message_matches_parcours(self):
+        assert "plus de 5 mois" in PREGNANCY_INELIGIBLE_MESSAGE
+
+
+class TestOfficialDocuments:
+    def test_amount_in_words(self):
+        text = _amount_in_words(65000)
+        assert "soixante-cinq mille" in text
+        assert "65000" in text
+
+    def test_attestation_pdf_contains_dynamic_fields(self):
+        pdf = generate_attestation_assistance_voyage(
+            _souscription(),
+            _user(),
+            "000001-101",
+            traveler_info={"fullName": "Joseph PRONTON", "passportNumber": "AB123456"},
+        )
+        data = pdf.getvalue()
+        assert data.startswith(b"%PDF")
+        assert b"000001-101" in data
+        assert b"ATTESTATION" in data
+        assert b"CARTE DIGITALE" in data or b"GARANTIES" in data
+
+    def test_avenant_pdf_is_distinct_document(self):
+        pdf = generate_avenant_annulation(
+            _souscription(),
+            _user(),
+            "000092-102",
+            traveler_info={"fullName": "Joseph PRONTON"},
+        )
+        data = pdf.getvalue()
+        assert data.startswith(b"%PDF")
+        assert b"AVENANT" in data
+        assert b"000092-102" in data
+        assert b"ANNUL" in data
+
+    def test_quittance_pdf_uses_reference_119(self):
+        paiement = SimpleNamespace(
+            montant=Decimal("65000"),
+            type_paiement=SimpleNamespace(value="carte_bancaire"),
+        )
+        pdf = generate_quittance_paiement(
+            _souscription(),
+            paiement,
+            _user(),
+            "000252-119",
+            traveler_info={"fullName": "Joseph PRONTON"},
+        )
+        data = pdf.getvalue()
+        assert data.startswith(b"%PDF")
+        assert b"000252-119" in data
+        assert b"QUITTANCE" in data
+        assert b"PAY" in data
+
+
+class TestDigitalCard:
+    def test_card_image_uses_subscriber_data(self):
+        buffer = CardService.generate_insurance_card(
+            _user(),
+            _souscription(),
+            "000001-101",
+            "https://verify.example/000001-101",
+            allow_missing_photo=True,
+            traveler_info={"fullName": "Joseph PRONTON", "groupLabel": "1 - 03"},
+        )
+        raw = buffer.getvalue()
+        assert raw[:8] == b"\x89PNG\r\n\x1a\n"
+        image = Image.open(buffer)
+        assert image.size == (CardService.WIDTH, CardService.HEIGHT)
+
+    def test_insured_number_grouping(self):
+        number = CardService._format_insured_number("000001-101", _souscription())
+        parts = number.split()
+        assert len(parts) == 4
+        assert all(len(part) == 4 for part in parts)

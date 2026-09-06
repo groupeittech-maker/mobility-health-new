@@ -42,6 +42,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   ProductModel? _product;
   bool _loading = true;
   String? _error;
+  bool _readExclusions = false;
 
   @override
   void initState() {
@@ -216,6 +217,31 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           const SizedBox(height: 20),
           const _SectionTitle('Exclusions générales'),
           _ExclusionsBlock(exclusions: p.exclusionsGenerales),
+          const SizedBox(height: 16),
+          CheckboxListTile(
+            value: _readExclusions,
+            onChanged: (v) => setState(() => _readExclusions = v ?? false),
+            title: const Text(
+              'J\'ai lu les exclusions',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+            ),
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            activeColor: AppColors.primary,
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: _readExclusions ? () => Navigator.of(context).pop(true) : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Valider et revenir au choix du produit'),
+            ),
+          ),
         ],
         ),
       ),

@@ -489,9 +489,22 @@ class PDFService:
         numero_attestation: str,
         qr_image_data: Optional[BytesIO] = None,
         verification_url: Optional[str] = None,
-        traveler_info: Optional[Dict[str, Any]] = None
+        traveler_info: Optional[Dict[str, Any]] = None,
+        card_image: Optional[BytesIO] = None,
     ) -> BytesIO:
         """Génère une attestation provisoire au format PDF"""
+        from app.services.official_travel_documents import generate_attestation_assistance_voyage
+
+        return generate_attestation_assistance_voyage(
+            souscription,
+            user,
+            numero_attestation,
+            traveler_info=traveler_info,
+            exemplaire="assuré",
+            card_image=card_image,
+            qr_image_data=qr_image_data,
+            verification_url=verification_url,
+        )
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4)
         story = []
@@ -736,9 +749,22 @@ class PDFService:
         verification_url: Optional[str] = None,
         traveler_info: Optional[Dict[str, Any]] = None,
         minors_info: Optional[List[Dict[str, Any]]] = None,
+        card_image: Optional[BytesIO] = None,
     ) -> BytesIO:
         """Génère une attestation définitive au format PDF.
         minors_info: liste des enfants mineurs à charge (dicts avec nom_complet, date_naissance)."""
+        from app.services.official_travel_documents import generate_attestation_assistance_voyage
+
+        return generate_attestation_assistance_voyage(
+            souscription,
+            user,
+            numero_attestation,
+            traveler_info=traveler_info,
+            exemplaire="assuré",
+            card_image=card_image,
+            qr_image_data=qr_image_data,
+            verification_url=verification_url,
+        )
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4)
         story = []

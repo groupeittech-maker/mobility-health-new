@@ -78,7 +78,7 @@ class CardService:
         *,
         allow_missing_photo: bool = False,
     ) -> BytesIO:
-        """Génère une carte numérique (PNG) selon le modèle NSIA/Mobility Health."""
+        """Génère la carte digitale MHC (fond violet, badge formule, n° assuré)."""
         if not allow_missing_photo:
             if not photo_bytes or len(photo_bytes) < 32:
                 raise ValueError(
@@ -92,226 +92,108 @@ class CardService:
                     "La photo fournie est illisible. Utilisez une image JPG ou PNG."
                 ) from e
 
-        # Fond structuré : en-tête blanc, bandeau principal violet, liseré bas teal.
         card = cls._create_card_background()
         draw = ImageDraw.Draw(card)
-        
-        # Charger les polices
-        fonts = cls._load_fonts()
+        font_badge = cls._font(28, bold=True)
+        font_name = cls._font(40, bold=True)
+        font_label = cls._font(16, bold=True)
+        font_number = cls._font(34, bold=True)
+        font_value = cls._font(26, bold=True)
+        font_tagline = cls._font(14)
 
-        # Taille max commune pour les deux logos (assureur = même taille que Mobility HealthCare)
-        LOGO_MAX_WIDTH = 200
-        LOGO_MAX_HEIGHT = 80
+        plan = cls._plan_label(souscription)
+        badge_x, badge_y = 40, 36
+        badge_w, badge_h = 250, 56
+        draw.rounded_rectangle(
+            [badge_x, badge_y, badge_x + badge_w, badge_y + badge_h],
+            radius=8,
+            fill=cls.TEAL_ACCENT,
+        )
+        draw.ellipse([badge_x + 10, badge_y + 10, badge_x + 46, badge_y + 46], fill=(255, 255, 255))
+        draw.text((badge_x + 20, badge_y + 14), plan[:1], font=font_label, fill=cls.TEAL_ACCENT)
+        draw.text((badge_x + 58, badge_y + 12), plan, font=font_badge, fill=(255, 255, 255))
 
-        # Logo MOBILITY HealthCare (en haut à gauche)
         mobility_logo = cls._load_mobility_logo()
         if mobility_logo:
-            w, h = mobility_logo.width, mobility_logo.height
-            if w > LOGO_MAX_WIDTH or h > LOGO_MAX_HEIGHT:
-                ratio = min(LOGO_MAX_WIDTH / w, LOGO_MAX_HEIGHT / h)
-                new_w, new_h = int(w * ratio), int(h * ratio)
-                mobility_logo = mobility_logo.resize((new_w, new_h), RESAMPLE_METHOD)
-            card.paste(mobility_logo, (40, 40), mobility_logo if mobility_logo.mode == "RGBA" else None)
-
-        # Logo de l'assureur (en haut à droite) - même taille max que Mobility HealthCare
-        assureur_logo = cls._load_assureur_logo(souscription)
-        if assureur_logo:
-            w, h = assureur_logo.width, assureur_logo.height
-            if w > LOGO_MAX_WIDTH or h > LOGO_MAX_HEIGHT:
-                ratio = min(LOGO_MAX_WIDTH / w, LOGO_MAX_HEIGHT / h)
-                new_w, new_h = int(w * ratio), int(h * ratio)
-                assureur_logo = assureur_logo.resize((new_w, new_h), RESAMPLE_METHOD)
-            logo_x = cls.WIDTH - assureur_logo.width - 40
-            card.paste(assureur_logo, (logo_x, 40), assureur_logo if assureur_logo.mode == "RGBA" else None)
-
-        # Titre centré "CARTE D'ASSURANCE VOYAGE"
-        title_text = "CARTE D'ASSURANCE VOYAGE"
-        # Ajuste dynamiquement la taille du titre pour éviter toute coupe latérale.
-        title_font = fonts["title"]
-        title_bbox = draw.textbbox((0, 0), title_text, font=title_font)
-        title_width = title_bbox[2] - title_bbox[0]
-        while title_width > cls.WIDTH - 60 and getattr(title_font, "size", 0) > 38:
-            title_font = cls._font(size=title_font.size - 2, bold=True)
-            title_bbox = draw.textbbox((0, 0), title_text, font=title_font)
-            title_width = title_bbox[2] - title_bbox[0]
-        title_x = (cls.WIDTH - title_width) // 2
-        title_y = 140
-        draw.text((title_x, title_y), title_text, font=title_font, fill=cls.TEXT_ON_LIGHT_VALUE)
-
-        # Photo de profil (à gauche, sous le titre)
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"Photo bytes reçus: {len(photo_bytes) if photo_bytes else 0} bytes")
-        photo = cls._prepare_photo(photo_bytes)
-        photo_x = 70
-        # Un peu plus haut pour laisser de la hauteur au bloc texte (maquette)
-        photo_y = 258
-        # Collage RGB sans masque (évite ambiguïtés PIL) ; ImageDraw recréé après modification bitmap
-        if photo.mode == "RGBA":
-            card.paste(photo, (photo_x, photo_y), photo)
+            max_w, max_h = 220, 78
+            w, h = mobility_logo.size
+            if w > max_w or h > max_h:
+                ratio = min(max_w / w, max_h / h)
+                mobility_logo = mobility_logo.resize((int(w * ratio), int(h * ratio)), RESAMPLE_METHOD)
+            logo_x = cls.WIDTH - mobility_logo.width - 40
+            card.paste(
+                mobility_logo,
+                (logo_x, 32),
+                mobility_logo if mobility_logo.mode == "RGBA" else None,
+            )
+            draw = ImageDraw.Draw(card)
         else:
-            card.paste(photo, (photo_x, photo_y))
-        draw = ImageDraw.Draw(card)
-        # Cadre photo (teal charte MHC)
-        draw.rectangle(
-            [photo_x - 12, photo_y - 12, photo_x + photo.width + 12, photo_y + photo.height + 12],
-            outline=(245, 245, 245),
-            width=10,
-        )
+            draw.text((cls.WIDTH - 280, 36), "MOBILITY HealthCare", font=font_value, fill=(255, 255, 255))
+            draw.text((cls.WIDTH - 280, 72), "Travel safe, Live free.", font=font_tagline, fill=(210, 210, 230))
 
-        # Informations à droite de la photo — prénom aligné sur le haut de l’image (pas le cadre)
-        info_x = photo_x + photo.width + 58
-        photo_frame_top = photo_y - 12  # bord supérieur du cadre blanc (QR / limites)
-        photo_text_align_y = photo_y
-
-        # Extraire les informations du voyageur/assuré
-        # Priorité: traveler_info > user.full_name
         full_name = ""
         if traveler_info:
-            # traveler_info peut contenir fullName ou prenoms/nom séparés
             full_name = traveler_info.get("fullName", "") or ""
             if not full_name:
-                # Essayer de reconstruire depuis prenoms et nom
-                prenoms_part = traveler_info.get("prenoms", "") or traveler_info.get("firstName", "") or ""
-                nom_part = traveler_info.get("nom", "") or traveler_info.get("lastName", "") or ""
-                if prenoms_part or nom_part:
-                    full_name = f"{prenoms_part} {nom_part}".strip()
-        
-        # Si pas de fullName dans traveler_info, utiliser user
+                prenoms_part = traveler_info.get("prenoms") or traveler_info.get("firstName") or ""
+                nom_part = traveler_info.get("nom") or traveler_info.get("lastName") or ""
+                full_name = f"{prenoms_part} {nom_part}".strip()
         if not full_name:
-            full_name = getattr(user, "full_name", None) or getattr(user, "username", "") or ""
-        
-        # Séparer le nom complet en prénom et nom
-        name_parts = full_name.strip().split(maxsplit=1) if full_name else []
-        prenoms = name_parts[0] if len(name_parts) > 0 else ""
-        nom = name_parts[1] if len(name_parts) > 1 else ""
-        
-        # Log pour debug
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"Extraction nom/prénom - full_name: '{full_name}', prenoms: '{prenoms}', nom: '{nom}'")
+            full_name = getattr(user, "full_name", None) or getattr(user, "username", "") or "—"
 
-        # N° DE POLICE : afficher le numéro de souscription (et non le numéro d'attestation)
-        numero_police = getattr(souscription, "numero_souscription", "—")
-
-        # Couleurs du bandeau violet
-        label_on_purple = (245, 245, 245)
-        value_on_purple = (255, 255, 255)
-        teal_top = cls.HEIGHT - cls.TEAL_BAND_HEIGHT
-        # Polices maquette : lisibles, compactes pour tenir dans le bandeau violet
-        font_label = cls._font(24, bold=True)
-        font_name = cls._font(36, bold=True)
-        font_police = cls._font(28, bold=True)
-        font_small = cls._font(21, bold=True)
-
-        qr_size = 118
-        qr_pad = 8
-        qr_x = cls.WIDTH - qr_size - qr_pad - 58
-        text_max = max(120, qr_x - info_x - 36)
-
-        def _bbox_h(ft, txt: str) -> int:
-            timg = Image.new("RGB", (1, 1))
-            td = ImageDraw.Draw(timg)
-            bb = td.textbbox((0, 0), txt, font=ft)
-            return bb[3] - bb[1]
-
-        # Espacements : pas de libellés Prénoms/Nom ; police remontée ; plus d’air avant validité
-        GAP_NAMES = 22
-        GAP_BEFORE_POLICE = 26
-
-        y = float(photo_text_align_y)
-        prenoms_text = cls._truncate_text(prenoms or "—", font_name, max_width=text_max)
-        draw.text((info_x, int(y)), prenoms_text, font=font_name, fill=value_on_purple)
-        y += _bbox_h(font_name, prenoms_text or "X") + GAP_NAMES
-        nom_text = cls._truncate_text(nom or "—", font_name, max_width=text_max)
-        draw.text((info_x, int(y)), nom_text, font=font_name, fill=value_on_purple)
-        y += _bbox_h(font_name, nom_text or "X") + GAP_BEFORE_POLICE
-
-        # N° de police
-        draw.text((info_x, int(y)), "N° de police", font=font_label, fill=label_on_purple)
-        y += _bbox_h(font_label, "N° de police") + 8
-        police_text = (numero_police or "—").upper()
-        police_bottom = cls._draw_text_full(
-            draw,
-            (info_x, int(y)),
-            police_text,
-            font_police,
-            value_on_purple,
-            max_width=text_max,
+        photo = cls._prepare_photo(photo_bytes)
+        photo_w, photo_h = 220, 250
+        if photo.size != (photo_w, photo_h):
+            photo = ImageOps.fit(photo, (photo_w, photo_h), method=RESAMPLE_METHOD)
+        photo_x = cls.WIDTH - photo_w - 64
+        photo_y = 150
+        draw.rectangle(
+            [photo_x - 8, photo_y - 8, photo_x + photo_w + 8, photo_y + photo_h + 8],
+            fill=(255, 255, 255),
         )
-        y = float(police_bottom) + 34.0
+        card.paste(photo, (photo_x, photo_y))
+        draw = ImageDraw.Draw(card)
 
-        # Date de validité (après le numéro)
-        end_date = getattr(souscription, "date_fin", None)
-        if end_date:
-            if isinstance(end_date, str):
-                date_str = end_date
-            else:
-                months_fr = ["jan", "fév", "mar", "avr", "mai", "jun",
-                             "jul", "aoû", "sep", "oct", "nov", "déc"]
-                date_str = f"{end_date.day} {months_fr[end_date.month - 1]} {end_date.year}"
-        else:
-            date_str = "—"
+        text_max = photo_x - 80
+        name_text = cls._truncate_text(full_name, font_name, max_width=text_max)
+        draw.text((48, 150), name_text, font=font_name, fill=(255, 255, 255))
 
-        validity_line_y = int(y)
-        min_below_police = int(police_bottom) + 8
-        if validity_line_y < min_below_police:
-            validity_line_y = min_below_police
-        approx_line = _bbox_h(font_small, "Ay")
-        if validity_line_y + approx_line > teal_top - 6:
-            validity_line_y = min(validity_line_y, teal_top - approx_line - 6)
-        if validity_line_y < min_below_police:
-            validity_line_y = min_below_police
+        insured_number = cls._format_insured_number(numero_attestation, souscription)
+        draw.text((48, 230), "NUMÉRO ASSURÉ", font=font_label, fill=(196, 198, 220))
+        draw.text((48, 256), insured_number, font=font_number, fill=(255, 255, 255))
 
-        label_v = "Valable jusqu'au :"
-        draw.text((info_x, validity_line_y), label_v, font=font_small, fill=label_on_purple)
-        temp_img = Image.new("RGB", (1, 1))
-        temp_draw = ImageDraw.Draw(temp_img)
-        lb = temp_draw.textbbox((0, 0), label_v, font=font_small)
-        label_w = lb[2] - lb[0]
-        draw.text((info_x + label_w + 8, validity_line_y), date_str, font=font_small, fill=value_on_purple)
+        start_date = cls._format_date(getattr(souscription, "date_debut", None))
+        end_date = cls._format_date(getattr(souscription, "date_fin", None))
+        draw.text((48, 350), "VALIDITÉ", font=font_label, fill=(196, 198, 220))
+        draw.text((48, 380), f"Du  {start_date}", font=font_value, fill=(255, 255, 255))
+        draw.text((48, 418), f"Au  {end_date}", font=font_value, fill=(255, 255, 255))
 
-        # Bas de la ligne « Valable jusqu'au » (alignement avec le bas du QR)
-        tb_l = temp_draw.textbbox((0, 0), label_v, font=font_small)
-        tb_d = temp_draw.textbbox((0, 0), date_str, font=font_small)
-        validity_bottom = validity_line_y + max(tb_l[3] - tb_l[1], tb_d[3] - tb_d[1])
+        group_label = "1 - 01"
+        if traveler_info:
+            group_label = str(traveler_info.get("groupLabel") or traveler_info.get("group_label") or group_label)
+        draw.text((photo_x, photo_y + photo_h + 22), group_label, font=font_value, fill=(255, 255, 255))
 
-        # QR : bas du cartouche blanc = bas de la ligne de validité
-        if qr_bytes:
-            qr = Image.open(BytesIO(qr_bytes)).convert("RGB")
-            qr_out = Image.new("RGBA", qr.size, (0, 0, 0, 0))
-            qr_data = qr.load()
-            qr_out_data = qr_out.load()
-            dark = (26, 21, 40, 255)  # proche TEXT_ON_LIGHT_VALUE
-            for py in range(qr.height):
-                for px in range(qr.width):
-                    r, g, b = qr_data[px, py]
-                    if r < 128 and g < 128 and b < 128:
-                        qr_out_data[px, py] = dark
-                    else:
-                        qr_out_data[px, py] = (0, 0, 0, 0)
-
-            qr_out = qr_out.resize((qr_size, qr_size), RESAMPLE_METHOD)
-            # Bas du cartouche blanc = bas de la ligne « Valable jusqu'au » (bord inférieur du rectangle)
-            # rectangle : [..., qr_y - qr_pad, ..., qr_y + qr_size + qr_pad] → bas = qr_y + qr_size + qr_pad
-            qr_y = int(validity_bottom - qr_size - qr_pad)
-            top_min = photo_frame_top - qr_pad
-            if qr_y < top_min:
-                qr_y = top_min
-            draw = ImageDraw.Draw(card)
-            draw.rectangle(
-                [qr_x - qr_pad, qr_y - qr_pad, qr_x + qr_size + qr_pad, qr_y + qr_size + qr_pad],
-                fill=(255, 255, 255),
-            )
-            card.paste(qr_out, (qr_x, qr_y), qr_out)
-
-        # Ajouter des coins arrondis à la carte
-        card = cls._add_rounded_corners(card, radius=20)
-        
+        card = cls._add_rounded_corners(card, radius=28)
         buffer = BytesIO()
         card.save(buffer, format="PNG", optimize=True)
         buffer.seek(0)
         return buffer
+
+    @staticmethod
+    def _plan_label(souscription) -> str:
+        produit = getattr(souscription, "produit_assurance", None)
+        nom = str(getattr(produit, "nom", "") or getattr(produit, "code", "") or "").upper()
+        for token in ("PREMIUM", "GOLD", "PLATINUM", "VIP", "PLUS", "STANDARD"):
+            if token in nom:
+                return token
+        return "STANDARD"
+
+    @staticmethod
+    def _format_insured_number(numero_attestation: str, souscription) -> str:
+        digits = "".join(ch for ch in str(numero_attestation or "") if ch.isdigit())
+        extra = "".join(ch for ch in str(getattr(souscription, "numero_souscription", "") or "") if ch.isdigit())
+        packed = (digits + extra + "0000000000000000")[:16]
+        return " ".join(packed[i : i + 4] for i in range(0, 16, 4))
 
     @staticmethod
     def _add_rounded_corners(image: Image.Image, radius: int = 20) -> Image.Image:
@@ -487,22 +369,36 @@ class CardService:
 
     @classmethod
     def _create_card_background(cls) -> Image.Image:
-        """Fond e-carte : en-tête blanc, bandeau violet principal, liseré teal en bas."""
-        card = Image.new("RGB", (cls.WIDTH, cls.HEIGHT), (255, 255, 255))
-        draw = ImageDraw.Draw(card)
-        purple_rgb = cls._hex_to_rgb(cls.PURPLE_BRAND)
-        teal_rgb = cls._hex_to_rgb(cls.TEAL_ACCENT)
-        # Bandeau principal violet
-        draw.rectangle((0, 230, cls.WIDTH, cls.HEIGHT), fill=purple_rgb)
-        # Liseré bas teal
-        draw.rectangle((0, cls.HEIGHT - cls.TEAL_BAND_HEIGHT, cls.WIDTH, cls.HEIGHT), fill=teal_rgb)
-        # Fine séparation sous l'en-tête blanc
-        draw.line((0, 230, cls.WIDTH, 230), fill=(82, 52, 128), width=2)
-        teal_y0 = cls.HEIGHT - cls.TEAL_BAND_HEIGHT
-        # Motifs fournis en PNG, répétés en diagonale par bande sans traverser la séparation.
-        cls._tile_pattern_band_from_asset(card, 232, teal_y0, cls.PATTERN_PURPLE_PATH)
-        cls._tile_pattern_band_from_asset(card, teal_y0, cls.HEIGHT, cls.PATTERN_TEAL_PATH)
-        return card
+        """Fond e-carte : dégradé violet nuit et points clairs à droite."""
+        import math
+
+        card = Image.new("RGB", (cls.WIDTH, cls.HEIGHT), (26, 10, 48))
+        pixels = card.load()
+        left = (42, 18, 78)
+        right = (16, 8, 38)
+        for x in range(cls.WIDTH):
+            t = x / max(cls.WIDTH - 1, 1)
+            r = int(left[0] + (right[0] - left[0]) * t)
+            g = int(left[1] + (right[1] - left[1]) * t)
+            b = int(left[2] + (right[2] - left[2]) * t)
+            for y in range(cls.HEIGHT):
+                v = 1 - (y / cls.HEIGHT) * 0.14
+                pixels[x, y] = (max(0, int(r * v)), max(0, int(g * v)), max(0, int(b * v)))
+
+        overlay = Image.new("RGBA", card.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+        start_x = int(cls.WIDTH * 0.52)
+        step = 11
+        for y in range(18, cls.HEIGHT - 14, step):
+            for x in range(start_x, cls.WIDTH - 12, step):
+                alpha = 40 + ((x + y) % 45)
+                draw.ellipse((x, y, x + 3, y + 3), fill=(170, 200, 235, min(alpha, 95)))
+        for i, y0 in enumerate((90, 240, 420)):
+            points = []
+            for x in range(0, cls.WIDTH, 8):
+                points.append((x, y0 + int(16 * math.sin((x + i * 50) / 72.0))))
+            draw.line(points, fill=(110, 70, 160, 36), width=2)
+        return Image.alpha_composite(card.convert("RGBA"), overlay).convert("RGB")
 
     @classmethod
     def _tile_pattern_band_from_asset(
