@@ -10,6 +10,7 @@ import '../core/widgets/mh_logo_header.dart';
 import '../core/widgets/mh_surface_card.dart';
 import '../models/destination.dart';
 import '../services/api_services.dart';
+import '../services/reference_countries_fallback.dart';
 
 /// Inscription alignée sur register.html : civilité, identifiants, consentements.
 class RegisterScreen extends StatefulWidget {
@@ -144,9 +145,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      final fallback = await fetchReferenceCountriesFallback();
+      if (!mounted) return;
       setState(() {
+        _referenceCountries = fallback;
         _loadingReferenceCountries = false;
-        _errorMessage = 'Impossible de charger la liste des pays. Vérifiez votre connexion puis réessayez.';
       });
     }
   }

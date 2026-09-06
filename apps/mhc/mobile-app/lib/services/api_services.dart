@@ -8,6 +8,7 @@ import '../models/destination.dart';
 import '../models/product.dart';
 import '../models/subscription.dart';
 import '../models/subscription_quote.dart';
+import 'reference_countries_fallback.dart';
 
 /// Produits (GET /products, GET /products/:id) - public.
 class ProductsService {
@@ -381,18 +382,27 @@ class DestinationsService {
   Future<List<ReferenceCountryModel>> getReferenceCountries({
     bool forceRefresh = false,
   }) async {
-    final list = await _api.get<List<dynamic>>(
-      '/destinations/reference-countries',
-      queryParameters: {'force_refresh': forceRefresh},
-      fromJson: (d) => d as List<dynamic>,
-    );
-    return list
-        .map(
-          (item) => ReferenceCountryModel.fromJson(
-            item as Map<String, dynamic>,
-          ),
-        )
-        .toList();
+    try {
+      final list = await _api.get<List<dynamic>>(
+        '/destinations/reference-countries',
+        queryParameters: {'force_refresh': forceRefresh},
+        fromJson: (d) => d as List<dynamic>,
+      );
+      final countries = list
+          .map(
+            (item) => ReferenceCountryModel.fromJson(
+              item as Map<String, dynamic>,
+            ),
+          )
+          .where((country) => country.code.isNotEmpty && country.nom.isNotEmpty)
+          .toList();
+      if (countries.isNotEmpty) {
+        return countries;
+      }
+    } catch (_) {
+      // Fallback hors-ligne / schéma base non migré côté serveur.
+    }
+    return fetchReferenceCountriesFallback();
   }
 }
 
