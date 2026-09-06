@@ -88,6 +88,8 @@ htmlcov/
 !pubspec.json
 !**/package-lock.json
 !.cursor/environment.json
+!apps/mhc/frontend-simple/data/reference-countries.json
+!apps/mhc/mobile-app/assets/data/reference_countries.json
 
 # Archives temporaires de déploiement
 *.tar.gz

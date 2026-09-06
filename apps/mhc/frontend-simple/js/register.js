@@ -10,9 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const nationaliteInput = document.getElementById('nationalite');
     const paysResidenceDropdown = document.getElementById('pays_residence_dropdown');
     const nationaliteDropdown = document.getElementById('nationalite_dropdown');
-    let referenceCountries = typeof COUNTRIES !== 'undefined'
-        ? COUNTRIES.map(country => ({ code: country.code, name: country.name }))
-        : [];
+    let referenceCountries = [];
 
     function getCountryCode(countryName) {
         if (!countryName) return null;
@@ -21,12 +19,51 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function filterCountries(searchTerm) {
-        if (!searchTerm || !referenceCountries.length) return [];
-        const term = searchTerm.toLowerCase().trim();
+        if (!referenceCountries.length) return [];
+        const term = (searchTerm || '').toLowerCase().trim();
         if (term === '') return referenceCountries;
         return referenceCountries.filter(country =>
             country.name.toLowerCase().includes(term)
         );
+    }
+
+    async function loadCountriesFromStaticAsset() {
+        try {
+            const response = await fetch('data/reference-countries.json', { cache: 'no-cache' });
+            if (!response.ok) return false;
+            const payload = await response.json();
+            if (!Array.isArray(payload) || payload.length === 0) return false;
+            referenceCountries = payload
+                .map((country) => ({
+                    code: String(country.code || '').trim().toUpperCase(),
+                    name: String(country.nom || country.name || '').trim(),
+                }))
+                .filter((country) => country.code && country.name);
+            return referenceCountries.length > 0;
+        } catch (error) {
+            console.warn('Fallback JSON local indisponible.', error);
+            return false;
+        }
+    }
+
+    async function loadCountriesFromCountriesDev() {
+        try {
+            const response = await fetch('https://countries.dev/countries?limit=300');
+            if (!response.ok) return false;
+            const payload = await response.json();
+            if (!Array.isArray(payload) || payload.length === 0) return false;
+            referenceCountries = payload
+                .map((country) => ({
+                    code: String(country.alpha2Code || '').trim().toUpperCase(),
+                    name: String(country.name || '').trim(),
+                }))
+                .filter((country) => country.code && country.name)
+                .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+            return referenceCountries.length > 0;
+        } catch (error) {
+            console.warn('Fallback countries.dev indisponible.', error);
+            return false;
+        }
     }
 
     async function loadReferenceCountries() {
@@ -50,33 +87,19 @@ document.addEventListener('DOMContentLoaded', function() {
             console.warn('Impossible de charger les pays depuis l’API MHC.', error);
         }
 
-        try {
-            const response = await fetch(
-                'https://restcountries.com/v3.1/all?fields=cca2,translations'
-            );
-            if (response.ok) {
-                const payload = await response.json();
-                if (Array.isArray(payload) && payload.length > 0) {
-                    referenceCountries = payload
-                        .map((country) => ({
-                            code: String(country.cca2 || '').trim().toUpperCase(),
-                            name: String(country.translations?.fra?.common || '').trim(),
-                        }))
-                        .filter((country) => country.code && country.name)
-                        .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
-                    if (referenceCountries.length > 0) {
-                        console.info('Liste des pays chargée via RestCountries.');
-                        return;
-                    }
-                }
-            }
-        } catch (error) {
-            console.warn('Fallback RestCountries indisponible.', error);
+        if (await loadCountriesFromStaticAsset()) {
+            console.info(`Liste des pays chargée depuis data/reference-countries.json (${referenceCountries.length}).`);
+            return;
+        }
+
+        if (await loadCountriesFromCountriesDev()) {
+            console.info(`Liste des pays chargée via countries.dev (${referenceCountries.length}).`);
+            return;
         }
 
         if (typeof COUNTRIES !== 'undefined' && COUNTRIES.length > 0) {
             referenceCountries = COUNTRIES.map(country => ({ code: country.code, name: country.name }));
-            console.info('Liste des pays locale utilisée.');
+            console.info('Liste des pays locale réduite utilisée.');
         }
     }
 
