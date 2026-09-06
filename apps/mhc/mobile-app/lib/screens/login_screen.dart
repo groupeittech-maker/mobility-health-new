@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/constants/app_colors.dart';
+import '../core/utils/api_error_helper.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/mh_logo_header.dart';
 import '../core/widgets/mh_surface_card.dart';
@@ -98,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      final message = e.toString().replaceFirst('Exception: ', '');
+      final message = apiErrorToUserMessage(e);
       final email = _usernameController.text.trim();
       final isUnverifiedEmail = message.toLowerCase().contains('vérifi') ||
           message.toLowerCase().contains('verifie') ||

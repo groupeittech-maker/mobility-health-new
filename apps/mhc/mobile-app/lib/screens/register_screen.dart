@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../core/constants/app_colors.dart';
 import '../core/network/api_client.dart' as net;
+import '../core/utils/api_error_helper.dart';
 import '../core/widgets/mh_logo_header.dart';
 import '../core/widgets/mh_surface_card.dart';
 import '../models/destination.dart';
@@ -119,17 +120,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       context.go('/verify-email?email=${Uri.encodeComponent(email)}');
     } on DioException catch (e) {
       if (!mounted) return;
-      final msg = e.response?.data is Map && e.response!.data['detail'] != null
-          ? e.response!.data['detail'].toString()
-          : e.toString().replaceFirst('DioException: ', '');
       setState(() {
-        _errorMessage = msg;
+        _errorMessage = apiErrorToUserMessage(e);
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _errorMessage = apiErrorToUserMessage(e);
         _isLoading = false;
       });
     }
