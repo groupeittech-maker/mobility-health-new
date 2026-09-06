@@ -92,6 +92,7 @@ flutter:
   assets:
     - .env
     - assets/images/
+    - assets/data/reference_countries.json
 
   # Fonts (optionnel - commenté car les fichiers n'existent pas encore)
   # fonts:

@@ -81,10 +81,9 @@ def _title_case_cities(cities: list[str], capital: str | None) -> list[str]:
     return dedup
 
 
-def _extract_rest_countries() -> list[dict[str, Any]]:
-    response = httpx.get(RESTCOUNTRIES_URL, timeout=60.0)
-    response.raise_for_status()
-    payload = response.json()
+def _parse_restcountries_payload(payload: Any) -> list[dict[str, Any]]:
+    if not isinstance(payload, list):
+        return []
 
     countries: list[dict[str, Any]] = []
     for item in payload:
@@ -120,6 +119,32 @@ def _extract_rest_countries() -> list[dict[str, Any]]:
         )
 
     countries.sort(key=lambda entry: entry["nom"].lower())
+    return countries
+
+
+def _extract_rest_countries() -> list[dict[str, Any]]:
+    try:
+        response = httpx.get(RESTCOUNTRIES_URL, timeout=60.0, follow_redirects=True)
+        response.raise_for_status()
+        countries = _parse_restcountries_payload(response.json())
+        if countries:
+            return countries
+    except Exception as exc:
+        logger.warning("RestCountries indisponible, fallback countries.dev: %s", exc)
+
+    from app.services.countries_dev_reference import fetch_countries_from_countries_dev
+
+    countries = []
+    for item in fetch_countries_from_countries_dev():
+        name = item["nom"]
+        countries.append(
+            {
+                "code": item["code"],
+                "nom": name,
+                "capital": None,
+                "aliases": {_normalize_name(name)},
+            }
+        )
     return countries
 
 
@@ -233,9 +258,7 @@ def sync_destination_reference_to_db(
             countries_created += 1
         else:
             changed = False
-            if country.nom != country_data["nom"]:
-                country.nom = country_data["nom"]
-                changed = True
+            # Conserver les libellés français déjà en base (sync externe souvent en anglais).
             if country.ordre_affichage != country_data["ordre_affichage"]:
                 country.ordre_affichage = country_data["ordre_affichage"]
                 changed = True
