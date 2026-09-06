@@ -50,15 +50,28 @@ def smtp_status() -> Dict[str, Any]:
         if security == "ssl":
             with smtplib.SMTP_SSL(host, port, timeout=15) as server:
                 server.login(user, password)
+                _smtp_send_probe(server, user)
         else:
             with smtplib.SMTP(host, port, timeout=15) as server:
                 if security == "starttls":
                     server.starttls()
                 server.login(user, password)
+                _smtp_send_probe(server, user)
         payload["probe_ok"] = True
     except Exception as exc:
         payload["probe_error"] = str(exc)
     return payload
+
+
+def _smtp_send_probe(server: smtplib.SMTP, user: str) -> None:
+    """Test d'envoi réel (même en-têtes From que les e-mails applicatifs)."""
+    from_email = (settings.SMTP_FROM_EMAIL or user).strip()
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "MHC SMTP probe"
+    msg["From"] = f"{settings.SMTP_FROM_NAME} <{from_email}>"
+    msg["To"] = user
+    msg.attach(MIMEText("Probe Mobility HealthCare — ignore.", "plain", "utf-8"))
+    server.send_message(msg)
 
 
 def deliver_email_sync(
