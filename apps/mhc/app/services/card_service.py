@@ -48,6 +48,12 @@ class CardService:
         "assets",
         "card-pattern-teal.png",
     )
+    CARD_BACKGROUND_PATH = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+        "frontend-simple",
+        "assets",
+        "card-background.jpg",
+    )
 
     # Chemins vers les logos
     NSIA_LOGO_PATH = os.path.join(
@@ -466,7 +472,7 @@ class CardService:
                     logo = Image.open(path)
                     if logo.mode != "RGBA":
                         logo = logo.convert("RGBA")
-                    if "logo_mobility_healthcare_officiel.png" in path:
+                    if path.endswith(("logo_officiel_mh.png", "logo_mobility_healthcare_officiel.png")):
                         logo = cls._knockout_near_black_background(logo)
                     log.info("Logo Mobility e-carte chargé: %s", path)
                     cls._MOBILITY_LOGO_CACHE = logo
@@ -477,7 +483,19 @@ class CardService:
 
     @classmethod
     def _create_card_background(cls) -> Image.Image:
-        """Fond maquette : dégradé indigo, vagues à gauche, globe pointillé à droite."""
+        """Fond maquette officiel (card-background.jpg) redimensionné à la taille e-carte."""
+        width, height = cls.WIDTH, cls.HEIGHT
+        if os.path.isfile(cls.CARD_BACKGROUND_PATH):
+            try:
+                with Image.open(cls.CARD_BACKGROUND_PATH) as source:
+                    return ImageOps.fit(source.convert("RGB"), (width, height), method=RESAMPLE_METHOD)
+            except Exception:
+                pass
+        return cls._create_card_background_fallback()
+
+    @classmethod
+    def _create_card_background_fallback(cls) -> Image.Image:
+        """Secours si l'asset JPG est absent (tests CI, déploiement partiel)."""
         import math
 
         width, height = cls.WIDTH, cls.HEIGHT
@@ -504,35 +522,7 @@ class CardService:
 
         overlay = Image.new("RGBA", card.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
-
-        # Vagues discrètes à gauche, pour ne pas concurrencer le globe.
-        wave_limit = int(width * 0.48)
-        for i in range(12):
-            y0 = 20 + i * 48
-            points = []
-            for x in range(0, wave_limit, 4):
-                fade_x = 1 - (x / wave_limit)
-                yy = y0 + 18 * math.sin(x / 86.0 + i * 0.2) * (0.4 + 0.6 * fade_x)
-                points.append((x, int(yy)))
-            if len(points) > 1:
-                draw.line(points, fill=(186, 188, 226, 28), width=2)
-
         cls._draw_dotted_globe(draw, width, height)
-        teal = cls._hex_to_rgb(cls.TEAL_ACCENT)
-        # Reflets opaques : pixels charte exacts (teal + blanc) sur le globe.
-        cx = int(width * 0.82)
-        cy = int(height * 0.50)
-        radius = int(height * 0.70)
-        for angle, color in (
-            (52, (255, 255, 255)),
-            (46, teal),
-            (58, teal),
-        ):
-            rad = math.radians(angle)
-            x = int(cx + radius * 0.42 * math.cos(rad))
-            y = int(cy - radius * 0.42 * math.sin(rad))
-            draw.ellipse((x, y, x + 2, y + 2), fill=(*color, 255))
-
         return Image.alpha_composite(card.convert("RGBA"), overlay).convert("RGB")
 
     @staticmethod

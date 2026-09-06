@@ -1,9 +1,10 @@
 """Tests charte graphique : e-carte, e-mails, constantes brand."""
 
+import os
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 from app.core.enums import Role
 from app.models.user import User
@@ -39,17 +40,16 @@ class TestCardServiceBrand:
         assert CardService._hex_to_rgb(BRAND_PURPLE) == (78, 38, 124)
         assert CardService._hex_to_rgb(BRAND_TEAL) == (20, 174, 152)
 
-    def test_card_background_uses_brand_colors(self):
+    def test_card_background_uses_official_asset(self):
         card = CardService._create_card_background()
         assert card.size == (CardService.WIDTH, CardService.HEIGHT)
+        assert os.path.isfile(CardService.CARD_BACKGROUND_PATH)
 
-        purple_rgb = CardService._hex_to_rgb(BRAND_PURPLE)
-        teal_rgb = CardService._hex_to_rgb(BRAND_TEAL)
-        pixels = set(card.getdata())
-
-        assert purple_rgb in pixels, "Le violet brand doit apparaître sur la e-carte"
-        assert teal_rgb in pixels, "Le teal brand doit apparaître sur la e-carte"
-        assert (255, 255, 255) in pixels, "Un accent blanc doit être présent sur la e-carte"
+        resample = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
+        with Image.open(CardService.CARD_BACKGROUND_PATH) as source:
+            expected = ImageOps.fit(source.convert("RGB"), card.size, method=resample)
+        for point in ((40, 300), (500, 300), (900, 300)):
+            assert card.getpixel(point) == expected.getpixel(point)
 
     def test_card_background_is_valid_png(self):
         card = CardService._create_card_background()
