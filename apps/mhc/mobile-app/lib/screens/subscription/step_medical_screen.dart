@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
@@ -11,8 +12,7 @@ import '../../core/widgets/mh_surface_card.dart';
 import '../../core/widgets/mh_text_highlight.dart';
 import '../../services/api_services.dart';
 
-/// Étape 3 : Questionnaire médical. La photo e-carte est prise à l’étape « Choix du produit »
-/// puis envoyée ici dans le JSON (persist MinIO / génération e-carte, identique au web).
+/// Étape 3 : Questionnaire médical simplifié (5 questions oui/non).
 class StepMedicalScreen extends StatefulWidget {
   const StepMedicalScreen({
     super.key,
@@ -22,7 +22,6 @@ class StepMedicalScreen extends StatefulWidget {
   });
 
   final int subscriptionId;
-  /// Chemin local de la photo e-carte (obligatoire), fourni par l’étape « Choix du produit ».
   final String? medicalPhotoPath;
   final VoidCallback onContinue;
 
@@ -35,52 +34,26 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
 
   final QuestionnaireService _questionnaireService = QuestionnaireService();
   final _formKey = GlobalKey<FormState>();
+  final _moisGrossesseController = TextEditingController();
+
   bool _loading = false;
   String? _error;
   bool _declarationSante = false;
-  // Formulaire détaillé (ex-inscription)
-  final List<String> _maladiesChecked = [];
-  bool _aucuneMaladieChronique = false;
-  final _maladiesAutreController = TextEditingController();
-  String? _traitementRegulier;
-  final _traitementPrecisionController = TextEditingController();
-  String? _hospitalise12;
-  final _hospitaliseRaisonController = TextEditingController();
-  /// `oui` | `non` | `non_concerne` — réponse obligatoire avant envoi.
+  String? _maladeSouscription;
+  String? _malade12Mois;
+  String? _maladieChronique;
   String? _enceinte;
-  String? _fumeur;
-  final _fumeurCigarettesController = TextEditingController();
-  String? _alcool;
-  String? _alcoolFrequence;
-  String? _activitePhysique;
-  String? _allergies;
-  final _allergiesPrecisionController = TextEditingController();
-  String? _santeMentale;
-  final _santeMentalePrecisionController = TextEditingController();
+  String? _voyageMedical;
 
-  static const _maladiesOptions = ['Diabète', 'HTA', 'Asthme', 'Épilepsie', 'Drépanocytose', 'Cardiopathie'];
-
-  @override
-  void initState() {
-    super.initState();
-    _traitementRegulier = 'oui';
-    _hospitalise12 = 'oui';
-    _fumeur = 'oui';
-    _alcool = 'oui';
-    _alcoolFrequence = 'occasionnellement';
-    _activitePhysique = 'oui';
-    _allergies = 'oui';
-    _santeMentale = 'oui';
+  bool get _pregnancyIneligible {
+    if (_enceinte != 'oui') return false;
+    final months = int.tryParse(_moisGrossesseController.text.trim());
+    return months != null && months > 5;
   }
 
   @override
   void dispose() {
-    _maladiesAutreController.dispose();
-    _traitementPrecisionController.dispose();
-    _hospitaliseRaisonController.dispose();
-    _fumeurCigarettesController.dispose();
-    _allergiesPrecisionController.dispose();
-    _santeMentalePrecisionController.dispose();
+    _moisGrossesseController.dispose();
     super.dispose();
   }
 
@@ -103,18 +76,40 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
   }
 
   Future<void> _submit() async {
+    if (_pregnancyIneligible) {
+      setState(() {
+        _error = 'Vous n\'êtes pas éligible pour être assuré par nos services (grossesse de plus de 5 mois).';
+      });
+      return;
+    }
     if (!_formKey.currentState!.validate() || !_declarationSante) {
       setState(() {
         _error = _declarationSante ? null : 'Veuillez accepter la déclaration santé.';
       });
       return;
     }
-    if (_enceinte == null) {
-      setState(() {
-        _error = 'Veuillez répondre : êtes-vous enceinte ? (Oui, Non ou Non concerné).';
-      });
+    if (_maladeSouscription == null ||
+        _malade12Mois == null ||
+        _maladieChronique == null ||
+        _enceinte == null ||
+        _voyageMedical == null) {
+      setState(() => _error = 'Veuillez répondre à toutes les questions médicales.');
       return;
     }
+    if (_enceinte == 'oui') {
+      final months = int.tryParse(_moisGrossesseController.text.trim());
+      if (months == null || months < 1) {
+        setState(() => _error = 'Veuillez indiquer le nombre de mois de grossesse.');
+        return;
+      }
+      if (months > 5) {
+        setState(() {
+          _error = 'Vous n\'êtes pas éligible pour être assuré par nos services (grossesse de plus de 5 mois).';
+        });
+        return;
+      }
+    }
+
     final photoPath = widget.medicalPhotoPath?.trim();
     if (photoPath == null || photoPath.isEmpty) {
       setState(() {
@@ -123,72 +118,35 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
       });
       return;
     }
+
     setState(() {
       _loading = true;
       _error = null;
     });
+
     try {
-      final maladiesList = <String>[];
-      if (_aucuneMaladieChronique) {
-        maladiesList.add('Aucune');
-      } else {
-        maladiesList.addAll(_maladiesChecked);
-        final autre = _maladiesAutreController.text.trim();
-        if (autre.isNotEmpty) {
-          maladiesList.add('Autre: $autre');
-        }
-      }
-      final maladiesChroniques = maladiesList.isEmpty ? null : maladiesList.join(', ');
-      String? traitementsEnCours;
-      if (_traitementRegulier == 'oui') {
-        final p = _traitementPrecisionController.text.trim();
-        traitementsEnCours = 'Traitement médical régulier: Oui. ${p.isNotEmpty ? 'Type: $p' : ''}';
-      } else if (_traitementRegulier == 'non') {
-        traitementsEnCours = 'Traitement médical régulier: Non';
-      }
-      final parts = <String>[];
-      if (_hospitalise12 == 'oui') {
-        parts.add('Hospitalisation (12 derniers mois): Oui. Raison: ${_hospitaliseRaisonController.text.trim().isEmpty ? '—' : _hospitaliseRaisonController.text.trim()}');
-      } else if (_hospitalise12 == 'non') {
-        parts.add('Hospitalisation (12 derniers mois): Non');
-      }
-      if (_fumeur == 'oui') {
-        parts.add('Fumeur: Oui${_fumeurCigarettesController.text.trim().isEmpty ? '' : ' (${_fumeurCigarettesController.text.trim()} cigarettes/jour)'}');
-      } else if (_fumeur == 'non') {
-        parts.add('Fumeur: Non');
-      }
-      if (_alcool == 'oui') {
-        const freqLabels = {'occasionnellement': 'Occasionnellement', 'regulierement': 'Régulièrement (1 à 2 fois/semaine)', 'quotidiennement': 'Quotidiennement'};
-        final f = _alcoolFrequence != null ? (freqLabels[_alcoolFrequence] ?? _alcoolFrequence) : '—';
-        parts.add('Alcool: Oui. Fréquence: $f');
-      } else if (_alcool == 'non') {
-        parts.add('Alcool: Non');
-      }
-      if (_activitePhysique == 'oui') {
-        parts.add('Activité physique régulière: Oui');
-      } else if (_activitePhysique == 'non') {
-        parts.add('Activité physique régulière: Non');
-      }
-      if (_allergies == 'oui') {
-        parts.add('Allergies: Oui. ${_allergiesPrecisionController.text.trim().isEmpty ? '—' : _allergiesPrecisionController.text.trim()}');
-      } else if (_allergies == 'non') {
-        parts.add('Allergies: Non');
-      }
-      if (_santeMentale == 'oui') {
-        parts.add('Santé mentale (trouble diagnostiqué): Oui. ${_santeMentalePrecisionController.text.trim().isEmpty ? '—' : _santeMentalePrecisionController.text.trim()}');
-      } else if (_santeMentale == 'non') {
-        parts.add('Santé mentale (trouble diagnostiqué): Non');
-      }
-      final antecedentsRecents = parts.isEmpty ? null : parts.join('\n');
+      final moisGrossesse = _enceinte == 'oui'
+          ? int.tryParse(_moisGrossesseController.text.trim())
+          : null;
 
       final reponses = <String, dynamic>{
+        'version': 'simplified_v1',
         'declaration_sante': true,
         'date_soumission': DateTime.now().toIso8601String(),
+        'malade_souscription': _maladeSouscription,
+        'maladeSouscription': _maladeSouscription,
+        'malade_12_mois': _malade12Mois,
+        'malade12Mois': _malade12Mois,
+        'maladie_chronique': _maladieChronique,
+        'maladieChronique': _maladieChronique,
         'enceinte': _enceinte,
-        if (maladiesChroniques != null && maladiesChroniques.isNotEmpty) 'maladies_chroniques': maladiesChroniques,
-        if (traitementsEnCours != null && traitementsEnCours.isNotEmpty) 'traitements_en_cours': traitementsEnCours,
-        if (antecedentsRecents != null && antecedentsRecents.isNotEmpty) 'antecedents_recents': antecedentsRecents,
+        'pregnancy': _enceinte,
+        if (moisGrossesse != null) 'mois_grossesse': moisGrossesse,
+        if (moisGrossesse != null) 'moisGrossesse': moisGrossesse,
+        'voyage_medical': _voyageMedical,
+        'voyageMedical': _voyageMedical,
       };
+
       final file = File(photoPath);
       if (!await file.exists()) {
         throw Exception(
@@ -208,6 +166,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
       reponses['photo_medicale'] = dataUrl;
       reponses['photoMedicale'] = dataUrl;
       reponses['photo_identity'] = dataUrl;
+
       await _questionnaireService.submitMedical(widget.subscriptionId, reponses);
       if (mounted) widget.onContinue();
     } catch (e) {
@@ -257,6 +216,21 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                   ),
                 ),
               ],
+              if (_pregnancyIneligible) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.danger.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.danger.withValues(alpha: 0.35)),
+                  ),
+                  child: const Text(
+                    'Vous n\'êtes pas éligible pour être assuré par nos services (grossesse de plus de 5 mois).',
+                    style: TextStyle(color: AppColors.danger, fontSize: 13),
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               MHSurfaceCard(
                 padding: const EdgeInsets.all(20),
@@ -264,154 +238,76 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'DONNÉES MÉDICALES',
+                      'QUESTIONS MÉDICALES',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: AppColors.secondary,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Maladies chroniques',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.secondary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        FilterChip(
-                          label: const Text('Aucune'),
-                          selected: _aucuneMaladieChronique,
-                          onSelected: (v) {
-                            setState(() {
-                              if (v) {
-                                _aucuneMaladieChronique = true;
-                                _maladiesChecked.clear();
-                              } else {
-                                _aucuneMaladieChronique = false;
-                              }
-                            });
-                          },
-                          selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                        ),
-                        ..._maladiesOptions.map((m) {
-                          final checked = _maladiesChecked.contains(m);
-                          return FilterChip(
-                            label: Text(m),
-                            selected: checked,
-                            onSelected: (v) {
-                              setState(() {
-                                if (v) {
-                                  _aucuneMaladieChronique = false;
-                                  _maladiesChecked.add(m);
-                                } else {
-                                  _maladiesChecked.remove(m);
-                                }
-                              });
-                            },
-                            selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                          );
-                        }),
-                      ],
-                    ),
                     const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _maladiesAutreController,
-                      decoration: MHSurfaceCard.input(labelText: 'Autre (précisez)', isDense: true),
+                    const Text(
+                      'Répondez par Oui ou Non à chaque question.',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 16),
+                    _yesNoRow(
+                      '1. Êtes-vous malade au moment de la souscription ?',
+                      _maladeSouscription,
+                      (v) => setState(() => _maladeSouscription = v),
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      'Traitement médical régulier ?',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.secondary,
-                      ),
+                    _yesNoRow(
+                      '2. Avez-vous été malade au cours des 12 derniers mois ?',
+                      _malade12Mois,
+                      (v) => setState(() => _malade12Mois = v),
                     ),
-                    Row(
-                      children: [
-                        ChoiceChip(label: const Text('Oui'), selected: _traitementRegulier == 'oui', onSelected: (_) => setState(() => _traitementRegulier = 'oui'), selectedColor: AppColors.primary.withValues(alpha: 0.2)),
-                        const SizedBox(width: 8),
-                        ChoiceChip(label: const Text('Non'), selected: _traitementRegulier == 'non', onSelected: (_) => setState(() => _traitementRegulier = 'non'), selectedColor: AppColors.primary.withValues(alpha: 0.2)),
-                      ],
+                    const SizedBox(height: 12),
+                    _yesNoRow(
+                      '3. Souffrez-vous d\'une maladie chronique ?',
+                      _maladieChronique,
+                      (v) => setState(() => _maladieChronique = v),
                     ),
-                    if (_traitementRegulier == 'oui') ...[
+                    const SizedBox(height: 12),
+                    _yesNoRow(
+                      '4. Êtes-vous enceinte au moment de la souscription ?',
+                      _enceinte,
+                      (v) => setState(() {
+                        _enceinte = v;
+                        if (v != 'oui') {
+                          _moisGrossesseController.clear();
+                        }
+                      }),
+                    ),
+                    if (_enceinte == 'oui') ...[
                       const SizedBox(height: 8),
                       TextFormField(
-                        controller: _traitementPrecisionController,
-                        decoration: MHSurfaceCard.input(labelText: 'Précisez le type de traitement', isDense: true),
-                        maxLines: 2,
+                        controller: _moisGrossesseController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: MHSurfaceCard.input(
+                          labelText: 'De combien de mois ?',
+                          isDense: true,
+                        ),
+                        onChanged: (_) => setState(() {}),
+                        validator: (value) {
+                          if (_enceinte != 'oui') return null;
+                          final months = int.tryParse((value ?? '').trim());
+                          if (months == null || months < 1) {
+                            return 'Indiquez le nombre de mois';
+                          }
+                          if (months > 5) {
+                            return 'Non éligible au-delà de 5 mois';
+                          }
+                          return null;
+                        },
                       ),
                     ],
                     const SizedBox(height: 12),
-                    Text(
-                      'Hospitalisé au cours des 12 derniers mois ?',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.secondary,
-                      ),
+                    _yesNoRow(
+                      '5. Faites-vous un voyage à but médical ?',
+                      _voyageMedical,
+                      (v) => setState(() => _voyageMedical = v),
                     ),
-                    Row(
-                      children: [
-                        ChoiceChip(label: const Text('Oui'), selected: _hospitalise12 == 'oui', onSelected: (_) => setState(() => _hospitalise12 = 'oui'), selectedColor: AppColors.primary.withValues(alpha: 0.2)),
-                        const SizedBox(width: 8),
-                        ChoiceChip(label: const Text('Non'), selected: _hospitalise12 == 'non', onSelected: (_) => setState(() => _hospitalise12 = 'non'), selectedColor: AppColors.primary.withValues(alpha: 0.2)),
-                      ],
-                    ),
-                    if (_hospitalise12 == 'oui') ...[
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _hospitaliseRaisonController,
-                        decoration: MHSurfaceCard.input(labelText: 'Raison', isDense: true),
-                        maxLines: 2,
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Text(
-                      'Êtes-vous enceinte ?',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.secondary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        ChoiceChip(
-                          label: const Text('Oui'),
-                          selected: _enceinte == 'oui',
-                          onSelected: (_) => setState(() => _enceinte = 'oui'),
-                          selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                        ),
-                        ChoiceChip(
-                          label: const Text('Non'),
-                          selected: _enceinte == 'non',
-                          onSelected: (_) => setState(() => _enceinte = 'non'),
-                          selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                        ),
-                        ChoiceChip(
-                          label: const Text('Non concerné'),
-                          selected: _enceinte == 'non_concerne',
-                          onSelected: (_) => setState(() => _enceinte = 'non_concerne'),
-                          selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    _yesNoRow('Fumez-vous ?', _fumeur, (v) => setState(() => _fumeur = v), _fumeurCigarettesController, 'Cigarettes par jour'),
-                    const SizedBox(height: 10),
-                    _yesNoRow('Consommation d\'alcool ?', _alcool, (v) => setState(() => _alcool = v), null, null, true),
-                    const SizedBox(height: 10),
-                    _yesNoRow('Activité physique régulière ?', _activitePhysique, (v) => setState(() => _activitePhysique = v)),
-                    const SizedBox(height: 10),
-                    _yesNoRow('Allergies (médicaments, aliments) ?', _allergies, (v) => setState(() => _allergies = v), _allergiesPrecisionController, 'Précisez'),
-                    const SizedBox(height: 10),
-                    _yesNoRow('Trouble mental ou émotionnel diagnostiqué ?', _santeMentale, (v) => setState(() => _santeMentale = v), _santeMentalePrecisionController, 'Précisez'),
                   ],
                 ),
               ),
@@ -435,7 +331,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _loading ? null : _submit,
+                  onPressed: (_loading || _pregnancyIneligible) ? null : _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -462,11 +358,8 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
   Widget _yesNoRow(
     String label,
     String? value,
-    ValueChanged<String?> onChanged, [
-    TextEditingController? detailController,
-    String? detailLabel,
-    bool isAlcool = false,
-  ]) {
+    ValueChanged<String?> onChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -495,31 +388,10 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
             ),
           ],
         ),
-        if (value == 'oui') ...[
-          const SizedBox(height: 8),
-          if (isAlcool)
-            DropdownButtonFormField<String>(
-              value: _alcoolFrequence,
-              decoration: MHSurfaceCard.input(labelText: 'Fréquence', isDense: true),
-              items: const [
-                DropdownMenuItem(value: 'occasionnellement', child: Text('Occasionnellement')),
-                DropdownMenuItem(value: 'regulierement', child: Text('Régulièrement (1-2/sem)')),
-                DropdownMenuItem(value: 'quotidiennement', child: Text('Quotidiennement')),
-              ],
-              onChanged: (v) => setState(() => _alcoolFrequence = v),
-            )
-          else if (detailController != null && detailLabel != null)
-            TextFormField(
-              controller: detailController,
-              decoration: MHSurfaceCard.input(labelText: detailLabel, isDense: true),
-              maxLines: detailLabel.contains('Précisez') ? 2 : 1,
-            ),
-        ],
       ],
     );
   }
 
-  /// Aperçu de la photo e-carte (choisie à l’étape produit), sans texte explicatif sur l’e-carte.
   Widget _buildEcartePhotoSummary(ThemeData theme) {
     final path = widget.medicalPhotoPath;
     final ok = path != null && path.trim().isNotEmpty;
@@ -565,9 +437,9 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
               style: TextStyle(fontSize: 14, color: Color(0xFF64748B), height: 1.35),
             ),
           ] else
-            Text(
+            const Text(
               'Aucune photo : vous devez d’abord l’ajouter à l’étape « Choix du produit » (caméra ou galerie), puis revenir ici.',
-              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.35),
+              style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.35),
             ),
         ],
       ),

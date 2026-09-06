@@ -58,10 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     questionnaireMode = 'long';
     populateSummary(draft);
-    populateCheckboxes();
-    setupSymptomOtherField();
-    setupSurgeryDetailsField();
-    setupYesNoConditionalFields();
+    setupPregnancyEligibilityCheck();
     applyQuestionnaireMode(questionnaireMode);
     setupFormsMedicalPhotoUploader();
 
@@ -79,6 +76,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 administrative.personal = buildPersonalFromTierInfo(draft.tierInfo);
             }
             const medical = collectMedicalData();
+            validateMedicalEligibility(medical);
             const pm = medical.photoMedicale;
             if (!pm || typeof pm !== 'string' || pm.length < 50) {
                 showMessage(
@@ -152,116 +150,76 @@ function populateSummary(draft) {
         <p><strong>Voyage :</strong> ${draft.projectTitle || '—'}</p>
         <p><strong>Produit :</strong> ${draft.productName || '—'}</p>
         <p><strong>Assureur :</strong> ${draft.assureur || 'Mobility Health'}</p>
-        <p><strong>Mode questionnaire :</strong> Questionnaire long</p>
+        <p><strong>Mode questionnaire :</strong> Questionnaire médical simplifié (5 questions)</p>
     `;
 }
 
-function populateCheckboxes() {
-    const symptomOptions = [
-        'Paludisme',
-        'Tuberculose',
-        'Fièvre typhoïde',
-        'Choléra',
-        'Dengue',
-        'Hépatite',
-        'Infections respiratoires sévères',
-        'Fièvre persistante',
-        'Douleurs thoraciques',
-        'Essoufflement inhabituel',
-        'Vertiges fréquents',
-        'Perte de connaissance',
-        'Saignements anormaux',
-        'Réactions allergiques sévères',
-        'Autre'
+function setupPregnancyEligibilityCheck() {
+    const radios = document.querySelectorAll('input[name="enceinte"]');
+    const detail = document.getElementById('enceinte_detail');
+    const monthsInput = document.getElementById('mois_grossesse');
+    const ineligibleBanner = document.getElementById('enceinteIneligible');
+    const submitBtn = document.getElementById('submitFormsBtn');
+
+    function update() {
+        const checked = document.querySelector('input[name="enceinte"]:checked');
+        const isPregnant = checked && checked.value === 'oui';
+        if (detail) {
+            detail.style.display = isPregnant ? 'block' : 'none';
+        }
+        if (monthsInput) {
+            monthsInput.required = isPregnant;
+            if (!isPregnant) {
+                monthsInput.value = '';
+            }
+        }
+        refreshPregnancyEligibility(ineligibleBanner, submitBtn);
+    }
+
+    radios.forEach((radio) => radio.addEventListener('change', update));
+    if (monthsInput) {
+        monthsInput.addEventListener('input', () => refreshPregnancyEligibility(ineligibleBanner, submitBtn));
+    }
+    update();
+}
+
+function refreshPregnancyEligibility(ineligibleBanner, submitBtn) {
+    const checked = document.querySelector('input[name="enceinte"]:checked');
+    const monthsRaw = document.getElementById('mois_grossesse')?.value?.trim();
+    const months = monthsRaw ? Number.parseInt(monthsRaw, 10) : NaN;
+    const ineligible = checked?.value === 'oui' && Number.isFinite(months) && months > 5;
+
+    if (ineligibleBanner) {
+        ineligibleBanner.style.display = ineligible ? 'block' : 'none';
+    }
+    if (submitBtn) {
+        submitBtn.disabled = ineligible;
+    }
+    return !ineligible;
+}
+
+function validateMedicalEligibility(medical) {
+    const requiredFields = [
+        ['maladeSouscription', '1. Êtes-vous malade au moment de la souscription ?'],
+        ['malade12Mois', '2. Avez-vous été malade au cours des 12 derniers mois ?'],
+        ['maladieChronique', '3. Souffrez-vous d\'une maladie chronique ?'],
+        ['enceinte', '4. Êtes-vous enceinte au moment de la souscription ?'],
+        ['voyageMedical', '5. Faites-vous un voyage à but médical ?'],
     ];
-    renderCheckboxGroup('symptomsList', symptomOptions, 'symptom');
-}
-
-function setupSymptomOtherField() {
-    const container = document.getElementById('symptomsList');
-    const otherGroup = document.getElementById('symptomOtherGroup');
-    const otherInput = document.getElementById('symptomOther');
-    if (!container || !otherGroup || !otherInput) {
-        return;
-    }
-    const otherCheckbox = container.querySelector('input[value="Autre"]');
-    if (!otherCheckbox) {
-        return;
-    }
-    const toggle = () => {
-        if (otherCheckbox.checked) {
-            otherGroup.style.display = 'block';
-            otherInput.required = true;
-        } else {
-            otherGroup.style.display = 'none';
-            otherInput.required = false;
-            otherInput.value = '';
+    for (const [key, label] of requiredFields) {
+        if (!medical[key]) {
+            throw new Error(`Veuillez répondre : ${label}`);
         }
-    };
-    otherCheckbox.addEventListener('change', toggle);
-    toggle();
-}
-
-function setupSurgeryDetailsField() {
-    const selectEl = document.getElementById('surgeryLast6Months');
-    const detailsGroup = document.getElementById('surgeryDetailsGroup');
-    const detailsInput = document.getElementById('surgeryLast6MonthsDetails');
-    if (!selectEl || !detailsGroup || !detailsInput) {
-        return;
     }
-    const toggle = () => {
-        if (selectEl.value === 'oui') {
-            detailsGroup.style.display = 'block';
-            detailsInput.required = true;
-        } else {
-            detailsGroup.style.display = 'none';
-            detailsInput.required = false;
-            detailsInput.value = '';
+    if (medical.enceinte === 'oui') {
+        const months = Number.parseInt(String(medical.moisGrossesse ?? ''), 10);
+        if (!Number.isFinite(months) || months < 1) {
+            throw new Error('Veuillez indiquer le nombre de mois de grossesse.');
         }
-    };
-    selectEl.addEventListener('change', toggle);
-    toggle();
-}
-
-function setupYesNoConditionalFields() {
-    const pairs = [
-        ['malade_souscription', 'malade_souscription_detail'],
-        ['symptomes_persistants', 'symptomes_persistants_detail'],
-        ['medecin_traitant', 'medecin_traitant_detail'],
-        ['traitement_regulier', 'traitement_regulier_detail'],
-        ['hospitalise_12_mois', 'hospitalise_12_mois_detail'],
-        ['fumeur', 'fumeur_detail'],
-        ['alcool', 'alcool_detail'],
-        ['activite_physique', 'activite_physique_detail'],
-        ['allergies', 'allergies_detail'],
-        ['sante_mentale', 'sante_mentale_detail']
-    ];
-    pairs.forEach(([radioName, detailId]) => {
-        const radios = document.querySelectorAll(`input[name="${radioName}"]`);
-        const detail = document.getElementById(detailId);
-        if (!detail || !radios.length) return;
-        function update() {
-            const checked = document.querySelector(`input[name="${radioName}"]:checked`);
-            detail.style.display = checked && checked.value === 'oui' ? 'block' : 'none';
+        if (months > 5) {
+            throw new Error('Vous n\'êtes pas éligible pour être assuré par nos services (grossesse de plus de 5 mois).');
         }
-        radios.forEach(r => r.addEventListener('change', update));
-        update();
-    });
-}
-
-function renderCheckboxGroup(containerId, options, prefix) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    container.innerHTML = '';
-    options.forEach((label, index) => {
-        const id = `${prefix}-${index}`;
-        const wrapper = document.createElement('label');
-        wrapper.innerHTML = `
-            <input type="checkbox" id="${id}" value="${label}">
-            ${label}
-        `;
-        container.appendChild(wrapper);
-    });
+    }
 }
 
 function collectAdministrativeData() {
@@ -303,44 +261,28 @@ function collectMedicalData() {
 
 function collectLongMedicalData() {
     const maladeSouscription = document.querySelector('input[name="malade_souscription"]:checked')?.value;
-    const symptomesPersistants = document.querySelector('input[name="symptomes_persistants"]:checked')?.value;
-    const medecinTraitant = document.querySelector('input[name="medecin_traitant"]:checked')?.value;
-    const traitementRegulier = document.querySelector('input[name="traitement_regulier"]:checked')?.value;
-    const hospitalise12 = document.querySelector('input[name="hospitalise_12_mois"]:checked')?.value;
-    const fumeur = document.querySelector('input[name="fumeur"]:checked')?.value;
-    const alcool = document.querySelector('input[name="alcool"]:checked')?.value;
-    const activitePhysique = document.querySelector('input[name="activite_physique"]:checked')?.value;
-    const allergies = document.querySelector('input[name="allergies"]:checked')?.value;
-    const santeMentale = document.querySelector('input[name="sante_mentale"]:checked')?.value;
+    const malade12Mois = document.querySelector('input[name="malade_12_mois"]:checked')?.value;
+    const maladieChronique = document.querySelector('input[name="maladie_chronique"]:checked')?.value;
+    const enceinte = document.querySelector('input[name="enceinte"]:checked')?.value;
+    const voyageMedical = document.querySelector('input[name="voyage_medical"]:checked')?.value;
+    const moisGrossesseRaw = valueOf('mois_grossesse');
+    const moisGrossesse = moisGrossesseRaw ? Number.parseInt(moisGrossesseRaw, 10) : null;
+
     return {
         mode: 'long',
+        version: 'simplified_v1',
         maladeSouscription: maladeSouscription || null,
-        maladeSouscriptionPrecision: valueOf('malade_souscription_precision'),
-        symptomesPersistants: symptomesPersistants || null,
-        symptomesPersistantsPrecision: valueOf('symptomes_persistants_precision'),
-        medecinTraitant: medecinTraitant || null,
-        medecinTraitantNom: valueOf('medecin_traitant_nom'),
-        medecinTraitantSpecialite: valueOf('medecin_traitant_specialite'),
-        medecinTraitantTelephone: valueOf('medecin_traitant_telephone'),
-        symptoms: selectedValues('symptomsList'),
-        symptomOther: valueOf('symptomOther'),
-        pregnancy: valueOf('pregnancy'),
-        surgeryLast6Months: valueOf('surgeryLast6Months'),
-        surgeryLast6MonthsDetails: valueOf('surgeryLast6MonthsDetails'),
-        traitementRegulier: traitementRegulier || null,
-        traitementRegulierPrecision: valueOf('traitement_regulier_precision'),
-        hospitalise12Mois: hospitalise12 || null,
-        hospitalise12MoisRaison: valueOf('hospitalise_12_mois_raison'),
-        fumeur: fumeur || null,
-        fumeurCigarettes: valueOf('fumeur_cigarettes'),
-        alcool: alcool || null,
-        alcoolFrequence: valueOf('alcool_frequence'),
-        activitePhysique: activitePhysique || null,
-        activitePhysiquePrecision: valueOf('activite_physique_precision'),
-        allergies: allergies || null,
-        allergiesPrecision: valueOf('allergies_precision'),
-        santeMentale: santeMentale || null,
-        santeMentalePrecision: valueOf('sante_mentale_precision'),
+        malade_souscription: maladeSouscription || null,
+        malade12Mois: malade12Mois || null,
+        malade_12_mois: malade12Mois || null,
+        maladieChronique: maladieChronique || null,
+        maladie_chronique: maladieChronique || null,
+        enceinte: enceinte || null,
+        pregnancy: enceinte || null,
+        moisGrossesse: Number.isFinite(moisGrossesse) ? moisGrossesse : null,
+        mois_grossesse: Number.isFinite(moisGrossesse) ? moisGrossesse : null,
+        voyageMedical: voyageMedical || null,
+        voyage_medical: voyageMedical || null,
         photoMedicale: getStoredMedicalPhoto(),
         honourDeclaration: {
             medicalHonesty1: checked('medicalHonesty1'),
@@ -357,15 +299,8 @@ function applyQuestionnaireMode(mode) {
     }
     longSection.style.display = 'block';
     longRequiredEls.forEach((el) => {
-        el.required = true;
+        el.required = false;
     });
-}
-
-function selectedValues(containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) return [];
-    return Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
-        .map((input) => input.value);
 }
 
 function valueOf(id) {

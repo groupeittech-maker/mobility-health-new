@@ -418,8 +418,8 @@
                 <form id="questionnaireForm" class="form-card">
                     <h3>Questionnaire Médical</h3>
                     <div id="questionnaireModeBanner" class="mode-banner">
-                        <span id="questionnaireModeLabel" class="mode-badge">Mode long</span>
-                        <p style="margin:0;">Le questionnaire sélectionné lors de la création du projet est appliqué automatiquement. Vous pouvez compléter le mode long si des informations supplémentaires sont nécessaires.</p>
+                        <span id="questionnaireModeLabel" class="mode-badge">5 questions</span>
+                        <p style="margin:0;">Questionnaire médical simplifié : 5 réponses Oui/Non avant le paiement.</p>
                     </div>
 
                     <div class="declaration" aria-label="Photo e-carte" style="margin-top:1rem;">
@@ -474,162 +474,53 @@
                     </div>
 
                     <div id="medicalLongSection">
-                        <div class="section-title">Santé actuelle</div>
+                        <div class="section-title">Questionnaire médical simplifié</div>
+                        <p class="form-hint" style="margin-bottom:1rem;">Répondez par <strong>Oui</strong> ou <strong>Non</strong> à chaque question.</p>
+
                         <div class="form-group">
-                            <span class="label-required">Êtes-vous malade au moment de la souscription de cette police ?</span>
+                            <span class="label-required">1. Êtes-vous malade au moment de la souscription ?</span>
                             <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="malade_souscription" value="oui"> Oui</label>
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="malade_souscription" value="non"> Non</label>
-                            </div>
-                            <div id="malade_souscription_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
-                                <label for="malade_souscription_precision">Si oui, précisez de quoi souffrez-vous</label>
-                                <textarea id="malade_souscription_precision" name="malade_souscription_precision" rows="2" placeholder="Décrivez brièvement..."></textarea>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <span class="label-required">Ressentez-vous actuellement des symptômes persistants ? (douleurs, essoufflements, etc.)</span>
-                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="symptomes_persistants" value="oui"> Oui</label>
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="symptomes_persistants" value="non"> Non</label>
-                            </div>
-                            <div id="symptomes_persistants_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
-                                <label for="symptomes_persistants_precision">Si oui, précisez</label>
-                                <textarea id="symptomes_persistants_precision" name="symptomes_persistants_precision" rows="2" placeholder="Décrivez les symptômes..."></textarea>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <span class="label-required">Avez-vous un médecin traitant ?</span>
-                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="medecin_traitant" value="oui"> Oui</label>
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="medecin_traitant" value="non"> Non</label>
-                            </div>
-                            <div id="medecin_traitant_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
-                                <label for="medecin_traitant_nom">Si oui, précisez : son nom</label>
-                                <input type="text" id="medecin_traitant_nom" name="medecin_traitant_nom" placeholder="Nom du médecin">
-                                <label for="medecin_traitant_specialite" style="margin-top:0.75rem;display:block;">Spécialité</label>
-                                <input type="text" id="medecin_traitant_specialite" name="medecin_traitant_specialite" placeholder="Ex. Médecine générale">
-                                <label for="medecin_traitant_telephone" style="margin-top:0.75rem;display:block;">Téléphone</label>
-                                <input type="tel" id="medecin_traitant_telephone" name="medecin_traitant_telephone" placeholder="Ex. +33 1 23 45 67 89">
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="malade_souscription" value="oui" required> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="malade_souscription" value="non" required> Non</label>
                             </div>
                         </div>
 
-                        <div class="section-title" style="margin-top: 1.5rem;">Maladie et symptômes récents</div>
                         <div class="form-group">
-                            <label>Veuillez indiquer les maladies ou symptômes observés récemment :</label>
-                            <div class="checkbox-group" id="symptomsList"></div>
-                        </div>
-                        <div class="form-group" id="symptomOtherGroup" style="display: none;">
-                            <label for="symptomOther">Autre (précisez)</label>
-                            <textarea id="symptomOther" rows="2" placeholder="Décrivez les autres maladies ou symptômes"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Êtes-vous enceinte ? (si concerné)</label>
-                            <select id="pregnancy" name="pregnancy" aria-label="Êtes-vous enceinte ? (si concerné)">
-                                <option value="">Non concerné / Non</option>
-                                <option value="oui">Oui</option>
-                                <option value="non">Non</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Avez-vous subi une opération chirurgicale dans les 6 derniers mois ? *</label>
-                            <select id="surgeryLast6Months" name="surgeryLast6Months" aria-label="Opération chirurgicale dans les 6 derniers mois" data-long-required="true">
-                                <option value="">Choisir...</option>
-                                <option value="oui">Oui</option>
-                                <option value="non">Non</option>
-                            </select>
-                        </div>
-                        <div class="form-group" id="surgeryDetailsGroup" style="display: none;">
-                            <label for="surgeryLast6MonthsDetails">Donnez des précisions *</label>
-                            <textarea id="surgeryLast6MonthsDetails" name="surgeryLast6MonthsDetails" rows="3" placeholder="Précisez la nature de l'opération, la date approximative, etc."></textarea>
-                        </div>
-
-                        <div class="section-title" style="margin-top: 1.5rem;">Historique médical</div>
-                        <div class="form-group">
-                            <span class="label-required">Êtes-vous en traitement médical régulier ?</span>
+                            <span class="label-required">2. Avez-vous été malade au cours des 12 derniers mois ?</span>
                             <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="traitement_regulier" value="oui"> Oui</label>
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="traitement_regulier" value="non"> Non</label>
-                            </div>
-                            <div id="traitement_regulier_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
-                                <label for="traitement_regulier_precision">Si oui, précisez le type de traitement</label>
-                                <textarea id="traitement_regulier_precision" name="traitement_regulier_precision" rows="2" placeholder="Type de traitement..."></textarea>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <span class="label-required">Avez-vous été hospitalisé au cours des 12 derniers mois ?</span>
-                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="hospitalise_12_mois" value="oui"> Oui</label>
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="hospitalise_12_mois" value="non"> Non</label>
-                            </div>
-                            <div id="hospitalise_12_mois_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
-                                <label for="hospitalise_12_mois_raison">Si oui, précisez pour quelle raison</label>
-                                <textarea id="hospitalise_12_mois_raison" name="hospitalise_12_mois_raison" rows="2" placeholder="Raison de l'hospitalisation..."></textarea>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="malade_12_mois" value="oui" required> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="malade_12_mois" value="non" required> Non</label>
                             </div>
                         </div>
 
-                        <div class="section-title" style="margin-top: 1.5rem;">Mode de vie</div>
                         <div class="form-group">
-                            <span class="label-required">Fumez-vous ?</span>
+                            <span class="label-required">3. Souffrez-vous d'une maladie chronique ?</span>
                             <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="fumeur" value="oui"> Oui</label>
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="fumeur" value="non"> Non</label>
-                            </div>
-                            <div id="fumeur_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
-                                <label for="fumeur_cigarettes">Si oui, combien de cigarettes par jour ?</label>
-                                <input type="text" id="fumeur_cigarettes" name="fumeur_cigarettes" placeholder="Ex. 5 à 10">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <span class="label-required">Consommez-vous de l'alcool ?</span>
-                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="alcool" value="oui"> Oui</label>
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="alcool" value="non"> Non</label>
-                            </div>
-                            <div id="alcool_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
-                                <label for="alcool_frequence">Si oui, à quelle fréquence ?</label>
-                                <select id="alcool_frequence" name="alcool_frequence">
-                                    <option value="">Choisir...</option>
-                                    <option value="occasionnellement">Occasionnellement</option>
-                                    <option value="regulierement">Régulièrement (1 à 2 fois par semaine)</option>
-                                    <option value="quotidiennement">Quotidiennement</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <span class="label-required">Pratiquez-vous une activité physique régulièrement ?</span>
-                            <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="activite_physique" value="oui"> Oui</label>
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="activite_physique" value="non"> Non</label>
-                            </div>
-                            <div id="activite_physique_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
-                                <label for="activite_physique_precision">Si oui, laquelle et à quelle fréquence ?</label>
-                                <input type="text" id="activite_physique_precision" name="activite_physique_precision" placeholder="Ex. Course 3 fois par semaine">
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="maladie_chronique" value="oui" required> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="maladie_chronique" value="non" required> Non</label>
                             </div>
                         </div>
 
-                        <div class="section-title" style="margin-top: 1.5rem;">Allergies et intolérances</div>
                         <div class="form-group">
-                            <span class="label-required">Êtes-vous allergique à certains médicaments, aliments, ou autres substances ?</span>
+                            <span class="label-required">4. Êtes-vous enceinte au moment de la souscription ?</span>
                             <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="allergies" value="oui"> Oui</label>
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="allergies" value="non"> Non</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="enceinte" value="oui" required> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="enceinte" value="non" required> Non</label>
                             </div>
-                            <div id="allergies_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
-                                <label for="allergies_precision">Si oui, précisez</label>
-                                <textarea id="allergies_precision" name="allergies_precision" rows="2" placeholder="Médicaments, aliments, substances..."></textarea>
+                            <div id="enceinte_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
+                                <label for="mois_grossesse">De combien de mois ?</label>
+                                <input type="number" id="mois_grossesse" name="mois_grossesse" min="1" max="9" step="1" placeholder="Ex. 3">
+                            </div>
+                            <div id="enceinteIneligible" class="message error" style="display:none;margin-top:0.75rem;">
+                                Vous n'êtes pas éligible pour être assuré par nos services (grossesse de plus de 5 mois).
                             </div>
                         </div>
 
-                        <div class="section-title" style="margin-top: 1.5rem;">Santé mentale</div>
                         <div class="form-group">
-                            <span class="label-required">Avez-vous déjà été diagnostiqué(e) pour un trouble mental ou émotionnel (anxiété, dépression, etc.) ?</span>
+                            <span class="label-required">5. Faites-vous un voyage à but médical ?</span>
                             <div class="yes-no-row" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="sante_mentale" value="oui"> Oui</label>
-                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="sante_mentale" value="non"> Non</label>
-                            </div>
-                            <div id="sante_mentale_detail" class="conditional-detail" style="margin-top:0.5rem;display:none;">
-                                <label for="sante_mentale_precision">Si oui, précisez</label>
-                                <textarea id="sante_mentale_precision" name="sante_mentale_precision" rows="2" placeholder="Précisez le diagnostic..."></textarea>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="voyage_medical" value="oui" required> Oui</label>
+                                <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;"><input type="radio" name="voyage_medical" value="non" required> Non</label>
                             </div>
                         </div>
 
