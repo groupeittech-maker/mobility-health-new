@@ -62,27 +62,25 @@ class TestCardServiceBrand:
 
 
 class TestEmailBrand:
-    @patch("app.services.user_service.send_email")
-    def test_inscription_approval_email_uses_brand_teal(self, mock_send_email: MagicMock):
-        mock_send_email.delay = MagicMock()
+    @patch("app.services.user_service.dispatch_email")
+    def test_inscription_approval_email_uses_brand_teal(self, mock_dispatch: MagicMock):
         user = _sample_user()
 
         UserService.send_inscription_approval_email(user)
 
-        mock_send_email.delay.assert_called_once()
-        kwargs = mock_send_email.delay.call_args.kwargs
+        mock_dispatch.assert_called_once()
+        kwargs = mock_dispatch.call_args.kwargs
         body_html = kwargs["body_html"]
 
         assert BRAND_TEAL in body_html
         assert kwargs["to_email"] == user.email
         assert "approuvée" in kwargs["subject"]
 
-    @patch("app.services.user_service.send_email")
-    def test_inscription_approval_email_contains_activation_link(self, mock_send_email: MagicMock):
-        mock_send_email.delay = MagicMock()
+    @patch("app.services.user_service.dispatch_email")
+    def test_inscription_approval_email_contains_activation_link(self, mock_dispatch: MagicMock):
         user = _sample_user()
 
         UserService.send_inscription_approval_email(user)
 
-        body_html = mock_send_email.delay.call_args.kwargs["body_html"]
+        body_html = mock_dispatch.call_args.kwargs["body_html"]
         assert "confirm-inscription" in body_html

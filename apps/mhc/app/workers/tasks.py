@@ -14,9 +14,7 @@ from app.models.souscription import Souscription
 from app.models.user import User
 from app.core.enums import Role
 import logging
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+from app.services.email_delivery import deliver_email_sync
 import json
 import traceback
 
@@ -71,32 +69,7 @@ def send_email(
     Retry automatique en cas d'échec avec exponential backoff.
     """
     try:
-        # Créer le message email
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
-        msg["To"] = to_email
-        
-        if body_text:
-            msg.attach(MIMEText(body_text, "plain"))
-        msg.attach(MIMEText(body_html, "html"))
-        
-        # Envoyer l'email via SMTP en supportant STARTTLS et SSL direct (ex: Hostinger 465)
-        smtp_security = str(getattr(settings, "SMTP_SECURITY", "starttls") or "starttls").strip().lower()
-        if smtp_security == "ssl":
-            with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-                if settings.SMTP_USER and settings.SMTP_PASSWORD:
-                    server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-                server.send_message(msg)
-        else:
-            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-                if smtp_security == "starttls":
-                    server.starttls()
-                if settings.SMTP_USER and settings.SMTP_PASSWORD:
-                    server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-                server.send_message(msg)
-        
-        logger.info(f"Email envoyé avec succès à {to_email}")
+        deliver_email_sync(to_email, subject, body_html, body_text)
         
         # Mettre à jour la notification si fournie
         if notification_id:
