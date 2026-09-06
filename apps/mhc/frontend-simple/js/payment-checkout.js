@@ -142,6 +142,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 duree_jours: duree_jours,
                 destination_country_id: destination_country_id,
                 destination_country_name: destination_country_name || undefined,
+                exclusions_acknowledged: Number(sessionStorage.getItem('exclusions_ack_product_id') || 0) > 0,
             };
 
             const response = await apiCall('/payments/checkout', {

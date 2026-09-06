@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     ASSURANCE_AGENT_TITLE: str = "Représentant habilité"
     ASSURANCE_CITY: str = "Abidjan"
     ASSURANCE_SITE_WEB: str = "https://srv1324425.hstgr.cloud"
+    ASSURANCE_ALERT_CENTER: str = "+242 05 098 35 35"
     
     # Email (SMTP)
     SMTP_HOST: str = "smtp.gmail.com"

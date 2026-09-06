@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta, date
 from typing import Optional, Dict, Any, List, Tuple
 from decimal import Decimal, ROUND_HALF_UP
+from io import BytesIO
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_
 from app.core.database import get_db
@@ -22,6 +24,7 @@ from app.services.attestation_service import AttestationService
 from app.services.notification_service import NotificationService
 from app.services.prime_tarif_service import resolve_prime_tarif_detail
 from app.schemas.paiement import AccountingTransaction
+import json
 import uuid
 import logging
 
@@ -261,6 +264,7 @@ class PaymentCheckoutRequest(BaseModel):
     zone_code: Optional[str] = None
     duree_jours: Optional[int] = None
     age: Optional[int] = None  # Si absent, calculé depuis l'utilisateur connecté (date_naissance)
+    exclusions_acknowledged: bool = False
 
 
 class PaymentCheckoutResponse(BaseModel):
@@ -372,6 +376,10 @@ def process_payment_success(
                 )
                 attestation_number = attestation.numero_attestation
                 attestation_url = attestation.url_signee
+                try:
+                    AttestationService.issue_quittance_paiement(db, subscription, payment, user)
+                except Exception as quittance_error:
+                    logger.warning("Quittance non générée pour le paiement %s: %s", payment.id, quittance_error)
             else:
                 attestation_number = f"ATT-{subscription.numero_souscription}-{datetime.utcnow().strftime('%Y%m%d')}"
 
@@ -769,6 +777,16 @@ async def checkout_payment(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produit d'assurance introuvable ou inactif")
 
     _validate_medical_photo_required(request.medical_form)
+    from app.services.medical_eligibility import MedicalEligibilityError, validate_medical_eligibility
+    try:
+        validate_medical_eligibility(request.medical_form)
+    except MedicalEligibilityError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    if not request.exclusions_acknowledged:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Veuillez consulter les exclusions et cocher « J'ai lu les exclusions » avant de poursuivre.",
+        )
 
     # Âge : depuis la requête ou l'utilisateur connecté (date_naissance)
     age = request.age
@@ -981,6 +999,12 @@ async def checkout_payment(
         paiement=paiement,
         user=current_user
     )
+    try:
+        AttestationService.issue_quittance_paiement(db, souscription, paiement, current_user)
+        db.commit()
+        db.refresh(paiement)
+    except Exception as quittance_error:
+        logger.warning("Quittance non générée pour le paiement %s: %s", paiement.id, quittance_error)
 
     # Déclencher l'analyse IA automatiquement en arrière-plan
     try:
@@ -1150,6 +1174,10 @@ async def confirm_payment(
                 user=current_user
             )
             logger.info(f"Attestation provisoire créée: {attestation.numero_attestation}")
+            try:
+                AttestationService.issue_quittance_paiement(db, souscription, paiement, current_user)
+            except Exception as quittance_error:
+                logger.warning("Quittance non générée pour le paiement %s: %s", paiement.id, quittance_error)
         except Exception as attestation_error:
             logger.error(f"Erreur lors de la génération de l'attestation: {attestation_error}")
             db.rollback()  # Annuler toute la transaction
@@ -1242,6 +1270,64 @@ async def confirm_payment(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la confirmation du paiement: {str(e)}"
         )
+
+
+@router.get("/{payment_id}/quittance/download")
+async def download_quittance(
+    payment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Télécharge la quittance de règlement (document distinct de l'attestation)."""
+    paiement = db.query(Paiement).filter(Paiement.id == payment_id).first()
+    if not paiement:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Paiement introuvable")
+    if paiement.user_id != current_user.id and current_user.role not in {
+        Role.ADMIN,
+        Role.PRODUCTION_AGENT,
+    }:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès refusé")
+
+    payload = {}
+    if paiement.notes:
+        try:
+            parsed = json.loads(paiement.notes)
+            if isinstance(parsed, dict):
+                payload = parsed.get("quittance") or {}
+        except Exception:
+            payload = {}
+    if not payload:
+        try:
+            souscription = db.query(Souscription).filter(Souscription.id == paiement.souscription_id).first()
+            user = db.query(User).filter(User.id == paiement.user_id).first()
+            if souscription:
+                payload = AttestationService.issue_quittance_paiement(db, souscription, paiement, user)
+                db.commit()
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Quittance introuvable: {exc}",
+            ) from exc
+
+    if payload.get("inline"):
+        import base64
+        raw = payload["inline"].split(",", 1)[-1]
+        data = base64.b64decode(raw)
+        return StreamingResponse(
+            BytesIO(data),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="quittance-{payload.get("numero", payment_id)}.pdf"'},
+        )
+    if payload.get("path") and payload.get("bucket"):
+        from app.core.minio_client import minio_client
+        obj = minio_client.get_object(payload["bucket"], payload["path"])
+        data = obj.read()
+        return StreamingResponse(
+            BytesIO(data),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="quittance-{payload.get("numero", payment_id)}.pdf"'},
+        )
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quittance introuvable")
 
 
 @router.get("/accounting/transactions", response_model=List[AccountingTransaction])

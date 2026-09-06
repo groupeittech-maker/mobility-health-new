@@ -2,18 +2,21 @@
 /// S'inspire de frontend-simple/js/api.js
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'api_hosts.dart';
+
 class ApiConfig {
   static String _env(String key, [String fallback = '']) {
     return dotenv.env[key]?.trim() ?? fallback;
   }
 
-  /// URL de base de l'API (ex: https://api.srv1324425.hstgr.cloud/api/v1 ou http://10.0.2.2:8000/api/v1 pour émulateur Android)
+  /// URL de base de l'API (ex: https://srv1324425.hstgr.cloud/api/v1 ou http://10.0.2.2:8000/api/v1 pour émulateur Android)
   static String get baseUrl {
-    final url = _env('API_BASE_URL').isNotEmpty
+    final raw = _env('API_BASE_URL').isNotEmpty
         ? _env('API_BASE_URL')
         : _env('API_CONNEXION_BACKEND').isNotEmpty
             ? _env('API_CONNEXION_BACKEND')
-            : 'https://api.srv1324425.hstgr.cloud/api/v1';
+            : kProductionApiBaseUrl;
+    final url = canonicalizeApiBaseUrl(raw);
     return url.endsWith('/api/v1') ? url : '$url/api/v1';
   }
 

@@ -22,7 +22,7 @@ async function validateAuth() {
     }
     
     try {
-        const apiUrl = window.API_BASE_URL || 'https://api.srv1324425.hstgr.cloud/api/v1';
+        const apiUrl = window.API_BASE_URL || 'https://srv1324425.hstgr.cloud/api/v1';
         const response = await fetch(`${apiUrl}/auth/me`, {
             headers: {
                 'Authorization': `Bearer ${token}`

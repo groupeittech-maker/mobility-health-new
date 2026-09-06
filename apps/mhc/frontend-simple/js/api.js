@@ -2,7 +2,7 @@
 // - En local : frontend et backend (port 8000) → backend local
 // - En prod : même domaine (srv1324425.hstgr.cloud) → /api/v1 proxyfié par Nginx vers le backend (évite CORS)
 const LOCAL_BACKEND = 'http://localhost:8000/api/v1';
-const PROD_API_BASE = 'https://api.srv1324425.hstgr.cloud/api/v1';
+const PROD_API_BASE = 'https://srv1324425.hstgr.cloud/api/v1';
 
 function getApiBaseUrl() {
   if (typeof window === 'undefined' || !window.location || !window.location.origin) {

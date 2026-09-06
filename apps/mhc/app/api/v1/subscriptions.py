@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta, date
 from typing import List, Optional
 from decimal import Decimal
+import json
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import StreamingResponse
+from io import BytesIO
 from sqlalchemy.orm import Session, selectinload
 from app.core.database import get_db
 from app.core.enums import StatutSouscription, Role, StatutPaiement
@@ -999,11 +1002,74 @@ async def process_resiliation(
             logger.error(f"Error creating refund for subscription {souscription.id}: {e}", exc_info=True)
             # Ne pas bloquer la résiliation si le remboursement échoue
             # On continue quand même avec la résiliation
+
+        try:
+            AttestationService.issue_avenant_annulation(db, souscription)
+        except Exception as avenant_error:
+            logger.error(
+                "Impossible de générer l'avenant d'annulation pour la souscription %s: %s",
+                souscription.id,
+                avenant_error,
+                exc_info=True,
+            )
     
     db.commit()
     db.refresh(souscription)
     
     return souscription
+
+
+@router.get("/{subscription_id}/avenant-annulation/download")
+async def download_avenant_annulation(
+    subscription_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Télécharge l'avenant d'annulation (document distinct de l'attestation)."""
+    souscription = (
+        db.query(Souscription)
+        .filter(Souscription.id == subscription_id)
+        .first()
+    )
+    if not souscription:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Souscription non trouvée")
+    if souscription.user_id != current_user.id and current_user.role not in {
+        Role.ADMIN,
+        Role.PRODUCTION_AGENT,
+    }:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès refusé")
+
+    attestation = (
+        db.query(Attestation)
+        .filter(Attestation.souscription_id == subscription_id)
+        .order_by(Attestation.created_at.desc())
+        .first()
+    )
+    payload = {}
+    if attestation and attestation.notes:
+        try:
+            payload = json.loads(attestation.notes).get("avenant_annulation") or {}
+        except Exception:
+            payload = {}
+    if payload.get("inline"):
+        import base64
+        raw = payload["inline"].split(",", 1)[-1]
+        data = base64.b64decode(raw)
+        return StreamingResponse(
+            BytesIO(data),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="avenant-{payload.get("numero", subscription_id)}.pdf"'},
+        )
+    if payload.get("path") and payload.get("bucket"):
+        from app.core.minio_client import minio_client
+        obj = minio_client.get_object(payload["bucket"], payload["path"])
+        data = obj.read()
+        return StreamingResponse(
+            BytesIO(data),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="avenant-{payload.get("numero", subscription_id)}.pdf"'},
+        )
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avenant d'annulation introuvable")
 
 
 @router.delete("/{subscription_id}", status_code=status.HTTP_204_NO_CONTENT)

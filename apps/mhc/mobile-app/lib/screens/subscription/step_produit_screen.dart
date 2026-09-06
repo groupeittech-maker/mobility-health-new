@@ -163,7 +163,16 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
   int? _selectedProductIndex;
   bool _acceptCgu = false;
   bool _acceptExclusions = false;
+  int? _exclusionsReadProductId;
   String? _medicalPhotoPath;
+
+  int? get _selectedProductId =>
+      _selectedProductIndex != null && _selectedProductIndex! < _productList.length
+          ? _productList[_selectedProductIndex!].id
+          : null;
+
+  bool get _exclusionsValidated =>
+      _selectedProductId != null && _exclusionsReadProductId == _selectedProductId;
 
   List<ProductModel> get _productList => widget.products ?? const [];
 
@@ -370,10 +379,15 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
                     priceBlock: priceBlock,
                     zoneLabel: zoneLabel,
                     isSelected: _selectedProductIndex == i,
-                    onTap: () => setState(() => _selectedProductIndex = i),
-                    onViewDetails: () {
+                    onTap: () => setState(() {
+                      if (_selectedProductIndex != i) {
+                        _acceptExclusions = false;
+                      }
+                      _selectedProductIndex = i;
+                    }),
+                    onViewDetails: () async {
                       final q = _devisLineFor(p, widget.devisParProduit);
-                      Navigator.of(context).push(
+                      final acknowledged = await Navigator.of(context).push<bool>(
                         MaterialPageRoute(
                           builder: (_) => ProductDetailScreen(
                             productId: p.id,
@@ -390,6 +404,12 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
                           ),
                         ),
                       );
+                      if (acknowledged == true && mounted) {
+                        setState(() {
+                          _exclusionsReadProductId = p.id;
+                          _acceptExclusions = true;
+                        });
+                      }
                     },
                   ),
                 );
@@ -403,16 +423,28 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
               const SizedBox(height: 16),
               _DeclarationsCard(
                 acceptCgu: _acceptCgu,
-                acceptExclusions: _acceptExclusions,
+                acceptExclusions: _acceptExclusions && _exclusionsValidated,
                 onCguChanged: (v) => setState(() => _acceptCgu = v ?? false),
-                onExclusionsChanged: (v) => setState(() => _acceptExclusions = v ?? false),
+                onExclusionsChanged: (v) {
+                  if (v == true && !_exclusionsValidated) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Ouvrez « Voir les détails » puis validez « J\'ai lu les exclusions ».',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  setState(() => _acceptExclusions = v ?? false);
+                },
               ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: (_selectedProductIndex != null && _acceptCgu && _acceptExclusions)
+                  onPressed: (_selectedProductIndex != null && _acceptCgu && _exclusionsValidated)
                       ? () {
                           final photo = _medicalPhotoPath ?? widget.initialMedicalPhotoPath;
                           if (photo == null || photo.trim().isEmpty) {
@@ -431,7 +463,7 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
                         }
                       : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: (_acceptCgu && _acceptExclusions)
+                    backgroundColor: (_acceptCgu && _exclusionsValidated)
                         ? AppColors.primary
                         : const Color(0xFF94A3B8),
                     foregroundColor: Colors.white,

@@ -11,9 +11,12 @@ from app.core.mhc_nomenclature import (
     MhcOperationCode,
     code_from_id,
     country_code_from_name,
+    format_attestation_number,
+    format_avenant_annulation_number,
     format_bpcu_like_number,
     format_bph_number,
     format_police_number,
+    format_quittance_number,
     format_simple_document_number,
     format_sinistre_number,
     parse_sinistre_order,
@@ -84,6 +87,24 @@ def allocate_police_number(
     country = _country_from_souscription(souscription, country_name)
     assureur = _assureur_code(souscription)
     return format_police_number(order, country, assureur, year)
+
+
+def allocate_attestation_number(db: Session, year: Optional[int] = None) -> str:
+    year = year or datetime.utcnow().year
+    order = next_order(db, "attestation", year)
+    return format_attestation_number(order)
+
+
+def allocate_avenant_annulation_number(db: Session, year: Optional[int] = None) -> str:
+    year = year or datetime.utcnow().year
+    order = next_order(db, "avenant_annulation", year)
+    return format_avenant_annulation_number(order)
+
+
+def allocate_quittance_number(db: Session, year: Optional[int] = None) -> str:
+    year = year or datetime.utcnow().year
+    order = next_order(db, "quittance", year)
+    return format_quittance_number(order)
 
 
 def allocate_sinistre_number(

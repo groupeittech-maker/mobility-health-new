@@ -24,6 +24,7 @@ from app.core.redis_client import get_redis
 from app.core.enums import Role
 from app.models.user import User
 from app.models.hospital import Hospital
+from app.services.email_delivery import EmailDeliveryError
 from app.services.user_service import UserService
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
@@ -58,8 +59,21 @@ def _issue_email_verification_code(user: User) -> None:
         logger.warning("Redis indisponible (init): %s", e)
     try:
         UserService.send_verification_email(user, verification_code)
+    except EmailDeliveryError as e:
+        logger.error("Envoi e-mail de vérification impossible: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Impossible d'envoyer le code de vérification par e-mail. "
+                "Réessayez dans quelques minutes ou contactez le support."
+            ),
+        ) from e
     except Exception as e:
         logger.error("Erreur envoi e-mail de vérification: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Erreur lors de l'envoi du code de vérification.",
+        ) from e
 
 
 def _sql_bool(val) -> bool:

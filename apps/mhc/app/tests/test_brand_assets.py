@@ -1,9 +1,10 @@
 """Tests charte graphique : e-carte, e-mails, constantes brand."""
 
+import os
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 from app.core.enums import Role
 from app.models.user import User
@@ -39,17 +40,16 @@ class TestCardServiceBrand:
         assert CardService._hex_to_rgb(BRAND_PURPLE) == (78, 38, 124)
         assert CardService._hex_to_rgb(BRAND_TEAL) == (20, 174, 152)
 
-    def test_card_background_uses_brand_colors(self):
+    def test_card_background_uses_official_asset(self):
         card = CardService._create_card_background()
         assert card.size == (CardService.WIDTH, CardService.HEIGHT)
+        assert os.path.isfile(CardService.CARD_BACKGROUND_PATH)
 
-        purple_rgb = CardService._hex_to_rgb(BRAND_PURPLE)
-        teal_rgb = CardService._hex_to_rgb(BRAND_TEAL)
-        pixels = set(card.getdata())
-
-        assert purple_rgb in pixels, "Le violet brand doit apparaître sur la e-carte"
-        assert teal_rgb in pixels, "Le teal brand doit apparaître sur la e-carte"
-        assert (255, 255, 255) in pixels, "L'en-tête blanc doit être présent"
+        resample = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
+        with Image.open(CardService.CARD_BACKGROUND_PATH) as source:
+            expected = ImageOps.fit(source.convert("RGB"), card.size, method=resample)
+        for point in ((40, 300), (500, 300), (900, 300)):
+            assert card.getpixel(point) == expected.getpixel(point)
 
     def test_card_background_is_valid_png(self):
         card = CardService._create_card_background()
@@ -62,27 +62,25 @@ class TestCardServiceBrand:
 
 
 class TestEmailBrand:
-    @patch("app.services.user_service.send_email")
-    def test_inscription_approval_email_uses_brand_teal(self, mock_send_email: MagicMock):
-        mock_send_email.delay = MagicMock()
+    @patch("app.services.user_service.dispatch_email")
+    def test_inscription_approval_email_uses_brand_teal(self, mock_dispatch: MagicMock):
         user = _sample_user()
 
         UserService.send_inscription_approval_email(user)
 
-        mock_send_email.delay.assert_called_once()
-        kwargs = mock_send_email.delay.call_args.kwargs
+        mock_dispatch.assert_called_once()
+        kwargs = mock_dispatch.call_args.kwargs
         body_html = kwargs["body_html"]
 
         assert BRAND_TEAL in body_html
         assert kwargs["to_email"] == user.email
         assert "approuvée" in kwargs["subject"]
 
-    @patch("app.services.user_service.send_email")
-    def test_inscription_approval_email_contains_activation_link(self, mock_send_email: MagicMock):
-        mock_send_email.delay = MagicMock()
+    @patch("app.services.user_service.dispatch_email")
+    def test_inscription_approval_email_contains_activation_link(self, mock_dispatch: MagicMock):
         user = _sample_user()
 
         UserService.send_inscription_approval_email(user)
 
-        body_html = mock_send_email.delay.call_args.kwargs["body_html"]
+        body_html = mock_dispatch.call_args.kwargs["body_html"]
         assert "confirm-inscription" in body_html

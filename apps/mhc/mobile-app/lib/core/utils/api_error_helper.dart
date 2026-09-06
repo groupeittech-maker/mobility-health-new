@@ -27,9 +27,12 @@ String apiErrorToUserMessage(Object e) {
       case DioExceptionType.connectionError:
         return 'Connexion impossible. Vérifiez votre connexion internet.';
       case DioExceptionType.badCertificate:
-        return 'Certificat invalide. Vérifiez la configuration.';
+        return _certificateMessage;
       default:
         break;
+    }
+    if (isTlsCertificateFailure(e)) {
+      return _certificateMessage;
     }
     final detail = e.response?.data;
     if (detail is Map && detail['detail'] != null) {
@@ -39,7 +42,26 @@ String apiErrorToUserMessage(Object e) {
     }
   }
   final str = e.toString().replaceFirst('Exception: ', '').replaceFirst('DioException: ', '');
+  if (_looksLikeCertificateFailure(str)) return _certificateMessage;
   if (str.contains('500')) return 'Erreur serveur. Veuillez vous reconnecter plus tard.';
   if (str.contains('connection') || str.contains('Connection')) return 'Connexion impossible. Vérifiez votre connexion internet.';
   return str.length > 120 ? 'Une erreur est survenue. Veuillez réessayer.' : str;
+}
+
+const _certificateMessage =
+    'Connexion sécurisée impossible (certificat serveur expiré ou invalide). Réessayez dans un instant.';
+
+bool isTlsCertificateFailure(Object e) {
+  if (e is DioException) {
+    if (e.type == DioExceptionType.badCertificate) return true;
+    return _looksLikeCertificateFailure('${e.error ?? ''} ${e.message ?? ''} $e');
+  }
+  return _looksLikeCertificateFailure(e.toString());
+}
+
+bool _looksLikeCertificateFailure(String text) {
+  final lower = text.toLowerCase();
+  return lower.contains('certificate') ||
+      lower.contains('handshakeexception') ||
+      lower.contains('certificat');
 }

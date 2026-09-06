@@ -1,10 +1,13 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import '../core/config/api_hosts.dart';
+
 class EnvConfig {
   static String get apiBaseUrl {
-    final url = dotenv.env['API_BASE_URL'] ??
+    final raw = dotenv.env['API_BASE_URL'] ??
         dotenv.env['API_CONNEXION_BACKEND'] ??
-        'https://api.srv1324425.hstgr.cloud/api/v1';
+        kProductionApiBaseUrl;
+    final url = canonicalizeApiBaseUrl(raw);
     return url.endsWith('/api/v1') ? url : '$url/api/v1';
   }
 

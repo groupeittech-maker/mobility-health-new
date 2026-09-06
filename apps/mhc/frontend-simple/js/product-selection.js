@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let allProducts = [];
     let selectedProduct = null;
     let currentProject = null;
+    let exclusionsAcknowledgedProductId = Number(sessionStorage.getItem('exclusions_ack_product_id') || 0) || null;
     const locale = currencyHelper.getLocale();
     const currency = currencyHelper.getCurrency();
 
@@ -289,6 +290,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     function selectProduct(cardElement, product) {
         document.querySelectorAll('.product-card').forEach((card) => card.classList.remove('selected'));
         cardElement.classList.add('selected');
+        if (selectedProduct && selectedProduct.id !== product.id) {
+            exclusionsAcknowledgedProductId = null;
+            sessionStorage.removeItem('exclusions_ack_product_id');
+            if (consentInputs.acceptExclusions) {
+                consentInputs.acceptExclusions.checked = false;
+                persistConsents();
+            }
+        }
         selectedProduct = product;
         updateContinueState();
         showMessage(`Produit « ${product.nom} » sélectionné.`, 'success');
@@ -408,9 +417,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ${renderGuaranteesTable(product.garanties)}
                 ${renderPrimesGenerees(product.primes_generees)}
                 ${renderExclusions(product.exclusions_generales)}
+                <div class="declaration" style="margin-top:1rem;">
+                    <label style="display:flex;align-items:flex-start;gap:0.6rem;cursor:pointer;font-weight:600;">
+                        <input type="checkbox" id="readExclusionsAck" ${exclusionsAcknowledgedProductId === product.id ? 'checked' : ''}>
+                        J'ai lu les exclusions
+                    </label>
+                    <p class="text-muted small" style="margin:0.4rem 0 0 1.7rem;">Obligatoire pour poursuivre la souscription.</p>
+                </div>
             </div>
         `;
         modal.classList.add('show');
+        const ack = document.getElementById('readExclusionsAck');
+        ack?.addEventListener('change', () => {
+            exclusionsAcknowledgedProductId = ack.checked ? product.id : null;
+            if (ack.checked) {
+                sessionStorage.setItem('exclusions_ack_product_id', String(product.id));
+                if (consentInputs.acceptExclusions) {
+                    consentInputs.acceptExclusions.checked = true;
+                    persistConsents();
+                }
+            } else {
+                sessionStorage.removeItem('exclusions_ack_product_id');
+            }
+            updateContinueState();
+        });
     }
 
     function consentsAccepted() {
@@ -423,7 +453,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hasProductsAvailable = allProducts.length > 0;
         const consentsOk = consentsAccepted();
         const photoOk = hasStoredMedicalPhoto();
-        const ready = hasProduct && consentsOk && photoOk;
+        const exclusionsRead = !!selectedProduct && exclusionsAcknowledgedProductId === selectedProduct.id;
+        const ready = hasProduct && consentsOk && photoOk && exclusionsRead;
         continueBtn.disabled = !ready;
         const hintEl = document.getElementById('continueHint');
         if (hintEl) {
@@ -435,6 +466,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 hintEl.textContent = 'Pour continuer : sélectionnez un produit, ajoutez votre photo e-carte, puis cochez les deux cases.';
             } else if (!photoOk) {
                 hintEl.textContent = 'Pour continuer : ajoutez votre photo pour la e-carte (fichier ou caméra) dans le bloc ci-dessus.';
+            } else if (!exclusionsRead) {
+                hintEl.textContent = 'Pour continuer : ouvrez « Voir les détails » puis cochez « J\'ai lu les exclusions ».';
             } else if (!consentsOk) {
                 hintEl.textContent = 'Pour continuer : cochez les deux cases de consentement ci-dessus.';
             } else {

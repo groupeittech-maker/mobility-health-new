@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../core/config/api_hosts.dart';
 import '../core/constants/app_colors.dart';
 import '../core/network/api_client.dart' as net;
+import '../core/utils/api_error_helper.dart';
 import '../core/widgets/mh_logo_header.dart';
 import '../core/widgets/mh_surface_card.dart';
 import '../models/destination.dart';
@@ -119,17 +121,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       context.go('/verify-email?email=${Uri.encodeComponent(email)}');
     } on DioException catch (e) {
       if (!mounted) return;
-      final msg = e.response?.data is Map && e.response!.data['detail'] != null
-          ? e.response!.data['detail'].toString()
-          : e.toString().replaceFirst('DioException: ', '');
       setState(() {
-        _errorMessage = msg;
+        _errorMessage = apiErrorToUserMessage(e);
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _errorMessage = apiErrorToUserMessage(e);
         _isLoading = false;
       });
     }
@@ -175,21 +174,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
           icon: const Icon(Icons.arrow_back, color: AppColors.primary),
           onPressed: () => context.pop(),
         ),
-        title:                 Text(
-                  'Inscription',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppColors.primary),
-                ),
-                actions: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Center(
-                      child: Text(
-                        'v1.0.0+3',
-                        style: GoogleFonts.poppins(fontSize: 11, color: AppColors.mutedText),
-                      ),
-                    ),
-                  ),
-                ],
+        title: Text(
+          'Inscription',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppColors.primary),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(
+              child: Text(
+                'v$kAppVersionLabel',
+                style: GoogleFonts.poppins(fontSize: 11, color: AppColors.mutedText),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(

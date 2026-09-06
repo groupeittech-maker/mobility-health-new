@@ -27,7 +27,7 @@ from app.core.security import (
     create_email_verification_token,
 )
 from app.core.config import settings
-from app.workers.tasks import send_email
+from app.services.email_delivery import dispatch_email
 import logging
 
 logger = logging.getLogger(__name__)
@@ -520,13 +520,12 @@ class UserService:
         L'équipe Mobility Health
         """
         
-        # Envoyer l'email via Celery
-        send_email.delay(
+        dispatch_email(
             to_email=user.email,
             subject=subject,
             body_html=body_html,
             body_text=body_text,
-            user_id=user.id
+            user_id=user.id,
         )
         
         logger.info(f"Email de bienvenue envoyé à {user.email}")
@@ -661,13 +660,13 @@ class UserService:
         L'équipe Mobility Health
         """
         
-        # Envoyer l'email via Celery
-        send_email.delay(
+        dispatch_email(
             to_email=user.email,
             subject=subject,
             body_html=body_html,
             body_text=body_text,
-            user_id=user.id
+            user_id=user.id,
+            synchronous=True,
         )
         
         logger.info(f"Email de vérification envoyé à {user.email}")
@@ -728,12 +727,12 @@ class UserService:
         Cordialement,
         L'équipe Mobility Health
         """
-        send_email.delay(
+        dispatch_email(
             to_email=user.email,
             subject=subject,
             body_html=body_html,
             body_text=body_text,
-            user_id=user.id
+            user_id=user.id,
         )
         logger.info(f"Email d'activation finale envoyé à {user.email}")
 
@@ -781,12 +780,12 @@ class UserService:
         Cordialement,
         L'équipe Mobility Health
         """
-        send_email.delay(
+        dispatch_email(
             to_email=user.email,
             subject=subject,
             body_html=body_html,
             body_text=body_text,
-            user_id=user.id
+            user_id=user.id,
         )
         logger.info(f"Email de refus d'inscription envoyé à {user.email}")
     
@@ -893,13 +892,13 @@ class UserService:
         L'équipe Mobility Health
         """
         
-        # Envoyer l'email via Celery
-        send_email.delay(
+        dispatch_email(
             to_email=user.email,
             subject=subject,
             body_html=body_html,
             body_text=body_text,
-            user_id=user.id
+            user_id=user.id,
+            synchronous=True,
         )
         
         logger.info(f"Email de réinitialisation de mot de passe envoyé à {user.email}")

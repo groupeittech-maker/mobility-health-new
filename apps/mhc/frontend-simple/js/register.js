@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadReferenceCountries() {
         try {
-            const apiUrl = window.API_BASE_URL || 'https://api.srv1324425.hstgr.cloud/api/v1';
+            const apiUrl = window.API_BASE_URL || 'https://srv1324425.hstgr.cloud/api/v1';
             const response = await fetch(`${apiUrl}/destinations/reference-countries?actif_seulement=true`);
             if (!response.ok) {
                 throw new Error(`Erreur HTTP ${response.status}`);
@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function() {
             };
 
             try {
-                const apiUrl = window.API_BASE_URL || 'https://api.srv1324425.hstgr.cloud/api/v1';
+                const apiUrl = window.API_BASE_URL || 'https://srv1324425.hstgr.cloud/api/v1';
                 const response = await fetch(`${apiUrl}/auth/register`, {
                     method: 'POST',
                     headers: {

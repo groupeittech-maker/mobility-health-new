@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         : localStorage.getItem('access_token');
     if (existingToken) {
         try {
-            const apiUrl = window.API_BASE_URL || 'https://api.srv1324425.hstgr.cloud/api/v1';
+            const apiUrl = window.API_BASE_URL || 'https://srv1324425.hstgr.cloud/api/v1';
             const userResponse = await fetch(`${apiUrl}/auth/me`, {
                 headers: {
                     'Authorization': `Bearer ${existingToken}`
@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             loginFormData.append('username', username);
             loginFormData.append('password', password);
             
-            const apiUrl = window.API_BASE_URL || 'https://api.srv1324425.hstgr.cloud/api/v1';
+            const apiUrl = window.API_BASE_URL || 'https://srv1324425.hstgr.cloud/api/v1';
             const loginUrl = `${apiUrl}/auth/login`;
             
             console.log('Tentative de connexion à:', loginUrl);
@@ -296,7 +296,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             
             // Récupérer les infos utilisateur
-            const apiUrl2 = window.API_BASE_URL || 'https://api.srv1324425.hstgr.cloud/api/v1';
+            const apiUrl2 = window.API_BASE_URL || 'https://srv1324425.hstgr.cloud/api/v1';
             const userResponse = await fetch(`${apiUrl2}/auth/me`, {
                 headers: {
                     'Authorization': `Bearer ${persistedAccessToken}`
