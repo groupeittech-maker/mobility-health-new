@@ -46,6 +46,34 @@ def _ensure_alertes_table(conn):
     op.create_index("ix_alertes_statut", "alertes", ["statut"], unique=False)
 
 
+def _ensure_hospitals_table(conn):
+    inspector = sa.inspect(conn)
+    if "hospitals" in inspector.get_table_names():
+        return
+    op.create_table(
+        "hospitals",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("nom", sa.String(200), nullable=False),
+        sa.Column("adresse", sa.String(500), nullable=True),
+        sa.Column("ville", sa.String(100), nullable=True),
+        sa.Column("pays", sa.String(100), nullable=True),
+        sa.Column("code_postal", sa.String(20), nullable=True),
+        sa.Column("telephone", sa.String(50), nullable=True),
+        sa.Column("email", sa.String(255), nullable=True),
+        sa.Column("latitude", sa.Numeric(10, 8), nullable=False, server_default="0"),
+        sa.Column("longitude", sa.Numeric(11, 8), nullable=False, server_default="0"),
+        sa.Column("est_actif", sa.Boolean(), nullable=False, server_default="true"),
+        sa.Column("specialites", sa.Text(), nullable=True),
+        sa.Column("capacite_lits", sa.Integer(), nullable=True),
+        sa.Column("notes", sa.Text(), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index("ix_hospitals_id", "hospitals", ["id"], unique=False)
+    op.create_index("ix_hospitals_nom", "hospitals", ["nom"], unique=False)
+
+
 def _ensure_sinistres_table(conn):
     inspector = sa.inspect(conn)
     if "sinistres" in inspector.get_table_names():
@@ -84,7 +112,7 @@ def upgrade() -> None:
     conn = op.get_bind()
     dialect_name = getattr(conn.dialect, "name", "") or ""
     if "postgresql" in dialect_name:
-        # hospitals doit exister avant sinistres.hospital_id (branche parallèle Alembic)
+        # hospitals doit exister avant sinistres.hospital_id (branche parallèle Alembic ; no-op si déjà créée)
         conn.execute(sa.text("""
             CREATE TABLE IF NOT EXISTS hospitals (
                 id SERIAL PRIMARY KEY,
@@ -147,6 +175,7 @@ def upgrade() -> None:
         conn.execute(sa.text("CREATE INDEX IF NOT EXISTS ix_sinistres_souscription_id ON sinistres (souscription_id)"))
         conn.execute(sa.text("CREATE INDEX IF NOT EXISTS ix_sinistres_hospital_id ON sinistres (hospital_id)"))
     else:
+        _ensure_hospitals_table(conn)
         _ensure_alertes_table(conn)
         _ensure_sinistres_table(conn)
     op.create_table(
