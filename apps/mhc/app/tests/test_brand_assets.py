@@ -49,7 +49,7 @@ class TestCardServiceBrand:
 
         assert purple_rgb in pixels, "Le violet brand doit apparaître sur la e-carte"
         assert teal_rgb in pixels, "Le teal brand doit apparaître sur la e-carte"
-        assert (255, 255, 255) in pixels, "L'en-tête blanc doit être présent"
+        assert (255, 255, 255) in pixels, "Un accent blanc doit être présent sur la e-carte"
 
     def test_card_background_is_valid_png(self):
         card = CardService._create_card_background()

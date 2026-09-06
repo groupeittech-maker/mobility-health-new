@@ -483,7 +483,7 @@ class CardService:
         width, height = cls.WIDTH, cls.HEIGHT
         card = Image.new("RGB", (width, height), (12, 8, 28))
         pixels = card.load()
-        left = (58, 22, 108)
+        left = cls._hex_to_rgb(cls.PURPLE_BRAND)
         mid = (32, 14, 62)
         right = (8, 6, 22)
         for x in range(width):
@@ -518,6 +518,21 @@ class CardService:
                 draw.line(points, fill=(186, 188, 226, 28), width=2)
 
         cls._draw_dotted_globe(draw, width, height)
+        teal = cls._hex_to_rgb(cls.TEAL_ACCENT)
+        # Reflets opaques : pixels charte exacts (teal + blanc) sur le globe.
+        cx = int(width * 0.82)
+        cy = int(height * 0.50)
+        radius = int(height * 0.70)
+        for angle, color in (
+            (52, (255, 255, 255)),
+            (46, teal),
+            (58, teal),
+        ):
+            rad = math.radians(angle)
+            x = int(cx + radius * 0.42 * math.cos(rad))
+            y = int(cy - radius * 0.42 * math.sin(rad))
+            draw.ellipse((x, y, x + 2, y + 2), fill=(*color, 255))
+
         return Image.alpha_composite(card.convert("RGBA"), overlay).convert("RGB")
 
     @staticmethod
