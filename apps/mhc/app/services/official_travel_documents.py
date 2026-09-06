@@ -52,7 +52,8 @@ DEFAULT_GARANTIES = [
         "Frais de séjour du membre de la famille accompagnateur (G)",
         "(G) 100 000 F CFA (150 €) par jour (max. 3 nuits)",
     ),
-    ("ASSISTANCE VOYAGE — Avant le voyage", None),
+    ("ASSISTANCE VOYAGE", None),
+    ("Avant le voyage", None),
     ("Téléconsultation (H)", "(H) 1 appel"),
     ("Informations pratiques avant le voyage (I)", "(I) Informations"),
 ]
@@ -170,6 +171,94 @@ def _traveler(user: Optional[User], traveler_info: Optional[dict[str, Any]]) -> 
     }
 
 
+def _split_person_name(full_name: str) -> tuple[str, str]:
+    parts = [part for part in (full_name or "").strip().split() if part]
+    if not parts:
+        return "—", "—"
+    if len(parts) == 1:
+        return parts[0], "—"
+    return parts[0], " ".join(parts[1:])
+
+
+def _age_from_birth(value: Any) -> Optional[int]:
+    if not value:
+        return None
+    if isinstance(value, date):
+        born = value
+    elif isinstance(value, datetime):
+        born = value.date()
+    elif isinstance(value, str):
+        text = value.strip()
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+            try:
+                born = datetime.strptime(text[:10], fmt).date()
+                break
+            except ValueError:
+                continue
+        else:
+            return None
+    else:
+        return None
+    today = date.today()
+    years = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+    return max(0, years)
+
+
+def _format_ayants_droit(minors_info: Optional[list[dict[str, Any]]]) -> str:
+    if not minors_info:
+        return "—"
+    entries: list[str] = []
+    for minor in minors_info:
+        if not isinstance(minor, dict):
+            continue
+        name = (minor.get("nom_complet") or minor.get("fullName") or minor.get("nom") or "").strip()
+        birth = minor.get("date_naissance") or minor.get("birthDate")
+        age = _age_from_birth(birth)
+        if name and age is not None:
+            entries.append(f"{name} ({age} ans)")
+        elif name:
+            entries.append(name)
+    return ", ".join(entries) if entries else "—"
+
+
+def _medecin_conseil_lines(medecin_conseil: Optional[dict[str, Any]]) -> dict[str, str]:
+    info = medecin_conseil or {}
+    full_name = (info.get("nom") or info.get("full_name") or info.get("fullName") or "").strip()
+    prenom, nom = _split_person_name(full_name)
+    if info.get("prenom"):
+        prenom = str(info["prenom"]).strip() or prenom
+    if info.get("nom_famille"):
+        nom = str(info["nom_famille"]).strip() or nom
+    return {
+        "nom": nom or "—",
+        "prenom": prenom or "—",
+        "tel": (info.get("telephone") or info.get("tel") or "—").strip() or "—",
+        "email": (info.get("email") or "—").strip() or "—",
+        "alerte": getattr(settings, "ASSURANCE_ALERT_CENTER", None) or "+242 05 098 35 35",
+    }
+
+
+def _dispositions_speciales(styles, section_num: int = 3) -> list:
+    return [
+        Paragraph(f"{section_num} INFORMATIONS SUR LES DISPOSITIONS SPÉCIALES", styles["section"]),
+        Paragraph(
+            "L'Assuré reconnaît avoir reçu ou, avoir pu consulter les Conditions Générales applicables au "
+            "contrat et déclare avoir pris connaissance des garanties et exclusions.",
+            styles["body"],
+        ),
+        Paragraph(
+            "Ce certificat ne peut servir en aucun cas de lettre de garantie ou de prise en charge auprès des "
+            "structures médicales publiques ou privées comme de tout autre organisme.",
+            styles["body"],
+        ),
+        Paragraph(
+            "L'Assuré reconnait ne pas être malade au moment de la souscription et déclare ne pas effectuer "
+            "ce voyage à des fins thérapeutiques.",
+            styles["body"],
+        ),
+    ]
+
+
 def _styles():
     base = getSampleStyleSheet()
     return {
@@ -228,6 +317,8 @@ def generate_attestation_assistance_voyage(
     card_image: Optional[BytesIO] = None,
     qr_image_data: Optional[BytesIO] = None,
     verification_url: Optional[str] = None,
+    minors_info: Optional[list[dict[str, Any]]] = None,
+    medecin_conseil: Optional[dict[str, Any]] = None,
 ) -> BytesIO:
     styles = _styles()
     produit = getattr(souscription, "produit_assurance", None)
@@ -238,6 +329,8 @@ def generate_attestation_assistance_voyage(
         dest = getattr(dest_country, "nom", None) or getattr(projet, "destination", None) or "—"
     zone = getattr(produit, "zone_geographique", None) or getattr(projet, "zone_code", None) or "—"
     traveler = _traveler(user, traveler_info)
+    ayants_droit = _format_ayants_droit(minors_info)
+    medecin = _medecin_conseil_lines(medecin_conseil)
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -266,16 +359,22 @@ def generate_attestation_assistance_voyage(
 
     def build_exemplaire(kind: str) -> list:
         pages = []
-        banner = (
-            "Exemplaire destiné aux Consulats"
-            if kind == "consulat"
-            else "Exemplaire destiné à l'assuré"
+        banners = {
+            "assuré": "Exemplaire destiné à l'assuré",
+            "assureur": "Exemplaire destiné à l'assureur",
+            "consulat": "Exemplaire destiné aux Consulats",
+        }
+        banner = banners.get(kind, banners["assuré"])
+        section1_title = (
+            "1 INFORMATIONS SUR L'ASSURÉ ET SES AYANTS DROIT"
+            if kind == "assuré"
+            else "1 INFORMATIONS DE L'ASSURÉ"
         )
         pages.extend(_header_table(souscription, banner))
         pages.append(Paragraph("ATTESTATION D'ASSISTANCE VOYAGE", styles["title"]))
         pages.append(Paragraph(f"<b>{numero_attestation}</b>", styles["center"]))
         pages.append(Spacer(1, 0.25 * cm))
-        pages.append(Paragraph("1 INFORMATIONS DE L'ASSURÉ", styles["section"]))
+        pages.append(Paragraph(section1_title, styles["section"]))
         pages.append(_info_grid(
             ["NOM ET PRÉNOM", "DATE DE NAISSANCE", "N° PASSEPORT / PIÈCE D'IDENTITÉ"],
             [traveler["name"], traveler["birth"], traveler["passport"]],
@@ -291,6 +390,12 @@ def generate_attestation_assistance_voyage(
         pages.append(_info_grid(
             ["ZONE DE COUVERTURE", "DÉBUT DE VALIDITÉ", "FIN DE VALIDITÉ"],
             [str(zone), _fmt_date(souscription.date_debut), _fmt_date(souscription.date_fin)],
+            styles,
+        ))
+        pages.append(Spacer(1, 0.12 * cm))
+        pages.append(_info_grid(
+            ["NOM, PRÉNOM ET AGE DES AYANTS DROIT"],
+            [ayants_droit],
             styles,
         ))
         pages.append(Paragraph("2 INFORMATIONS SUR LES GARANTIES DE LA POLICE", styles["section"]))
@@ -326,26 +431,35 @@ def generate_attestation_assistance_voyage(
             ("BACKGROUND", (0, 1), (-1, -1), colors.white),
         ]))
         pages.append(gtable)
-        if card_bytes:
-            try:
-                pages.append(Spacer(1, 0.35 * cm))
-                pages.append(Paragraph("CARTE DIGITALE", styles["section"]))
-                pages.append(Image(BytesIO(card_bytes), width=12 * cm, height=7.2 * cm, kind="proportional"))
-            except Exception:
-                pass
-        pages.append(Paragraph("3 INFORMATIONS SUR LES DISPOSITIONS SPÉCIALES", styles["section"]))
-        pages.append(Paragraph(
-            "L'assuré reconnaît avoir reçu les Conditions Générales et pris connaissance des garanties et exclusions applicables.",
-            styles["body"],
-        ))
-        pages.append(Paragraph(
-            "Le présent document ne constitue pas une lettre de garantie destinée aux structures médicales publiques ou privées.",
-            styles["body"],
-        ))
-        pages.append(Paragraph(
-            "L'Assuré reconnaît ne pas être malade au moment de la souscription et déclare ne pas effectuer ce voyage à des fins thérapeutiques.",
-            styles["body"],
-        ))
+
+        if kind == "assuré":
+            pages.append(Spacer(1, 0.25 * cm))
+            pages.append(Paragraph(
+                "3 VOTRE CARTE D'ASSURANCE VOYAGE & LES INFORMATIONS DU MÉDECIN CONSEIL",
+                styles["section"],
+            ))
+            if card_bytes:
+                try:
+                    pages.append(Image(BytesIO(card_bytes), width=12 * cm, height=7.2 * cm, kind="proportional"))
+                except Exception:
+                    pass
+            pages.append(Spacer(1, 0.15 * cm))
+            pages.append(Paragraph("INFORMATIONS SUR LE MÉDECIN CONSEIL", styles["section"]))
+            pages.append(_info_grid(
+                ["NOM", "PRÉNOM", "TÉLÉPHONE"],
+                [medecin["nom"], medecin["prenom"], medecin["tel"]],
+                styles,
+            ))
+            pages.append(Spacer(1, 0.12 * cm))
+            pages.append(_info_grid(
+                ["E-MAIL", "N° CENTRE D'ALERTE"],
+                [medecin["email"], medecin["alerte"]],
+                styles,
+            ))
+            pages.extend(_dispositions_speciales(styles, section_num=4))
+        else:
+            pages.extend(_dispositions_speciales(styles, section_num=3))
+
         city = settings.ASSURANCE_CITY or "Abidjan"
         pages.append(Spacer(1, 0.3 * cm))
         pages.append(Paragraph(f"Fait à <b>{city}</b>, le <b>{_fmt_date(datetime.utcnow())}</b>.", styles["body"]))
@@ -357,7 +471,7 @@ def generate_attestation_assistance_voyage(
             ]],
             colWidths=[9 * cm, 9 * cm],
         ))
-        if qr_bytes:
+        if qr_bytes and kind == "assuré":
             try:
                 pages.append(Spacer(1, 0.4 * cm))
                 pages.append(Image(BytesIO(qr_bytes), width=3 * cm, height=3 * cm))
@@ -373,10 +487,19 @@ def generate_attestation_assistance_voyage(
         return pages
 
     requested = (exemplaire or "assuré").strip().lower()
-    story.extend(build_exemplaire("consulat" if requested == "consulat" else "assuré"))
-    if requested in {"assuré", "assure", "both", "double"}:
-        story.append(PageBreak())
-        story.extend(build_exemplaire("consulat"))
+    if requested in {"consulat"}:
+        kinds = ["consulat"]
+    elif requested in {"assureur"}:
+        kinds = ["assureur"]
+    elif requested in {"assuré", "assure"}:
+        kinds = ["assuré"]
+    else:
+        kinds = ["assuré", "assureur", "consulat"]
+
+    for index, kind in enumerate(kinds):
+        if index:
+            story.append(PageBreak())
+        story.extend(build_exemplaire(kind))
     doc.build(story)
     buffer.seek(0)
     return buffer

@@ -750,6 +750,7 @@ class PDFService:
         traveler_info: Optional[Dict[str, Any]] = None,
         minors_info: Optional[List[Dict[str, Any]]] = None,
         card_image: Optional[BytesIO] = None,
+        medecin_conseil: Optional[Dict[str, Any]] = None,
     ) -> BytesIO:
         """Génère une attestation définitive au format PDF.
         minors_info: liste des enfants mineurs à charge (dicts avec nom_complet, date_naissance)."""
@@ -760,10 +761,12 @@ class PDFService:
             user,
             numero_attestation,
             traveler_info=traveler_info,
-            exemplaire="assuré",
+            exemplaire="all",
             card_image=card_image,
             qr_image_data=qr_image_data,
             verification_url=verification_url,
+            minors_info=minors_info,
+            medecin_conseil=medecin_conseil,
         )
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4)

@@ -269,6 +269,8 @@ class AttestationService:
         )
         card_image = BytesIO(card_bytes) if card_bytes else None
 
+        medecin_conseil = AttestationService._resolve_medecin_conseil(db, souscription)
+
         pdf_buffer = PDFService.generate_attestation_definitive(
             souscription,
             paiement,
@@ -279,6 +281,7 @@ class AttestationService:
             traveler_info=traveler_info,  # Informations du voyageur (tiers si souscription pour un tiers, sinon abonné)
             minors_info=minors_info,  # Enfants mineurs à charge (affichés dans l'attestation définitive)
             card_image=card_image,
+            medecin_conseil=medecin_conseil,
         )
         pdf_bytes = pdf_buffer.read()
         
@@ -935,6 +938,36 @@ class AttestationService:
                     break
         
         return tier_info
+
+    @staticmethod
+    def _resolve_medecin_conseil(db: Session, souscription: Souscription) -> Optional[Dict[str, Any]]:
+        """Coordonnées du médecin-conseil lié à la destination du voyage."""
+        from app.models.projet_voyage import ProjetVoyage
+        from app.models.destination import DestinationCountry
+        from app.services.medecin_conseil import serialize_medecin_conseil
+
+        projet = getattr(souscription, "projet_voyage", None)
+        if not projet and souscription.projet_voyage_id:
+            projet = db.query(ProjetVoyage).filter(ProjetVoyage.id == souscription.projet_voyage_id).first()
+        if not projet:
+            return None
+
+        country = getattr(projet, "destination_country", None)
+        if not country and getattr(projet, "destination_country_id", None):
+            country = (
+                db.query(DestinationCountry)
+                .filter(DestinationCountry.id == projet.destination_country_id)
+                .first()
+            )
+        if not country or not getattr(country, "medecin_conseil_id", None):
+            return None
+
+        doctor = getattr(country, "medecin_conseil", None)
+        if not doctor:
+            from app.models.user import User as UserModel
+
+            doctor = db.query(UserModel).filter(UserModel.id == country.medecin_conseil_id).first()
+        return serialize_medecin_conseil(doctor)
 
     @staticmethod
     def _extract_minors_from_notes(notes: str) -> List[Dict[str, str]]:

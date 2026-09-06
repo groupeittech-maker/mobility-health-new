@@ -19,6 +19,7 @@ from app.services.medical_eligibility import (
 )
 from app.services.official_travel_documents import (
     _amount_in_words,
+    _format_ayants_droit,
     _traveler,
     generate_attestation_assistance_voyage,
     generate_avenant_annulation,
@@ -109,6 +110,33 @@ class TestOfficialDocuments:
         data = pdf.getvalue()
         assert data.startswith(b"%PDF")
         assert len(data) > 2000
+
+    def test_attestation_all_exemplaires_is_larger_than_single(self):
+        single = generate_attestation_assistance_voyage(
+            _souscription(),
+            _user(),
+            "000001-101",
+            exemplaire="assuré",
+        ).getvalue()
+        triple = generate_attestation_assistance_voyage(
+            _souscription(),
+            _user(),
+            "000001-101",
+            exemplaire="all",
+            minors_info=[{"nom_complet": "Lea Dupont", "date_naissance": "01/01/2018"}],
+            medecin_conseil={"nom": "Doctor User", "telephone": "+33123456789", "email": "doctor@example.com"},
+        ).getvalue()
+        assert len(triple) > len(single)
+
+    def test_format_ayants_droit_with_ages(self):
+        text = _format_ayants_droit([
+            {"nom_complet": "Lea Dupont", "date_naissance": "01/01/2018"},
+            {"nom_complet": "Noah Dupont", "date_naissance": "03/03/2021"},
+        ])
+        assert "Lea Dupont" in text
+        assert "Noah Dupont" in text
+        assert "ans" in text
+        assert _format_ayants_droit([]) == "—"
 
     def test_avenant_pdf_is_distinct_document(self):
         pdf = generate_avenant_annulation(
