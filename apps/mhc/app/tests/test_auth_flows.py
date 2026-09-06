@@ -2,7 +2,9 @@
 Comprehensive authentication flow tests
 """
 import pytest
+from unittest.mock import patch
 from fastapi import status
+from app.core.security import verify_password
 
 
 @pytest.mark.auth
@@ -56,7 +58,58 @@ class TestAuthFlows:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         detail = response.json()["detail"].lower()
         assert "déjà" in detail or "already" in detail
-    
+
+    @patch("app.api.v1.auth.UserService.send_verification_email")
+    def test_register_rolls_back_when_verification_email_fails(self, mock_send, client, db):
+        """Si l'e-mail de vérification échoue, le compte ne doit pas rester bloqué."""
+        from app.services.email_delivery import EmailDeliveryError
+        from app.models.user import User
+
+        mock_send.side_effect = EmailDeliveryError("SMTP down")
+
+        response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "rollback@example.com",
+                "password": "password123",
+                "full_name": "Rollback User",
+            },
+        )
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert "code de vérification" in response.json()["detail"].lower()
+        assert db.query(User).filter(User.email == "rollback@example.com").first() is None
+
+    @patch("app.api.v1.auth.UserService.send_verification_email")
+    def test_register_resumes_pending_unverified_account(self, mock_send, client, db):
+        """Un 2e clic après échec SMTP doit renvoyer le code, pas « déjà pris »."""
+        from app.core.security import get_password_hash
+        from app.models.user import User
+
+        user = User(
+            email="pending@example.com",
+            username="pending@example.com",
+            hashed_password=get_password_hash("oldpassword123"),
+            is_active=False,
+            email_verified=False,
+            validation_inscription="approved",
+        )
+        db.add(user)
+        db.commit()
+
+        response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "pending@example.com",
+                "password": "newpassword123",
+                "full_name": "Pending User",
+            },
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        mock_send.assert_called_once()
+        db.refresh(user)
+        assert user.full_name == "Pending User"
+        assert verify_password("newpassword123", user.hashed_password)
+
     def test_register_invalid_email(self, client):
         """Test registration with invalid email"""
         response = client.post(

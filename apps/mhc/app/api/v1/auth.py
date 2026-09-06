@@ -34,6 +34,77 @@ oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", aut
 logger = logging.getLogger(__name__)
 
 
+def _is_pending_email_verification(user: User) -> bool:
+    """Compte auto-inscription créé mais e-mail non encore vérifié."""
+    role = getattr(user.role, "value", user.role)
+    return (
+        not user.is_active
+        and not getattr(user, "email_verified", False)
+        and str(role or "").lower() == Role.USER.value
+    )
+
+
+def _rollback_registration_user(db: Session, user: User) -> None:
+    """Supprime un compte créé si l'envoi du code de vérification a échoué."""
+    try:
+        db.delete(user)
+        db.commit()
+        logger.info("Inscription annulée (échec e-mail) pour user_id=%s", user.id)
+    except Exception as exc:
+        db.rollback()
+        logger.error("Impossible d'annuler l'inscription user_id=%s: %s", user.id, exc)
+
+
+def _apply_registration_payload(user: User, user_data: "UserCreate") -> None:
+    """Met à jour un compte en attente de vérification e-mail."""
+    is_valid, error_message = UserService.validate_password(user_data.password)
+    if not is_valid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_message)
+    user.hashed_password = get_password_hash(user_data.password)
+    if user_data.full_name is not None:
+        user.full_name = user_data.full_name
+    if user_data.telephone is not None:
+        user.telephone = user_data.telephone
+    if user_data.sexe is not None:
+        user.sexe = user_data.sexe
+    if user_data.pays_residence is not None:
+        user.pays_residence = user_data.pays_residence
+    if user_data.nationalite is not None:
+        user.nationalite = user_data.nationalite
+    if user_data.numero_passeport is not None:
+        user.numero_passeport = user_data.numero_passeport
+    if user_data.nom_contact_urgence is not None:
+        user.nom_contact_urgence = user_data.nom_contact_urgence
+    if user_data.contact_urgence is not None:
+        user.contact_urgence = user_data.contact_urgence
+    if user_data.maladies_chroniques is not None:
+        user.maladies_chroniques = user_data.maladies_chroniques
+    if user_data.traitements_en_cours is not None:
+        user.traitements_en_cours = user_data.traitements_en_cours
+    if user_data.antecedents_recents is not None:
+        user.antecedents_recents = user_data.antecedents_recents
+    if user_data.grossesse is not None:
+        user.grossesse = user_data.grossesse
+    if user_data.date_naissance:
+        try:
+            from datetime import datetime
+            user.date_naissance = datetime.strptime(user_data.date_naissance, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Format de date invalide. Utilisez YYYY-MM-DD",
+            )
+    if user_data.validite_passeport:
+        try:
+            from datetime import datetime
+            user.validite_passeport = datetime.strptime(user_data.validite_passeport, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Format de validité passeport invalide. Utilisez YYYY-MM-DD",
+            )
+
+
 def _issue_email_verification_code(user: User) -> None:
     """Génère un code à 6 chiffres, le stocke dans Redis (15 min) et envoie l'e-mail."""
     verification_code = "".join(random.choices(string.digits, k=6))
@@ -359,49 +430,88 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     registration_username = str(user_data.email).strip()
     logger.info(f"Tentative d'inscription: username={registration_username}, email={user_data.email}")
 
+    user: User | None = None
+    resumed_pending = False
+
     try:
-        # Auto-inscription : is_active=False jusqu'à verify-email
-        user = UserService.create_user(
-            db=db,
-            email=user_data.email,
-            username=registration_username,
-            password=user_data.password,
-            full_name=user_data.full_name,
-            date_naissance=user_data.date_naissance,
-            telephone=user_data.telephone,
-            sexe=user_data.sexe,
-            pays_residence=user_data.pays_residence,
-            nationalite=user_data.nationalite,
-            numero_passeport=user_data.numero_passeport,
-            validite_passeport=user_data.validite_passeport,
-            nom_contact_urgence=user_data.nom_contact_urgence,
-            contact_urgence=user_data.contact_urgence,
-            role=Role.USER,
-            is_active=False,
-            created_by_id=None,
-            send_welcome_email=False,
-            maladies_chroniques=user_data.maladies_chroniques,
-            traitements_en_cours=user_data.traitements_en_cours,
-            antecedents_recents=user_data.antecedents_recents,
-            grossesse=user_data.grossesse,
-        )
+        existing = db.query(User).filter(
+            (User.email == user_data.email) | (User.username == registration_username)
+        ).first()
+        if existing:
+            if _is_pending_email_verification(existing):
+                _apply_registration_payload(existing, user_data)
+                user = existing
+                resumed_pending = True
+                db.commit()
+                db.refresh(user)
+                logger.info(
+                    "Reprise inscription en attente pour user_id=%s (%s)",
+                    user.id,
+                    user.email,
+                )
+            else:
+                if existing.email == user_data.email:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Cet email est déjà enregistré",
+                    )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Ce nom d'utilisateur est déjà pris",
+                )
+
+        if user is None:
+            user = UserService.create_user(
+                db=db,
+                email=user_data.email,
+                username=registration_username,
+                password=user_data.password,
+                full_name=user_data.full_name,
+                date_naissance=user_data.date_naissance,
+                telephone=user_data.telephone,
+                sexe=user_data.sexe,
+                pays_residence=user_data.pays_residence,
+                nationalite=user_data.nationalite,
+                numero_passeport=user_data.numero_passeport,
+                validite_passeport=user_data.validite_passeport,
+                nom_contact_urgence=user_data.nom_contact_urgence,
+                contact_urgence=user_data.contact_urgence,
+                role=Role.USER,
+                is_active=False,
+                created_by_id=None,
+                send_welcome_email=False,
+                maladies_chroniques=user_data.maladies_chroniques,
+                traitements_en_cours=user_data.traitements_en_cours,
+                antecedents_recents=user_data.antecedents_recents,
+                grossesse=user_data.grossesse,
+            )
+
         _issue_email_verification_code(user)
         db.commit()
         db.refresh(user)
-        
-        logger.info(f"✓ Utilisateur inscrit avec succès via /register: ID={user.id}, username={user.username}, email={user.email}")
-        
-        # Vérifier que l'utilisateur est bien dans la base de données
+
+        if resumed_pending:
+            logger.info("Code de vérification renvoyé pour inscription reprise: %s", user.email)
+        else:
+            logger.info(
+                f"✓ Utilisateur inscrit avec succès via /register: ID={user.id}, username={user.username}, email={user.email}"
+            )
+
         verify_user = db.query(User).filter(User.id == user.id).first()
         if verify_user:
-            logger.info(f"✓ Vérification: Utilisateur {user.username} confirmé dans la base de données (ID: {user.id})")
+            logger.info(
+                f"✓ Vérification: Utilisateur {user.username} confirmé dans la base de données (ID: {user.id})"
+            )
         else:
-            logger.error(f"✗ ERREUR: Utilisateur {user.username} non trouvé dans la base de données après création!")
-        
+            logger.error(
+                f"✗ ERREUR: Utilisateur {user.username} non trouvé dans la base de données après création!"
+            )
+
         return user
-        
+
     except HTTPException as e:
-        # Ré-élever les exceptions HTTP (erreurs de validation, etc.)
+        if user is not None and not resumed_pending and e.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+            _rollback_registration_user(db, user)
         logger.error(f"✗ Erreur lors de l'inscription de {user_data.username}: {e.detail}")
         raise
     except Exception as e:
