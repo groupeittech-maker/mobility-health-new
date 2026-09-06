@@ -347,6 +347,18 @@ async def health_check():
     return await _health_response()
 
 
+@app.get("/api/v1/health/email")
+async def health_check_email():
+    """Diagnostic SMTP (sans secrets) — utile pour vérifier l'envoi des codes d'inscription."""
+    from app.services.email_delivery import smtp_status
+
+    status_payload = smtp_status()
+    return {
+        "status": "ok" if status_payload.get("probe_ok") else "degraded",
+        **status_payload,
+    }
+
+
 @app.get("/api/v1/health")
 async def health_check_v1():
     """Health check sous /api/v1 pour le frontend (même origine, proxy Nginx)."""

@@ -24,6 +24,43 @@ def smtp_configured() -> bool:
     )
 
 
+def smtp_status() -> Dict[str, Any]:
+    """État SMTP pour diagnostic (sans exposer les secrets)."""
+    host = (settings.SMTP_HOST or "").strip()
+    user = (settings.SMTP_USER or "").strip()
+    password = (settings.SMTP_PASSWORD or "").strip()
+    port = int(getattr(settings, "SMTP_PORT", 587) or 587)
+    security = str(getattr(settings, "SMTP_SECURITY", "starttls") or "starttls").strip().lower()
+    configured = bool(host and user and password)
+    payload: Dict[str, Any] = {
+        "configured": configured,
+        "host": host or None,
+        "port": port,
+        "security": security,
+        "from_email": (settings.SMTP_FROM_EMAIL or "").strip() or None,
+        "user_set": bool(user),
+        "password_set": bool(password),
+        "probe_ok": False,
+        "probe_error": None,
+    }
+    if not configured:
+        payload["probe_error"] = "Configuration SMTP incomplète (SMTP_HOST, SMTP_USER, SMTP_PASSWORD)."
+        return payload
+    try:
+        if security == "ssl":
+            with smtplib.SMTP_SSL(host, port, timeout=15) as server:
+                server.login(user, password)
+        else:
+            with smtplib.SMTP(host, port, timeout=15) as server:
+                if security == "starttls":
+                    server.starttls()
+                server.login(user, password)
+        payload["probe_ok"] = True
+    except Exception as exc:
+        payload["probe_error"] = str(exc)
+    return payload
+
+
 def deliver_email_sync(
     to_email: str,
     subject: str,
