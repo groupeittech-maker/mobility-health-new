@@ -14,7 +14,16 @@ const ALERTS_FETCH_LIMIT = 200;
 
 const MEDICAL_ACTION_ROLES = ['medecin_referent_mh'];
 const MEDICAL_FIELD_LABELS = {
-    chronicDiseases: 'Maladies chroniques',
+    maladeSouscription: 'Malade au moment de la souscription',
+    malade_souscription: 'Malade au moment de la souscription',
+    malade12Mois: 'Malade au cours des 12 derniers mois',
+    malade_12_mois: 'Malade au cours des 12 derniers mois',
+    maladieChronique: 'Maladie chronique',
+    maladie_chronique: 'Maladie chronique',
+    moisGrossesse: 'Mois de grossesse',
+    mois_grossesse: 'Mois de grossesse',
+    voyageMedical: 'Voyage à but médical',
+    voyage_medical: 'Voyage à but médical',
     regularTreatment: 'Traitement régulier',
     treatmentDetails: 'Détails du traitement',
     recentHospitalization: 'Hospitalisation récente',
@@ -663,7 +672,23 @@ function renderLongMedicalQuestionnaire(responses, excludeConsent = false) {
     }
 
     const mobilePairs = [];
-    for (const k of ['maladies_chroniques', 'traitements_en_cours', 'enceinte', 'antecedents_recents']) {
+    for (const k of [
+        'malade_souscription',
+        'maladeSouscription',
+        'malade_12_mois',
+        'malade12Mois',
+        'maladie_chronique',
+        'maladieChronique',
+        'enceinte',
+        'pregnancy',
+        'mois_grossesse',
+        'moisGrossesse',
+        'voyage_medical',
+        'voyageMedical',
+        'maladies_chroniques',
+        'traitements_en_cours',
+        'antecedents_recents',
+    ]) {
         if (hasMedicalValue(map[k])) {
             mobilePairs.push([k, map[k]]);
             used.add(k);
