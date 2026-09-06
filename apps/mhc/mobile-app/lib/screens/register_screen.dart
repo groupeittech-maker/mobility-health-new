@@ -178,13 +178,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'Inscription',
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppColors.primary),
         ),
-        actions: const [
+        actions: [
           Padding(
-            padding: EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.only(right: 12),
             child: Center(
               child: Text(
                 'v$kAppVersionLabel',
-                style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                style: GoogleFonts.poppins(fontSize: 11, color: AppColors.mutedText),
               ),
             ),
           ),
