@@ -202,10 +202,13 @@ jobs:
           ssh -4 mhc-vps "bash -s" < .github/scripts/remote-deploy-frontend.sh
 
       - name: Configure SMTP on VPS
-        if: ${{ secrets.SMTP_PASSWORD != '' }}
         env:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
         run: |
+          if [ -z "${SMTP_PASSWORD:-}" ]; then
+            echo "⚠️ SMTP_PASSWORD non défini — configuration SMTP ignorée"
+            exit 0
+          fi
           scp -4 .github/scripts/configure-smtp-env.sh mhc-vps:/tmp/configure-smtp-env.sh
           ssh -4 mhc-vps "SMTP_PASSWORD='$SMTP_PASSWORD' SMTP_USER='noreply@mobility-healthcare.cloud' SMTP_FROM_EMAIL='noreply@mobility-healthcare.cloud' ASSURANCE_EMAIL='noreply@mobility-healthcare.cloud' bash /tmp/configure-smtp-env.sh"
 
