@@ -205,4 +205,7 @@ if [ "$REF_COUNTRIES_OK" = false ]; then
   exit 1
 fi
 
+echo "🧪 Testing SMTP health (non bloquant)…"
+curl -sf "https://srv1324425.hstgr.cloud/api/v1/health/email" | head -c 600 || echo "⚠️ health/email indisponible"
+
 echo "✅ Backend deployment completed successfully!"

@@ -9,6 +9,13 @@ echo "=== Déploiement local VPS (self-hosted runner) ==="
 echo "Commit : ${GITHUB_SHA:-local}"
 echo "Workspace : $REPO_ROOT"
 
+if [ -n "${SMTP_PASSWORD:-}" ]; then
+  echo "📧 Configuration SMTP (mobility-healthcare.cloud)…"
+  bash .github/scripts/configure-smtp-env.sh
+else
+  echo "⚠️ SMTP_PASSWORD absent — .env SMTP inchangé (ajoutez le secret GitHub puis relancez Configure SMTP ou Deploy)"
+fi
+
 echo "📦 Archives frontend / backend…"
 tar czf /tmp/frontend.tar.gz -C apps/mhc/frontend-simple .
 tar czf /tmp/app.tar.gz --exclude="__pycache__" --exclude="*.pyc" --exclude="*.pyo" --exclude=".git" -C apps/mhc app/

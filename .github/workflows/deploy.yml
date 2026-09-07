@@ -44,6 +44,11 @@ jobs:
           echo "- Runner : self-hosted sur VPS (pas de SSH entrant)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy on VPS
+        env:
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_USER: noreply@mobility-healthcare.cloud
+          SMTP_FROM_EMAIL: noreply@mobility-healthcare.cloud
+          ASSURANCE_EMAIL: noreply@mobility-healthcare.cloud
         run: bash .github/scripts/vps-local-deploy.sh
 
       - name: Mise à jour locale (instructions)
@@ -195,6 +200,14 @@ jobs:
       - name: Extract and deploy frontend
         run: |
           ssh -4 mhc-vps "bash -s" < .github/scripts/remote-deploy-frontend.sh
+
+      - name: Configure SMTP on VPS
+        if: ${{ secrets.SMTP_PASSWORD != '' }}
+        env:
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: |
+          scp -4 .github/scripts/configure-smtp-env.sh mhc-vps:/tmp/configure-smtp-env.sh
+          ssh -4 mhc-vps "SMTP_PASSWORD='$SMTP_PASSWORD' SMTP_USER='noreply@mobility-healthcare.cloud' SMTP_FROM_EMAIL='noreply@mobility-healthcare.cloud' ASSURANCE_EMAIL='noreply@mobility-healthcare.cloud' bash /tmp/configure-smtp-env.sh"
 
       - name: Deploy backend and restart services
         run: |

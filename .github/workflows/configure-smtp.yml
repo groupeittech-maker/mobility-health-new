@@ -20,5 +20,5 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           SMTP_USER: noreply@mobility-healthcare.cloud
           SMTP_FROM_EMAIL: noreply@mobility-healthcare.cloud
-          ASSURANCE_EMAIL: contact@mobility-healthcare.cloud
+          ASSURANCE_EMAIL: noreply@mobility-healthcare.cloud
         run: bash .github/scripts/configure-smtp-env.sh
