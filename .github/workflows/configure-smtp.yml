@@ -1,4 +1,5 @@
-# Configure SMTP sur le VPS (runner self-hosted). Secret requis : SMTP_PASSWORD
+# Configure SMTP sur le VPS via SSH (rapide, ne dépend pas du runner self-hosted).
+# Secrets requis : SMTP_PASSWORD, SSH_HOST, SSH_USER, SSH_PRIVATE_KEY
 name: Configure SMTP (VPS)
 
 on:
@@ -10,15 +11,67 @@ permissions:
 jobs:
   configure-smtp:
     name: SMTP mobility-healthcare.cloud
-    runs-on: [self-hosted, mhc-vps]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          set -euo pipefail
+          for name in SSH_HOST SSH_USER SSH_PRIVATE_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Secret $name non configuré"
+              exit 1
+            fi
+          done
+          if [ -z "${{ secrets.SMTP_PASSWORD }}" ]; then
+            echo "::error::Secret SMTP_PASSWORD non configuré"
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          HOST="$(echo "$SSH_HOST" | tr -d '[:space:]')"
+          PORT="$(echo "${SSH_PORT:-22}" | tr -d '[:space:]')"
+          python3 << 'PY'
+          import os
+          raw = os.environ.get("SSH_PRIVATE_KEY") or ""
+          key = raw.replace("\r\n", "\n").replace("\r", "\n")
+          if "BEGIN" in key and "\\n" in key:
+              key = key.replace("\\n", "\n")
+          key = key.strip() + "\n"
+          path = os.path.expanduser("~/.ssh/id_ed25519")
+          with open(path, "w", newline="\n") as f:
+              f.write(key)
+          os.chmod(path, 0o600)
+          PY
+          ssh-keyscan -4 -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          {
+            echo "Host mhc-vps"
+            echo "  HostName ${HOST}"
+            echo "  User ${SSH_USER}"
+            echo "  Port ${PORT}"
+            echo "  IdentityFile ~/.ssh/id_ed25519"
+            echo "  AddressFamily inet"
+            echo "  BatchMode yes"
+            echo "  StrictHostKeyChecking accept-new"
+            echo "  ConnectTimeout 25"
+          } >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          ssh -4 mhc-vps "echo SSH OK; hostname"
+
       - name: Appliquer SMTP dans .env et redémarrer l'API
         env:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          SMTP_USER: noreply@mobility-healthcare.cloud
-          SMTP_FROM_EMAIL: noreply@mobility-healthcare.cloud
-          ASSURANCE_EMAIL: noreply@mobility-healthcare.cloud
-        run: bash .github/scripts/configure-smtp-env.sh
+        run: |
+          scp -4 .github/scripts/configure-smtp-env.sh mhc-vps:/tmp/configure-smtp-env.sh
+          ssh -4 mhc-vps "SMTP_PASSWORD='$SMTP_PASSWORD' SMTP_USER='noreply@mobility-healthcare.cloud' SMTP_FROM_EMAIL='noreply@mobility-healthcare.cloud' ASSURANCE_EMAIL='noreply@mobility-healthcare.cloud' bash /tmp/configure-smtp-env.sh"
+
+      - name: Vérifier health/email
+        run: |
+          sleep 8
+          curl -sf "https://srv1324425.hstgr.cloud/api/v1/health/email"

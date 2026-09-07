@@ -21,7 +21,9 @@ Le mot de passe est celui défini dans **hPanel → Emails → noreply@… → G
 1. GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
 2. Nom : **`SMTP_PASSWORD`** — valeur : mot de passe de la boîte noreply
 3. Lancer **Actions** → **Configure SMTP (VPS)** → **Run workflow**  
-   *(ou attendre le prochain **Deploy to Hostinger VPS** : la config SMTP s’applique avant le redémarrage de l’API)*
+   *(via SSH depuis GitHub Actions — ne nécessite pas le runner self-hosted)*
+
+Le déploiement complet applique aussi SMTP si `SMTP_PASSWORD` est défini (voir `.github/workflows/deploy.yml`).
 
 ## Configuration manuelle sur le VPS
 
