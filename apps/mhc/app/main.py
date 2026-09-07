@@ -193,9 +193,17 @@ else:
 # Ceci permet d'inclure les headers CORS même en cas d'erreur 500
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Gestionnaire global pour capturer toutes les exceptions et ajouter les headers CORS"""
-    # Log l'erreur
-    logger.error(f"Erreur non gérée: {exc}")
+    """Gestionnaire global pour capturer toutes les exceptions et ajouter les headers CORS.
+
+    IMPORTANT : ce handler traite les erreurs 500. Starlette l'exécute dans le
+    ServerErrorMiddleware (le middleware le plus externe), donc sa réponse ne
+    repasse PAS par le CORSMiddleware. Les en-têtes CORS doivent donc être
+    ajoutés manuellement ici, sinon le navigateur rejette la réponse
+    (« TypeError: Failed to fetch ») même si l'API a bien répondu.
+    """
+    # Log l'erreur (avec méthode/chemin de la requête pour le diagnostic)
+    logger.error(f"Exception non gérée: {type(exc).__name__}: {exc}")
+    logger.error(f"Request: {request.method} {request.url.path}")
     logger.error(traceback.format_exc())
     
     # Déterminer l'origine
@@ -260,23 +268,10 @@ app.add_middleware(ForceHTTPSMiddleware)
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(AuditMiddleware)
 
-# Exception handlers globaux pour capturer toutes les erreurs
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """Gestionnaire d'exceptions global pour logger toutes les erreurs"""
-    logger.error(f"Exception non gérée: {type(exc).__name__}: {str(exc)}")
-    logger.error(f"Traceback complet:\n{traceback.format_exc()}")
-    logger.error(f"Request: {request.method} {request.url.path}")
-    
-    # Retourner une réponse JSON avec les détails de l'erreur
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "detail": f"Erreur interne du serveur: {str(exc)}",
-            "type": type(exc).__name__,
-            "path": str(request.url.path)
-        }
-    )
+# Note : le gestionnaire global des exceptions 500 (avec en-têtes CORS) est
+# défini plus haut, juste après la configuration du CORSMiddleware. Ne pas en
+# redéclarer un second ici : il écraserait le précédent et supprimerait les
+# en-têtes CORS des réponses d'erreur (cause de « Failed to fetch » côté client).
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
