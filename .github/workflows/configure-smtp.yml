@@ -1,0 +1,24 @@
+# Configure SMTP sur le VPS (runner self-hosted). Secret requis : SMTP_PASSWORD
+name: Configure SMTP (VPS)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  configure-smtp:
+    name: SMTP mobility-healthcare.cloud
+    runs-on: [self-hosted, mhc-vps]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Appliquer SMTP dans .env et redémarrer l'API
+        env:
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_USER: noreply@mobility-healthcare.cloud
+          SMTP_FROM_EMAIL: noreply@mobility-healthcare.cloud
+          ASSURANCE_EMAIL: contact@mobility-healthcare.cloud
+        run: bash .github/scripts/configure-smtp-env.sh
