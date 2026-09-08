@@ -34,6 +34,59 @@ oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", aut
 logger = logging.getLogger(__name__)
 
 
+# --- Gestion des refresh tokens (multi-appareils) -------------------------
+# Un utilisateur peut être connecté simultanément sur plusieurs appareils
+# (ex. tableau de bord web + application mobile). On conserve donc un ENSEMBLE
+# de refresh tokens valides par utilisateur, au lieu d'une valeur unique qui
+# invalidait le refresh de tous les autres appareils dès qu'un nouveau se
+# connectait (symptôme : « Refresh token not found or expired » puis 401 sur
+# les endpoints protégés). La révocation (logout, changement de mot de passe)
+# reste possible en vidant l'ensemble.
+_REFRESH_TOKEN_SET_PREFIX = "refresh_tokens"   # SET des tokens valides (nouveau)
+_LEGACY_REFRESH_TOKEN_PREFIX = "refresh_token"  # ancienne clé unique (compat)
+
+
+def _store_refresh_token(redis, user_id, token: str, ttl_seconds: int) -> None:
+    """Ajoute un refresh token à l'ensemble des sessions valides de l'utilisateur."""
+    key = f"{_REFRESH_TOKEN_SET_PREFIX}:{user_id}"
+    redis.sadd(key, token)
+    redis.expire(key, ttl_seconds)
+
+
+def _refresh_token_is_valid(redis, user_id, token: str) -> bool:
+    """Indique si le refresh token présenté fait partie des sessions valides.
+
+    - Si l'ensemble existe : le token doit en être membre (sinon révoqué).
+    - Sinon, repli sur l'ancienne clé unique pour les sessions créées avant
+      ce correctif.
+    - Si aucune donnée n'existe (Redis vidé/redémarré) : on autorise, comme le
+      comportement historique (la validité JWT signature + expiration fait foi).
+    """
+    set_key = f"{_REFRESH_TOKEN_SET_PREFIX}:{user_id}"
+    if redis.exists(set_key):
+        return bool(redis.sismember(set_key, token))
+    legacy = redis.get(f"{_LEGACY_REFRESH_TOKEN_PREFIX}:{user_id}")
+    if legacy is not None:
+        return legacy == token
+    return True
+
+
+def _rotate_refresh_token(redis, user_id, old_token: str, new_token: str, ttl_seconds: int) -> None:
+    """Remplace l'ancien refresh token par le nouveau dans l'ensemble."""
+    set_key = f"{_REFRESH_TOKEN_SET_PREFIX}:{user_id}"
+    redis.srem(set_key, old_token)
+    redis.sadd(set_key, new_token)
+    redis.expire(set_key, ttl_seconds)
+    # Nettoyer l'ancienne clé unique éventuelle (migration douce).
+    redis.delete(f"{_LEGACY_REFRESH_TOKEN_PREFIX}:{user_id}")
+
+
+def _revoke_all_refresh_tokens(redis, user_id) -> None:
+    """Révoque toutes les sessions de l'utilisateur (logout, reset mot de passe)."""
+    redis.delete(f"{_REFRESH_TOKEN_SET_PREFIX}:{user_id}")
+    redis.delete(f"{_LEGACY_REFRESH_TOKEN_PREFIX}:{user_id}")
+
+
 def _is_pending_email_verification(user: User) -> bool:
     """Compte auto-inscription créé mais e-mail non encore vérifié."""
     role = getattr(user.role, "value", user.role)
@@ -627,10 +680,11 @@ async def login(
             redis = get_redis()
             if redis is not None:
                 try:
-                    redis.setex(
-                        f"refresh_token:{user_id}",
+                    _store_refresh_token(
+                        redis,
+                        user_id,
+                        refresh_token,
                         settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-                        refresh_token
                     )
                 except Exception as redis_error:
                     logger.error(f"Erreur lors du stockage du refresh token dans Redis: {redis_error}")
@@ -680,8 +734,7 @@ async def refresh_token(
     try:
         redis = get_redis()
         if redis is not None:
-            stored_token = redis.get(f"refresh_token:{user_id}")
-            if stored_token and stored_token != token_data.refresh_token:
+            if not _refresh_token_is_valid(redis, user_id, token_data.refresh_token):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Refresh token not found or expired"
@@ -701,7 +754,13 @@ async def refresh_token(
         redis = get_redis()
         if redis is not None:
             try:
-                redis.setex(f"refresh_token:{user_id}", days * 24 * 60 * 60, new_refresh_token)
+                _rotate_refresh_token(
+                    redis,
+                    user_id,
+                    token_data.refresh_token,
+                    new_refresh_token,
+                    days * 24 * 60 * 60,
+                )
             except Exception as e:
                 logger.warning(f"Erreur lors de la mise à jour du refresh token dans Redis: {e}")
     except Exception as redis_init_error:
@@ -722,7 +781,7 @@ async def logout(
         redis = get_redis()
         if redis is not None:
             try:
-                redis.delete(f"refresh_token:{current_user.id}")
+                _revoke_all_refresh_tokens(redis, current_user.id)
             except Exception as e:
                 logger.warning(f"Erreur lors de la suppression du refresh token dans Redis: {e}")
     except Exception as redis_init_error:
@@ -1111,8 +1170,8 @@ async def reset_password(
                 redis_token_key = f"password_reset_token:{request.email}"
                 redis.delete(redis_token_key)
                 
-                # Invalidate all refresh tokens for security
-                redis.delete(f"refresh_token:{user.id}")
+                # Invalidate all refresh tokens for security (toutes sessions)
+                _revoke_all_refresh_tokens(redis, user.id)
             except Exception as e:
                 logger.warning(f"Erreur lors de la suppression des tokens dans Redis: {e}")
     except Exception as redis_init_error:
