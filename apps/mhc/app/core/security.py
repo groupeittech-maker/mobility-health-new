@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
+import uuid
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 import bcrypt
@@ -46,7 +47,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         minutes = getattr(settings, "ACCESS_TOKEN_EXPIRE_MINUTES", 30)
         expire = datetime.utcnow() + timedelta(minutes=minutes)
     
-    to_encode.update({"exp": expire, "type": "access"})
+    # jti unique : garantit que deux tokens émis dans la même seconde diffèrent.
+    to_encode.update({"exp": expire, "type": "access", "jti": uuid.uuid4().hex})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=_get_algorithm())
     return encoded_jwt
 
@@ -56,7 +58,9 @@ def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
     days = getattr(settings, "REFRESH_TOKEN_EXPIRE_DAYS", 7)
     expire = datetime.utcnow() + timedelta(days=days)
-    to_encode.update({"exp": expire, "type": "refresh"})
+    # jti unique : chaque refresh token est distinct (rotation + multi-appareils
+    # fiables, même pour deux connexions dans la même seconde).
+    to_encode.update({"exp": expire, "type": "refresh", "jti": uuid.uuid4().hex})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=_get_algorithm())
     return encoded_jwt
 
