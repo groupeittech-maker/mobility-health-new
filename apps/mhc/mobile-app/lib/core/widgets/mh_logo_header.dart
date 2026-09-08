@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
 
-/// Chemins du logo officiel : PNG avec transparence en priorité, JPG en secours.
-const String kMhOfficialLogoPng = 'assets/images/logo_officiel_mh.png';
+/// Chemins du logo officiel affiché DANS L'APPLICATION (splash, connexion,
+/// inscription, en-têtes) : fonds clairs -> on utilise le logo COULEUR
+/// (PNG transparent) en priorité, avec le JPG couleur en secours.
+/// NB : la version BLANCHE (logo_officiel_mh.png) est réservée à l'e-carte
+/// (fond violet) — l'utiliser ici la rendrait invisible sur fond clair.
+const String kMhOfficialLogoPng = 'assets/images/logo_mobility_healthcare_officiel.png';
 const String kMhOfficialLogoJpg = 'assets/images/logo_officiel_mh.jpg';
 
 /// Logo officiel seul (AppBar, splash, etc.) : PNG transparent d’abord, puis JPG, puis fallback texte.
