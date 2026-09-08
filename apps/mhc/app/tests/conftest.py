@@ -146,6 +146,23 @@ def test_receptionist(db):
 
 
 @pytest.fixture
+def test_medical_reviewer(db):
+    """Pôle médical MHC (rôle MEDICAL_REVIEWER)."""
+    reviewer = User(
+        email="reviewer@example.com",
+        username="medical_reviewer",
+        hashed_password=get_password_hash("reviewer123"),
+        full_name="Pôle Médical MHC",
+        role=Role.MEDICAL_REVIEWER,
+        is_active=True,
+    )
+    db.add(reviewer)
+    db.commit()
+    db.refresh(reviewer)
+    return reviewer
+
+
+@pytest.fixture
 def hospital_doctor(db, test_hospital):
     """Médecin rattaché à un hôpital."""
     doctor = User(
