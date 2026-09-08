@@ -211,16 +211,120 @@ class _ReferentCareDocumentsSectionState extends State<ReferentCareDocumentsSect
     }
   }
 
+  // Sur l'écran médecin référent, l'acteur est le « Médecin-conseil » : il ne
+  // peut émettre que ces bons (colonne « Émis » du référentiel).
+  static const _medecinConseilEmittable = {'bpcu', 'brpcu', 'brs', 'brf'};
+
   List<String> get _actions {
     final raw = _data?['actions_possibles'];
     if (raw is! List) return [];
     return raw.map((e) => e.toString()).toList();
   }
 
+  List<String> get _issuableActions =>
+      _actions.where(_medecinConseilEmittable.contains).toList();
+
   List<Map<String, dynamic>> get _documents {
     final raw = _data?['documents'];
     if (raw is! List) return [];
     return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  String _validationStatus(Map<String, dynamic> doc) =>
+      (doc['validation_status'] ?? 'non_requise').toString();
+
+  List<String> _validationsRequises(Map<String, dynamic> doc) {
+    final raw = doc['validations_requises'];
+    if (raw is! List) return [];
+    return raw.map((e) => e.toString()).toList();
+  }
+
+  /// Le médecin référent (groupe « Médecin-conseil ») peut valider si ce groupe
+  /// figure encore dans les validations requises.
+  bool _canValidate(Map<String, dynamic> doc) {
+    if (_validationStatus(doc) != 'en_attente') return false;
+    return _validationsRequises(doc).contains('Médecin-conseil');
+  }
+
+  Future<void> _validate(Map<String, dynamic> doc, bool approve) async {
+    final docId = parseJsonInt(doc['id']);
+    if (docId == null) return;
+    try {
+      await _service.validateCareDocument(docId, approve: approve);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(approve ? 'Document validé.' : 'Document refusé.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      await _load();
+      widget.onChanged?.call();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Widget _buildValidationBlock(Map<String, dynamic> doc) {
+    final status = _validationStatus(doc);
+    Color color;
+    String label;
+    switch (status) {
+      case 'valide':
+        color = Colors.green.shade700;
+        label = 'Validé';
+        break;
+      case 'refuse':
+        color = Colors.red.shade700;
+        label = 'Refusé';
+        break;
+      case 'en_attente':
+        color = Colors.orange.shade800;
+        label = 'En attente de validation';
+        break;
+      default:
+        color = Colors.grey.shade700;
+        label = status;
+    }
+    final requis = _validationsRequises(doc);
+    final suffix = (status == 'en_attente' && requis.isNotEmpty)
+        ? ' — requis : ${requis.join(', ')}'
+        : '';
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Validation : $label$suffix',
+            style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600),
+          ),
+          if (_canValidate(doc))
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  FilledButton(
+                    onPressed: () => _validate(doc, true),
+                    child: const Text('Valider'),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    onPressed: () => _validate(doc, false),
+                    child: const Text('Refuser'),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<void> _openPdf(Map<String, dynamic> doc) async {
@@ -251,7 +355,7 @@ class _ReferentCareDocumentsSectionState extends State<ReferentCareDocumentsSect
   }
 
   Future<void> _showIssueSheet() async {
-    final actions = _actions;
+    final actions = _issuableActions;
     if (actions.isEmpty) return;
 
     final prefill = MhcCareDocumentFormHelper.buildPrefill(
@@ -353,6 +457,7 @@ class _ReferentCareDocumentsSectionState extends State<ReferentCareDocumentsSect
                           '${doc['valid_until'] != null ? ' • valable jusqu\'au ${_formatDate(doc['valid_until'])}' : ''}',
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                         ),
+                        if (_validationStatus(doc) != 'non_requise') _buildValidationBlock(doc),
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
                           onPressed: loading || docId == null ? null : () => _openPdf(doc),
@@ -365,7 +470,7 @@ class _ReferentCareDocumentsSectionState extends State<ReferentCareDocumentsSect
                     ),
                   );
                 }),
-              if (_actions.isNotEmpty) ...[
+              if (_issuableActions.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 FilledButton.icon(
                   onPressed: _showIssueSheet,
