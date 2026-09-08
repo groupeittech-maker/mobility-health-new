@@ -28,7 +28,12 @@ from app.models.souscription import Souscription
 from app.models.user import User
 
 
-# Chemins logos (ordre identique à card_service.MOBILITY_LOGO_CANDIDATES)
+# Chemins logos pour les DOCUMENTS PDF (attestations, bons, prises en charge).
+# Ces documents ont un fond BLANC : on doit donc utiliser le logo COULEUR
+# (logo_mobility_healthcare_officiel.png, fond transparent). NB : le logo
+# BLANC (logo_officiel_mh.png) est réservé à l'e-carte, qui a un fond violet
+# (voir card_service.MOBILITY_LOGO_CANDIDATES) — l'utiliser ici le rendrait
+# invisible sur le PDF.
 _LOGO_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
     "frontend-simple",
@@ -36,8 +41,9 @@ _LOGO_DIR = os.path.join(
 )
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 MOBILITY_LOGO_CANDIDATES = [
-    os.path.join(_LOGO_DIR, "logo_officiel_mh.png"),
-    os.path.join(_ROOT, "mobile-app", "assets", "images", "logo_officiel_mh.png"),
+    # Logo couleur, fond transparent (nettoyage bord noir géré ci-dessous).
+    os.path.join(_LOGO_DIR, "logo_mobility_healthcare_officiel.png"),
+    # Replis couleur (logo officiel sur fond blanc, format JPG).
     os.path.join(_LOGO_DIR, "logo_officiel_mh.jpg"),
     os.path.join(_ROOT, "mobile-app", "assets", "images", "logo_officiel_mh.jpg"),
 ]
