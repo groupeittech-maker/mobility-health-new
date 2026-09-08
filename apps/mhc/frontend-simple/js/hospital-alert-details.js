@@ -2348,6 +2348,83 @@ function collectCareDocumentPayload(type) {
     return payload;
 }
 
+const MHC_VALIDATION_STATUS_LABELS = {
+    non_requise: '',
+    en_attente: 'En attente de validation',
+    valide: 'Validé',
+    refuse: 'Refusé',
+};
+
+// Rôles applicatifs autorisés par groupe validateur (libellés renvoyés par l'API).
+const MHC_VALIDATOR_GROUP_ROLES = {
+    'Médecin-conseil': ['medecin_referent_mh'],
+    'Partenaire-Santé': ['medecin_hopital', 'hospital_admin', 'agent_reception_hopital'],
+    'Pôle médical MHC': ['medical_reviewer'],
+};
+
+// Rôles autorisés à ÉMETTRE chaque type de bon (colonne « Émis » du référentiel).
+const MHC_DOC_EMITTER_ROLES = {
+    bpcu: ['medecin_referent_mh'],
+    brpcu: ['medecin_referent_mh'],
+    brs: ['medecin_referent_mh'],
+    brf: ['medecin_referent_mh'],
+    bs: ['medecin_hopital', 'hospital_admin', 'agent_reception_hopital'],
+    bh: ['medecin_hopital', 'hospital_admin', 'agent_reception_hopital'],
+    bph: ['medecin_hopital', 'hospital_admin', 'agent_reception_hopital'],
+    ars: ['medical_reviewer'],
+    arf: ['medical_reviewer'],
+};
+
+function careDocActionsForCurrentRole(actions) {
+    const role = currentUserRole || '';
+    if (role === 'admin') return actions;
+    return (actions || []).filter((type) => (MHC_DOC_EMITTER_ROLES[type] || []).includes(role));
+}
+
+function currentUserCanValidateCareDoc(doc) {
+    if ((doc.validation_status || 'non_requise') !== 'en_attente') return false;
+    const role = currentUserRole || '';
+    if (role === 'admin') return true;
+    const groupsNeeded = doc.validations_requises || [];
+    return groupsNeeded.some((label) => (MHC_VALIDATOR_GROUP_ROLES[label] || []).includes(role));
+}
+
+function renderCareDocValidationBlock(doc) {
+    const status = doc.validation_status || 'non_requise';
+    if (status === 'non_requise') return '';
+    let badgeColor = '#6b7280';
+    if (status === 'valide') badgeColor = '#047857';
+    else if (status === 'refuse') badgeColor = '#b91c1c';
+    else if (status === 'en_attente') badgeColor = '#b45309';
+    let html = `<div class="muted" style="margin-top:0.35rem;">Validation : <span style="color:${badgeColor};font-weight:700;">${escapeHtml(MHC_VALIDATION_STATUS_LABELS[status] || status)}</span>`;
+    if (status === 'en_attente' && (doc.validations_requises || []).length) {
+        html += ` — requis : ${escapeHtml((doc.validations_requises || []).join(', '))}`;
+    }
+    html += '</div>';
+    if (currentUserCanValidateCareDoc(doc)) {
+        html += `<div style="margin-top:0.4rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="validateCareDocument(${doc.id}, true)">Valider</button>
+            <button class="btn btn-outline btn-sm" onclick="validateCareDocument(${doc.id}, false)">Refuser</button>
+        </div>`;
+    }
+    return html;
+}
+
+async function validateCareDocument(documentId, approve) {
+    const notes = approve ? undefined : (window.prompt('Motif du refus (facultatif) :') || undefined);
+    try {
+        await apiCall(`/mhc/care-documents/${documentId}/validation`, {
+            method: 'POST',
+            body: JSON.stringify({ approve, notes }),
+        });
+        showAlert(approve ? 'Document validé.' : 'Document refusé.', 'success');
+        await loadCareDocuments();
+        await loadAlertDetails();
+    } catch (error) {
+        showAlert(error.message || 'Impossible de traiter la validation.', 'error');
+    }
+}
+
 async function loadCareDocuments() {
     const section = document.getElementById('mhcCareDocumentsSection');
     if (!section || !currentSinistre?.id) {
@@ -2376,6 +2453,7 @@ async function loadCareDocuments() {
                         <strong>${escapeHtml(doc.titre || MHC_DOC_LABELS[doc.document_type] || doc.document_type)}</strong>
                         <div class="muted">N° <span style="color:#b91c1c;font-weight:700;">${escapeHtml(doc.numero)}</span></div>
                         <div class="muted">${escapeHtml(formatDateTime(doc.issued_at))}${doc.valid_until ? ` • valable jusqu'au ${escapeHtml(formatDateTime(doc.valid_until))}` : ''}</div>
+                        ${renderCareDocValidationBlock(doc)}
                         <div style="margin-top:0.5rem;">
                             <a class="btn btn-outline btn-sm" href="${API_BASE_URL}/mhc/care-documents/${doc.id}/pdf" target="_blank" rel="noopener" onclick="return openCareDocumentPdf(event, ${doc.id})">Télécharger le PDF</a>
                         </div>
@@ -2383,9 +2461,10 @@ async function loadCareDocuments() {
                 `).join('');
             }
         }
-        renderCareDocumentIssueForm(data.actions_possibles || []);
+        const issuableActions = careDocActionsForCurrentRole(data.actions_possibles || []);
+        renderCareDocumentIssueForm(issuableActions);
         if (issueBox) {
-            issueBox.hidden = !(data.actions_possibles && data.actions_possibles.length);
+            issueBox.hidden = issuableActions.length === 0;
         }
     } catch (error) {
         if (statusEl) {
