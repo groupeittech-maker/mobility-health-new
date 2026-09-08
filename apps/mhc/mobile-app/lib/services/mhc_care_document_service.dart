@@ -38,6 +38,23 @@ class MhcCareDocumentService {
     return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
+  /// Valide (ou refuse) un bon en attente de validation.
+  Future<Map<String, dynamic>> validateCareDocument(
+    int documentId, {
+    required bool approve,
+    String? notes,
+  }) async {
+    final data = await _api.post<Map<String, dynamic>>(
+      '/mhc/care-documents/$documentId/validation',
+      body: {
+        'approve': approve,
+        if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+      },
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+    return Map<String, dynamic>.from(data);
+  }
+
   Future<String> downloadCareDocumentPdf(int documentId, {String? numero}) async {
     final response = await _api.dio.get<List<int>>(
       '/mhc/care-documents/$documentId/pdf',
