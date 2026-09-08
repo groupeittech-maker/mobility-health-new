@@ -46,9 +46,9 @@ jobs:
       - name: Deploy on VPS
         env:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          SMTP_USER: noreply@mobility-healthcare.cloud
-          SMTP_FROM_EMAIL: noreply@mobility-healthcare.cloud
-          ASSURANCE_EMAIL: noreply@mobility-healthcare.cloud
+          SMTP_USER: "noreply@mobility-healthcare.cloud"
+          SMTP_FROM_EMAIL: "noreply@mobility-healthcare.cloud"
+          ASSURANCE_EMAIL: "noreply@mobility-healthcare.cloud"
         run: bash .github/scripts/vps-local-deploy.sh
 
       - name: Mise à jour locale (instructions)
@@ -80,152 +80,70 @@ jobs:
           echo "- Commit : \`${{ github.event.workflow_run.head_sha || github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Branche : main" >> "$GITHUB_STEP_SUMMARY"
           echo "- Déclencheur : ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "> Si le port 22 est bloqué : installer le runner VPS (deploy/README-GITHUB-RUNNER.md) et \`USE_SELF_HOSTED_DEPLOY=true\`" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Vérifier secrets et réseau (IPv4)
+      - name: Prepare SSH and test connectivity
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
-        run: |
-          set -euo pipefail
-          for name in SSH_HOST SSH_USER SSH_PRIVATE_KEY; do
-            if [ -z "${!name}" ]; then
-              echo "::error::Secret $name non configuré (Settings → Secrets → Actions)"
-              exit 1
-            fi
-          done
-          HOST="$(echo "$SSH_HOST" | tr -d '[:space:]')"
-          PORT="$(echo "${SSH_PORT:-22}" | tr -d '[:space:]')"
-          if [[ "$HOST" == *@* ]]; then
-            echo "::error::SSH_HOST doit être un hostname ou une IP seule (ex. srv1324425.hstgr.cloud), sans user@"
-            exit 1
-          fi
-          echo "Cible : ${SSH_USER}@${HOST}:${PORT} (IPv4 forcé)"
-          bash .github/scripts/ssh-connectivity-check.sh "$HOST" "$PORT" 5 15
+          SSH_CONNECT_ATTEMPTS: "8"
+          SSH_CONNECT_WAIT: "20"
+        run: bash .github/scripts/gh-ssh-setup.sh
 
-      - name: Prepare SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          HOST="$(echo "$SSH_HOST" | tr -d '[:space:]')"
-          PORT="$(echo "${SSH_PORT:-22}" | tr -d '[:space:]')"
-          python3 << 'PY'
-          import os, sys
-          raw = os.environ.get("SSH_PRIVATE_KEY") or ""
-          if not raw.strip():
-              print("::error::Le secret SSH_PRIVATE_KEY est vide.")
-              sys.exit(1)
-          key = raw.replace("\r\n", "\n").replace("\r", "\n")
-          if "BEGIN" in key and "\\n" in key:
-              key = key.replace("\\n", "\n")
-          key = key.strip() + "\n"
-          if "BEGIN OPENSSH PRIVATE KEY" not in key and "BEGIN RSA PRIVATE KEY" not in key:
-              print("::error::SSH_PRIVATE_KEY n'est pas une clé privée (fichier sans .pub).")
-              sys.exit(1)
-          path = os.path.expanduser("~/.ssh/id_ed25519")
-          with open(path, "w", newline="\n") as f:
-              f.write(key)
-          os.chmod(path, 0o600)
-          print("Clé SSH installée dans ~/.ssh/id_ed25519")
-          PY
-          ssh-keygen -y -f ~/.ssh/id_ed25519 >/dev/null
-          ssh-keyscan -4 -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-          chmod 600 ~/.ssh/known_hosts || true
-          {
-            echo "Host mhc-vps"
-            echo "  HostName ${HOST}"
-            echo "  User ${SSH_USER}"
-            echo "  Port ${PORT}"
-            echo "  IdentityFile ~/.ssh/id_ed25519"
-            echo "  AddressFamily inet"
-            echo "  BatchMode yes"
-            echo "  StrictHostKeyChecking accept-new"
-            echo "  ConnectTimeout 25"
-            echo "  ServerAliveInterval 30"
-            echo "  ServerAliveCountMax 3"
-          } >> ~/.ssh/config
-          chmod 600 ~/.ssh/config
-
-      - name: Test SSH connection
-        run: |
-          set -euo pipefail
-          for attempt in 1 2 3 4 5; do
-            echo "SSH test (tentative ${attempt}/5)…"
-            if ssh -4 mhc-vps "echo OK; hostname; date"; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 5 ]; then
-              echo "SSH échec — nouvel essai dans 15s…"
-              sleep 15
-            fi
-          done
-          echo "::error::SSH Connection timed out. Installez le runner VPS : deploy/README-GITHUB-RUNNER.md puis USE_SELF_HOSTED_DEPLOY=true"
-          exit 1
-
-      - name: Create frontend archive
-        run: |
-          tar czf frontend.tar.gz -C apps/mhc/frontend-simple .
-          test -s frontend.tar.gz
-
-      - name: Copy frontend archive to server
-        run: |
-          scp -4 frontend.tar.gz mhc-vps:/tmp/frontend.tar.gz
-
-      - name: Create backend archives
-        run: |
-          tar czf app.tar.gz --exclude="__pycache__" --exclude="*.pyc" --exclude="*.pyo" --exclude=".git" -C apps/mhc app/
-          tar czf alembic.tar.gz --exclude="__pycache__" --exclude="*.pyc" --exclude=".git" -C apps/mhc alembic/
-          cp apps/mhc/docker-compose.yml .
-          cp apps/mhc/docker-compose.prod.yml .
-          cp apps/mhc/Dockerfile .
-          cp apps/mhc/Dockerfile.prod .
-          cp apps/mhc/requirements.txt .
-          cp apps/mhc/alembic.ini .
-
-      - name: Copy backend archives to server
-        run: |
-          scp -4 app.tar.gz alembic.tar.gz docker-compose.yml docker-compose.prod.yml \
-            Dockerfile Dockerfile.prod requirements.txt alembic.ini \
-            mhc-vps:/tmp/
-
-      - name: Extract and deploy frontend
-        run: |
-          ssh -4 mhc-vps "bash -s" < .github/scripts/remote-deploy-frontend.sh
-
-      - name: Configure SMTP on VPS
+      - name: Deploy via SSH
         env:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-        run: |
-          if [ -z "${SMTP_PASSWORD:-}" ]; then
-            echo "⚠️ SMTP_PASSWORD non défini — configuration SMTP ignorée"
-            exit 0
-          fi
-          scp -4 .github/scripts/configure-smtp-env.sh mhc-vps:/tmp/configure-smtp-env.sh
-          ssh -4 mhc-vps "SMTP_PASSWORD='$SMTP_PASSWORD' SMTP_USER='noreply@mobility-healthcare.cloud' SMTP_FROM_EMAIL='noreply@mobility-healthcare.cloud' ASSURANCE_EMAIL='noreply@mobility-healthcare.cloud' bash /tmp/configure-smtp-env.sh"
-
-      - name: Deploy backend and restart services
-        run: |
-          ssh -4 mhc-vps "bash -s" < .github/scripts/remote-deploy-backend.sh
+        run: bash .github/scripts/deploy-via-ssh.sh
 
       - name: Mise à jour locale (instructions)
         run: |
           SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### ✅ Déploiement terminé" >> "$GITHUB_STEP_SUMMARY"
-          echo "Mettez à jour votre dépôt local :" >> "$GITHUB_STEP_SUMMARY"
-          echo '```bash' >> "$GITHUB_STEP_SUMMARY"
-          echo "./scripts/sync-local-from-main.sh" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo '```powershell' >> "$GITHUB_STEP_SUMMARY"
-          echo ".\scripts\sync-local-from-main.ps1" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit déployé : \`$SHA\`" >> "$GITHUB_STEP_SUMMARY"
+
+  # 2e tentative : le firewall Hostinger bloque parfois certaines IP GitHub Actions.
+  deploy-ssh-retry:
+    name: Déploiement (SSH cloud, 2e tentative)
+    needs: deploy-ssh
+    runs-on: ubuntu-latest
+    if: >
+      vars.USE_SELF_HOSTED_DEPLOY != 'true' &&
+      needs.deploy-ssh.result == 'failure' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main'))
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+
+      - name: Attente avant nouvelle IP runner
+        run: |
+          echo "Première tentative SSH échouée — pause 8 min puis nouvel essai (IP runner différente)."
+          sleep 480
+
+      - name: Prepare SSH and test connectivity
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_CONNECT_ATTEMPTS: "10"
+          SSH_CONNECT_WAIT: "25"
+        run: bash .github/scripts/gh-ssh-setup.sh
+
+      - name: Deploy via SSH
+        env:
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: bash .github/scripts/deploy-via-ssh.sh
+
+      - name: Résumé
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          echo "### ✅ Déploiement terminé (2e tentative SSH)" >> "$GITHUB_STEP_SUMMARY"
           echo "Commit déployé : \`$SHA\`" >> "$GITHUB_STEP_SUMMARY"

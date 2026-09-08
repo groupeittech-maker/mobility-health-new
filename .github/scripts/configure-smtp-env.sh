@@ -25,13 +25,27 @@ fi
 upsert_env() {
   local key="$1"
   local value="$2"
-  local escaped
-  escaped="$(printf '%s' "$value" | sed 's/[\\&|]/\\&/g')"
-  if grep -q "^${key}=" "$ENV_FILE"; then
-    sed -i "s|^${key}=.*|${key}=${escaped}|" "$ENV_FILE"
-  else
-    echo "${key}=${value}" >> "$ENV_FILE"
-  fi
+  python3 - "$ENV_FILE" "$key" "$value" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+key = sys.argv[2]
+value = sys.argv[3]
+lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+out = []
+found = False
+prefix = f"{key}="
+for line in lines:
+    if line.startswith(prefix):
+        out.append(prefix + value)
+        found = True
+    else:
+        out.append(line)
+if not found:
+    out.append(prefix + value)
+path.write_text("\n".join(out) + "\n", encoding="utf-8")
+PY
 }
 
 upsert_env "SMTP_HOST" "$SMTP_HOST"
