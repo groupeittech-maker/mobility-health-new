@@ -10,6 +10,13 @@ class MhcCareDocumentIssueRequest(BaseModel):
     notes: Optional[str] = None
 
 
+class MhcCareDocumentValidationRequest(BaseModel):
+    """Validation (ou refus) d'un bon en attente par un groupe validateur."""
+
+    approve: bool
+    notes: Optional[str] = None
+
+
 class MhcCareDocumentResponse(BaseModel):
     id: int
     sinistre_id: int
@@ -23,6 +30,12 @@ class MhcCareDocumentResponse(BaseModel):
     parent_document_id: Optional[int] = None
     payload: Optional[Dict[str, Any]] = None
     notes: Optional[str] = None
+    # Workflow de validation (colonne « Validé par »)
+    validation_status: str = "non_requise"
+    validated_at: Optional[datetime] = None
+    validations: Optional[List[Dict[str, Any]]] = None
+    # Groupes validateurs encore requis (libellés lisibles), pour l'UI
+    validations_requises: List[str] = []
 
     model_config = ConfigDict(from_attributes=True)
 

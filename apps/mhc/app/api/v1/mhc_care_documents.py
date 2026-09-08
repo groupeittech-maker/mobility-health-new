@@ -14,14 +14,20 @@ from app.schemas.mhc_care_document import (
     MhcCareDocumentIssueRequest,
     MhcCareDocumentListResponse,
     MhcCareDocumentResponse,
+    MhcCareDocumentValidationRequest,
 )
 from app.services.mhc_care_document_pdf import build_care_document_pdf
 from app.services.mhc_care_document_service import (
+    CareDocumentPermissionError,
+    GROUP_LABELS,
+    VALIDATION_PENDING,
     allowed_next_actions,
     get_care_document,
     issue_care_document,
     list_care_documents,
     load_sinistre_for_care,
+    required_validator_groups,
+    validate_care_document,
 )
 
 router = APIRouter()
@@ -45,7 +51,15 @@ def _ensure_role(user: User) -> None:
 
 
 def _to_response(doc) -> MhcCareDocumentResponse:
-    titre = DOCUMENT_TITLES.get(MhcCareDocumentType(doc.document_type), doc.document_type)
+    doc_type = MhcCareDocumentType(doc.document_type)
+    titre = DOCUMENT_TITLES.get(doc_type, doc.document_type)
+    validation_status = getattr(doc, "validation_status", None) or "non_requise"
+    validations_requises: List[str] = []
+    if validation_status == VALIDATION_PENDING:
+        approuves = {v.get("groupe") for v in (doc.validations or []) if v.get("approuve")}
+        validations_requises = [
+            GROUP_LABELS[g] for g in required_validator_groups(doc_type) if g not in approuves
+        ]
     return MhcCareDocumentResponse(
         id=doc.id,
         sinistre_id=doc.sinistre_id,
@@ -59,6 +73,10 @@ def _to_response(doc) -> MhcCareDocumentResponse:
         parent_document_id=doc.parent_document_id,
         payload=doc.payload,
         notes=doc.notes,
+        validation_status=validation_status,
+        validated_at=getattr(doc, "validated_at", None),
+        validations=getattr(doc, "validations", None),
+        validations_requises=validations_requises,
     )
 
 
@@ -134,12 +152,55 @@ async def create_sinistre_care_document(
             notes=body.notes,
             alerte=sinistre.alerte,
         )
+    except CareDocumentPermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     db.commit()
     for doc in created:
         db.refresh(doc)
     return [_to_response(d) for d in created]
+
+
+@router.post(
+    "/care-documents/{document_id}/validation",
+    response_model=MhcCareDocumentResponse,
+)
+async def validate_care_document_endpoint(
+    document_id: int,
+    body: MhcCareDocumentValidationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Valider (ou refuser) un bon en attente de validation.
+
+    Selon le référentiel : BRPCU/BRF → Pôle médical MHC ; BH/BPH → Médecin-conseil
+    + Pôle médical MHC ; BRS → Pôle médical MHC + Partenaire-Santé (double validation).
+    """
+    _ensure_role(current_user)
+    document = get_care_document(db, document_id)
+    if not document:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document introuvable.")
+    sinistre = load_sinistre_for_care(db, document.sinistre_id)
+    if not sinistre:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sinistre introuvable.")
+    try:
+        validate_care_document(
+            db,
+            sinistre,
+            document,
+            current_user,
+            approve=body.approve,
+            notes=body.notes,
+            alerte=sinistre.alerte,
+        )
+    except CareDocumentPermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    db.commit()
+    db.refresh(document)
+    return _to_response(document)
 
 
 @router.get("/care-documents/{document_id}/pdf")
