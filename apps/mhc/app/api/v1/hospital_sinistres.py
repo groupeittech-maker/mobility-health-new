@@ -26,6 +26,7 @@ from app.models.hospital import Hospital
 from app.models.hospital_stay import HospitalStay
 from app.models.invoice import Invoice, InvoiceItem, InvoiceStatus
 from app.services.invoice_history import record_invoice_history
+from app.services.referent_notification_reads import mark_notifications_read_for_relation
 from app.models.notification import Notification
 from app.models.sinistre import Sinistre
 from app.models.sinistre_attachment import SinistreAttachment, ATTACHMENT_CERTIFICAT_DECES
