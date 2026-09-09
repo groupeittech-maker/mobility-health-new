@@ -235,6 +235,81 @@ def build_avenant_pdf(db: Session, avenant: Avenant) -> BytesIO:
     raise AvenantError(f"Type d'avenant non pris en charge : {avenant.type_avenant}")
 
 
+ALLOWED_PIECE_CONTENT_TYPES = {
+    "application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp",
+}
+MAX_PIECE_SIZE = 10 * 1024 * 1024  # 10 Mo
+
+
+def add_piece(
+    db: Session,
+    avenant: Avenant,
+    *,
+    filename: str,
+    content: bytes,
+    content_type: Optional[str] = None,
+) -> dict:
+    """Attache un fichier justificatif à l'avenant (stocké sur MinIO)."""
+    import uuid
+    from io import BytesIO
+    from sqlalchemy.orm.attributes import flag_modified
+    from app.services.minio_service import MinioService, minio_client
+
+    if avenant.type_avenant != TYPE_SUSPENSION:
+        raise AvenantError("Les pièces ne peuvent être jointes qu'à une demande de suspension.")
+    if content_type and content_type not in ALLOWED_PIECE_CONTENT_TYPES:
+        raise AvenantError("Type de fichier non autorisé (PDF ou image uniquement).")
+    if not content:
+        raise AvenantError("Fichier vide.")
+    if len(content) > MAX_PIECE_SIZE:
+        raise AvenantError("Fichier trop volumineux (max 10 Mo).")
+
+    safe_name = (filename or "piece").replace("/", "_").replace("\\", "_")
+    object_name = f"avenant-pieces/{avenant.id}/{uuid.uuid4().hex[:8]}_{safe_name}"
+    MinioService.ensure_attestations_bucket()
+    try:
+        minio_client.put_object(
+            MinioService.BUCKET_ATTESTATIONS,
+            object_name,
+            BytesIO(content),
+            length=len(content),
+            content_type=content_type or "application/octet-stream",
+        )
+    except Exception as exc:  # MinIO indisponible
+        raise AvenantError(f"Stockage du fichier indisponible : {exc}")
+
+    payload = dict(avenant.payload or {})
+    fichiers = list(payload.get("fichiers") or [])
+    meta = {
+        "nom": safe_name,
+        "bucket": MinioService.BUCKET_ATTESTATIONS,
+        "path": object_name,
+        "content_type": content_type,
+        "taille": len(content),
+        "uploaded_at": datetime.utcnow().isoformat(),
+    }
+    fichiers.append(meta)
+    payload["fichiers"] = fichiers
+    avenant.payload = payload
+    flag_modified(avenant, "payload")
+    db.flush()
+    return meta
+
+
+def get_piece_bytes(avenant: Avenant, index: int) -> tuple[bytes, str, str]:
+    """Retourne (contenu, content_type, nom) d'une pièce jointe."""
+    from app.services.minio_service import MinioService
+
+    fichiers = list((avenant.payload or {}).get("fichiers") or [])
+    if index < 0 or index >= len(fichiers):
+        raise AvenantError("Pièce introuvable.")
+    meta = fichiers[index]
+    data = MinioService.get_file(meta.get("bucket") or MinioService.BUCKET_ATTESTATIONS, meta.get("path"))
+    if not data:
+        raise AvenantError("Fichier introuvable dans le stockage.")
+    return data, (meta.get("content_type") or "application/octet-stream"), (meta.get("nom") or "piece")
+
+
 def get_avenant(db: Session, avenant_id: int) -> Optional[Avenant]:
     return db.query(Avenant).filter(Avenant.id == avenant_id).first()
 

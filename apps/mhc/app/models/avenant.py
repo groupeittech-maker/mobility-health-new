@@ -54,3 +54,8 @@ class Avenant(Base, TimestampMixin):
     decided_by = relationship("User", foreign_keys=[decided_by_id])
     created_by = relationship("User", foreign_keys=[created_by_id])
     parent_avenant = relationship("Avenant", remote_side=[id], foreign_keys=[parent_avenant_id])
+
+    @property
+    def fichiers(self) -> list:
+        """Pièces justificatives réellement téléversées (métadonnées, hors bytes)."""
+        return list((self.payload or {}).get("fichiers") or [])

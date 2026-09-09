@@ -1,5 +1,5 @@
 """Endpoints des avenants de police : suspension, réémission, téléchargement."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -19,9 +19,11 @@ from app.schemas.avenant import (
 )
 from app.services.avenant_service import (
     AvenantError,
+    add_piece,
     build_avenant_pdf,
     decide_suspension,
     get_avenant,
+    get_piece_bytes,
     issue_reemission,
     list_avenants,
     request_suspension,
@@ -160,6 +162,57 @@ async def issue_avenant_reemission(
     db.commit()
     db.refresh(avenant)
     return avenant
+
+
+@router.post("/avenants/{avenant_id}/pieces", response_model=AvenantResponse)
+async def upload_avenant_piece(
+    avenant_id: int,
+    file: UploadFile = File(..., description="Pièce justificative (PDF ou image, max 10 Mo)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Téléverse une pièce justificative sur une demande de suspension."""
+    avenant = get_avenant(db, avenant_id)
+    if not avenant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avenant introuvable.")
+    sous = db.query(Souscription).filter(Souscription.id == avenant.souscription_id).first()
+    is_owner = bool(sous and sous.user_id == current_user.id)
+    if not (_is_admin(current_user) or _role(current_user) in ASSUREUR_DECISION_ROLES or is_owner):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès non autorisé.")
+    content = await file.read()
+    try:
+        add_piece(db, avenant, filename=file.filename or "piece", content=content, content_type=file.content_type)
+    except AvenantError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    db.commit()
+    db.refresh(avenant)
+    return avenant
+
+
+@router.get("/avenants/{avenant_id}/pieces/{index}/download")
+async def download_avenant_piece(
+    avenant_id: int,
+    index: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Télécharge une pièce justificative jointe à l'avenant."""
+    avenant = get_avenant(db, avenant_id)
+    if not avenant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avenant introuvable.")
+    sous = db.query(Souscription).filter(Souscription.id == avenant.souscription_id).first()
+    is_owner = bool(sous and sous.user_id == current_user.id)
+    if not (_is_admin(current_user) or _role(current_user) in ASSUREUR_DECISION_ROLES or is_owner):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès non autorisé.")
+    try:
+        data, content_type, nom = get_piece_bytes(avenant, index)
+    except AvenantError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={"Content-Disposition": f'inline; filename="{nom}"'},
+    )
 
 
 @router.get("/avenants/{avenant_id}/download")
