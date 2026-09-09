@@ -3,8 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from typing import Optional
+
 from app.api.v1.auth import get_current_user
 from app.core.database import get_db
+from app.models.avenant import Avenant
 from app.models.souscription import Souscription
 from app.models.user import User
 from app.schemas.avenant import (
@@ -54,6 +57,24 @@ def _get_souscription(db: Session, souscription_id: int) -> Souscription:
 async def get_avenant_catalog(current_user: User = Depends(get_current_user)):
     """Motifs et pièces justificatives possibles pour une demande de suspension."""
     return AvenantCatalogResponse(motifs=AVENANT_SUSPENSION_MOTIFS, pieces=AVENANT_SUSPENSION_PIECES)
+
+
+@router.get("/avenants", response_model=list[AvenantResponse])
+async def list_all_avenants(
+    statut: Optional[str] = None,
+    type_avenant: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Liste des avenants (Assureur / admin) — ex. suspensions en attente de décision."""
+    if not (_is_admin(current_user) or _role(current_user) in ASSUREUR_DECISION_ROLES):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès réservé à l'Assureur.")
+    query = db.query(Avenant)
+    if statut:
+        query = query.filter(Avenant.statut == statut)
+    if type_avenant:
+        query = query.filter(Avenant.type_avenant == type_avenant)
+    return query.order_by(Avenant.created_at.desc()).limit(200).all()
 
 
 @router.get("/subscriptions/{subscription_id}/avenants", response_model=list[AvenantResponse])

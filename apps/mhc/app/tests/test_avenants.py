@@ -137,8 +137,13 @@ class TestAvenantApi:
             r = client.post(f"/api/v1/avenants/{avenant_id}/suspension-decision", json={"approve": True})
             assert r.status_code == status.HTTP_403_FORBIDDEN
 
-            # L'assureur valide → police suspendue
+            # L'assureur voit la demande dans la liste globale des suspensions en attente
             _as(test_agent_sinistre_assureur)
+            r = client.get("/api/v1/avenants?type_avenant=suspension&statut=demande")
+            assert r.status_code == status.HTTP_200_OK, r.text
+            assert any(a["id"] == avenant_id for a in r.json())
+
+            # L'assureur valide → police suspendue
             r = client.post(f"/api/v1/avenants/{avenant_id}/suspension-decision", json={"approve": True})
             assert r.status_code == status.HTTP_200_OK, r.text
             assert r.json()["statut"] == "valide"
