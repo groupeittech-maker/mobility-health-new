@@ -79,3 +79,4 @@ class Souscription(Base, TimestampMixin):
     questionnaires = relationship("Questionnaire", back_populates="souscription", cascade="all, delete-orphan")
     attestations = relationship("Attestation", back_populates="souscription", cascade="all, delete-orphan")
     ia_analyses = relationship("IAAnalysis", back_populates="souscription", cascade="all, delete-orphan")
+    ekyc_sessions = relationship("EkycSession", back_populates="souscription")

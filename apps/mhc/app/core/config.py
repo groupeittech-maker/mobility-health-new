@@ -114,6 +114,13 @@ class Settings(BaseSettings):
     TRUST_SERVICE_URL: str = ""
     TRUST_SERVICE_API_KEY: str = ""
     TRUST_SERVICE_MODE: str = "stub"
+
+    # eKYC (IT-TECH) — session + webhooks
+    EKYC_SERVICE_URL: str = ""
+    EKYC_SERVICE_CLIENT_ID: str = ""
+    EKYC_SERVICE_CLIENT_SECRET: str = ""
+    EKYC_SERVICE_MODE: str = "stub"
+    EKYC_WEBHOOK_SECRET: str = ""
     
     model_config = ConfigDict(
         env_file=".env",

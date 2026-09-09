@@ -23,6 +23,7 @@ from app.models import (
     Alerte,
     Sinistre,
     Hospital,
+    EkycSession,
 )  # Import all models here
 
 # this is the Alembic Config object, which provides
