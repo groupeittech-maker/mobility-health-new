@@ -8,6 +8,7 @@ import '../../models/medecin_conseil.dart';
 import '../../models/subscription.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
+import '../../services/avenant_service.dart';
 import '../../services/medecin_conseil_service.dart';
 import '../../widgets/medecin_conseil_card.dart';
 import '../pdf_viewer_screen.dart';
@@ -192,6 +193,138 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
         );
       }
     }
+  }
+
+  Future<void> _showSuspensionSheet() async {
+    Map<String, dynamic> catalog;
+    try {
+      catalog = await AvenantService.instance.fetchCatalog();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Chargement des motifs impossible : $e'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (!mounted) return;
+    final motifsCatalog = Map<String, dynamic>.from(catalog['motifs'] ?? {});
+    final piecesCatalog = Map<String, dynamic>.from(catalog['pieces'] ?? {});
+    final selectedMotifs = <String>{};
+    final selectedPieces = <String>{};
+    final autreCtrl = TextEditingController();
+    var submitting = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+            left: 16, right: 16, top: 16,
+            bottom: 16 + MediaQuery.viewInsetsOf(ctx).bottom,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Demander la suspension',
+                    style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                const Text('Votre demande sera transmise à l\'assureur. La suspension prend effet après validation.',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                const SizedBox(height: 12),
+                const Text('Motif(s)', style: TextStyle(fontWeight: FontWeight.w600)),
+                ...motifsCatalog.entries.map((e) => CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      value: selectedMotifs.contains(e.key),
+                      title: Text(e.value.toString(), style: const TextStyle(fontSize: 13)),
+                      onChanged: (v) => setSheetState(() {
+                        if (v == true) {
+                          selectedMotifs.add(e.key);
+                        } else {
+                          selectedMotifs.remove(e.key);
+                        }
+                      }),
+                    )),
+                if (selectedMotifs.contains('autre'))
+                  TextField(
+                    controller: autreCtrl,
+                    decoration: const InputDecoration(labelText: 'Préciser le motif', border: OutlineInputBorder()),
+                    maxLines: 2,
+                  ),
+                const SizedBox(height: 8),
+                const Text('Pièces justificatives (optionnel)', style: TextStyle(fontWeight: FontWeight.w600)),
+                ...piecesCatalog.entries.map((e) => CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      value: selectedPieces.contains(e.key),
+                      title: Text(e.value.toString(), style: const TextStyle(fontSize: 13)),
+                      onChanged: (v) => setSheetState(() {
+                        if (v == true) {
+                          selectedPieces.add(e.key);
+                        } else {
+                          selectedPieces.remove(e.key);
+                        }
+                      }),
+                    )),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: submitting
+                        ? null
+                        : () async {
+                            if (selectedMotifs.isEmpty) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(content: Text('Sélectionnez au moins un motif.')),
+                              );
+                              return;
+                            }
+                            if (selectedMotifs.contains('autre') && autreCtrl.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(content: Text('Précisez le motif « Autre ».')),
+                              );
+                              return;
+                            }
+                            setSheetState(() => submitting = true);
+                            try {
+                              await AvenantService.instance.requestSuspension(
+                                _subscription.id,
+                                motifs: selectedMotifs.toList(),
+                                motifAutre: autreCtrl.text,
+                                pieces: selectedPieces.toList(),
+                              );
+                              if (!ctx.mounted) return;
+                              Navigator.pop(ctx);
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Demande de suspension envoyée. En attente de validation de l\'assureur.'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            } catch (e) {
+                              setSheetState(() => submitting = false);
+                              if (!ctx.mounted) return;
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')), backgroundColor: Colors.red),
+                              );
+                            }
+                          },
+                    child: Text(submitting ? 'Envoi…' : 'Envoyer la demande'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _showResiliationDialog() {
@@ -382,6 +515,18 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
+                        ),
+                      ),
+                    ),
+                  if (s.isActive)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _showSuspensionSheet,
+                          icon: const Icon(Icons.pause_circle_outline, size: 20),
+                          label: const Text('Demander la suspension'),
                         ),
                       ),
                     ),
