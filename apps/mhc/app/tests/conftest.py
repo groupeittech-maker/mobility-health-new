@@ -146,6 +146,23 @@ def test_receptionist(db):
 
 
 @pytest.fixture
+def test_agent_sinistre_assureur(db):
+    """Assureur habilité à valider les suspensions (rôle AGENT_SINISTRE_ASSUREUR)."""
+    agent = User(
+        email="sinistre.assureur@example.com",
+        username="sinistre_assureur",
+        hashed_password=get_password_hash("assureur123"),
+        full_name="Agent Sinistre Assureur",
+        role=Role.AGENT_SINISTRE_ASSUREUR,
+        is_active=True,
+    )
+    db.add(agent)
+    db.commit()
+    db.refresh(agent)
+    return agent
+
+
+@pytest.fixture
 def test_medical_reviewer(db):
     """Pôle médical MHC (rôle MEDICAL_REVIEWER)."""
     reviewer = User(
