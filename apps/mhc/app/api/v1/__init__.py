@@ -34,6 +34,7 @@ from app.api.v1 import (
     assureur_production,
     ia,  # Module IA
     mhc_care_documents,
+    avenants,
 )
 
 from app.api.v1.notifications import _get_notifications_handler, NotificationResponse
@@ -172,3 +173,4 @@ api_router.include_router(destinations.router, prefix="/destinations", tags=["de
 api_router.include_router(courtiers.router, prefix="/courtiers", tags=["courtiers"])
 api_router.include_router(ia.router, tags=["ia"])  # Module IA - Analyse documents
 api_router.include_router(mhc_care_documents.router, prefix="/mhc", tags=["mhc-prise-en-charge"])
+api_router.include_router(avenants.router, tags=["avenants"])
