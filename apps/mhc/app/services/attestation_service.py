@@ -134,6 +134,16 @@ class AttestationService:
         )
         card_image = BytesIO(card_bytes) if card_bytes else None
 
+        # Assurés additionnels (enfants mineurs rattachés) — affichés aussi sur la
+        # provisoire (cellule « Assuré additionnel », NÉANT si aucun).
+        minors_info = AttestationService._extract_minors_from_notes(souscription.notes or "")
+        if not minors_info and souscription.projet_voyage_id:
+            projet_min = db.query(ProjetVoyage).filter(
+                ProjetVoyage.id == souscription.projet_voyage_id
+            ).first()
+            if projet_min and getattr(projet_min, "notes", None):
+                minors_info = AttestationService._extract_minors_from_notes(projet_min.notes)
+
         pdf_buffer = PDFService.generate_attestation_provisoire(
             souscription,
             paiement,
@@ -143,6 +153,7 @@ class AttestationService:
             verification_url=verification_url,
             traveler_info=traveler_info,  # Informations du voyageur (tiers si souscription pour un tiers, sinon abonné)
             card_image=card_image,
+            minors_info=minors_info,
         )
         pdf_bytes = pdf_buffer.read()
         
@@ -1547,11 +1558,19 @@ class AttestationService:
         numero = allocate_avenant_annulation_number(db)
         user = db.query(User).filter(User.id == souscription.user_id).first()
         traveler_info = AttestationService._extract_traveler_info(db, souscription.id)
+        minors_info = AttestationService._extract_minors_from_notes(souscription.notes or "")
+        if not minors_info and souscription.projet_voyage_id:
+            projet_min = db.query(ProjetVoyage).filter(
+                ProjetVoyage.id == souscription.projet_voyage_id
+            ).first()
+            if projet_min and getattr(projet_min, "notes", None):
+                minors_info = AttestationService._extract_minors_from_notes(projet_min.notes)
         pdf_buffer = generate_avenant_annulation(
             souscription,
             user,
             numero,
             traveler_info=traveler_info,
+            minors_info=minors_info,
         )
         pdf_bytes = pdf_buffer.read()
         payload = {

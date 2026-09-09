@@ -205,8 +205,9 @@ def _age_from_birth(value: Any) -> Optional[int]:
 
 
 def _format_ayants_droit(minors_info: Optional[list[dict[str, Any]]]) -> str:
+    """Assurés additionnels (enfants mineurs rattachés). « NÉANT » si aucun."""
     if not minors_info:
-        return "—"
+        return "NÉANT"
     entries: list[str] = []
     for minor in minors_info:
         if not isinstance(minor, dict):
@@ -214,11 +215,13 @@ def _format_ayants_droit(minors_info: Optional[list[dict[str, Any]]]) -> str:
         name = (minor.get("nom_complet") or minor.get("fullName") or minor.get("nom") or "").strip()
         birth = minor.get("date_naissance") or minor.get("birthDate")
         age = _age_from_birth(birth)
-        if name and age is not None:
+        if name and birth:
+            entries.append(f"{name} (né(e) le {_fmt_date(birth)})")
+        elif name and age is not None:
             entries.append(f"{name} ({age} ans)")
         elif name:
             entries.append(name)
-    return ", ".join(entries) if entries else "—"
+    return " ; ".join(entries) if entries else "NÉANT"
 
 
 def _medecin_conseil_lines(medecin_conseil: Optional[dict[str, Any]]) -> dict[str, str]:
@@ -291,10 +294,10 @@ def _header_table(souscription: Souscription, left_label: str):
     return [logos, Spacer(1, 0.25 * cm), banner, Spacer(1, 0.3 * cm)]
 
 
-def _info_grid(headers: list[str], values: list[str], styles) -> Table:
+def _info_grid(headers: list[str], values: list[str], styles, col_width: float = 6 * cm) -> Table:
     head = [Paragraph(h, styles["head"]) for h in headers]
     vals = [Paragraph(v or "—", styles["cell"]) for v in values]
-    table = Table([head, vals], colWidths=[6 * cm] * len(headers))
+    table = Table([head, vals], colWidths=[col_width] * len(headers))
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), TEAL),
         ("BACKGROUND", (0, 1), (-1, 1), LIGHT_ROW),
@@ -394,7 +397,7 @@ def generate_attestation_assistance_voyage(
         ))
         pages.append(Spacer(1, 0.12 * cm))
         pages.append(_info_grid(
-            ["NOM, PRÉNOM ET AGE DES AYANTS DROIT"],
+            ["NOM, PRÉNOM ET DATE DE NAISSANCE DES ASSURÉS ADDITIONNEL"],
             [ayants_droit],
             styles,
         ))
@@ -511,6 +514,7 @@ def generate_avenant_annulation(
     numero_avenant: str,
     *,
     traveler_info: Optional[dict[str, Any]] = None,
+    minors_info: Optional[list[dict[str, Any]]] = None,
 ) -> BytesIO:
     styles = _styles()
     produit = getattr(souscription, "produit_assurance", None)
@@ -552,6 +556,12 @@ def generate_avenant_annulation(
         [str(zone), _fmt_date(souscription.date_debut), _fmt_date(souscription.date_fin)],
         styles,
     ))
+    story.append(Spacer(1, 0.12 * cm))
+    story.append(_info_grid(
+        ["NOM, PRÉNOM ET DATE DE NAISSANCE DES ASSURÉS ADDITIONNEL"],
+        [_format_ayants_droit(minors_info)],
+        styles,
+    ))
     story.append(Paragraph("2 PORTÉE ET EFFETS DE L'ANNULATION", styles["section"]))
     story.append(Paragraph(
         f"Mobility Health Care informe le souscripteur que la police d'assurance voyage référencée "
@@ -576,6 +586,216 @@ def generate_avenant_annulation(
     ))
     story.append(Spacer(1, 0.5 * cm))
     story.append(Paragraph("Document électronique généré par MyMHC • À conserver avec la police annulée", styles["footer"]))
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+# Catalogues (clés stables) des motifs et pièces de la demande de suspension.
+AVENANT_SUSPENSION_MOTIFS: dict[str, str] = {
+    "annulation_avant_depart": "Annulation du voyage avant le départ (police non encore prise d'effet)",
+    "changement_situation": "Changement de situation faisant disparaître le risque assuré (dans un délai de 3 mois suivant l'événement)",
+    "erreur_double_souscription": "Erreur ou double souscription",
+    "autre": "Autre motif — à préciser ci-dessous :",
+}
+AVENANT_SUSPENSION_PIECES: dict[str, str] = {
+    "justificatif_annulation": "Justificatif d'annulation du voyage (le cas échéant)",
+    "copie_police": "Copie de la police d'assurance",
+    "copie_piece_identite": "Copie d'une pièce d'identité du souscripteur",
+    "autre_document": "Tout document justifiant le motif invoqué (changement de situation, erreur de souscription, etc.)",
+}
+
+
+def _check_row(checked: bool, label: str, styles) -> Table:
+    """Ligne « case à cocher + libellé » (rendu sûr quelle que soit la police)."""
+    mark = Paragraph(
+        "X" if checked else "",
+        ParagraphStyle("cbx", parent=styles["cell"], alignment=TA_CENTER, fontName="Helvetica-Bold"),
+    )
+    box = Table([[mark]], colWidths=[0.45 * cm], rowHeights=[0.45 * cm])
+    box.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.6, NAVY),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    ]))
+    row = Table([[box, Paragraph(label, styles["body"])]], colWidths=[0.8 * cm, 16.5 * cm])
+    row.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]))
+    return row
+
+
+def generate_avenant_suspension(
+    souscription: Souscription,
+    user: Optional[User],
+    numero_avenant: str,
+    *,
+    traveler_info: Optional[dict[str, Any]] = None,
+    minors_info: Optional[list[dict[str, Any]]] = None,
+    motifs: Optional[list[str]] = None,
+    motif_autre: Optional[str] = None,
+    pieces: Optional[list[str]] = None,
+    decision: Optional[str] = None,
+    date_effet: Optional[Any] = None,
+    date_emission: Optional[Any] = None,
+) -> BytesIO:
+    from app.services.pdf_service import _build_logo_header_flowable
+
+    styles = _styles()
+    produit = getattr(souscription, "produit_assurance", None)
+    traveler = _traveler(user, traveler_info)
+    assureur = getattr(produit, "assureur", None) or settings.ASSURANCE_NAME
+    motifs_set = set(motifs or [])
+    pieces_set = set(pieces or [])
+    emitted = date_emission or datetime.utcnow()
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.4 * cm, rightMargin=1.4 * cm, topMargin=1.2 * cm, bottomMargin=1.4 * cm)
+    story = []
+    story.append(_build_logo_header_flowable(souscription))
+    story.append(Spacer(1, 0.2 * cm))
+    story.append(Paragraph("AVENANT DE SUSPENSION DE POLICE D'ASSURANCE VOYAGE", styles["title"]))
+    story.append(Spacer(1, 0.15 * cm))
+    story.append(_info_grid(["N° DE POLICE", "N° DE LA SUSPENSION"], [souscription.numero_souscription or "—", numero_avenant], styles, col_width=9 * cm))
+    story.append(Spacer(1, 0.12 * cm))
+    story.append(_info_grid(["DATE D'ÉMISSION", "HEURE D'ÉMISSION"], [_fmt_date(emitted), emitted.strftime("%H:%M") if hasattr(emitted, "strftime") else "—"], styles, col_width=9 * cm))
+
+    story.append(Paragraph("1 IDENTIFICATION DU SOUSCRIPTEUR / BÉNÉFICIAIRE", styles["section"]))
+    story.append(_info_grid(["ASSURÉ PRINCIPAL", "ASSURÉS ADDITIONNEL"], [traveler["name"], _format_ayants_droit(minors_info)], styles, col_width=9 * cm))
+    story.append(Spacer(1, 0.12 * cm))
+    date_sous = getattr(souscription, "date_debut", None) or getattr(souscription, "created_at", None)
+    story.append(_info_grid(["DATE DE SOUSCRIPTION", "COMPAGNIE D'ASSURANCE"], [_fmt_date(date_sous), str(assureur or "—")], styles, col_width=9 * cm))
+    story.append(Spacer(1, 0.12 * cm))
+    story.append(_info_grid(["TELEPHONE", "EMAIL"], [getattr(user, "telephone", None) or "—", getattr(user, "email", None) or "—"], styles, col_width=9 * cm))
+
+    story.append(Paragraph("2 MOTIF DE LA DEMANDE DE SUSPENSION", styles["section"]))
+    for key, label in AVENANT_SUSPENSION_MOTIFS.items():
+        story.append(_check_row(key in motifs_set, label, styles))
+    if motif_autre:
+        story.append(Spacer(1, 0.1 * cm))
+        precision = Table([[Paragraph(motif_autre, styles["cell"])]], colWidths=[17 * cm])
+        precision.setStyle(TableStyle([
+            ("BOX", (0, 0), (-1, -1), 0.5, NAVY),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.append(precision)
+
+    story.append(Paragraph("3 PIÈCES JUSTIFICATIVES À JOINDRE SELON LE MOTIF", styles["section"]))
+    for key, label in AVENANT_SUSPENSION_PIECES.items():
+        story.append(_check_row(key in pieces_set, label, styles))
+
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(Paragraph("4 DÉCLARATION ET SIGNATURE DU SOUSCRIPTEUR", styles["section"]))
+    story.append(Paragraph(
+        "Je soussigné(e) demande la suspension de la police d'assurance mentionnée ci-dessus, dans les "
+        "conditions et pour le motif indiqué. J'ai pris connaissance du fait que cette demande sera transmise "
+        "à l'Assureur pour traitement, et que la suspension ne sera effective qu'après validation par ce dernier.",
+        styles["body"],
+    ))
+    story.append(Spacer(1, 0.35 * cm))
+    story.append(Table(
+        [[
+            Paragraph("Fait à : _____________________<br/><br/>Le : _____________________", styles["cell"]),
+            Paragraph("Signature du souscripteur :", styles["cell"]),
+        ]],
+        colWidths=[9 * cm, 9 * cm],
+    ))
+    story.append(Paragraph("5 CADRE RÉSERVÉ À L'ASSUREUR", styles["section"]))
+    decision_label = {"approved": "VALIDÉE", "rejected": "REFUSÉE"}.get(decision or "", "—")
+    story.append(_info_grid(["DÉCISION DE L'ASSUREUR", "DATE D'EFFET VALIDÉE"], [decision_label, _fmt_date(date_effet) if date_effet else "—"], styles, col_width=9 * cm))
+    story.append(Spacer(1, 0.5 * cm))
+    story.append(Paragraph("Document électronique généré par MyMHC • Suspension effective après validation de l'Assureur", styles["footer"]))
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+def generate_avenant_reemission(
+    souscription: Souscription,
+    user: Optional[User],
+    numero_avenant: str,
+    *,
+    traveler_info: Optional[dict[str, Any]] = None,
+    minors_info: Optional[list[dict[str, Any]]] = None,
+    avenant_suspension_ref: Optional[str] = None,
+    date_effet: Optional[Any] = None,
+    date_echeance: Optional[Any] = None,
+    date_emission: Optional[Any] = None,
+) -> BytesIO:
+    from app.services.pdf_service import _build_logo_header_flowable
+
+    styles = _styles()
+    produit = getattr(souscription, "produit_assurance", None)
+    projet = getattr(souscription, "projet_voyage", None)
+    dest = "—"
+    if projet:
+        dest_country = getattr(projet, "destination_country", None)
+        dest = getattr(dest_country, "nom", None) or getattr(projet, "destination", None) or "—"
+    traveler = _traveler(user, traveler_info)
+    genre = (traveler_info or {}).get("gender") or getattr(user, "sexe", None) or "—"
+    emitted = date_emission or datetime.utcnow()
+    echeance = date_echeance or getattr(souscription, "date_fin", None)
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.4 * cm, rightMargin=1.4 * cm, topMargin=1.2 * cm, bottomMargin=1.4 * cm)
+    story = []
+    story.append(_build_logo_header_flowable(souscription))
+    story.append(Spacer(1, 0.2 * cm))
+    story.append(Paragraph("AVENANT DE RÉÉMISSION DE POLICE", styles["title"]))
+    story.append(Spacer(1, 0.15 * cm))
+    story.append(_info_grid(
+        ["N° DE POLICE", "N° DE L'AVENANT", "DATE ET HEURE D'ÉMISSION"],
+        [souscription.numero_souscription or "—", numero_avenant, _fmt_date(emitted, with_time=True)],
+        styles,
+    ))
+    story.append(Spacer(1, 0.12 * cm))
+    story.append(_info_grid(
+        ["DATE D'EFFET", "DATE D'ÉCHÉANCE"],
+        [_fmt_date(date_effet) if date_effet else _fmt_date(datetime.utcnow()), _fmt_date(echeance)],
+        styles, col_width=9 * cm,
+    ))
+    story.append(Paragraph("1 IDENTIFICATION DES VOYAGEURS", styles["section"]))
+    story.append(_info_grid(
+        ["ASSURÉ PRINCIPAL", "ASSURÉ ADDITIONNEL", "DATE DE NAISSANCE", "GENRE"],
+        [traveler["name"], _format_ayants_droit(minors_info), traveler["birth"], str(genre)],
+        styles, col_width=4.4 * cm,
+    ))
+    story.append(Spacer(1, 0.12 * cm))
+    story.append(_info_grid(
+        ["NATIONALITÉ", "N° PASSEPORT / PIÈCE D'IDENTITÉ", "PAYS DE RÉSIDENCE", "PAYS DE DESTINATION"],
+        [traveler["nationality"], traveler["passport"], traveler["residence"], str(dest)],
+        styles, col_width=4.4 * cm,
+    ))
+    story.append(Paragraph("2 PORTÉE ET EFFETS DE L'AVENANT", styles["section"]))
+    ref = avenant_suspension_ref or "—"
+    story.append(Paragraph(
+        f"Le présent avenant de réémission annule et remplace, à effet de la date mentionnée en section 1, la "
+        f"suspension prononcée par l'avenant référencé <b>{ref}</b>. Il emporte reprise de l'ensemble des garanties "
+        f"souscrites au contrat mentionné, sans effet rétroactif sur la période de suspension.",
+        styles["body"],
+    ))
+    story.append(Paragraph(
+        "Toute prestation médicale ou tout sinistre survenu pendant la période de suspension ne peut faire l'objet "
+        "d'une prise en charge au titre du présent avenant.",
+        styles["body"],
+    ))
+    city = settings.ASSURANCE_CITY or "Abidjan"
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(Paragraph(f"Fait à <b>{city}</b>, le <b>{_fmt_date(datetime.utcnow())}</b>.", styles["body"]))
+    story.append(Spacer(1, 0.7 * cm))
+    story.append(Table(
+        [[
+            Paragraph("Pour l'Assureur", ParagraphStyle("s", parent=styles["cell"], textColor=TEAL, fontName="Helvetica-Bold")),
+            Paragraph("Pour l'Assuré", ParagraphStyle("s2", parent=styles["cell"], textColor=TEAL, fontName="Helvetica-Bold", alignment=1)),
+        ]],
+        colWidths=[9 * cm, 9 * cm],
+    ))
+    story.append(Spacer(1, 0.5 * cm))
+    story.append(Paragraph("Document électronique généré par MyMHC • À conserver avec la police réémise", styles["footer"]))
     doc.build(story)
     buffer.seek(0)
     return buffer
@@ -606,6 +826,10 @@ def generate_quittance_paiement(
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.5 * cm, rightMargin=1.5 * cm, topMargin=1.4 * cm, bottomMargin=1.4 * cm)
     story = []
+    # En-tête avec logo de l'assureur à gauche (exigence référentiel).
+    from app.services.pdf_service import _build_logo_header_flowable
+    story.append(_build_logo_header_flowable(souscription))
+    story.append(Spacer(1, 0.3 * cm))
     story.append(Paragraph("QUITTANCE DE PAIEMENT", styles["title"]))
     story.append(Spacer(1, 0.2 * cm))
     meta = Table(

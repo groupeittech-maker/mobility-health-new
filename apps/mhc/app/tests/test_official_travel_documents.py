@@ -128,15 +128,18 @@ class TestOfficialDocuments:
         ).getvalue()
         assert len(triple) > len(single)
 
-    def test_format_ayants_droit_with_ages(self):
+    def test_format_ayants_droit_with_birthdates(self):
         text = _format_ayants_droit([
             {"nom_complet": "Lea Dupont", "date_naissance": "01/01/2018"},
             {"nom_complet": "Noah Dupont", "date_naissance": "03/03/2021"},
         ])
         assert "Lea Dupont" in text
         assert "Noah Dupont" in text
-        assert "ans" in text
-        assert _format_ayants_droit([]) == "—"
+        assert "01/01/2018" in text
+        assert "né(e) le" in text
+        # Assurés additionnels : « NÉANT » lorsqu'il n'y en a aucun.
+        assert _format_ayants_droit([]) == "NÉANT"
+        assert _format_ayants_droit(None) == "NÉANT"
 
     def test_avenant_pdf_is_distinct_document(self):
         pdf = generate_avenant_annulation(
