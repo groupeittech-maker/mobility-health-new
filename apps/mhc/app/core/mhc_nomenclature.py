@@ -15,6 +15,8 @@ class MhcOperationCode(str, Enum):
     BON_ANNULATION_POLICE = "102"
     BON_RESILIATION_POLICE = "103"
     BON_RENOUVELLEMENT = "104"
+    AVENANT_SUSPENSION = "105"
+    AVENANT_REEMISSION = "106"
     BPCU = "111"
     BRPCU = "112"
     BH = "113"
@@ -61,6 +63,8 @@ OPERATION_LABELS: Dict[str, str] = {
     MhcOperationCode.BON_ANNULATION_POLICE.value: "Bon d'annulation de police",
     MhcOperationCode.BON_RESILIATION_POLICE.value: "Bon de résiliation de police",
     MhcOperationCode.BON_RENOUVELLEMENT.value: "Bon de renouvellement",
+    MhcOperationCode.AVENANT_SUSPENSION.value: "Avenant de suspension de police",
+    MhcOperationCode.AVENANT_REEMISSION.value: "Avenant de réémission de police",
     MhcOperationCode.BPCU.value: "Bon de prise en charge d'urgence",
     MhcOperationCode.BRPCU.value: "Bon de refus de prise en charge d'urgence",
     MhcOperationCode.BH.value: "Bon d'hospitalisation",
@@ -300,6 +304,16 @@ def format_avenant_annulation_number(order: int) -> str:
 def format_quittance_number(order: int) -> str:
     """Quittance de règlement — code 119 (suit le n° de police)."""
     return f"{pad6(order)}-{MhcOperationCode.QUITTANCE_REGLEMENT.value}"
+
+
+def format_avenant_suspension_number(order: int) -> str:
+    """Avenant de suspension de police — code 105."""
+    return f"{pad6(order)}-{MhcOperationCode.AVENANT_SUSPENSION.value}"
+
+
+def format_avenant_reemission_number(order: int) -> str:
+    """Avenant de réémission de police — code 106."""
+    return f"{pad6(order)}-{MhcOperationCode.AVENANT_REEMISSION.value}"
 
 
 def format_bph_number(bh_order: int, sequence: int, sinistre_order: int) -> str:

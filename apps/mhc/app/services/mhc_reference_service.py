@@ -13,6 +13,8 @@ from app.core.mhc_nomenclature import (
     country_code_from_name,
     format_attestation_number,
     format_avenant_annulation_number,
+    format_avenant_reemission_number,
+    format_avenant_suspension_number,
     format_bpcu_like_number,
     format_bph_number,
     format_police_number,
@@ -105,6 +107,18 @@ def allocate_quittance_number(db: Session, year: Optional[int] = None) -> str:
     year = year or datetime.utcnow().year
     order = next_order(db, "quittance", year)
     return format_quittance_number(order)
+
+
+def allocate_avenant_suspension_number(db: Session, year: Optional[int] = None) -> str:
+    year = year or datetime.utcnow().year
+    order = next_order(db, "avenant_suspension", year)
+    return format_avenant_suspension_number(order)
+
+
+def allocate_avenant_reemission_number(db: Session, year: Optional[int] = None) -> str:
+    year = year or datetime.utcnow().year
+    order = next_order(db, "avenant_reemission", year)
+    return format_avenant_reemission_number(order)
 
 
 def allocate_sinistre_number(
