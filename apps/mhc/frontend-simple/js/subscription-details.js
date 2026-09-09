@@ -82,6 +82,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         renderSubscriptionDetails(subscription, container);
         updateActionLinks(subscription, attestationsLink, sosLink, resiliationBtn);
+        // Avenant de suspension (assuré) : bouton + liste des avenants
+        try {
+            const suspensionBtn = document.getElementById('suspensionBtn');
+            if (suspensionBtn && typeof showSuspensionModal === 'function') {
+                if ((subscription.statut || '') === 'active') {
+                    suspensionBtn.style.display = 'inline-block';
+                    suspensionBtn.onclick = () => showSuspensionModal(subscription);
+                } else {
+                    suspensionBtn.style.display = 'none';
+                }
+            }
+            if (typeof loadAvenantsList === 'function') {
+                let avenantsHolder = document.getElementById('avenantsSection');
+                if (!avenantsHolder) {
+                    avenantsHolder = document.createElement('div');
+                    avenantsHolder.id = 'avenantsSection';
+                    container.appendChild(avenantsHolder);
+                }
+                loadAvenantsList(subscription.id, avenantsHolder);
+            }
+        } catch (avenantErr) {
+            console.warn('Avenants UI indisponible:', avenantErr);
+        }
         await maybeAttachEcardSection(subscription, container);
         await renderMedecinConseilForSubscription(subscription, container);
     } catch (error) {

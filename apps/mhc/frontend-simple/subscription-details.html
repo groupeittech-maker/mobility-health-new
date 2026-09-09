@@ -418,6 +418,9 @@
                 <a id="sosLink" class="btn btn-danger btn-sm" href="sos-alert.html">
                     Déclarer un sinistre
                 </a>
+                <button id="suspensionBtn" class="btn btn-outline btn-sm" style="display: none;">
+                    Demander la suspension
+                </button>
                 <button id="resiliationBtn" class="btn btn-outline btn-sm" style="display: none;">
                     Demander la résiliation
                 </button>
@@ -462,11 +465,39 @@
         </div>
     </div>
 
+    <!-- Modal de suspension (avenant) -->
+    <div id="suspensionModal" class="resiliation-modal" role="dialog" aria-modal="true" aria-labelledby="suspensionModalTitle">
+        <div class="resiliation-modal-content">
+            <button class="resiliation-modal-close" onclick="closeSuspensionModal()" aria-label="Fermer">&times;</button>
+            <div class="resiliation-modal-header">
+                <h3 id="suspensionModalTitle">Demander la suspension de la police</h3>
+                <p>Votre demande sera transmise à l'assureur. La suspension ne prend effet qu'après sa validation.</p>
+            </div>
+            <div class="form-group">
+                <label>Motif(s) de la demande</label>
+                <div id="suspensionMotifs"></div>
+            </div>
+            <div class="form-group" id="suspensionAutreGroup" style="display: none;">
+                <label for="suspensionMotifAutre">Préciser le motif</label>
+                <textarea id="suspensionMotifAutre" rows="2" class="form-control" placeholder="Précisez le motif…"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Pièces justificatives à joindre (optionnel)</label>
+                <div id="suspensionPieces"></div>
+            </div>
+            <div class="resiliation-modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeSuspensionModal()">Annuler</button>
+                <button type="button" class="btn btn-primary" id="confirmSuspensionBtn">Envoyer la demande</button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/devis-currency.js"></script>
     <script src="js/medecin-conseil.js"></script>
-    <script src="js/subscription-details.js?v=20260323-1"></script>
+    <script src="js/avenants-ui.js?v=20260909-1"></script>
+    <script src="js/subscription-details.js?v=20260909-1"></script>
 </body>
 </html>
 
