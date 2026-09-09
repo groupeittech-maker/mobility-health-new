@@ -129,12 +129,15 @@ async function loadAvenantsList(subscriptionId, containerEl) {
         const rows = avenants.map((a) => {
             const type = AVENANT_TYPE_LABELS[a.type_avenant] || a.type_avenant;
             const statut = AVENANT_STATUT_LABELS[a.statut] || a.statut;
+            const canUpload = a.type_avenant === 'suspension' && a.statut === 'demande';
             return `<li class="card-item" style="margin-bottom:0.6rem;">
                 <strong>${_esc(type)}</strong>
                 <div class="muted-text">N° ${_esc(a.numero)} • ${_esc(statut)}</div>
+                ${_fichiersHtml(a)}
                 <div style="margin-top:0.4rem;">
                     <a class="btn btn-outline btn-sm" href="${API_BASE_URL}/avenants/${a.id}/download" target="_blank" rel="noopener" onclick="return openAvenantPdf(event, ${a.id})">Télécharger le PDF</a>
                 </div>
+                ${canUpload ? _uploadHtml(a.id) : ''}
             </li>`;
         }).join('');
         containerEl.innerHTML = `
@@ -164,6 +167,7 @@ async function renderAssureurSuspensions(containerId) {
                 <strong>Suspension ${_esc(a.numero)}</strong>
                 <div class="muted-text">Souscription #${_esc(a.souscription_id)} • Motifs : ${_esc((a.motifs || []).join(', '))}${a.motif_autre ? (' — ' + _esc(a.motif_autre)) : ''}</div>
                 <div class="muted-text">Pièces annoncées : ${_esc((a.pieces_jointes || []).join(', ') || '—')}</div>
+                ${_fichiersHtml(a)}
                 <div style="margin-top:0.4rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
                     <button class="btn btn-primary btn-sm" onclick="decideSuspension(${a.id}, true, '${containerId}')">Valider</button>
                     <button class="btn btn-outline btn-sm" onclick="decideSuspension(${a.id}, false, '${containerId}')">Refuser</button>
@@ -188,6 +192,62 @@ async function decideSuspension(avenantId, approve, containerId) {
     } catch (e) {
         showAlert(e.message || 'Impossible de traiter la décision.', 'error');
     }
+}
+
+/* --------------------- Pièces justificatives (upload) ------------------ */
+
+function _fichiersHtml(avenant) {
+    const fichiers = avenant.fichiers || [];
+    if (!fichiers.length) return '';
+    const links = fichiers.map((f, i) =>
+        `<a class="btn btn-outline btn-sm" href="#" onclick="return downloadAvenantPiece(event, ${avenant.id}, ${i})" style="margin:0.15rem;">📎 ${_esc(f.nom || ('pièce ' + (i + 1)))}</a>`
+    ).join('');
+    return `<div class="muted-text" style="margin-top:0.3rem;">Pièces jointes : ${links}</div>`;
+}
+
+function _uploadHtml(avenantId) {
+    return `<div style="margin-top:0.4rem;display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">
+        <input type="file" id="avenantPieceFile-${avenantId}" accept="application/pdf,image/*" style="font-size:0.85rem;">
+        <button class="btn btn-secondary btn-sm" onclick="uploadAvenantPiece(${avenantId})">Ajouter une pièce</button>
+    </div>`;
+}
+
+async function uploadAvenantPiece(avenantId) {
+    const input = document.getElementById(`avenantPieceFile-${avenantId}`);
+    const file = input && input.files && input.files[0];
+    if (!file) { showAlert('Sélectionnez un fichier.', 'error'); return; }
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+        const res = await fetch(`${API_BASE_URL}/avenants/${avenantId}/pieces`, {
+            method: 'POST',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            body: fd,
+        });
+        if (!res.ok) {
+            let msg = 'Échec du téléversement.';
+            try { msg = (await res.json()).detail || msg; } catch (e) {}
+            throw new Error(msg);
+        }
+        showAlert('Pièce ajoutée.', 'success');
+        const params = new URLSearchParams(window.location.search);
+        const subId = parseInt(params.get('id'), 10);
+        const holder = document.getElementById('avenantsSection');
+        if (subId && holder) await loadAvenantsList(subId, holder);
+    } catch (e) {
+        showAlert(e.message || 'Échec du téléversement.', 'error');
+    }
+}
+
+function downloadAvenantPiece(event, avenantId, index) {
+    event.preventDefault();
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+    fetch(`${API_BASE_URL}/avenants/${avenantId}/pieces/${index}/download`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+        .then((res) => { if (!res.ok) throw new Error('Fichier indisponible'); return res.blob(); })
+        .then((blob) => window.open(URL.createObjectURL(blob), '_blank', 'noopener'))
+        .catch((err) => showAlert(err.message || 'Impossible d\'ouvrir la pièce.', 'error'));
+    return false;
 }
 
 function openAvenantPdf(event, avenantId) {

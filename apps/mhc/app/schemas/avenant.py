@@ -37,6 +37,8 @@ class AvenantResponse(BaseModel):
     date_effet: Optional[datetime] = None
     date_echeance: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    # Pièces justificatives réellement téléversées (métadonnées)
+    fichiers: List[dict] = []
 
     model_config = ConfigDict(from_attributes=True)
 
