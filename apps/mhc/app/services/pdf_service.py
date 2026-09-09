@@ -217,32 +217,34 @@ def _build_garanties_table_flowable(garanties_list: List[Dict[str, Any]], normal
 
 def _build_logo_header_flowable(souscription: Souscription):
     """
-    Construit l'en-tête avec logo Mobility Health (gauche) et logo assureur (droite).
-    Retourne un flowable (Table) à insérer en haut des attestations.
+    Construit l'en-tête des documents de police : logo de l'ASSUREUR à GAUCHE
+    (exigence référentiel), logo Mobility Health à droite.
+    Retourne un flowable (Table) à insérer en haut des documents.
     """
     logo_w, logo_h = 3.5 * cm, 1.2 * cm
     mobility_io = _load_logo_bytes_mobility()
     assureur_io = _load_logo_bytes_assureur(souscription)
-    left_flowable = None
-    right_flowable = None
-    if mobility_io:
-        try:
-            mobility_io.seek(0)
-            left_flowable = Image(mobility_io, width=logo_w, height=logo_h, kind="proportional")
-        except Exception:
-            _styles = getSampleStyleSheet()
-            left_flowable = Paragraph("<i>Mobility Health</i>", _styles["Normal"])
+    left_flowable = None   # logo assureur (gauche)
+    right_flowable = None  # logo Mobility (droite)
     if assureur_io:
         try:
             assureur_io.seek(0)
-            right_flowable = Image(assureur_io, width=logo_w, height=logo_h, kind="proportional")
+            left_flowable = Image(assureur_io, width=logo_w, height=logo_h, kind="proportional")
         except Exception:
-            right_flowable = None
+            left_flowable = None
+    if mobility_io:
+        try:
+            mobility_io.seek(0)
+            right_flowable = Image(mobility_io, width=logo_w, height=logo_h, kind="proportional")
+        except Exception:
+            _styles = getSampleStyleSheet()
+            right_flowable = Paragraph("<i>Mobility Health</i>", _styles["Normal"])
     if not left_flowable:
-        _styles = getSampleStyleSheet()
-        left_flowable = Paragraph("<i>Mobility Health</i>", _styles["Normal"])
+        # Pas de logo assureur disponible : réserver l'emplacement à gauche.
+        left_flowable = Spacer(1, logo_w)
     if not right_flowable:
-        right_flowable = Spacer(1, logo_w)
+        _styles = getSampleStyleSheet()
+        right_flowable = Paragraph("<i>Mobility Health</i>", _styles["Normal"])
     col_widths = [9 * cm, 9 * cm]
     t = Table([[left_flowable, right_flowable]], colWidths=col_widths)
     t.setStyle(TableStyle([
@@ -497,6 +499,7 @@ class PDFService:
         verification_url: Optional[str] = None,
         traveler_info: Optional[Dict[str, Any]] = None,
         card_image: Optional[BytesIO] = None,
+        minors_info: Optional[list] = None,
     ) -> BytesIO:
         """Génère une attestation provisoire au format PDF"""
         from app.services.official_travel_documents import generate_attestation_assistance_voyage
@@ -510,6 +513,7 @@ class PDFService:
             card_image=card_image,
             qr_image_data=qr_image_data,
             verification_url=verification_url,
+            minors_info=minors_info,
         )
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4)

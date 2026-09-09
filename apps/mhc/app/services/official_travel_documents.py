@@ -205,8 +205,9 @@ def _age_from_birth(value: Any) -> Optional[int]:
 
 
 def _format_ayants_droit(minors_info: Optional[list[dict[str, Any]]]) -> str:
+    """Assurés additionnels (enfants mineurs rattachés). « NÉANT » si aucun."""
     if not minors_info:
-        return "—"
+        return "NÉANT"
     entries: list[str] = []
     for minor in minors_info:
         if not isinstance(minor, dict):
@@ -214,11 +215,13 @@ def _format_ayants_droit(minors_info: Optional[list[dict[str, Any]]]) -> str:
         name = (minor.get("nom_complet") or minor.get("fullName") or minor.get("nom") or "").strip()
         birth = minor.get("date_naissance") or minor.get("birthDate")
         age = _age_from_birth(birth)
-        if name and age is not None:
+        if name and birth:
+            entries.append(f"{name} (né(e) le {_fmt_date(birth)})")
+        elif name and age is not None:
             entries.append(f"{name} ({age} ans)")
         elif name:
             entries.append(name)
-    return ", ".join(entries) if entries else "—"
+    return " ; ".join(entries) if entries else "NÉANT"
 
 
 def _medecin_conseil_lines(medecin_conseil: Optional[dict[str, Any]]) -> dict[str, str]:
@@ -394,7 +397,7 @@ def generate_attestation_assistance_voyage(
         ))
         pages.append(Spacer(1, 0.12 * cm))
         pages.append(_info_grid(
-            ["NOM, PRÉNOM ET AGE DES AYANTS DROIT"],
+            ["NOM, PRÉNOM ET DATE DE NAISSANCE DES ASSURÉS ADDITIONNEL"],
             [ayants_droit],
             styles,
         ))
@@ -511,6 +514,7 @@ def generate_avenant_annulation(
     numero_avenant: str,
     *,
     traveler_info: Optional[dict[str, Any]] = None,
+    minors_info: Optional[list[dict[str, Any]]] = None,
 ) -> BytesIO:
     styles = _styles()
     produit = getattr(souscription, "produit_assurance", None)
@@ -550,6 +554,12 @@ def generate_avenant_annulation(
     story.append(_info_grid(
         ["ZONE DE COUVERTURE", "DÉBUT DE VALIDITÉ", "FIN DE VALIDITÉ"],
         [str(zone), _fmt_date(souscription.date_debut), _fmt_date(souscription.date_fin)],
+        styles,
+    ))
+    story.append(Spacer(1, 0.12 * cm))
+    story.append(_info_grid(
+        ["NOM, PRÉNOM ET DATE DE NAISSANCE DES ASSURÉS ADDITIONNEL"],
+        [_format_ayants_droit(minors_info)],
         styles,
     ))
     story.append(Paragraph("2 PORTÉE ET EFFETS DE L'ANNULATION", styles["section"]))
@@ -606,6 +616,10 @@ def generate_quittance_paiement(
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.5 * cm, rightMargin=1.5 * cm, topMargin=1.4 * cm, bottomMargin=1.4 * cm)
     story = []
+    # En-tête avec logo de l'assureur à gauche (exigence référentiel).
+    from app.services.pdf_service import _build_logo_header_flowable
+    story.append(_build_logo_header_flowable(souscription))
+    story.append(Spacer(1, 0.3 * cm))
     story.append(Paragraph("QUITTANCE DE PAIEMENT", styles["title"]))
     story.append(Spacer(1, 0.2 * cm))
     meta = Table(
