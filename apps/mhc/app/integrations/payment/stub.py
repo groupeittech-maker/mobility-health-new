@@ -15,11 +15,12 @@ class PaymentStubClient:
     """Simule l'orchestrateur ; les appels réels restent dans payments.py pour l'instant."""
 
     def create_intent(self, request: PaymentIntentRequest) -> PaymentIntentResponse:
+        payment_id = f"stub_{uuid.uuid4().hex[:12]}"
         return PaymentIntentResponse(
-            payment_id=f"stub_{uuid.uuid4().hex[:12]}",
+            payment_id=payment_id,
             status="pending",
             provider="stub",
-            checkout_url=None,
+            checkout_url=f"https://checkout.stub.mobility-health.africa/pay/{payment_id}?ref={request.reference}",
         )
 
     def get_status(self, payment_id: str) -> PaymentStatusResponse:

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, date
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List
 from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
@@ -21,7 +21,9 @@ from app.models.questionnaire import Questionnaire
 from app.models.finance_refund import Refund
 from pydantic import BaseModel, Field, ConfigDict
 from app.services.attestation_service import AttestationService
+from app.services.finance_service import FinanceService
 from app.services.notification_service import NotificationService
+from app.services.payment_service import PaymentService
 from app.services.prime_tarif_service import resolve_prime_tarif_detail
 from app.schemas.paiement import AccountingTransaction
 import json
@@ -92,130 +94,6 @@ def _get_courtier_scope_for_accountant(db: Session, current_user: User) -> Optio
         row[0]
         for row in db.query(Courtier.id).filter(Courtier.agent_comptable_id == current_user.id).all()
     }
-
-
-def _ledger_prime_and_frais_split(
-    subscription: Optional[Souscription],
-    montant_total: Decimal,
-) -> Tuple[Decimal, Decimal]:
-    """
-    Répartition comptable des encaissements souscription : part assureur = prime d'assurance,
-    Mobility Health = frais de services (plus de pourcentage sur le total payé).
-    """
-    mt = montant_total or Decimal("0.00")
-    if not subscription:
-        return mt.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), Decimal("0.00")
-
-    prime = subscription.prime_assurance
-    frais = subscription.frais_services
-
-    if prime is not None and frais is not None:
-        part_ass = Decimal(str(prime)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        part_mh = Decimal(str(frais)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        return part_ass, part_mh
-
-    if prime is not None:
-        part_ass = Decimal(str(prime)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        part_mh = (mt - part_ass).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        return part_ass, part_mh if part_mh > 0 else Decimal("0.00")
-
-    if frais is not None:
-        part_mh = Decimal(str(frais)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        part_ass = (mt - part_mh).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        return part_ass if part_ass > 0 else Decimal("0.00"), part_mh
-
-    # Anciennes souscriptions sans détail : tout le paiement compte comme prime assureur
-    return mt.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), Decimal("0.00")
-
-
-def _ledger_with_optional_courtier(
-    subscription: Optional[Souscription],
-    montant_total: Decimal,
-    db: Session,
-    assureur_id: Optional[int] = None,
-) -> Tuple[Decimal, Decimal, Decimal, Optional[int], Optional[str], Optional[Decimal]]:
-    """
-    Retourne (assureur, mh, courtier, courtier_id, courtier_nom, commission_pct).
-    commission courtier appliquée sur la prime d'assurance uniquement.
-    """
-    assureur_share, mh_share = _ledger_prime_and_frais_split(subscription, montant_total)
-    if not subscription:
-        return assureur_share, mh_share, Decimal("0.00"), None, None, None
-
-    courtier = None
-    courtier_id = getattr(subscription, "courtier_id", None)
-    if courtier_id:
-        courtier = db.query(Courtier).filter(Courtier.id == courtier_id).first()
-    elif assureur_id:
-        # Fallback legacy: certaines souscriptions historiques n'ont pas courtier_id.
-        # On rattache alors le courtier du même assureur (premier id pour stabilité).
-        matches = (
-            db.query(Courtier)
-            .filter(Courtier.assureur_id == assureur_id)
-            .order_by(Courtier.id.asc())
-            .all()
-        )
-        if len(matches) == 1:
-            courtier = matches[0]
-        elif len(matches) > 1:
-            courtier = matches[0]
-            logger.warning(
-                "Plusieurs courtiers trouvés pour assureur_id=%s, fallback sur id=%s",
-                assureur_id,
-                courtier.id,
-            )
-
-    if not courtier:
-        return assureur_share, mh_share, Decimal("0.00"), None, None, None
-    pct = Decimal(str(courtier.commission_pct or Decimal("0.00")))
-    courtier_share = (assureur_share * (pct / Decimal("100"))).quantize(
-        Decimal("0.01"), rounding=ROUND_HALF_UP
-    )
-    assureur_share = (assureur_share - courtier_share).quantize(
-        Decimal("0.01"), rounding=ROUND_HALF_UP
-    )
-    return assureur_share, mh_share, courtier_share, courtier.id, courtier.nom, pct
-
-
-def _refund_policy_breakdown(
-    subscription: Optional[Souscription],
-    montant_total: Decimal,
-    refund_kind: str,
-) -> Tuple[Decimal, Decimal]:
-    """
-    Retourne (montant_rembourse_assure, montant_conserve_mh).
-
-    Règles métier:
-    - refus dossier: assureur + courtier remboursent intégralement, MH conserve ses frais de service.
-    - résiliation: assureur + courtier remboursent intégralement, MH perçoit 30 % de la prime.
-    """
-    mt = (montant_total or Decimal("0.00")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    prime_share, frais_share = _ledger_prime_and_frais_split(subscription, mt)
-
-    has_explicit_breakdown = bool(
-        subscription
-        and (
-            getattr(subscription, "prime_assurance", None) is not None
-            or getattr(subscription, "frais_services", None) is not None
-        )
-    )
-
-    if refund_kind == "resiliation":
-        mh_retained = (prime_share * Decimal("0.30")).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
-    else:
-        mh_retained = frais_share if has_explicit_breakdown else (
-            mt * Decimal("0.10")
-        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-    if mh_retained < Decimal("0.00"):
-        mh_retained = Decimal("0.00")
-    if mh_retained > mt:
-        mh_retained = mt
-
-    insured_refund = (mt - mh_retained).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    return insured_refund, mh_retained
 
 
 class PaymentInitiateRequest(BaseModel):
@@ -1438,7 +1316,7 @@ async def get_accounting_transactions(
         if is_resiliation:
             status_code = "refunded"
             status_label = "remboursé - résiliation"
-            insured_share, mh_share = _refund_policy_breakdown(
+            insured_share, mh_share = FinanceService.refund_policy_breakdown(
                 subscription, montant_total, "resiliation"
             )
             assureur_share = Decimal("0.00")
@@ -1452,7 +1330,7 @@ async def get_accounting_transactions(
         elif payment.statut == StatutPaiement.REMBOURSE or is_dossier_refused:
             status_code = "refunded"
             status_label = "remboursé - refus du dossier"
-            insured_share, mh_share = _refund_policy_breakdown(
+            insured_share, mh_share = FinanceService.refund_policy_breakdown(
                 subscription, montant_total, "refusal"
             )
             assureur_share = Decimal("0.00")
@@ -1460,13 +1338,13 @@ async def get_accounting_transactions(
         elif has_definitive_attestation:
             status_code = "paid"
             status_label = "payé - attestation definitive"
-            assureur_share, mh_share, broker_share, broker_id, broker_name, broker_pct = _ledger_with_optional_courtier(
+            assureur_share, mh_share, broker_share, broker_id, broker_name, broker_pct = FinanceService.ledger_with_optional_courtier(
                 subscription, montant_total, db, assureur_id=assureur_id
             )
         else:
             status_code = "provisional"
             status_label = "reçu provisoire - attestation provisoire"
-            assureur_share, mh_share, broker_share, broker_id, broker_name, broker_pct = _ledger_with_optional_courtier(
+            assureur_share, mh_share, broker_share, broker_id, broker_name, broker_pct = FinanceService.ledger_with_optional_courtier(
                 subscription, montant_total, db, assureur_id=assureur_id
             )
 
@@ -1616,7 +1494,7 @@ async def get_accounting_transactions(
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             )
         else:
-            insured_share, mh_share = _refund_policy_breakdown(
+            insured_share, mh_share = FinanceService.refund_policy_breakdown(
                 subscription, montant_total_original, "resiliation"
             )
         assureur_share = Decimal("0.00")
@@ -1675,4 +1553,22 @@ async def get_accounting_transactions(
         )
 
     return results
+
+
+@router.get("/{payment_id}/quittance")
+def get_payment_quittance(
+    payment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retourne la quittance de paiement générée (métadonnées + base64 ou URL)."""
+    payment = db.query(Paiement).filter(Paiement.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Paiement introuvable")
+
+    quittance = PaymentService.get_quittance(db, payment, current_user)
+    if not quittance:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Quittance non générée")
+
+    return quittance
 
