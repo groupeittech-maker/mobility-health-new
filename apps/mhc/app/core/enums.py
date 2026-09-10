@@ -26,10 +26,13 @@ class StatutSouscription(str, Enum):
     """Statut d'une souscription"""
     EN_ATTENTE = "en_attente"
     PENDING = "pending"  # Alias pour en_attente, utilisé pour les nouvelles souscriptions
+    EN_ATTENTE_VALIDATION = "en_attente_validation"  # En revue dans le pipeline de décision
+    EN_ATTENTE_PAIEMENT = "en_attente_paiement"  # Approuvé, en attente du règlement
     ACTIVE = "active"
     SUSPENDUE = "suspendue"
     RESILIEE = "resiliee"
     EXPIREE = "expiree"
+    REFUSEE = "refusee"
 
 
 class StatutPaiement(str, Enum):

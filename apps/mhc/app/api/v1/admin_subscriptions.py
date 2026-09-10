@@ -15,6 +15,7 @@ from app.schemas.souscription import SouscriptionResponse
 from app.schemas.questionnaire import QuestionnaireResponse
 from app.schemas.paiement import PaiementResponse
 from app.services.attestation_service import AttestationService
+from app.services.subscription_decision_service import SubscriptionDecisionEngine
 from pydantic import BaseModel
 from app.core.security import create_download_access_token
 
@@ -164,29 +165,33 @@ async def validate_medical(
             detail="Souscription non trouvée"
         )
     
-    # Mettre à jour la validation médicale
-    souscription.validation_medicale = "approved" if validation.approved else "rejected"
-    souscription.validation_medicale_par = current_user.id
-    souscription.validation_medicale_date = datetime.utcnow()
-    souscription.validation_medicale_notes = validation.notes
-    
-    # Notifier l'utilisateur du résultat de la validation médicale
+    # Enregistrer la revue médicale et avancer le workflow
+    result = SubscriptionDecisionEngine.record_review(
+        db=db,
+        souscription=souscription,
+        step="medical",
+        approved=validation.approved,
+        validator_user_id=current_user.id,
+        notes=validation.notes,
+    )
+
+    # Notifier l'utilisateur du résultat
     from app.models.notification import Notification
     from app.models.user import User
     user = db.query(User).filter(User.id == souscription.user_id).first()
-    
+
     if user:
-        if validation.approved:
-            message = f"📋 Informations:\n• Votre prise en charge pour la souscription #{souscription.numero_souscription} a été validée par le médecin référent MH.\n• Votre dossier est en cours de traitement."
-            if validation.notes:
-                message += f"\n• Notes du médecin: {validation.notes}"
-        else:
+        if result.decision == "reject":
             message = f"📋 Informations:\n• Votre prise en charge pour la souscription #{souscription.numero_souscription} a été refusée par le médecin référent MH."
             if validation.notes:
                 message += f"\n• Motif du refus: {validation.notes}"
             else:
                 message += "\n• Veuillez contacter le service client pour plus d'informations."
-        
+        else:
+            message = f"📋 Informations:\n• Votre prise en charge pour la souscription #{souscription.numero_souscription} a été validée par le médecin référent MH.\n• Votre dossier est en cours de traitement."
+            if validation.notes:
+                message += f"\n• Notes du médecin: {validation.notes}"
+
         notification = Notification(
             user_id=user.id,
             type_notification="medical_validation_result",
@@ -196,10 +201,10 @@ async def validate_medical(
             lien_relation_type="souscription"
         )
         db.add(notification)
-    
+
     db.commit()
     db.refresh(souscription)
-    
+
     return souscription
 
 
@@ -222,15 +227,19 @@ async def validate_tech(
             detail="Souscription non trouvée"
         )
     
-    # Mettre à jour la validation technique
-    souscription.validation_technique = "approved" if validation.approved else "rejected"
-    souscription.validation_technique_par = current_user.id
-    souscription.validation_technique_date = datetime.utcnow()
-    souscription.validation_technique_notes = validation.notes
-    
+    # Enregistrer la revue technique et avancer le workflow
+    SubscriptionDecisionEngine.record_review(
+        db=db,
+        souscription=souscription,
+        step="technical",
+        approved=validation.approved,
+        validator_user_id=current_user.id,
+        notes=validation.notes,
+    )
+
     db.commit()
     db.refresh(souscription)
-    
+
     return souscription
 
 
@@ -244,17 +253,16 @@ async def approve_final(
     """
     Approuver ou refuser définitivement une souscription (agent de production MH).
 
-    Après un avis médical (favorable ou défavorable), l'agent statue en dernier.
-    Approbation : attestation définitive et e-carte si besoin.
-    Refus définitif : résiliation, ligne de validation production sur l'attestation provisoire,
-    remboursement automatique de 90 % du prix appliqué au client (10 % retenue frais MH) si paiement valide.
+    Dernier niveau du pipeline de décision. Ne génère plus d'attestation ici :
+    l'attestation définitive et la quittance sont créées après encaissement du paiement.
     """
     import logging
+    import uuid
+    from decimal import Decimal
+
     from app.models.paiement import Paiement
-    from app.models.attestation import Attestation
-    from app.models.validation_attestation import ValidationAttestation
-    from app.core.enums import StatutPaiement
-    from app.services.attestation_service import AttestationService
+    from app.models.finance_account import Account
+    from app.services.finance_service import FinanceService
 
     logger = logging.getLogger(__name__)
     souscription = db.query(Souscription).options(
@@ -269,127 +277,17 @@ async def approve_final(
             detail="Souscription non trouvée"
         )
 
-    souscription.validation_finale = "approved" if validation.approved else "rejected"
-    souscription.validation_finale_par = current_user.id
-    souscription.validation_finale_date = datetime.utcnow()
-    souscription.validation_finale_notes = validation.notes
+    result = SubscriptionDecisionEngine.record_review(
+        db=db,
+        souscription=souscription,
+        step="production",
+        approved=validation.approved,
+        validator_user_id=current_user.id,
+        notes=validation.notes,
+    )
 
-    if validation.approved:
-        souscription.statut = StatutSouscription.ACTIVE
-
-        attestation_provisoire = db.query(Attestation).filter(
-            Attestation.souscription_id == subscription_id,
-            Attestation.type_attestation == "provisoire",
-        ).first()
-
-        if not attestation_provisoire:
-            paiement = db.query(Paiement).filter(
-                Paiement.souscription_id == subscription_id,
-                Paiement.statut == StatutPaiement.VALIDE.name,
-            ).order_by(Paiement.created_at.desc()).first()
-            user = souscription.user
-            if paiement and user:
-                try:
-                    attestation_provisoire = AttestationService.create_attestation_provisoire(
-                        db=db,
-                        souscription=souscription,
-                        paiement=paiement,
-                        user=user,
-                    )
-                    db.flush()
-                    logger.info("Attestation provisoire créée pour souscription %s (ID %s)", souscription.numero_souscription, subscription_id)
-                except Exception as e:
-                    logger.exception("Erreur création attestation provisoire: %s", e)
-                    raise HTTPException(
-                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail=f"Erreur lors de la création de l'attestation provisoire: {str(e)}",
-                    )
-            else:
-                logger.warning("Souscription %s approuvée sans paiement valide - attestation non créée", subscription_id)
-
-        if attestation_provisoire:
-            validation_prod = db.query(ValidationAttestation).filter(
-                ValidationAttestation.attestation_id == attestation_provisoire.id,
-                ValidationAttestation.type_validation.in_(["production", "agpmh"]),
-            ).first()
-            if not validation_prod:
-                validation_prod = ValidationAttestation(
-                    attestation_id=attestation_provisoire.id,
-                    type_validation="production",
-                    est_valide=True,
-                    valide_par_user_id=current_user.id,
-                    date_validation=datetime.utcnow(),
-                )
-                db.add(validation_prod)
-                db.flush()
-
-            existing_definitive = db.query(Attestation).filter(
-                Attestation.souscription_id == subscription_id,
-                Attestation.type_attestation == "definitive",
-            ).first()
-            if not existing_definitive:
-                paiement = db.query(Paiement).filter(
-                    Paiement.souscription_id == subscription_id,
-                    Paiement.statut == StatutPaiement.VALIDE.name,
-                ).order_by(Paiement.created_at.desc()).first()
-                user = souscription.user
-                if paiement and user:
-                    try:
-                        existing_definitive = AttestationService.create_attestation_definitive(
-                            db=db,
-                            souscription=souscription,
-                            paiement=paiement,
-                            user=user,
-                        )
-                        db.flush()
-                        logger.info("Attestation définitive créée pour souscription %s", souscription.numero_souscription)
-                    except ValueError as e:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=str(e),
-                        )
-                    except Exception as e:
-                        logger.exception("Erreur création attestation définitive: %s", e)
-                        raise HTTPException(
-                            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            detail=f"Erreur lors de la création de l'attestation définitive: {str(e)}",
-                        )
-
-    else:
-        # Refus définitif : résiliation + trace validation production + remboursement
-        # intégral de la prime (assureur + courtier), MH conservant uniquement les frais de service.
-        souscription.statut = StatutSouscription.RESILIEE
-        attestation_provisoire = db.query(Attestation).filter(
-            Attestation.souscription_id == subscription_id,
-            Attestation.type_attestation == "provisoire",
-        ).first()
-        if attestation_provisoire:
-            validation_prod = db.query(ValidationAttestation).filter(
-                ValidationAttestation.attestation_id == attestation_provisoire.id,
-                ValidationAttestation.type_validation.in_(["production", "agpmh"]),
-            ).first()
-            if not validation_prod:
-                validation_prod = ValidationAttestation(
-                    attestation_id=attestation_provisoire.id,
-                    type_validation="production",
-                    est_valide=False,
-                    commentaires=validation.notes,
-                    valide_par_user_id=current_user.id,
-                    date_validation=None,
-                )
-                db.add(validation_prod)
-            else:
-                validation_prod.est_valide = False
-                validation_prod.commentaires = validation.notes
-                validation_prod.valide_par_user_id = current_user.id
-                validation_prod.date_validation = None
-
-        import uuid
-        from decimal import Decimal
-
-        from app.models.finance_account import Account
-        from app.services.finance_service import FinanceService
-
+    if result.decision == "reject":
+        # Remboursement si un paiement valide existe (flux legacy ou paiement anticipé)
         try:
             paiement = (
                 db.query(Paiement)
@@ -406,7 +304,6 @@ async def approve_final(
                 elif getattr(souscription, "prime_assurance", None) is not None:
                     retenue_mh = (base - Decimal(str(souscription.prime_assurance))).quantize(Decimal("0.01"))
                 else:
-                    # Repli legacy si le détail prime/frais n'existe pas encore.
                     retenue_mh = (base * Decimal("0.10")).quantize(Decimal("0.01"))
                 if retenue_mh < Decimal("0.00"):
                     retenue_mh = Decimal("0.00")

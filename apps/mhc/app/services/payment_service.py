@@ -173,14 +173,21 @@ class PaymentService:
             if generate_attestation:
                 user = db.query(User).filter(User.id == payment.user_id).first()
                 if user:
-                    attestation = AttestationService.create_attestation_provisoire(
-                        db=db,
-                        souscription=subscription,
-                        paiement=payment,
-                        user=user,
-                    )
-                    attestation_number = attestation.numero_attestation
-                    attestation_url = attestation.url_signee
+                    try:
+                        attestation = AttestationService.create_attestation_definitive(
+                            db=db,
+                            souscription=subscription,
+                            paiement=payment,
+                            user=user,
+                        )
+                        attestation_number = attestation.numero_attestation
+                        attestation_url = attestation.url_signee
+                    except Exception as attestation_error:
+                        logger.warning(
+                            "Attestation définitive non générée pour le paiement %s: %s",
+                            payment.id,
+                            attestation_error,
+                        )
                     try:
                         AttestationService.issue_quittance_paiement(db, subscription, payment, user)
                     except Exception as quittance_error:
@@ -214,13 +221,13 @@ class PaymentService:
                     user = db.query(User).filter(User.id == payment.user_id).first()
                     if user:
                         display_name = user.full_name or user.username
-                        email_subject = f"Attestation provisoire - {attestation_number}"
+                        email_subject = f"Attestation d'assurance - {attestation_number}"
                         email_body_html = f"""
                         <html>
                         <body>
-                            <h2>Votre attestation provisoire est prête</h2>
+                            <h2>Votre attestation d'assurance est prête</h2>
                             <p>Bonjour {display_name},</p>
-                            <p>Votre paiement a été validé avec succès. Votre attestation provisoire est disponible.</p>
+                            <p>Votre paiement a été validé avec succès. Votre attestation définitive et votre quittance sont disponibles.</p>
                             <p><strong>Numéro d'attestation:</strong> {attestation_number}</p>
                             <p><strong>Numéro de souscription:</strong> {subscription.numero_souscription}</p>
                             <p><strong>Montant payé:</strong> {payment.montant} FCFA</p>
@@ -230,11 +237,11 @@ class PaymentService:
                         </html>
                         """
                         email_body_text = f"""
-                        Votre attestation provisoire est prête
+                        Votre attestation d'assurance est prête
 
                         Bonjour {display_name},
 
-                        Votre paiement a été validé avec succès. Votre attestation provisoire est disponible.
+                        Votre paiement a été validé avec succès. Votre attestation définitive et votre quittance sont disponibles.
 
                         Numéro d'attestation: {attestation_number}
                         Numéro de souscription: {subscription.numero_souscription}
@@ -255,7 +262,7 @@ class PaymentService:
                             )
                         if user.telephone:
                             sms_message = (
-                                f"Votre attestation provisoire {attestation_number} est prête. "
+                                f"Votre attestation {attestation_number} est prête. "
                                 f"Montant: {payment.montant} FCFA. Mobility Health"
                             )
                             send_sms.delay(

@@ -1,0 +1,441 @@
+"""Moteur de décision automatique pour la souscription MHC.
+
+Le moteur évalue un dossier juste après la soumission du formulaire / questionnaire.
+Trois sorties possibles :
+- APPROVE  -> statut EN_ATTENTE_PAIEMENT
+- REJECT   -> statut REFUSEE
+- REVIEW   -> statut EN_ATTENTE_VALIDATION, avec routage vers la bonne étape
+              du pipeline existant (medical, technical, production).
+"""
+from __future__ import annotations
+
+import json
+import logging
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
+from typing import Any, Optional
+
+from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.core.enums import StatutSouscription
+from app.models.paiement import Paiement
+from app.models.produit_assurance import ProduitAssurance
+from app.models.projet_voyage import ProjetVoyage
+from app.models.questionnaire import Questionnaire
+from app.models.souscription import Souscription
+from app.models.user import User
+from app.services.medical_eligibility import MedicalEligibilityError, validate_medical_eligibility
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Règles métier paramétrables
+# ---------------------------------------------------------------------------
+MEDICAL_REVIEW_KEYS = [
+    "enceinte",
+    "grossesse",
+    "pregnancy",
+    "mois_grossesse",
+    "moisGrossesse",
+]
+
+MEDICAL_REVIEW_HINTS = [
+    "maladie chronique",
+    "chronique",
+    "diabete",
+    "hypertension",
+    "asthme severe",
+    "opere",
+    "operation",
+    "chirurgie",
+    "greffe",
+    "insuffisance",
+    "cardiaque",
+    "epilepsie",
+    "thrombose",
+    "embolie",
+    "cancer",
+    "tumeur",
+]
+
+MEDICAL_REJECTION_HINTS = [
+    "dialyse",
+    "insuffisance renale",
+    "cancer en cours",
+    "cancer actif",
+    "sida",
+    "transplantation",
+    "greffe recente",
+    "maladie terminale",
+    "hospitalisation prolongee",
+]
+
+TECHNICAL_REVIEW_HINTS = [
+    "long sejour",
+    "plus de 30 jours",
+    "groupe",
+    "famille nombreuse",
+    "entreprise",
+    "business",
+    "affaires",
+    "sport extreme",
+    "sport a risque",
+    "derogation",
+    "demande speciale",
+]
+
+PRODUCTION_REVIEW_HINTS = [
+    "entreprise",
+    "societe",
+    "groupe",
+    "business",
+    "affaires",
+    "sport extreme",
+    "aventure",
+    "montagne",
+    "plongee",
+    "parachutisme",
+]
+
+REVIEW_STEP_ORDER = ["medical", "technical", "production"]
+
+
+# ---------------------------------------------------------------------------
+# Structures de retour
+# ---------------------------------------------------------------------------
+@dataclass
+class DecisionResult:
+    decision: str  # approve | reject | review
+    primary_step: Optional[str] = None  # medical | technical | production
+    review_steps: list[str] = field(default_factory=list)
+    reasons: list[str] = field(default_factory=list)
+    risk_score: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+def _age_from_birthdate(birthdate: Optional[date]) -> Optional[int]:
+    if not birthdate:
+        return None
+    today = date.today()
+    return today.year - birthdate.year - ((today.month, today.day) < (birthdate.month, birthdate.day))
+
+
+def _trip_duration_days(project: Optional[ProjetVoyage]) -> Optional[int]:
+    if not project or not project.date_depart or not project.date_retour:
+        return None
+    return (project.date_retour - project.date_depart).days
+
+
+def _latest_medical_questionnaire(db: Session, souscription_id: int) -> Optional[Questionnaire]:
+    return (
+        db.query(Questionnaire)
+        .filter(
+            Questionnaire.souscription_id == souscription_id,
+            Questionnaire.type_questionnaire == "medical",
+            Questionnaire.statut == "complete",
+        )
+        .order_by(Questionnaire.version.desc())
+        .first()
+    )
+
+
+def _flatten_reponses(reponses: Any) -> list[str]:
+    """Aplatit un dict de réponses en liste de chaînes normalisées."""
+    result: list[str] = []
+    if not reponses:
+        return result
+
+    def _walk(value: Any):
+        if isinstance(value, dict):
+            for v in value.values():
+                _walk(v)
+        elif isinstance(value, list):
+            for item in value:
+                _walk(item)
+        elif value is not None:
+            result.append(str(value).lower().strip())
+
+    _walk(reponses)
+    return result
+
+
+def _contains_any(texts: list[str], hints: list[str]) -> bool:
+    joined = " ".join(texts)
+    return any(hint in joined for hint in hints)
+
+
+def _destination_excluded(destination: str, product: ProduitAssurance) -> bool:
+    zones = product.zones_geographiques or {}
+    excluded = zones.get("pays_exclus") or zones.get("excluded") or []
+    return destination.lower() in [str(z).lower() for z in excluded]
+
+
+# ---------------------------------------------------------------------------
+# Moteur
+# ---------------------------------------------------------------------------
+class SubscriptionDecisionEngine:
+    """Décision automatique d'acceptation / refus / revue d'une souscription."""
+
+    @staticmethod
+    def evaluate(
+        db: Session,
+        souscription: Souscription,
+        *,
+        user: Optional[User] = None,
+        product: Optional[ProduitAssurance] = None,
+        project: Optional[ProjetVoyage] = None,
+        questionnaire: Optional[Questionnaire] = None,
+    ) -> DecisionResult:
+        """
+        Évalue le dossier et met à jour la souscription (statut + validations pending).
+        Ne fait pas de commit : l'appelant reste maître de la transaction.
+        """
+        if souscription.statut in {
+            StatutSouscription.ACTIVE,
+            StatutSouscription.RESILIEE,
+            StatutSouscription.REFUSEE,
+            StatutSouscription.EXPIREE,
+        }:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La souscription est déjà dans un état terminal",
+            )
+
+        user = user or souscription.user
+        product = product or souscription.produit_assurance
+        project = project or souscription.projet_voyage
+        questionnaire = questionnaire or _latest_medical_questionnaire(db, souscription.id)
+
+        reponses = questionnaire.reponses if questionnaire else {}
+        flat = _flatten_reponses(reponses)
+
+        reasons: list[str] = []
+        review_steps: set[str] = set()
+        age = _age_from_birthdate(user.date_naissance if user else None)
+
+        # 1. Règles de refus dur
+        if age is not None and product.age_minimum is not None and age < product.age_minimum:
+            reasons.append(f"Âge inférieur au minimum ({age} < {product.age_minimum})")
+            return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
+
+        if age is not None and product.age_maximum is not None and age > product.age_maximum:
+            reasons.append(f"Âge supérieur au maximum ({age} > {product.age_maximum})")
+            return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
+
+        try:
+            validate_medical_eligibility(reponses)
+        except MedicalEligibilityError as exc:
+            reasons.append(str(exc))
+            return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
+
+        duration = _trip_duration_days(project)
+        if duration is not None and product.duree_max_jours is not None and duration > product.duree_max_jours:
+            reasons.append(f"Durée supérieure au maximum ({duration} > {product.duree_max_jours} jours)")
+            return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
+
+        if project and _destination_excluded(project.destination, product):
+            reasons.append(f"Destination exclue du produit ({project.destination})")
+            return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
+
+        if _contains_any(flat, MEDICAL_REJECTION_HINTS):
+            for hint in MEDICAL_REJECTION_HINTS:
+                if hint in " ".join(flat):
+                    reasons.append(f"Condition médicale à exclusion automatique détectée ({hint})")
+                    break
+            return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
+
+        # 2. Règles de revue
+        # Médical
+        pregnant = any(k in reponses for k in MEDICAL_REVIEW_KEYS) or any(
+            "enceinte" in t or "grossesse" in t or "pregnant" in t for t in flat
+        )
+        if pregnant:
+            review_steps.add("medical")
+            reasons.append("Grossesse déclarée : revue médicale requise")
+
+        if age is not None and age >= 70:
+            review_steps.add("medical")
+            reasons.append(f"Assuré âgé de {age} ans : revue médicale requise")
+
+        if _contains_any(flat, MEDICAL_REVIEW_HINTS):
+            review_steps.add("medical")
+            reasons.append("Antécédent / condition médicale déclarée : revue médicale requise")
+
+        # Technique
+        if duration is not None and duration > 30:
+            review_steps.add("technical")
+            reasons.append(f"Séjour long ({duration} jours) : revue technique requise")
+
+        if project and project.nombre_participants and project.nombre_participants > 1:
+            review_steps.add("technical")
+            reasons.append("Plusieurs participants : revue technique requise")
+
+        if souscription.prix_applique is not None and souscription.prix_applique > 200000:
+            review_steps.add("technical")
+            reasons.append("Montant élevé : revue technique requise")
+
+        if _contains_any(flat, TECHNICAL_REVIEW_HINTS):
+            review_steps.add("technical")
+            reasons.append("Indicateur technique détecté : revue technique requise")
+
+        # Production
+        if _contains_any(flat, PRODUCTION_REVIEW_HINTS):
+            review_steps.add("production")
+            reasons.append("Indicateur production / dérogation détecté : revue production requise")
+
+        if review_steps:
+            ordered = [s for s in REVIEW_STEP_ORDER if s in review_steps]
+            return SubscriptionDecisionEngine._apply_review(souscription, ordered, reasons)
+
+        # 3. Acceptation automatique
+        return SubscriptionDecisionEngine._apply_approve(souscription, reasons)
+
+    # -----------------------------------------------------------------------
+    # Application des décisions
+    # -----------------------------------------------------------------------
+    @staticmethod
+    def _apply_reject(souscription: Souscription, reasons: list[str]) -> DecisionResult:
+        souscription.statut = StatutSouscription.REFUSEE
+        souscription.validation_medicale = "rejected"
+        souscription.validation_technique = "rejected"
+        souscription.validation_finale = "rejected"
+        logger.info(
+            "Souscription %s refusée automatiquement : %s",
+            souscription.id,
+            "; ".join(reasons),
+        )
+        return DecisionResult(decision="reject", reasons=reasons, risk_score=100)
+
+    @staticmethod
+    def _apply_review(
+        souscription: Souscription,
+        review_steps: list[str],
+        reasons: list[str],
+    ) -> DecisionResult:
+        souscription.statut = StatutSouscription.EN_ATTENTE_VALIDATION
+        souscription.validation_medicale = None
+        souscription.validation_technique = None
+        souscription.validation_finale = None
+        for step in review_steps:
+            if step == "medical":
+                souscription.validation_medicale = "pending"
+            elif step == "technical":
+                souscription.validation_technique = "pending"
+            elif step == "production":
+                souscription.validation_finale = "pending"
+
+        risk_score = 30 + min(len(review_steps) * 20, 50)
+        logger.info(
+            "Souscription %s envoyée en revue %s : %s",
+            souscription.id,
+            review_steps,
+            "; ".join(reasons),
+        )
+        return DecisionResult(
+            decision="review",
+            primary_step=review_steps[0],
+            review_steps=review_steps,
+            reasons=reasons,
+            risk_score=risk_score,
+        )
+
+    @staticmethod
+    def _apply_approve(souscription: Souscription, reasons: list[str]) -> DecisionResult:
+        souscription.statut = StatutSouscription.EN_ATTENTE_PAIEMENT
+        souscription.validation_medicale = "approved"
+        souscription.validation_technique = "approved"
+        souscription.validation_finale = "approved"
+        logger.info(
+            "Souscription %s approuvée automatiquement, en attente de paiement",
+            souscription.id,
+        )
+        return DecisionResult(decision="approve", reasons=reasons, risk_score=0)
+
+    # -----------------------------------------------------------------------
+    # Gestion du pipeline de revue
+    # -----------------------------------------------------------------------
+    @staticmethod
+    def record_review(
+        db: Session,
+        souscription: Souscription,
+        step: str,
+        approved: bool,
+        validator_user_id: int,
+        notes: Optional[str] = None,
+    ) -> DecisionResult:
+        """
+        Enregistre le résultat d'une étape de revue et avance le workflow.
+        step ∈ {"medical", "technical", "production"}
+        """
+        now = datetime.utcnow()
+        if step == "medical":
+            if souscription.validation_medicale != "pending":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Revue médicale non en attente",
+                )
+            souscription.validation_medicale = "approved" if approved else "rejected"
+            souscription.validation_medicale_par = validator_user_id
+            souscription.validation_medicale_date = now
+            souscription.validation_medicale_notes = notes
+        elif step == "technical":
+            if souscription.validation_technique != "pending":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Revue technique non en attente",
+                )
+            souscription.validation_technique = "approved" if approved else "rejected"
+            souscription.validation_technique_par = validator_user_id
+            souscription.validation_technique_date = now
+            souscription.validation_technique_notes = notes
+        elif step == "production":
+            if souscription.validation_finale != "pending":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Approbation finale non en attente",
+                )
+            souscription.validation_finale = "approved" if approved else "rejected"
+            souscription.validation_finale_par = validator_user_id
+            souscription.validation_finale_date = now
+            souscription.validation_finale_notes = notes
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Étape de revue inconnue : {step}",
+            )
+
+        if not approved:
+            souscription.statut = StatutSouscription.REFUSEE
+            return DecisionResult(
+                decision="reject",
+                reasons=[f"Revue {step} rejetée" + (f" ({notes})" if notes else "")],
+                risk_score=100,
+            )
+
+        # Détermine la prochaine étape encore pending
+        attr_map = {
+            "medical": "validation_medicale",
+            "technical": "validation_technique",
+            "production": "validation_finale",
+        }
+        for next_step in REVIEW_STEP_ORDER:
+            val = getattr(souscription, attr_map[next_step])
+            if val == "pending":
+                souscription.statut = StatutSouscription.EN_ATTENTE_VALIDATION
+                return DecisionResult(
+                    decision="review",
+                    primary_step=next_step,
+                    reasons=[f"Revue {step} approuvée, en attente de {next_step}"],
+                )
+
+        # Toutes les revues sont approuvées : le dossier peut payer
+        souscription.statut = StatutSouscription.EN_ATTENTE_PAIEMENT
+        return DecisionResult(
+            decision="approve",
+            reasons=[f"Revue {step} approuvée, dossier prêt pour paiement"],
+            risk_score=0,
+        )

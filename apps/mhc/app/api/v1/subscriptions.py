@@ -33,7 +33,9 @@ from app.schemas.souscription import (
     SurprimeAgeReferenceItem,
 )
 from app.schemas.ecard import ECardResponse
+from app.schemas.subscription_decision import SubscriptionDecisionResult
 from app.services.attestation_service import AttestationService
+from app.services.subscription_decision_service import SubscriptionDecisionEngine
 from app.api.v1.attestations import (
     _get_ecard_public_base,
     _build_ecard_proxy_url,
@@ -1104,5 +1106,59 @@ async def delete_subscription(
     # Supprimer la souscription (les attestations seront supprimées en cascade)
     db.delete(souscription)
     db.commit()
-    
+
     return None
+
+
+@router.post(
+    "/{subscription_id}/evaluate",
+    response_model=SubscriptionDecisionResult,
+    status_code=status.HTTP_200_OK,
+)
+async def evaluate_subscription(
+    subscription_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Évalue automatiquement une souscription juste après la soumission du dossier.
+
+    Décisions possibles :
+    - approve : souscription approuvée, en attente de paiement
+    - reject  : souscription refusée
+    - review  : dossier à valider par le pipeline médical / technique / production
+    """
+    souscription = (
+        db.query(Souscription)
+        .options(
+            selectinload(Souscription.user),
+            selectinload(Souscription.produit_assurance),
+            selectinload(Souscription.projet_voyage),
+        )
+        .filter(
+            Souscription.id == subscription_id,
+            Souscription.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not souscription:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Souscription non trouvée",
+        )
+
+    result = SubscriptionDecisionEngine.evaluate(db, souscription)
+    db.commit()
+    db.refresh(souscription)
+
+    return SubscriptionDecisionResult(
+        souscription_id=souscription.id,
+        numero_souscription=souscription.numero_souscription,
+        decision=result.decision,
+        primary_step=result.primary_step,
+        review_steps=result.review_steps,
+        reasons=result.reasons,
+        risk_score=result.risk_score,
+        statut=souscription.statut.value,
+    )

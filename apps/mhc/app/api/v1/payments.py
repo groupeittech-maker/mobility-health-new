@@ -24,6 +24,7 @@ from app.services.attestation_service import AttestationService
 from app.services.finance_service import FinanceService
 from app.services.notification_service import NotificationService
 from app.services.payment_service import PaymentService
+from app.services.subscription_decision_service import SubscriptionDecisionEngine
 from app.services.prime_tarif_service import resolve_prime_tarif_detail
 from app.schemas.paiement import AccountingTransaction
 import json
@@ -148,12 +149,15 @@ class PaymentCheckoutRequest(BaseModel):
 class PaymentCheckoutResponse(BaseModel):
     subscription_id: int
     numero_souscription: str
-    payment_id: int
-    payment_status: StatutPaiement
-    amount: Decimal
-    attestation_id: int
-    attestation_number: str
-    attestation_url: Optional[str]
+    decision: str = "approve"  # approve | reject | review
+    primary_step: Optional[str] = None
+    reasons: List[str] = []
+    payment_id: Optional[int] = None
+    payment_status: Optional[StatutPaiement] = None
+    amount: Optional[Decimal] = None
+    attestation_id: Optional[int] = None
+    attestation_number: Optional[str] = None
+    attestation_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -246,7 +250,7 @@ def process_payment_success(
 
             user = db.query(User).filter(User.id == payment.user_id).first()
             if user:
-                attestation = AttestationService.create_attestation_provisoire(
+                attestation = AttestationService.create_attestation_definitive(
                     db=db,
                     souscription=subscription,
                     paiement=payment,
@@ -290,9 +294,9 @@ def process_payment_success(
                     email_body_html = f"""
                     <html>
                     <body>
-                        <h2>Votre attestation provisoire est prête</h2>
+                        <h2>Votre attestation définitive est prête</h2>
                         <p>Bonjour {display_name},</p>
-                        <p>Votre paiement a été validé avec succès. Votre attestation provisoire est disponible.</p>
+                        <p>Votre paiement a été validé avec succès. Votre attestation définitive est disponible.</p>
                         <p><strong>Numéro d'attestation:</strong> {attestation_number}</p>
                         <p><strong>Numéro de souscription:</strong> {subscription.numero_souscription}</p>
                         <p><strong>Montant payé:</strong> {payment.montant} FCFA</p>
@@ -302,11 +306,11 @@ def process_payment_success(
                     </html>
                     """
                     email_body_text = f"""
-                    Votre attestation provisoire est prête
+                    Votre attestation définitive est prête
                     
                     Bonjour {display_name},
                     
-                    Votre paiement a été validé avec succès. Votre attestation provisoire est disponible.
+                    Votre paiement a été validé avec succès. Votre attestation définitive est disponible.
                     
                     Numéro d'attestation: {attestation_number}
                     Numéro de souscription: {subscription.numero_souscription}
@@ -328,7 +332,7 @@ def process_payment_success(
                         )
                     
                     if user.telephone:
-                        sms_message = f"Votre attestation provisoire {attestation_number} est prête. Montant: {payment.montant} FCFA. Mobility Health"
+                        sms_message = f"Votre attestation définitive {attestation_number} est prête. Montant: {payment.montant} FCFA. Mobility Health"
                         send_sms.delay(
                             to_phone=user.telephone,
                             message=sms_message,
@@ -371,11 +375,11 @@ async def initiate_payment(
             detail="Subscription not found"
         )
     
-    # Vérifier que la souscription n'est pas déjà payée
-    if subscription.statut == StatutSouscription.ACTIVE:
+    # Vérifier que la souscription est prête à payer
+    if subscription.statut != StatutSouscription.EN_ATTENTE_PAIEMENT:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Subscription already paid"
+            detail="La souscription n'est pas en attente de paiement"
         )
     
     # Créer le paiement
@@ -847,6 +851,29 @@ async def checkout_payment(
         label="médical",
     )
 
+    # Évaluation automatique du dossier : acceptation / refus / revue
+    decision_result = SubscriptionDecisionEngine.evaluate(db, souscription)
+
+    if decision_result.decision == "reject":
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="; ".join(decision_result.reasons),
+        )
+
+    if decision_result.decision == "review":
+        db.commit()
+        return PaymentCheckoutResponse(
+            subscription_id=souscription.id,
+            numero_souscription=souscription.numero_souscription,
+            decision=decision_result.decision,
+            primary_step=decision_result.primary_step,
+            reasons=decision_result.reasons,
+        )
+
+    # Le dossier est approuvé : créer le paiement et finaliser
+    souscription.statut = StatutSouscription.EN_ATTENTE_PAIEMENT
+
     paiement = Paiement(
         souscription_id=souscription.id,
         user_id=current_user.id,
@@ -872,12 +899,13 @@ async def checkout_payment(
             f"fullName dans reponses: '{questionnaire_administratif.reponses.get('personal', {}).get('fullName', 'NOT FOUND') if questionnaire_administratif.reponses else 'NO REPONSES'}'"
         )
 
-    attestation = AttestationService.create_attestation_provisoire(
+    attestation = AttestationService.create_attestation_definitive(
         db=db,
         souscription=souscription,
         paiement=paiement,
         user=current_user
     )
+    souscription.statut = StatutSouscription.ACTIVE
     try:
         AttestationService.issue_quittance_paiement(db, souscription, paiement, current_user)
         db.commit()
@@ -931,6 +959,8 @@ async def checkout_payment(
     return PaymentCheckoutResponse(
         subscription_id=souscription.id,
         numero_souscription=souscription.numero_souscription,
+        decision="approve",
+        reasons=[],
         payment_id=paiement.id,
         payment_status=paiement.statut,
         amount=montant,
@@ -949,7 +979,7 @@ async def confirm_payment(
 ):
     """
     Confirmer le paiement d'une souscription existante.
-    Crée un paiement validé, active la souscription et génère une attestation provisoire.
+    Crée un paiement validé, active la souscription et génère une attestation définitive.
     TOUTES les demandes sont automatiquement validées (pas de vrai processeur de paiement).
     """
     # Vérifier que la souscription existe et appartient à l'utilisateur
@@ -971,7 +1001,7 @@ async def confirm_payment(
     
     logger.info(f"Souscription trouvée: id={souscription.id}, statut={souscription.statut}, prix={souscription.prix_applique}")
     
-    # Vérifier que la souscription n'est pas déjà payée
+    # Vérifier que la souscription est prête à payer ou déjà payée
     if souscription.statut == StatutSouscription.ACTIVE:
         # Vérifier s'il existe déjà un paiement valide pour cette souscription
         existing_payment = db.query(Paiement).filter(
@@ -982,13 +1012,13 @@ async def confirm_payment(
         ).first()
         
         if existing_payment:
-            # Récupérer l'attestation associée
+            # Récupérer l'attestation définitive associée
             from app.models.attestation import Attestation
             attestation = db.query(Attestation).filter(
                 and_(
                     Attestation.souscription_id == request.souscription_id,
                     Attestation.paiement_id == existing_payment.id,
-                    Attestation.type_attestation == "provisoire"
+                    Attestation.type_attestation == "definitive"
                 )
             ).order_by(Attestation.created_at.desc()).first()
             
@@ -1008,7 +1038,13 @@ async def confirm_payment(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="La souscription est déjà active mais aucun paiement valide trouvé"
             )
-    
+
+    if souscription.statut not in {StatutSouscription.ACTIVE, StatutSouscription.EN_ATTENTE_PAIEMENT}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La souscription n'est pas en attente de paiement"
+        )
+
     # Vérifier que le montant correspond au prix de la souscription (tolérance de 0.01)
     if abs(float(request.montant) - float(souscription.prix_applique)) > 0.01:
         logger.warning(f"Montant incorrect: {request.montant} vs {souscription.prix_applique}")
@@ -1044,15 +1080,15 @@ async def confirm_payment(
         # Mettre à jour le statut de la souscription
         souscription.statut = StatutSouscription.ACTIVE
         
-        # Générer l'attestation provisoire (avec gestion d'erreur)
+        # Générer l'attestation définitive (avec gestion d'erreur)
         try:
-            attestation = AttestationService.create_attestation_provisoire(
+            attestation = AttestationService.create_attestation_definitive(
                 db=db,
                 souscription=souscription,
                 paiement=paiement,
                 user=current_user
             )
-            logger.info(f"Attestation provisoire créée: {attestation.numero_attestation}")
+            logger.info(f"Attestation définitive créée: {attestation.numero_attestation}")
             try:
                 AttestationService.issue_quittance_paiement(db, souscription, paiement, current_user)
             except Exception as quittance_error:
@@ -1062,7 +1098,7 @@ async def confirm_payment(
             db.rollback()  # Annuler toute la transaction
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erreur lors de la génération de l'attestation provisoire: {str(attestation_error)}"
+                detail=f"Erreur lors de la génération de l'attestation définitive: {str(attestation_error)}"
             )
         
         # Récupérer l'IP et le user agent
@@ -1344,7 +1380,7 @@ async def get_accounting_transactions(
             )
         else:
             status_code = "provisional"
-            status_label = "reçu provisoire - attestation provisoire"
+            status_label = "reçu provisoire - attestation définitive"
             assureur_share, mh_share, broker_share, broker_id, broker_name, broker_pct = FinanceService.ledger_with_optional_courtier(
                 subscription, montant_total, db, assureur_id=assureur_id
             )
