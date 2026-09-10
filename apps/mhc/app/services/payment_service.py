@@ -19,10 +19,12 @@ from app.core.database import SessionLocal
 from app.core.enums import StatutPaiement, StatutSouscription
 from app.integrations.payment import get_payment_client
 from app.integrations.payment.schemas import PaymentCustomer, PaymentIntentRequest
+from app.models.finance_account import Account
 from app.models.paiement import Paiement
 from app.models.souscription import Souscription
 from app.models.user import User
 from app.services.attestation_service import AttestationService
+from app.services.finance_service import FinanceService
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +136,36 @@ class PaymentService:
             payment.statut = StatutPaiement.VALIDE
             payment.date_paiement = datetime.utcnow()
             subscription.statut = StatutSouscription.ACTIVE
+
+            # Encaissement du montant sur le compte principal (paiement collecté).
+            # La répartition entre assureur, courtier, MH est gérée séparément par FinanceService.
+            enc_account = (
+                db.query(Account)
+                .filter(Account.account_number == "ENC-XAF")
+                .first()
+            )
+            if not enc_account:
+                enc_account = Account(
+                    account_number="ENC-XAF",
+                    account_name="Encaissement principal",
+                    account_type="internal",
+                    currency="XAF",
+                    balance=Decimal("0.00"),
+                )
+                db.add(enc_account)
+                db.flush()
+
+            FinanceService.create_movement(
+                db=db,
+                account_id=enc_account.id,
+                movement_type="payment",
+                amount=payment.montant,
+                description=f"Encaissement souscription {subscription.numero_souscription}",
+                reference=f"PAY-{payment.reference_transaction}",
+                reference_type="payment",
+                related_id=payment.id,
+                currency="XAF",
+            )
 
             attestation_number = None
             attestation_url = None

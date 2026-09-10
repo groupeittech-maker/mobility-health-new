@@ -468,9 +468,10 @@ async def payment_webhook(
         db.commit()
         db.refresh(payment)
         
-        # Traiter le paiement en arrière-plan avec transitions ACID
+        # Encaissement, attestation et quittance en arrière-plan.
+        # La répartition comptable se fait séparément via FinanceService.
         background_tasks.add_task(
-            process_payment_success,
+            PaymentService.process_payment_success,
             payment_id=payment.id,
             subscription_id=payment.souscription_id,
             generate_attestation=True
