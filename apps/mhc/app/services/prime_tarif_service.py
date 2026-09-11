@@ -193,7 +193,7 @@ def _apply_frais_et_taxes(
         taxes_detail.append({
             "nom": taxe.nom,
             "taux_pct": float(taux),
-            "montant": montant,
+            "montant": float(montant),
         })
 
     prix = (prime + frais + taxes_total).quantize(Decimal("0.01"))
