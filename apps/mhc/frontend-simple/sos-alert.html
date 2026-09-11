@@ -36,27 +36,32 @@
             color: var(--danger-color);
             margin-bottom: 0.5rem;
         }
-        .location-section {
-            margin-bottom: 2rem;
-        }
-        .location-help {
-            background-color: #e7f3ff;
-            border-left: 4px solid var(--primary-color);
-            padding: 1rem;
-            margin-top: 1rem;
-            font-size: 0.9rem;
-        }
-        .btn-get-location {
-            background-color: var(--primary-color);
+        .sos-button {
+            display: block;
+            width: 100%;
+            padding: 1.5rem 2rem;
+            font-size: 1.4rem;
+            font-weight: bold;
             color: white;
+            background: var(--danger-color);
             border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
+            border-radius: 12px;
             cursor: pointer;
-            margin-top: 0.5rem;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+            transition: background 0.2s, transform 0.1s;
         }
-        .btn-get-location:hover {
-            background-color: #0056b3;
+        .sos-button:hover:not(:disabled) {
+            background: #b91c1c;
+            transform: translateY(-1px);
+        }
+        .sos-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .sos-status {
+            text-align: center;
+            margin: 1rem 0;
         }
         .medecin-conseil-section {
             background: #f8fafc;
@@ -124,77 +129,22 @@
             <div class="emergency-notice">
                 <h3>⚠️ Urgence Médicale ?</h3>
                 <p>Si vous êtes dans une situation d'urgence médicale immédiate, appelez le <strong>112</strong> (numéro d'urgence européen) ou le service d'urgence local de votre pays.</p>
-                <p>Vous pouvez ensuite compléter ce formulaire pour nous informer de la situation.</p>
+                <p>Vous pouvez ensuite appuyer sur le bouton ci-dessous pour nous informer de la situation.</p>
             </div>
 
             <div id="medecinConseilContainer"></div>
 
-            <form id="sosAlertForm">
-                <div class="form-group">
-                    <label for="subscription_id">Souscription concernée</label>
-                    <select id="subscription_id" name="subscription_id" required>
-                        <option value="">-- Sélectionner une souscription --</option>
-                    </select>
-                    <small style="color: var(--secondary-color);">Sélectionnez la souscription d'assurance concernée</small>
-                </div>
+            <div id="sosStatus" class="sos-status"></div>
 
-                <div class="form-group">
-                    <label for="description">Description de l'urgence / sinistre <span style="color: var(--danger-color);">*</span></label>
-                    <textarea id="description" name="description" rows="5" required placeholder="Décrivez la situation en détail..."></textarea>
-                    <small style="color: var(--secondary-color);">Incluez tous les détails importants (lieu, heure, nature de l'urgence, etc.)</small>
-                </div>
-
-                <div class="location-section">
-                    <h3>Localisation</h3>
-                    <div class="form-group">
-                        <label for="latitude">Latitude</label>
-                        <input type="number" id="latitude" name="latitude" step="any" required>
-                        <small style="color: var(--secondary-color);">Coordonnées GPS de votre position</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="longitude">Longitude</label>
-                        <input type="number" id="longitude" name="longitude" step="any" required>
-                        <small style="color: var(--secondary-color);">Coordonnées GPS de votre position</small>
-                    </div>
-
-                    <button type="button" class="btn-get-location" onclick="getCurrentLocation()">
-                        📍 Utiliser ma position actuelle
-                    </button>
-
-                    <div class="location-help">
-                        <strong>💡 Astuce :</strong> Cliquez sur "Utiliser ma position actuelle" pour remplir automatiquement vos coordonnées GPS. Si cela ne fonctionne pas, vous pouvez trouver vos coordonnées en utilisant Google Maps (clic droit sur votre position > Coordonnées).
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="type_urgence">Type d'urgence</label>
-                    <select id="type_urgence" name="type_urgence" required>
-                        <option value="">-- Sélectionner un type --</option>
-                        <option value="medicale">Urgence Médicale</option>
-                        <option value="accident">Accident</option>
-                        <option value="hospitalisation">Hospitalisation</option>
-                        <option value="rapatriement">Demande de Rapatriement</option>
-                        <option value="autre">Autre</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="adresse">Adresse (optionnel)</label>
-                    <input type="text" id="adresse" name="adresse" placeholder="Rue, Ville, Pays">
-                    <small style="color: var(--secondary-color);">Adresse complète si connue (en plus des coordonnées GPS)</small>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-danger" id="submitBtn" style="width: 100%; font-size: 1.1rem; padding: 1rem;">
-                        🚨 Envoyer l'alerte
-                    </button>
-                </div>
-            </form>
+            <button id="sosBtn" class="sos-button" onclick="triggerSosAlert()">
+                🚨 Déclencher l'alerte SOS
+            </button>
 
             <div style="text-align: center; margin-top: 2rem;">
                 <a href="user-dashboard.html" style="color: var(--primary-color); text-decoration: none;">← Retour au tableau de bord</a>
             </div>
+
+            <div id="alertesList"></div>
         </div>
     </main>
 
@@ -210,4 +160,3 @@
     <script src="js/sos-alert.js"></script>
 </body>
 </html>
-
