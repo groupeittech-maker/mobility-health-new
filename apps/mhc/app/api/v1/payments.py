@@ -852,7 +852,12 @@ async def checkout_payment(
     )
 
     # Évaluation automatique du dossier : acceptation / refus / revue
-    decision_result = SubscriptionDecisionEngine.evaluate(db, souscription)
+    # Si un âge de voyageur est fourni (ex. enfant bénéficiaire), il est utilisé pour la tarif/décision.
+    decision_result = SubscriptionDecisionEngine.evaluate(
+        db,
+        souscription,
+        voyageur_age=request.age,
+    )
 
     if decision_result.decision == "reject":
         db.commit()

@@ -19,3 +19,9 @@ class SubscriptionDecisionResult(BaseModel):
 class SubscriptionReviewRequest(BaseModel):
     approved: bool
     notes: Optional[str] = None
+
+
+class VoyageurInfo(BaseModel):
+    """Optionnel : âge du voyageur bénéficiaire (utile pour enfant / tiers)."""
+    voyageur_age: Optional[int] = None
+    voyageur_date_naissance: Optional[str] = None

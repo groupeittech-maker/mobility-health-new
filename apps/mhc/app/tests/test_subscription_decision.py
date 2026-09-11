@@ -143,6 +143,55 @@ class TestSubscriptionDecisionEngineEvaluate:
         assert "technical" in result.review_steps
         assert sub.validation_technique == "pending"
 
+    def test_reject_subscriber_minor(self):
+        sub = _subscription()
+        result = SubscriptionDecisionEngine.evaluate(
+            db=None,
+            souscription=sub,
+            user=_user(16),
+            product=_product(),
+            project=_project(),
+            questionnaire=_questionnaire({}),
+        )
+        assert result.decision == "reject"
+        assert sub.statut == StatutSouscription.REFUSEE
+        assert "souscripteur" in " ".join(result.reasons).lower()
+
+    def test_child_traveler_uses_child_age(self):
+        sub = _subscription()
+        result = SubscriptionDecisionEngine.evaluate(
+            db=None,
+            souscription=sub,
+            user=_user(45),
+            product=_product(age_min=0, age_max=17),
+            project=_project(),
+            questionnaire=_questionnaire({}),
+            voyageur_age=8,
+        )
+        assert result.decision == "approve"
+        assert sub.statut == StatutSouscription.EN_ATTENTE_PAIEMENT
+
+    def test_child_traveler_from_admin_questionnaire(self):
+        sub = _subscription()
+        admin_q = SimpleNamespace(
+            reponses={
+                "personal": {
+                    "fullName": "Enfant Test",
+                    "birthDate": "2015-06-15",
+                }
+            }
+        )
+        result = SubscriptionDecisionEngine.evaluate(
+            db=None,
+            souscription=sub,
+            user=_user(45),
+            product=_product(age_min=0, age_max=17),
+            project=_project(),
+            questionnaire=_questionnaire({}),
+            admin_questionnaire=admin_q,
+        )
+        assert result.decision == "approve"
+
     def test_review_production_business_trip(self):
         sub = _subscription()
         result = SubscriptionDecisionEngine.evaluate(

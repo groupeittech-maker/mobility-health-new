@@ -131,6 +131,8 @@ def _trip_duration_days(project: Optional[ProjetVoyage]) -> Optional[int]:
 
 
 def _latest_medical_questionnaire(db: Session, souscription_id: int) -> Optional[Questionnaire]:
+    if db is None:
+        return None
     return (
         db.query(Questionnaire)
         .filter(
@@ -141,6 +143,85 @@ def _latest_medical_questionnaire(db: Session, souscription_id: int) -> Optional
         .order_by(Questionnaire.version.desc())
         .first()
     )
+
+
+def _latest_administrative_questionnaire(db: Session, souscription_id: int) -> Optional[Questionnaire]:
+    if db is None:
+        return None
+    return (
+        db.query(Questionnaire)
+        .filter(
+            Questionnaire.souscription_id == souscription_id,
+            Questionnaire.type_questionnaire == "administratif",
+            Questionnaire.statut == "complete",
+        )
+        .order_by(Questionnaire.version.desc())
+        .first()
+    )
+
+
+def _parse_birthdate(value: Any) -> Optional[date]:
+    """Parse une date de naissance depuis string/ISO."""
+    if not value:
+        return None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, str):
+        value = value.strip()
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
+            try:
+                return datetime.strptime(value, fmt).date()
+            except ValueError:
+                continue
+    return None
+
+
+def _voyageur_age(
+    user: Optional[User],
+    admin_questionnaire: Optional[Questionnaire],
+    medical_questionnaire: Optional[Questionnaire],
+    voyageur_age: Optional[int] = None,
+    voyageur_date_naissance: Optional[date] = None,
+) -> Optional[int]:
+    """
+    Détermine l'âge du voyageur assuré (pas forcément l'abonné).
+    Priorité : paramètre > date de naissance paramètre > questionnaire administratif
+    (si tier/enfant) > abonné.
+    """
+    if voyageur_age is not None:
+        return voyageur_age
+    if voyageur_date_naissance:
+        return _age_from_birthdate(voyageur_date_naissance)
+
+    # Si le questionnaire administratif désigne un voyageur tiers (enfant, etc.)
+    admin = admin_questionnaire
+    if admin and admin.reponses and isinstance(admin.reponses, dict):
+        personal = admin.reponses.get("personal") or {}
+        if isinstance(personal, dict):
+            is_tier = admin.reponses.get("travelerType") == "child" or admin.reponses.get("isChildOnly") is True
+            name = personal.get("fullName")
+            if is_tier or (name and user and name != user.full_name):
+                birth = _parse_birthdate(personal.get("birthDate"))
+                if birth:
+                    return _age_from_birthdate(birth)
+
+    # Repli sur le questionnaire médical (champs photoMedicale contiennent parfois la date)
+    med = medical_questionnaire
+    if med and med.reponses and isinstance(med.reponses, dict):
+        personal = med.reponses.get("personal") or {}
+        if isinstance(personal, dict):
+            birth = _parse_birthdate(personal.get("birthDate"))
+            if birth:
+                return _age_from_birthdate(birth)
+
+    return _age_from_birthdate(user.date_naissance if user else None)
+
+
+def _is_subscriber_minor(user: Optional[User]) -> bool:
+    age = _age_from_birthdate(user.date_naissance if user else None)
+    return age is not None and age < 18
 
 
 def _flatten_reponses(reponses: Any) -> list[str]:
@@ -189,6 +270,9 @@ class SubscriptionDecisionEngine:
         product: Optional[ProduitAssurance] = None,
         project: Optional[ProjetVoyage] = None,
         questionnaire: Optional[Questionnaire] = None,
+        admin_questionnaire: Optional[Questionnaire] = None,
+        voyageur_age: Optional[int] = None,
+        voyageur_date_naissance: Optional[date] = None,
     ) -> DecisionResult:
         """
         Évalue le dossier et met à jour la souscription (statut + validations pending).
@@ -209,21 +293,28 @@ class SubscriptionDecisionEngine:
         product = product or souscription.produit_assurance
         project = project or souscription.projet_voyage
         questionnaire = questionnaire or _latest_medical_questionnaire(db, souscription.id)
+        admin_questionnaire = admin_questionnaire or _latest_administrative_questionnaire(db, souscription.id)
 
         reponses = questionnaire.reponses if questionnaire else {}
         flat = _flatten_reponses(reponses)
 
         reasons: list[str] = []
         review_steps: set[str] = set()
-        age = _age_from_birthdate(user.date_naissance if user else None)
+
+        # Le souscripteur (détenteur du compte) doit être majeur ; le voyageur peut être un enfant.
+        if _is_subscriber_minor(user):
+            reasons.append("Le souscripteur doit être majeur. Un enfant mineur ne peut pas souscrire seul.")
+            return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
+
+        age = _voyageur_age(user, admin_questionnaire, questionnaire, voyageur_age, voyageur_date_naissance)
 
         # 1. Règles de refus dur
         if age is not None and product.age_minimum is not None and age < product.age_minimum:
-            reasons.append(f"Âge inférieur au minimum ({age} < {product.age_minimum})")
+            reasons.append(f"Âge du voyageur inférieur au minimum ({age} < {product.age_minimum})")
             return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
 
         if age is not None and product.age_maximum is not None and age > product.age_maximum:
-            reasons.append(f"Âge supérieur au maximum ({age} > {product.age_maximum})")
+            reasons.append(f"Âge du voyageur supérieur au maximum ({age} > {product.age_maximum})")
             return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
 
         try:

@@ -33,7 +33,7 @@ from app.schemas.souscription import (
     SurprimeAgeReferenceItem,
 )
 from app.schemas.ecard import ECardResponse
-from app.schemas.subscription_decision import SubscriptionDecisionResult
+from app.schemas.subscription_decision import SubscriptionDecisionResult, VoyageurInfo
 from app.services.attestation_service import AttestationService
 from app.services.subscription_decision_service import SubscriptionDecisionEngine
 from app.api.v1.attestations import (
@@ -1117,6 +1117,7 @@ async def delete_subscription(
 )
 async def evaluate_subscription(
     subscription_id: int,
+    voyageur: Optional[VoyageurInfo] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -1148,7 +1149,22 @@ async def evaluate_subscription(
             detail="Souscription non trouvée",
         )
 
-    result = SubscriptionDecisionEngine.evaluate(db, souscription)
+    voyageur_date = None
+    if voyageur and voyageur.voyageur_date_naissance:
+        try:
+            voyageur_date = datetime.fromisoformat(voyageur.voyageur_date_naissance).date()
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Format de voyageur_date_naissance invalide (attendu YYYY-MM-DD)",
+            )
+
+    result = SubscriptionDecisionEngine.evaluate(
+        db,
+        souscription,
+        voyageur_age=getattr(voyageur, "voyageur_age", None),
+        voyageur_date_naissance=voyageur_date,
+    )
     db.commit()
     db.refresh(souscription)
 
