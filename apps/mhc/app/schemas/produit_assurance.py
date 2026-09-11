@@ -6,6 +6,12 @@ from app.core.enums import CleRepartition
 from app.schemas.assureur import AssureurSummaryForProduct
 
 
+class TaxeDetail(BaseModel):
+    nom: str
+    taux_pct: float
+    montant: Optional[float] = None
+
+
 class ProduitAssuranceBase(BaseModel):
     # 1. Informations générales
     code: str
@@ -119,8 +125,10 @@ class ProduitQuoteResponse(BaseModel):
     tarif_total: Optional[Decimal] = None  # Redondant avec prix ; utile pour lecture API explicite
     zone_geographique_code: Optional[str] = None  # Code zone canonique si grille voyage
     tranche_duree_code: Optional[str] = None
-    frais_services: Optional[Decimal] = None  # Grille voyage : frais fixes (hors surprime)
-    prime_assurance: Optional[Decimal] = None  # Prime + surprime âge (sans frais) ; sinon = prix
+    frais_services: Optional[Decimal] = None  # Frais de services
+    prime_assurance: Optional[Decimal] = None  # Prime + surprime âge (sans frais/services/taxes) ; sinon = prix
+    taxes_total: Optional[Decimal] = None
+    taxes: Optional[List[TaxeDetail]] = None
 
 
 class VoyagePremiumCalculateRequest(BaseModel):

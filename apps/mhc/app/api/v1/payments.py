@@ -797,6 +797,8 @@ async def checkout_payment(
         prix_applique=montant,
         prime_assurance=td.prime_assurance,
         frais_services=td.frais_services,
+        taxes=td.taxes,
+        taxes_total=td.taxes_total,
         date_debut=date_debut,
         date_fin=date_fin,
         statut=StatutSouscription.EN_ATTENTE,

@@ -39,6 +39,7 @@ from app.models.mhc_care_document import MhcCareDocument
 from app.models.ekyc_session import EkycSession
 from app.models.avenant import Avenant
 from app.models.sinistre_attachment import SinistreAttachment
+from app.models.parametre_pays_assureur import ParametrePaysAssureur, TaxePaysAssureur
 from app.models.tarification import (
     TarificationZone,
     TarificationZonePays,
@@ -99,5 +100,7 @@ __all__ = [
     "MhcCareDocument",
     "EkycSession",
     "SinistreAttachment",
+    "ParametrePaysAssureur",
+    "TaxePaysAssureur",
 ]
 

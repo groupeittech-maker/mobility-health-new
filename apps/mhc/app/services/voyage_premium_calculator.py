@@ -16,9 +16,9 @@ via les champs produit (intégration prime_tarif_service).
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Dict, FrozenSet, List, Optional, Tuple
+from typing import Any, Callable, Dict, FrozenSet, List, Optional, Tuple, Union
 
 # --- Grille de base (FCFA) : prime par zone × tranche (frais = 15 % prime après surprime) ---
 GRILLE_PRIME: Dict[str, Dict[str, int]] = {
@@ -110,8 +110,8 @@ class InsurancePremiumResult:
     tarif_base: Decimal  # Prime grille avant surprime âge
     frais_services: Decimal
     montant_surprime: Decimal
-    tarif_total: Decimal  # prime + surprime + frais
-    prime_totale: Decimal  # prime grille + surprime (sans frais)
+    tarif_total: Decimal  # prime + surprime + frais + taxes
+    prime_totale: Decimal  # prime grille + surprime (sans frais ni frais services ni taxes)
     pct_surprime: Decimal
     zone_geographique: str
     tranche_duree_code: str
@@ -119,6 +119,8 @@ class InsurancePremiumResult:
     duree_max_tranche: int
     duree_voyage: int
     age_voyageur: int
+    taxes_total: Decimal = Decimal("0")
+    taxes: List[Any] = field(default_factory=list)
 
 
 def _dec(x) -> Decimal:
@@ -157,8 +159,11 @@ def tarif_prime_grille(zone_normalisee: str, tranche_code: str) -> Decimal:
     return _dec(zone_p[tranche_code])
 
 
-def frais_services_depuis_prime(prime_apres_surprime: Decimal) -> Decimal:
-    """15 % de la prime totale (grille + surprime), arrondi à 2 décimales."""
+def frais_services_depuis_prime(
+    prime_apres_surprime: Decimal,
+    frais_services_pct: Optional[Decimal] = None,
+) -> Decimal:
+    """% de la prime totale (grille + surprime), arrondi à 2 décimales."""
     from app.core.tarification_defaults import FRAIS_SERVICES_SUR_PRIME_PCT
 
     if prime_apres_surprime < 0:
@@ -166,9 +171,8 @@ def frais_services_depuis_prime(prime_apres_surprime: Decimal) -> Decimal:
             "La prime après surprime ne peut pas être négative.",
             "prime_negative",
         )
-    return (
-        prime_apres_surprime * FRAIS_SERVICES_SUR_PRIME_PCT / Decimal("100")
-    ).quantize(Decimal("0.01"))
+    pct = frais_services_pct if frais_services_pct is not None else FRAIS_SERVICES_SUR_PRIME_PCT
+    return (prime_apres_surprime * pct / Decimal("100")).quantize(Decimal("0.01"))
 
 
 def tarif_base_grille(zone_normalisee: str, tranche_code: str) -> Decimal:
@@ -249,15 +253,19 @@ def calculateInsurancePremium(
     age_voyageur: int,
     *,
     surprime_resolver: Optional[SurprimePctResolver] = None,
+    frais_services_pct: Optional[Decimal] = None,
+    taxes: Optional[List[Any]] = None,
 ) -> InsurancePremiumResult:
     """
-    Calcule prime grille, surprime (sur la prime grille), frais (15 % de la prime après
-    surprime) et total.
+    Calcule prime grille, surprime (sur la prime grille), frais (% de la prime après
+    surprime) et taxes (% de la prime après surprime) puis total.
 
     - zone_geographique : INTRA_AFRIQUE | RSA_MAGHREB | EXTRA_AFRIQUE | INTER_AFRIQUE
     - duree_voyage : 1 à 90 jours
     - age_voyageur : entier raisonnable (0–120)
     - surprime_resolver(age) -> % à appliquer sur la prime de grille (0 = tarif normal)
+    - frais_services_pct : % de frais sur prime totale (défaut 15 %)
+    - taxes : liste d'objets avec .nom et .taux_pct
     """
     z = normalize_zone_code(zone_geographique)
     if z not in ZONES_CANONIQUES:
@@ -305,8 +313,21 @@ def calculateInsurancePremium(
 
     montant_surprime = (prime_base * (pct / Decimal("100"))).quantize(Decimal("0.01"))
     prime_totale = (prime_base + montant_surprime).quantize(Decimal("0.01"))
-    frais = frais_services_depuis_prime(prime_totale)
-    total = (prime_totale + frais).quantize(Decimal("0.01"))
+    frais = frais_services_depuis_prime(prime_totale, frais_services_pct)
+
+    taxes_total = Decimal("0")
+    taxes_detail: List[Dict[str, Any]] = []
+    for taxe in (taxes or []):
+        taux = Decimal(str(getattr(taxe, "taux_pct", 0)))
+        montant_taxe = (prime_totale * taux / Decimal("100")).quantize(Decimal("0.01"))
+        taxes_total += montant_taxe
+        taxes_detail.append({
+            "nom": getattr(taxe, "nom", "Taxe"),
+            "taux_pct": float(taux),
+            "montant": montant_taxe,
+        })
+
+    total = (prime_totale + frais + taxes_total).quantize(Decimal("0.01"))
 
     return InsurancePremiumResult(
         tarif_base=prime_base,
@@ -321,6 +342,8 @@ def calculateInsurancePremium(
         duree_max_tranche=dmax,
         duree_voyage=duree_voyage,
         age_voyageur=age_voyageur,
+        taxes_total=taxes_total,
+        taxes=taxes_detail,
     )
 
 

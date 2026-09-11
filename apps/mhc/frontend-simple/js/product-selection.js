@@ -365,15 +365,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    /** Affiche prime + frais + total lorsque l’API les renvoie (grille voyage). */
+    /** Affiche prime + frais + taxes + total lorsque l’API les renvoie. */
     function voyageTarifPriceHtml(quote, fallbackCout) {
         if (!quote || quote.prix == null) {
             return formatPrice(fallbackCout);
         }
         const frais = quote.frais_services;
         const prime = quote.prime_assurance;
+        let taxHtml = '';
+        if (quote.taxes && quote.taxes.length) {
+            for (const t of quote.taxes) {
+                if (Number(t.montant) > 0) {
+                    taxHtml += ` <span class="product-price-plus">+ ${escapeHtml(t.nom)}</span> ${formatPrice(t.montant)}`;
+                }
+            }
+        }
         if (frais != null && Number(frais) > 0 && prime != null) {
-            return `${formatPrice(prime)} <span class="product-price-plus">+ frais</span> ${formatPrice(frais)} <span class="product-price-plus">=</span> ${formatPrice(quote.prix)}`;
+            return `${formatPrice(prime)} <span class="product-price-plus">+ frais</span> ${formatPrice(frais)}${taxHtml} <span class="product-price-plus">=</span> ${formatPrice(quote.prix)}`;
         }
         return formatPrice(quote.prix);
     }

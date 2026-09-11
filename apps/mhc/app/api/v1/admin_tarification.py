@@ -1,6 +1,6 @@
-"""Admin : référentiels de tarification (zones, fenêtres durée, tranches âge)."""
+"""Admin : référentiels de tarification (zones, fenêtres durée, tranches âge, frais et taxes)."""
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
@@ -10,6 +10,16 @@ from app.core.database import get_db
 from app.core.enums import Role
 from app.models.user import User
 from app.models.destination import DestinationCountry
+from app.models.parametre_pays_assureur import ParametrePaysAssureur, TaxePaysAssureur
+from app.schemas.parametre_pays_assureur import (
+    ParametrePaysAssureurCreate,
+    ParametrePaysAssureurResponse,
+    ParametrePaysAssureurUpdate,
+    ParametrePaysListResponse,
+    TaxePaysAssureurCreate,
+    TaxePaysAssureurResponse,
+    TaxePaysAssureurUpdate,
+)
 from app.models.tarification import (
     TarificationFenetreDuree,
     TarificationGrilleFinale,
@@ -743,4 +753,239 @@ def delete_grille_finale_cell(
     if row:
         db.delete(row)
         db.commit()
+    return None
+
+
+# ---------- Paramètres pays assureur (frais de services + taxes) ----------
+
+
+@router.post("/parametres-pays", response_model=ParametrePaysAssureurResponse)
+def create_parametre_pays(
+    body: ParametrePaysAssureurCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    existing = (
+        db.query(ParametrePaysAssureur)
+        .filter(ParametrePaysAssureur.pays_assureur.ilike(body.pays_assureur))
+        .first()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Un paramètre existe déjà pour le pays {body.pays_assureur}",
+        )
+    param = ParametrePaysAssureur(
+        pays_assureur=body.pays_assureur.strip(),
+        frais_services_pct=body.frais_services_pct,
+        actif=body.actif,
+    )
+    db.add(param)
+    db.flush()
+    for taxe_in in body.taxes or []:
+        db.add(
+            TaxePaysAssureur(
+                parametre_pays_assureur_id=param.id,
+                nom=taxe_in.nom.strip(),
+                taux_pct=taxe_in.taux_pct,
+                actif=taxe_in.actif,
+                ordre_affichage=taxe_in.ordre_affichage,
+            )
+        )
+    db.commit()
+    db.refresh(param)
+    return param
+
+
+@router.get("/parametres-pays", response_model=List[ParametrePaysListResponse])
+def list_parametres_pays(
+    actif: Optional[bool] = None,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    query = db.query(ParametrePaysAssureur)
+    if actif is not None:
+        query = query.filter(ParametrePaysAssureur.actif == actif)
+    params = query.order_by(ParametrePaysAssureur.pays_assureur).all()
+    result = []
+    for p in params:
+        total_pct = sum(
+            float(t.taux_pct) for t in (p.taxes or []) if t.actif
+        )
+        result.append(
+            ParametrePaysListResponse(
+                pays_assureur=p.pays_assureur,
+                frais_services_pct=float(p.frais_services_pct),
+                actif=p.actif,
+                total_taxes_pct=total_pct,
+                nombre_taxes=len([t for t in (p.taxes or []) if t.actif]),
+            )
+        )
+    return result
+
+
+@router.get("/parametres-pays/{pays_assureur}", response_model=ParametrePaysAssureurResponse)
+def get_parametre_pays(
+    pays_assureur: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    param = (
+        db.query(ParametrePaysAssureur)
+        .filter(ParametrePaysAssureur.pays_assureur.ilike(pays_assureur))
+        .first()
+    )
+    if not param:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Paramètres introuvables pour {pays_assureur}",
+        )
+    return param
+
+
+@router.put("/parametres-pays/{pays_assureur}", response_model=ParametrePaysAssureurResponse)
+def update_parametre_pays(
+    pays_assureur: str,
+    body: ParametrePaysAssureurUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    param = (
+        db.query(ParametrePaysAssureur)
+        .filter(ParametrePaysAssureur.pays_assureur.ilike(pays_assureur))
+        .first()
+    )
+    if not param:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Paramètres introuvables pour {pays_assureur}",
+        )
+    if body.pays_assureur is not None:
+        param.pays_assureur = body.pays_assureur.strip()
+    if body.frais_services_pct is not None:
+        param.frais_services_pct = body.frais_services_pct
+    if body.actif is not None:
+        param.actif = body.actif
+
+    if body.taxes is not None:
+        # Supprimer les taxes existantes et recréer
+        db.query(TaxePaysAssureur).filter(
+            TaxePaysAssureur.parametre_pays_assureur_id == param.id
+        ).delete()
+        for taxe_in in body.taxes:
+            db.add(
+                TaxePaysAssureur(
+                    parametre_pays_assureur_id=param.id,
+                    nom=taxe_in.nom.strip(),
+                    taux_pct=taxe_in.taux_pct,
+                    actif=taxe_in.actif,
+                    ordre_affichage=taxe_in.ordre_affichage,
+                )
+            )
+
+    db.commit()
+    db.refresh(param)
+    return param
+
+
+@router.delete("/parametres-pays/{pays_assureur}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_parametre_pays(
+    pays_assureur: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    param = (
+        db.query(ParametrePaysAssureur)
+        .filter(ParametrePaysAssureur.pays_assureur.ilike(pays_assureur))
+        .first()
+    )
+    if not param:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Paramètres introuvables pour {pays_assureur}",
+        )
+    db.delete(param)
+    db.commit()
+    return None
+
+
+@router.post(
+    "/parametres-pays/{pays_assureur}/taxes",
+    response_model=TaxePaysAssureurResponse,
+)
+def add_taxe_pays(
+    pays_assureur: str,
+    body: TaxePaysAssureurCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    param = (
+        db.query(ParametrePaysAssureur)
+        .filter(ParametrePaysAssureur.pays_assureur.ilike(pays_assureur))
+        .first()
+    )
+    if not param:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Paramètres introuvables pour {pays_assureur}",
+        )
+    taxe = TaxePaysAssureur(
+        parametre_pays_assureur_id=param.id,
+        nom=body.nom.strip(),
+        taux_pct=body.taux_pct,
+        actif=body.actif,
+        ordre_affichage=body.ordre_affichage,
+    )
+    db.add(taxe)
+    db.commit()
+    db.refresh(taxe)
+    return taxe
+
+
+@router.put(
+    "/parametres-pays/taxes/{taxe_id}",
+    response_model=TaxePaysAssureurResponse,
+)
+def update_taxe_pays(
+    taxe_id: int,
+    body: TaxePaysAssureurUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    taxe = db.query(TaxePaysAssureur).filter(TaxePaysAssureur.id == taxe_id).first()
+    if not taxe:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Taxe introuvable",
+        )
+    if body.nom is not None:
+        taxe.nom = body.nom.strip()
+    if body.taux_pct is not None:
+        taxe.taux_pct = body.taux_pct
+    if body.actif is not None:
+        taxe.actif = body.actif
+    if body.ordre_affichage is not None:
+        taxe.ordre_affichage = body.ordre_affichage
+    db.commit()
+    db.refresh(taxe)
+    return taxe
+
+
+@router.delete(
+    "/parametres-pays/taxes/{taxe_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_taxe_pays(
+    taxe_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    taxe = db.query(TaxePaysAssureur).filter(TaxePaysAssureur.id == taxe_id).first()
+    if not taxe:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Taxe introuvable",
+        )
+    db.delete(taxe)
+    db.commit()
     return None

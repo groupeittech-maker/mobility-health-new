@@ -265,6 +265,12 @@ async def start_subscription(
         "statut": StatutSouscription.EN_ATTENTE,  # Statut 'pending' (en_attente)
         "notes": subscription_data.notes,
     }
+    if hasattr(Souscription, "taxes"):
+        souscription_kwargs["taxes"] = tarif_detail.taxes
+    else:
+        logger.warning("Souscription.taxes absent sur le modèle chargé; valeur ignorée.")
+    if hasattr(Souscription, "taxes_total"):
+        souscription_kwargs["taxes_total"] = tarif_detail.taxes_total
     if hasattr(Souscription, "canal_distribution"):
         souscription_kwargs["canal_distribution"] = canal_distribution
     else:
@@ -347,12 +353,21 @@ async def quote_subscription_prices(
         )
         zc = d.zone_geographique_code
         zl = ZONE_ROW_LABELS_FR.get(zc, zc) if zc else None
+        taxe_list = []
+        for t in d.taxes or []:
+            taxe_list.append({
+                "nom": t.get("nom", ""),
+                "taux_pct": float(t.get("taux_pct", 0) or 0),
+                "montant": float(t.get("montant", 0) or 0),
+            })
         quotes.append(
             SubscriptionQuotePriceItem(
                 produit_assurance_id=pid,
                 prix_applique=float(d.prix),
                 prime_assurance=float(d.prime_assurance) if d.prime_assurance is not None else None,
                 frais_services=float(d.frais_services) if d.frais_services is not None else None,
+                taxes_total=float(d.taxes_total) if d.taxes_total is not None else None,
+                taxes=taxe_list if taxe_list else None,
                 zone_geographique_code=zc,
                 zone_libelle_fr=zl,
                 tranche_duree_code=d.tranche_duree_code,

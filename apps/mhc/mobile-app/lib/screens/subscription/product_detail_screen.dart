@@ -351,9 +351,19 @@ class _TableQuoteBreakdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const headerColor = AppColors.primary;
+    final taxRows = <List<String>>[];
+    if (line.taxesTotal != null && line.taxesTotal! > 0) {
+      for (final t in line.taxes ?? []) {
+        final montant = (t['montant'] as num?)?.toDouble() ?? 0;
+        if (montant > 0) {
+          taxRows.add(['${t['nom'] ?? 'Taxe'}', '${montant.toStringAsFixed(0)} $currency']);
+        }
+      }
+    }
     final rows = <List<String>>[
       ['Prime d’assurance', '${line.primeAssurance!.toStringAsFixed(0)} $currency'],
       ['Frais de services', '${line.fraisServices!.toStringAsFixed(0)} $currency'],
+      ...taxRows,
       ['Total à payer', '${line.prixApplique.toStringAsFixed(0)} $currency'],
     ];
     return Container(

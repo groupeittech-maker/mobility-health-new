@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import Any, TYPE_CHECKING, List, Optional, Tuple
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -33,6 +33,7 @@ from app.services.voyage_premium_calculator import (
     resolve_tarification_zone_id_for_destination_country,
     resolve_voyage_tariff_zone_code,
 )
+from app.services.parametre_pays_service import get_pricing_parameters
 
 if TYPE_CHECKING:
     from app.models.projet_voyage import ProjetVoyage
@@ -161,13 +162,61 @@ class PrimeTarifDetail:
     zone_geographique_code: Optional[str] = None
     tranche_duree_code: Optional[str] = None
     frais_services: Optional[Decimal] = None
-    prime_assurance: Optional[Decimal] = None  # Prime + surprime (hors frais) ; si None → égal à prix
+    prime_assurance: Optional[Decimal] = None  # Prime + surprime (hors frais/services/taxes)
+    taxes_total: Optional[Decimal] = None
+    taxes: List[Any] = field(default_factory=list)
 
 
 def _dec(x) -> Decimal:
     if x is None:
         return Decimal("1")
     return Decimal(str(x))
+
+
+def _apply_frais_et_taxes(
+    detail: PrimeTarifDetail,
+    frais_services_pct: Decimal,
+    taxes: List[Any],
+) -> PrimeTarifDetail:
+    """Recalcule frais de services et taxes sur la prime d'assurance."""
+    prime = detail.prime_assurance if detail.prime_assurance is not None else detail.prix
+    if prime is None:
+        return detail
+
+    frais = (prime * frais_services_pct / Decimal("100")).quantize(Decimal("0.01"))
+    taxes_total = Decimal("0")
+    taxes_detail: List[Any] = []
+    for taxe in taxes or []:
+        taux = Decimal(str(taxe.taux_pct))
+        montant = (prime * taux / Decimal("100")).quantize(Decimal("0.01"))
+        taxes_total += montant
+        taxes_detail.append({
+            "nom": taxe.nom,
+            "taux_pct": float(taux),
+            "montant": montant,
+        })
+
+    prix = (prime + frais + taxes_total).quantize(Decimal("0.01"))
+    return PrimeTarifDetail(
+        prix=prix,
+        from_tarif=detail.from_tarif,
+        duree_min_jours=detail.duree_min_jours,
+        duree_max_jours=detail.duree_max_jours,
+        tarif_base=detail.tarif_base,
+        coefficient_zone=detail.coefficient_zone,
+        coefficient_duree=detail.coefficient_duree,
+        coefficient_age=detail.coefficient_age,
+        moteur_tarifaire=detail.moteur_tarifaire,
+        pct_surprime_applique=detail.pct_surprime_applique,
+        tarif_ligne_ht_surprime=detail.tarif_ligne_ht_surprime,
+        montant_surprime=detail.montant_surprime,
+        zone_geographique_code=detail.zone_geographique_code,
+        tranche_duree_code=detail.tranche_duree_code,
+        frais_services=frais,
+        prime_assurance=prime,
+        taxes_total=taxes_total,
+        taxes=taxes_detail,
+    )
 
 
 def _row_matches_duration(row: ProduitPrimeTarif, duree_jours: Optional[int]) -> bool:
@@ -478,15 +527,22 @@ def resolve_prime_tarif_detail(
         )
         .first()
     )
+    if product:
+        assureur_pays = getattr(product.assureur_obj, "pays", None) if product.assureur_obj else None
+    else:
+        assureur_pays = None
+    frais_services_pct, active_taxes = get_pricing_parameters(db, assureur_pays)
+
     if not product:
-        return PrimeTarifDetail(
+        empty = PrimeTarifDetail(
             prix=Decimal("0"),
             from_tarif=False,
             tarif_base=None,
             moteur_tarifaire="grille",
             prime_assurance=Decimal("0"),
-            frais_services=None,
+            frais_services=Decimal("0"),
         )
+        return _apply_frais_et_taxes(empty, frais_services_pct, active_taxes)
 
     dcid = resolve_destination_country_id_for_pricing(
         db, destination_country_id, destination_country_name, projet
@@ -510,7 +566,7 @@ def resolve_prime_tarif_detail(
             base_prix,
         )
         if legacy_hit is not None:
-            return legacy_hit
+            return _apply_frais_et_taxes(legacy_hit, frais_services_pct, active_taxes)
 
     # Grille voyage canonique (JSON) : parcours résidence → destination + durée 1–90 j
     res_cid = resolve_residence_country_id_for_pricing(
@@ -531,6 +587,8 @@ def resolve_prime_tarif_detail(
             duree_jours,
             nominal_age,
             surprime_resolver=_surprime_from_product,
+            frais_services_pct=frais_services_pct,
+            taxes=active_taxes,
         )
         lo, hi = voyage_res.duree_min_tranche, voyage_res.duree_max_tranche
         pct = voyage_res.pct_surprime
@@ -552,6 +610,8 @@ def resolve_prime_tarif_detail(
             tranche_duree_code=voyage_res.tranche_duree_code,
             frais_services=voyage_res.frais_services,
             prime_assurance=voyage_res.prime_totale,
+            taxes_total=voyage_res.taxes_total,
+            taxes=voyage_res.taxes,
         )
 
     zone_id = _resolve_zone_id(db, dcid, zone_code)
@@ -570,7 +630,7 @@ def resolve_prime_tarif_detail(
                 pct_gf = ((coeff_ligne - Decimal("1")) * Decimal("100")).quantize(
                     Decimal("0.01")
                 )
-                return PrimeTarifDetail(
+                detail = PrimeTarifDetail(
                     prix=prix_gf,
                     from_tarif=True,
                     duree_min_jours=fenetre.duree_min_jours,
@@ -587,13 +647,14 @@ def resolve_prime_tarif_detail(
                     prime_assurance=prix_gf,
                     frais_services=None,
                 )
+                return _apply_frais_et_taxes(detail, frais_services_pct, active_taxes)
 
     if zone_id is not None and fenetre is not None:
         prix_grille = _grille_prix_lookup(db, zone_id, fenetre.id)
         if prix_grille is not None:
             prix = (prix_grille * ca).quantize(Decimal("0.01"))
             pct_grille = ((ca - Decimal("1")) * Decimal("100")).quantize(Decimal("0.01"))
-            return PrimeTarifDetail(
+            detail = PrimeTarifDetail(
                 prix=prix,
                 from_tarif=True,
                 duree_min_jours=fenetre.duree_min_jours,
@@ -608,11 +669,12 @@ def resolve_prime_tarif_detail(
                 prime_assurance=prix,
                 frais_services=None,
             )
+            return _apply_frais_et_taxes(detail, frais_services_pct, active_taxes)
 
     prix = (base_prix * ca).quantize(Decimal("0.01"))
     from_tarif = ca != Decimal("1")
     pct_fb = ((ca - Decimal("1")) * Decimal("100")).quantize(Decimal("0.01"))
-    return PrimeTarifDetail(
+    detail = PrimeTarifDetail(
         prix=prix,
         from_tarif=from_tarif,
         duree_min_jours=fenetre.duree_min_jours if fenetre else None,
@@ -627,6 +689,7 @@ def resolve_prime_tarif_detail(
         prime_assurance=prix,
         frais_services=None,
     )
+    return _apply_frais_et_taxes(detail, frais_services_pct, active_taxes)
 
 
 def resolve_prime_tarif(

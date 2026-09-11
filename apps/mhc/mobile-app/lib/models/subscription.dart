@@ -7,6 +7,8 @@ class SubscriptionModel {
   final double prixApplique;
   final double? primeAssurance;
   final double? fraisServices;
+  final double? taxesTotal;
+  final List<Map<String, dynamic>>? taxes;
   final DateTime dateDebut;
   final DateTime? dateFin;
   final String statut;
@@ -28,6 +30,8 @@ class SubscriptionModel {
     required this.prixApplique,
     this.primeAssurance,
     this.fraisServices,
+    this.taxesTotal,
+    this.taxes,
     required this.dateDebut,
     this.dateFin,
     required this.statut,
@@ -67,6 +71,12 @@ class SubscriptionModel {
               ? (json['frais_services'] as num).toDouble()
               : double.tryParse(json['frais_services'].toString()))
           : null,
+      taxesTotal: json['taxes_total'] != null
+          ? ((json['taxes_total'] is num)
+              ? (json['taxes_total'] as num).toDouble()
+              : double.tryParse(json['taxes_total'].toString()))
+          : null,
+      taxes: (json['taxes'] as List<dynamic>?)?.map((t) => Map<String, dynamic>.from(t as Map)).toList(),
       dateDebut: DateTime.tryParse(json['date_debut']?.toString() ?? '') ?? DateTime.now(),
       dateFin: json['date_fin'] != null ? DateTime.tryParse(json['date_fin'].toString()) : null,
       statut: (json['statut'] as String? ?? 'en_attente').toString().toLowerCase(),

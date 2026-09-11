@@ -36,6 +36,8 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
   double _montant = 0;
   double? _primePourPaiement;
   double? _fraisPourPaiement;
+  double? _taxesTotal;
+  List<Map<String, dynamic>>? _taxes;
   String? _medicalPhotoPath;
   List<ProductModel>? _products;
   VoyageFormData? _voyageData;
@@ -360,6 +362,8 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
           _montant = sub.prixApplique;
           _primePourPaiement = sub.primeAssurance;
           _fraisPourPaiement = sub.fraisServices;
+          _taxesTotal = sub.taxesTotal;
+          _taxes = sub.taxes;
           _medicalPhotoPath = medicalPhotoPath;
           _currentStep = 3;
         });
@@ -509,6 +513,8 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
                           montant: _montant,
                           primeAssurance: _primePourPaiement,
                           fraisServices: _fraisPourPaiement,
+                          taxesTotal: _taxesTotal,
+                          taxes: _taxes,
                           age: _subscriberAge,
                           onContinue: () => setState(() {
                             _attestationReloadTick += 1;

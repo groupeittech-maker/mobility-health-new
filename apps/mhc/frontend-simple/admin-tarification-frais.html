@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frais et taxes par pays assureur - Back Office</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <style>
+        .taxe-row { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.5rem; }
+        .taxe-row input { flex: 1; }
+        .taxe-row input[type="number"] { max-width: 120px; }
+        .taxe-row button { background: transparent; border: none; color: var(--danger, #dc3545); cursor: pointer; font-size: 1.2rem; }
+        .country-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; }
+        .country-card h4 { margin: 0 0 0.5rem; display: flex; justify-content: space-between; }
+        .country-card .badge { font-size: 0.8rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: #f0f4ff; color: #4f1f78; }
+        .muted { color: #64748b; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_mobility_healthcare_officiel.png?v=3" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-products.html">Produits</a></li>
+                <li><a href="admin-tarification.html">Tarification</a></li>
+                <li><a href="admin-tarification-frais.html" class="active">Frais &amp; taxes</a></li>
+                <li><a href="admin-assureurs.html">Assureurs</a></li>
+                <li><a href="admin-courtiers.html">Courtiers</a></li>
+                <li><a href="admin-subscriptions.html">Souscriptions</a></li>
+                <li><a href="admin-users.html">Utilisateurs</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header" style="margin-bottom: 1rem;">
+            <div>
+                <h2>Frais de services et taxes</h2>
+                <p class="text-muted" style="margin: 0.35rem 0 0; max-width: 52rem;">
+                    Paramétrez le <strong>pourcentage de frais de services</strong> et les <strong>taxes additionnelles</strong> par <strong>pays de l’assureur</strong>.
+                    Les frais et taxes s’appliquent sur la <strong>prime d’assurance</strong> (après surprime âge). Le total facturé = prime + frais + taxes.
+                </p>
+            </div>
+        </div>
+
+        <section class="product-form-section" style="margin-bottom: 1.5rem;">
+            <h3>Ajouter / modifier un pays</h3>
+            <div id="formAlert"></div>
+            <div class="form-grid two-col" style="margin-bottom: 1rem;">
+                <div class="form-group">
+                    <label>Pays de l’assureur *</label>
+                    <input type="text" id="countryInput" placeholder="ex: Côte d'Ivoire" maxlength="100">
+                    <small class="muted">Doit correspondre au champ <em>pays</em> de l’assureur.</small>
+                </div>
+                <div class="form-group">
+                    <label>Frais de services (% de la prime) *</label>
+                    <input type="number" id="feeInput" min="0" max="100" step="0.01" value="15">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label>Taxes additionnelles (% de la prime)</label>
+                <div id="taxesContainer"></div>
+                <button type="button" class="btn btn-secondary" id="btnAddTax" style="margin-top: 0.5rem;">+ Ajouter une taxe</button>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label><input type="checkbox" id="activeInput" checked> Actif</label>
+            </div>
+
+            <button type="button" class="btn btn-primary" id="btnSave">Enregistrer</button>
+        </section>
+
+        <section class="product-form-section">
+            <h3>Pays configurés</h3>
+            <div id="listAlert"></div>
+            <div id="paramsList"></div>
+        </section>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/admin-tarification-frais.js"></script>
+</body>
+</html>

@@ -257,6 +257,13 @@ async def get_product_quote(
         residence_country_id=residence_country_id,
         user_pays_residence=residence_country_name,
     )
+    taxe_list = []
+    for t in detail.taxes or []:
+        taxe_list.append({
+            "nom": t.get("nom", ""),
+            "taux_pct": float(t.get("taux_pct", 0) or 0),
+            "montant": float(t.get("montant", 0) or 0),
+        })
     return ProduitQuoteResponse(
         prix=detail.prix,
         duree_validite_jours=product.duree_validite_jours,
@@ -277,4 +284,6 @@ async def get_product_quote(
         tranche_duree_code=detail.tranche_duree_code,
         frais_services=detail.frais_services,
         prime_assurance=detail.prime_assurance,
+        taxes_total=detail.taxes_total,
+        taxes=taxe_list if taxe_list else None,
     )

@@ -15,6 +15,8 @@ class StepPaiementScreen extends StatefulWidget {
     required this.montant,
     this.primeAssurance,
     this.fraisServices,
+    this.taxesTotal,
+    this.taxes,
     this.age,
     required this.onContinue,
   });
@@ -23,6 +25,8 @@ class StepPaiementScreen extends StatefulWidget {
   final double montant;
   final double? primeAssurance;
   final double? fraisServices;
+  final double? taxesTotal;
+  final List<Map<String, dynamic>>? taxes;
   final int? age;
   final VoidCallback onContinue;
 
@@ -57,7 +61,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
       if (montant <= 0 &&
           subscription.primeAssurance != null &&
           subscription.fraisServices != null) {
-        montant = subscription.primeAssurance! + subscription.fraisServices!;
+        montant = subscription.primeAssurance! + subscription.fraisServices! + (subscription.taxesTotal ?? 0);
       }
       if (montant <= 0) {
         throw Exception('Montant de paiement invalide pour cette souscription.');
@@ -147,6 +151,8 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
                       label: 'Frais de services',
                       value: widget.fraisServices!,
                     ),
+                    const SizedBox(height: 6),
+                    ..._taxRows(),
                     const SizedBox(height: 10),
                     const Divider(height: 1),
                     const SizedBox(height: 8),
@@ -237,6 +243,21 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
         ),
       ),
     );
+  }
+
+  List<Widget> _taxRows() {
+    final rows = <Widget>[];
+    if (widget.taxesTotal != null && widget.taxesTotal! > 0) {
+      for (final t in widget.taxes ?? []) {
+        final nom = t['nom']?.toString() ?? 'Taxe';
+        final montant = (t['montant'] as num?)?.toDouble() ?? 0;
+        if (montant > 0) {
+          rows.add(_PaiementLigneMontant(label: nom, value: montant));
+          rows.add(const SizedBox(height: 6));
+        }
+      }
+    }
+    return rows;
   }
 }
 

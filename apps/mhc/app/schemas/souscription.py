@@ -1,9 +1,9 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 from app.core.enums import StatutSouscription
-from app.schemas.produit_assurance import ProduitAssuranceResponse
+from app.schemas.produit_assurance import ProduitAssuranceResponse, TaxeDetail
 from app.schemas.projet_voyage import ProjetVoyageResponse
 from app.schemas.user import UserResponse
 
@@ -13,6 +13,8 @@ class SouscriptionBase(BaseModel):
     prix_applique: Decimal
     prime_assurance: Optional[Decimal] = None
     frais_services: Optional[Decimal] = None
+    taxes: Optional[List[TaxeDetail]] = None
+    taxes_total: Optional[Decimal] = None
     date_debut: datetime
     date_fin: Optional[datetime] = None
     statut: StatutSouscription = StatutSouscription.EN_ATTENTE
@@ -81,6 +83,8 @@ class SubscriptionQuotePriceItem(BaseModel):
     prix_applique: float
     prime_assurance: Optional[float] = None
     frais_services: Optional[float] = None
+    taxes_total: Optional[float] = None
+    taxes: Optional[List[TaxeDetail]] = None
     zone_geographique_code: Optional[str] = None
     zone_libelle_fr: Optional[str] = None
     tranche_duree_code: Optional[str] = None

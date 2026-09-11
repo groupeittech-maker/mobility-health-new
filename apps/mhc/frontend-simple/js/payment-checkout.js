@@ -1,3 +1,11 @@
+function escapeHtml(s) {
+    if (s == null || s === '') return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 const fallbackCurrencyHelper = {
     getLocale: () => 'fr-FR',
     getCurrency: () => 'XOF',
@@ -106,7 +114,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             quote.frais_services != null &&
             Number(quote.frais_services) > 0
         ) {
-            priceLabel.innerHTML = `${formatCurrency(quote.prime_assurance)} <span class="checkout-price-muted">+ frais</span> ${formatCurrency(quote.frais_services)} <span class="checkout-price-muted">=</span> <strong>${formatCurrency(quote.prix)}</strong>`;
+            let taxHtml = '';
+            if (quote.taxes && quote.taxes.length) {
+                for (const t of quote.taxes) {
+                    if (Number(t.montant) > 0) {
+                        taxHtml += ` <span class="checkout-price-muted">+ ${escapeHtml(t.nom)}</span> ${formatCurrency(t.montant)}`;
+                    }
+                }
+            }
+            priceLabel.innerHTML = `${formatCurrency(quote.prime_assurance)} <span class="checkout-price-muted">+ frais</span> ${formatCurrency(quote.frais_services)}${taxHtml} <span class="checkout-price-muted">=</span> <strong>${formatCurrency(quote.prix)}</strong>`;
         } else {
             priceLabel.textContent = formatCurrency(montant);
         }
