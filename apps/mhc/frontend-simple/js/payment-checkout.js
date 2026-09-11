@@ -63,8 +63,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Montant selon durée, zone et âge (devis)
+    // Si le formulaire administratif concerne un tiers (enfant), on utilise sa date de naissance.
+    const voyageurBirth = forms?.administrative?.personal?.birthDate;
     let age = null;
-    if (user && user.date_naissance) {
+    if (voyageurBirth) {
+        const birth = new Date(voyageurBirth);
+        const today = new Date();
+        age = Math.floor((today - birth) / (365.25 * 24 * 60 * 60 * 1000));
+    } else if (user && user.date_naissance) {
         const birth = new Date(user.date_naissance);
         const today = new Date();
         age = Math.floor((today - birth) / (365.25 * 24 * 60 * 60 * 1000));

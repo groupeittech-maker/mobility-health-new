@@ -51,6 +51,7 @@ class VoyageFormData {
     this.dureeJours,
     this.mineurs,
     this.documents,
+    this.isChildOnly = false,
   });
   final String titre;
   final String destination;
@@ -64,6 +65,7 @@ class VoyageFormData {
   final int? dureeJours;
   final List<MineurEntry>? mineurs;
   final List<VoyageDocEntry>? documents;
+  final bool isChildOnly;
 }
 
 /// Étape 1 : Informations sur le voyage (destination, dates, transport, mineurs).
@@ -87,6 +89,8 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
   int? _paysId;
   DateTime? _dateDepart, _dateRetour;
   bool _avecMineurs = false;
+  bool _voyagePourEnfant = false;
+  MineurEntry? _enfantVoyageur;
   final List<MineurEntry> _mineurs = [];
   final List<VoyageDocEntry> _documents = [];
   List<DestinationCountryModel> _destinationCountries = const [];
@@ -523,33 +527,122 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Voyagez-vous avec des enfants mineurs ? *',
+                'Qui est le voyageur assuré ? *',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: AppColors.secondary,
                 ),
               ),
-              RadioGroup<bool>(
-                groupValue: _avecMineurs,
+              RadioGroup<String>(
+                groupValue: _voyagePourEnfant
+                    ? 'child_only'
+                    : (_avecMineurs ? 'with_children' : 'adult'),
                 onChanged: (v) {
-                  if (v != null) setState(() => _avecMineurs = v);
+                  if (v == null) return;
+                  setState(() {
+                    _voyagePourEnfant = v == 'child_only';
+                    _avecMineurs = v == 'with_children';
+                    if (!_voyagePourEnfant) _enfantVoyageur = null;
+                    if (!_avecMineurs) _mineurs.clear();
+                  });
                 },
-                child: Row(
-                  children: const [
-                    Radio<bool>(
-                      value: true,
-                      activeColor: AppColors.primary,
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Radio<String>(
+                          value: 'adult',
+                          activeColor: AppColors.primary,
+                        ),
+                        Text('Moi (adulte)'),
+                      ],
                     ),
-                    Text('Oui'),
-                    SizedBox(width: 24),
-                    Radio<bool>(
-                      value: false,
-                      activeColor: AppColors.primary,
+                    Row(
+                      children: [
+                        Radio<String>(
+                          value: 'with_children',
+                          activeColor: AppColors.primary,
+                        ),
+                        Text('Moi + enfants mineurs'),
+                      ],
                     ),
-                    Text('Non'),
+                    Row(
+                      children: [
+                        Radio<String>(
+                          value: 'child_only',
+                          activeColor: AppColors.primary,
+                        ),
+                        Text('Un enfant mineur seul'),
+                      ],
+                    ),
                   ],
                 ),
               ),
+              if (_voyagePourEnfant) ...[
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Enfant voyageur',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.secondary,
+                      ),
+                    ),
+                    if (_enfantVoyageur == null)
+                      TextButton.icon(
+                        onPressed: _ajouterEnfantVoyageur,
+                        icon: const Icon(Icons.add, size: 20),
+                        label: const Text('Ajouter l\'enfant'),
+                      ),
+                  ],
+                ),
+                if (_enfantVoyageur == null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Aucun enfant voyageur ajouté. Le parent reste abonné, l\'enfant est le bénéficiaire du voyage.',
+                      style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
+                    ),
+                  )
+                else
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceCard,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_enfantVoyageur!.nom, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                              Text(
+                                'Né(e) le ${_enfantVoyageur!.dateNaissance.day.toString().padLeft(2, '0')}/${_enfantVoyageur!.dateNaissance.month.toString().padLeft(2, '0')}/${_enfantVoyageur!.dateNaissance.year} · Passeport ${_enfantVoyageur!.numeroPasseport} · Valide jusqu\'au ${_enfantVoyageur!.validitePasseport.day.toString().padLeft(2, '0')}/${_enfantVoyageur!.validitePasseport.month.toString().padLeft(2, '0')}/${_enfantVoyageur!.validitePasseport.year}',
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => setState(() {
+                            _documents.removeWhere((d) => d.path == _enfantVoyageur!.photoPasseportPath);
+                            _enfantVoyageur = null;
+                          }),
+                          icon: const Icon(Icons.delete_outline, color: AppColors.danger, size: 22),
+                          tooltip: 'Supprimer',
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 8),
+              ],
               if (_avecMineurs) ...[
                 const SizedBox(height: 12),
                 Row(
@@ -712,8 +805,22 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       );
                       return;
                     }
+                    if (_voyagePourEnfant && _enfantVoyageur == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Veuillez ajouter les informations de l\'enfant voyageur.',
+                          ),
+                          backgroundColor: AppColors.danger,
+                        ),
+                      );
+                      return;
+                    }
                     final titre = 'Voyage vers $_ville, $_pays';
                     if (titre.isEmpty) return;
+                    final List<MineurEntry>? mineurs = _voyagePourEnfant
+                        ? (_enfantVoyageur != null ? <MineurEntry>[_enfantVoyageur!] : null)
+                        : (_avecMineurs && _mineurs.isNotEmpty ? List<MineurEntry>.from(_mineurs) : null);
                     widget.onContinue(VoyageFormData(
                       titre: titre,
                       destination: _ville ?? '',
@@ -725,8 +832,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       dateRetour: _dateRetour,
                       nombreParticipants: 1,
                       dureeJours: _dureeJours > 0 ? _dureeJours : null,
-                      mineurs: _avecMineurs && _mineurs.isNotEmpty ? List.from(_mineurs) : null,
+                      mineurs: mineurs,
                       documents: _documents.isNotEmpty ? List.from(_documents) : null,
+                      isChildOnly: _voyagePourEnfant,
                     ));
                   },
                   style: ElevatedButton.styleFrom(
@@ -899,6 +1007,28 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
             path: result.photoPasseportPath,
             docType: 'passport',
             label: 'Passeport (enfant) — ${result.nom}',
+          ),
+        );
+      });
+    }
+  }
+
+  Future<void> _ajouterEnfantVoyageur() async {
+    final result = await showModalBottomSheet<MineurEntry>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => const _AjouterMineurSheet(),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _enfantVoyageur = result;
+        _documents.add(
+          VoyageDocEntry(
+            path: result.photoPasseportPath,
+            docType: 'passport',
+            label: 'Passeport (enfant voyageur) — ${result.nom}',
           ),
         );
       });

@@ -174,14 +174,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
     if (!mounted) return;
     setState(() => _loadingDevis = true);
     try {
-      var age = _subscriberAge;
-      if (age == null) {
-        try {
-          final u = await AuthService.instance.getMe();
-          age = _ageFromDateNaissance(u.dateNaissance);
-          _subscriberAge = age;
-        } catch (_) {}
-      }
+      final age = await _voyageurAge();
       final ids = products.map((e) => e.id).toList();
       final result = await _subscriptionsService.quotePrices(
         projetVoyageId: pid,
@@ -215,6 +208,33 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
     return a;
   }
 
+  int? _ageFromDateTime(DateTime? d) {
+    if (d == null) return null;
+    final now = DateTime.now();
+    var a = now.year - d.year;
+    if (now.month < d.month || (now.month == d.month && now.day < d.day)) {
+      a--;
+    }
+    return a;
+  }
+
+  Future<int?> _voyageurAge() async {
+    if (_voyageData?.isChildOnly == true && _voyageData?.mineurs?.isNotEmpty == true) {
+      final age = _ageFromDateTime(_voyageData!.mineurs!.first.dateNaissance);
+      _subscriberAge = age;
+      return age;
+    }
+    var age = _subscriberAge;
+    if (age == null) {
+      try {
+        final u = await AuthService.instance.getMe();
+        age = _ageFromDateNaissance(u.dateNaissance);
+        _subscriberAge = age;
+      } catch (_) {}
+    }
+    return age;
+  }
+
   Future<void> _onVoyageContinue(VoyageFormData data) async {
     try {
       final notesLines = <String>[
@@ -226,14 +246,27 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
       if (data.mineurs != null && data.mineurs!.isNotEmpty) {
         String fmtDate(DateTime d) =>
             '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-        notesLines.add(
-          'Mineurs accompagnés: ${data.mineurs!
-              .map(
-                (m) =>
-                    '${m.nom} (né(e) le ${fmtDate(m.dateNaissance)}); passeport ${m.numeroPasseport}; validité ${fmtDate(m.validitePasseport)}',
-              )
-              .join('; ')}',
-        );
+        if (data.isChildOnly) {
+          final child = data.mineurs!.first;
+          notesLines.addAll([
+            'Pour un tiers: oui',
+            '=== INFORMATIONS DU TIERS (BÉNÉFICIAIRE) ===',
+            'Nom du tiers: ${child.nom}',
+            'Date de naissance du tiers: ${fmtDate(child.dateNaissance)}',
+            'Numéro de passeport du tiers: ${child.numeroPasseport}',
+            'Date d\'expiration du passeport du tiers: ${fmtDate(child.validitePasseport)}',
+            '=== FIN INFORMATIONS DU TIERS ===',
+          ]);
+        } else {
+          notesLines.add(
+            'Mineurs accompagnés: ${data.mineurs!
+                .map(
+                  (m) =>
+                      '${m.nom} (né(e) le ${fmtDate(m.dateNaissance)}); passeport ${m.numeroPasseport}; validité ${fmtDate(m.validitePasseport)}',
+                )
+                .join('; ')}',
+          );
+        }
       }
       final projet = await _voyagesService.createVoyage(
         titre: data.titre,
@@ -279,14 +312,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
   Future<void> _onProduitContinue(int productId, String? medicalPhotoPath) async {
     if (_projetId == null) return;
     try {
-      var age = _subscriberAge;
-      if (age == null) {
-        try {
-          final u = await AuthService.instance.getMe();
-          age = _ageFromDateNaissance(u.dateNaissance);
-          _subscriberAge = age;
-        } catch (_) {}
-      }
+      final age = await _voyageurAge();
 
       int? autoCourtierId;
       if (_canalDistribution == 'courtier') {
