@@ -509,6 +509,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
                           montant: _montant,
                           primeAssurance: _primePourPaiement,
                           fraisServices: _fraisPourPaiement,
+                          age: _subscriberAge,
                           onContinue: () => setState(() {
                             _attestationReloadTick += 1;
                             _currentStep = 5;

@@ -15,6 +15,7 @@ class StepPaiementScreen extends StatefulWidget {
     required this.montant,
     this.primeAssurance,
     this.fraisServices,
+    this.age,
     required this.onContinue,
   });
 
@@ -22,6 +23,7 @@ class StepPaiementScreen extends StatefulWidget {
   final double montant;
   final double? primeAssurance;
   final double? fraisServices;
+  final int? age;
   final VoidCallback onContinue;
 
   @override
@@ -64,6 +66,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
         subscriptionId: widget.subscriptionId,
         montant: montant,
         methodePaiement: _selectedMethod,
+        age: widget.age,
       );
       SubscriptionsService.clearSubscriptionsCache();
       AttestationsService.clearUserAttestationsCache();

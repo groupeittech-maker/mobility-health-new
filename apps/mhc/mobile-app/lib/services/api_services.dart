@@ -588,16 +588,19 @@ class PaymentsService {
     required int subscriptionId,
     required double montant,
     String methodePaiement = 'carte_bancaire',
+    int? age,
   }) async {
+    final body = {
+      // Envoyer les noms de champs attendus par le backend.
+      'souscription_id': subscriptionId,
+      // Envoyer le montant en chaîne décimale évite les surprises de sérialisation JSON.
+      'montant': montant.toStringAsFixed(2),
+      'methode_paiement': methodePaiement,
+    };
+    if (age != null) body['age'] = age;
     return _api.post<Map<String, dynamic>>(
       '/payments/confirm',
-      body: {
-        // Envoyer les noms de champs attendus par le backend.
-        'souscription_id': subscriptionId,
-        // Envoyer le montant en chaîne décimale évite les surprises de sérialisation JSON.
-        'montant': montant.toStringAsFixed(2),
-        'methode_paiement': methodePaiement,
-      },
+      body: body,
       fromJson: (d) => d as Map<String, dynamic>,
     );
   }

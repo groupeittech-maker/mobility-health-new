@@ -168,6 +168,7 @@ class PaymentConfirmRequest(BaseModel):
     souscription_id: int = Field(..., alias="subscription_id", description="ID de la souscription")
     montant: Decimal = Field(..., gt=0, description="Montant du paiement")
     methode_paiement: str = "carte_bancaire"
+    age: Optional[int] = Field(None, description="Âge du voyageur (utile pour un enfant / tiers)")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -1043,6 +1044,29 @@ async def confirm_payment(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="La souscription est déjà active mais aucun paiement valide trouvé"
             )
+
+    # Si le dossier n'a pas encore été évalué, on lance la décision automatique.
+    # Cela permet au mobile de payer directement après avoir soumis le questionnaire médical.
+    if souscription.statut == StatutSouscription.EN_ATTENTE:
+        logger.info("Souscription %s en attente d'évaluation avant paiement", souscription.id)
+        decision = SubscriptionDecisionEngine.evaluate(
+            db,
+            souscription,
+            voyageur_age=request.age,
+        )
+        if decision.decision == "reject":
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="; ".join(decision.reasons)
+            )
+        if decision.decision == "review":
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Dossier soumis à validation humaine. Vous serez informé dès qu'il est approuvé."
+            )
+        # decision == "approve" : statut passé à EN_ATTENTE_PAIEMENT
 
     if souscription.statut not in {StatutSouscription.ACTIVE, StatutSouscription.EN_ATTENTE_PAIEMENT}:
         raise HTTPException(

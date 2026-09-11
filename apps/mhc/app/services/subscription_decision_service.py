@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any, Optional
@@ -182,13 +183,14 @@ def _voyageur_age(
     user: Optional[User],
     admin_questionnaire: Optional[Questionnaire],
     medical_questionnaire: Optional[Questionnaire],
+    projet: Optional[ProjetVoyage] = None,
     voyageur_age: Optional[int] = None,
     voyageur_date_naissance: Optional[date] = None,
 ) -> Optional[int]:
     """
     Détermine l'âge du voyageur assuré (pas forcément l'abonné).
     Priorité : paramètre > date de naissance paramètre > questionnaire administratif
-    (si tier/enfant) > abonné.
+    > notes du projet > questionnaire médical > abonné.
     """
     if voyageur_age is not None:
         return voyageur_age
@@ -207,7 +209,19 @@ def _voyageur_age(
                 if birth:
                     return _age_from_birthdate(birth)
 
-    # Repli sur le questionnaire médical (champs photoMedicale contiennent parfois la date)
+    # Repli sur les notes du projet (format tier pour mobile/web)
+    if projet and getattr(projet, "notes", None):
+        notes = str(projet.notes)
+        if "=== INFORMATIONS DU TIERS (BÉNÉFICIAIRE) ===" in notes or "Pour un tiers" in notes:
+            match = re.search(r'Date de naissance du tiers[:\s]+([^\n]+)', notes, re.IGNORECASE)
+            if not match:
+                match = re.search(r'birthdate[:\s]+([^\n]+)', notes, re.IGNORECASE)
+            if match:
+                birth = _parse_birthdate(match.group(1).strip())
+                if birth:
+                    return _age_from_birthdate(birth)
+
+    # Repli sur le questionnaire médical
     med = medical_questionnaire
     if med and med.reponses and isinstance(med.reponses, dict):
         personal = med.reponses.get("personal") or {}
@@ -306,7 +320,7 @@ class SubscriptionDecisionEngine:
             reasons.append("Le souscripteur doit être majeur. Un enfant mineur ne peut pas souscrire seul.")
             return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
 
-        age = _voyageur_age(user, admin_questionnaire, questionnaire, voyageur_age, voyageur_date_naissance)
+        age = _voyageur_age(user, admin_questionnaire, questionnaire, project, voyageur_age, voyageur_date_naissance)
 
         # 1. Règles de refus dur
         if age is not None and product.age_minimum is not None and age < product.age_minimum:
