@@ -93,6 +93,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     const minorsDetailsSection = document.getElementById('minorsDetailsSection');
     const minorsCountInput = document.getElementById('minorsCount');
     const minorsList = document.getElementById('minorsList');
+    const travelerRelation = document.getElementById('travelerRelation');
+    const childTravelerSection = document.getElementById('childTravelerSection');
+    const childBirthDateInput = document.getElementById('childBirthDate');
+    const childPassportExpiryInput = document.getElementById('childPassportExpiry');
+    const participantsInput = document.getElementById('participants');
+    const withMinorsField = withMinorsYes?.closest('.form-field');
+
+    const today = new Date().toISOString().split('T')[0];
+    if (childBirthDateInput) childBirthDateInput.max = today;
+    if (childPassportExpiryInput) childPassportExpiryInput.min = today;
+
+    function updateTravelerType() {
+        const relation = travelerRelation?.value || 'self';
+        const isChildOnly = relation === 'child_only';
+        if (childTravelerSection) {
+            childTravelerSection.style.display = isChildOnly ? 'block' : 'none';
+        }
+        if (withMinorsField) {
+            withMinorsField.style.display = isChildOnly ? 'none' : 'block';
+        }
+        if (withMinorsNo) {
+            withMinorsNo.checked = true;
+            withMinorsYes.checked = false;
+        }
+        if (minorsDetailsSection) {
+            minorsDetailsSection.style.display = 'none';
+        }
+        if (participantsInput) {
+            participantsInput.value = isChildOnly ? '1' : (participantsInput.value || '1');
+            participantsInput.disabled = isChildOnly;
+        }
+    }
+
+    travelerRelation?.addEventListener('change', updateTravelerType);
+    updateTravelerType();
 
     function toggleMinorsDetails() {
         const showDetails = withMinorsYes?.checked;
@@ -204,6 +239,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         const dateDepart = formData.get('date_depart');
         const dateStr = dateDepart ? new Date(dateDepart).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
         const titre = `Voyage vers ${destinationDisplay}${dateStr ? ' - ' + dateStr : ''}`;
+        const relation = formData.get('traveler_relation') || 'self';
+        const isChildOnly = relation === 'child_only';
+
+        if (isChildOnly) {
+            const childLast = formData.get('child_lastname')?.trim();
+            const childFirst = formData.get('child_firstname')?.trim();
+            const childBirth = formData.get('child_birthdate');
+            const childPassport = formData.get('child_passport')?.trim();
+            const childPassportExpiry = formData.get('child_passport_expiry');
+            if (!childLast || !childFirst || !childBirth || !childPassport || !childPassportExpiry) {
+                showMessage('Veuillez compléter toutes les informations de l\'enfant voyageur.', 'error');
+                return;
+            }
+            const childBirthDate = new Date(childBirth);
+            const today = new Date();
+            let childAge = today.getFullYear() - childBirthDate.getFullYear();
+            const m = today.getMonth() - childBirthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < childBirthDate.getDate())) childAge--;
+            if (childAge >= 18) {
+                showMessage('Le bénéficiaire doit être un enfant mineur (moins de 18 ans).', 'error');
+                return;
+            }
+        }
 
         const payload = {
             user_id: parseInt(userId, 10),
@@ -213,7 +271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             destination_country_id: destination_country_id,
             date_depart: toIsoString(formData.get('date_depart')),
             date_retour: toIsoString(formData.get('date_retour'), true),
-            nombre_participants: parseInt(formData.get('nombre_participants') || '1', 10),
+            nombre_participants: isChildOnly ? 1 : parseInt(formData.get('nombre_participants') || '1', 10),
             notes: buildNotesSummary(formData),
             questionnaire_type: 'long',
         };
@@ -249,6 +307,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             sessionStorage.setItem('current_project', JSON.stringify(projet));
+
+            if (isChildOnly) {
+                const tierInfo = {
+                    lastname: formData.get('child_lastname')?.trim() || '',
+                    firstname: formData.get('child_firstname')?.trim() || '',
+                    birthdate: formData.get('child_birthdate') || '',
+                    passportNumber: formData.get('child_passport')?.trim() || '',
+                    passportExpiryDate: formData.get('child_passport_expiry') || '',
+                    emergencyPhone: '',
+                };
+                sessionStorage.setItem('tier_info', JSON.stringify(tierInfo));
+            } else {
+                try { sessionStorage.removeItem('tier_info'); } catch (e) {}
+            }
 
             setTimeout(() => {
                 window.location.href = `product-selection.html?projectId=${projet.id}`;
@@ -375,14 +447,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         const destinationCity = formData.get('destination_city');
         const travelMode = formData.get('travel_mode');
         const withMinors = formData.get('with_minors');
+        const relation = formData.get('traveler_relation') || 'self';
 
-        lines.push('Souscription: Je suis le voyageur');
+        if (relation === 'child_only') {
+            lines.push('Pour un tiers: oui');
+            lines.push('=== INFORMATIONS DU TIERS (BÉNÉFICIAIRE) ===');
+            lines.push(`Nom du tiers: ${formData.get('child_lastname') || ''}`);
+            lines.push(`Prénom du tiers: ${formData.get('child_firstname') || ''}`);
+            lines.push(`Date de naissance du tiers: ${formData.get('child_birthdate') || ''}`);
+            lines.push(`Numéro de passeport du tiers: ${formData.get('child_passport') || ''}`);
+            lines.push(`Date d'expiration du passeport du tiers: ${formData.get('child_passport_expiry') || ''}`);
+            lines.push('=== FIN INFORMATIONS DU TIERS ===');
+        } else {
+            lines.push('Souscription: Je suis le voyageur');
+        }
         if (residenceCountry) lines.push(`Pays de résidence: ${residenceCountry}`);
         if (destinationCountry) lines.push(`Pays de destination: ${destinationCountry}`);
         if (destinationCity) lines.push(`Ville de destination: ${destinationCity}`);
         if (travelMode) lines.push(`Moyen de transport: ${labelForTravelMode(travelMode)}`);
         lines.push(`Voyage avec enfants mineurs: ${withMinors === 'yes' ? 'Oui' : 'Non'}`);
-        
+
         // Ajouter les informations sur les enfants mineurs
         if (withMinors === 'yes') {
             const minorsCount = parseInt(formData.get('minors_count') || '0');

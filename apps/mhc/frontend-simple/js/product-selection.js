@@ -112,8 +112,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
 
         // Caractéristiques pour tarif selon durée, zone et âge
+        // Si un tiers (enfant) est renseigné, on utilise sa date de naissance.
+        let tierInfo = null;
+        try {
+            const raw = sessionStorage.getItem('tier_info');
+            if (raw) tierInfo = JSON.parse(raw);
+        } catch (e) {}
+
         let age = null;
-        if (userResponse && userResponse.date_naissance) {
+        if (tierInfo && tierInfo.birthdate) {
+            const birth = new Date(tierInfo.birthdate);
+            const today = new Date();
+            age = Math.floor((today - birth) / (365.25 * 24 * 60 * 60 * 1000));
+        } else if (userResponse && userResponse.date_naissance) {
             const birth = new Date(userResponse.date_naissance);
             const today = new Date();
             age = Math.floor((today - birth) / (365.25 * 24 * 60 * 60 * 1000));

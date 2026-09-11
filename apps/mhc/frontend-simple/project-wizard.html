@@ -255,7 +255,35 @@
                         <label for="travelerRelation">Souscription *</label>
                         <select id="travelerRelation" name="traveler_relation" required>
                             <option value="self">Je suis le voyageur</option>
+                            <option value="child_only">Je souscris pour un enfant mineur</option>
                         </select>
+                    </div>
+                </div>
+
+                <div id="childTravelerSection" style="display: none; margin-top: 1.5rem;">
+                    <div class="section-divider" style="margin-top:0;">Enfant bénéficiaire du voyage</div>
+                    <p class="form-hint">Le parent reste souscripteur du contrat. L'enfant est le voyageur assuré.</p>
+                    <div class="form-grid two-columns">
+                        <div class="form-field">
+                            <label for="childLastName">Nom de l'enfant *</label>
+                            <input type="text" id="childLastName" name="child_lastname" placeholder="Nom de famille">
+                        </div>
+                        <div class="form-field">
+                            <label for="childFirstName">Prénom de l'enfant *</label>
+                            <input type="text" id="childFirstName" name="child_firstname" placeholder="Prénom">
+                        </div>
+                        <div class="form-field">
+                            <label for="childBirthDate">Date de naissance *</label>
+                            <input type="date" id="childBirthDate" name="child_birthdate" max="">
+                        </div>
+                        <div class="form-field">
+                            <label for="childPassport">Numéro de passeport *</label>
+                            <input type="text" id="childPassport" name="child_passport">
+                        </div>
+                        <div class="form-field">
+                            <label for="childPassportExpiry">Date d'expiration du passeport *</label>
+                            <input type="date" id="childPassportExpiry" name="child_passport_expiry" min="">
+                        </div>
                     </div>
                 </div>
 
