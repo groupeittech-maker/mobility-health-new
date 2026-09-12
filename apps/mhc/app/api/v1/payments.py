@@ -1374,6 +1374,8 @@ async def get_accounting_transactions(
         insured_share = Decimal("0.00")
         broker_share = Decimal("0.00")
         ekyc_share = Decimal("0.00")
+        reassureur_share = Decimal("0.00")
+        reassureur_nom = None
         broker_id = getattr(subscription, "courtier_id", None) if subscription else None
         broker_name = None
         broker_pct = None
@@ -1408,24 +1410,43 @@ async def get_accounting_transactions(
         elif has_definitive_attestation:
             status_code = "paid"
             status_label = "payé - attestation definitive"
-            assureur_share, mh_share, broker_share, broker_id, broker_name, broker_pct, ekyc_share = FinanceService.ledger_with_optional_courtier(
+            rep = FinanceService.ledger_repartition_complete(
                 subscription, montant_total, db, assureur_id=assureur_id
             )
+            assureur_share = rep.assureur
+            mh_share = rep.mhc
+            broker_share = rep.courtier
+            broker_id = rep.courtier_id or broker_id
+            broker_name = rep.courtier_nom or broker_name
+            broker_pct = rep.courtier_pct
+            ekyc_share = rep.ekyc
+            reassureur_share = rep.reassureur
+            reassureur_nom = rep.reassureur_nom
         else:
             status_code = "provisional"
             status_label = "reçu provisoire - attestation définitive"
-            assureur_share, mh_share, broker_share, broker_id, broker_name, broker_pct, ekyc_share = FinanceService.ledger_with_optional_courtier(
+            rep = FinanceService.ledger_repartition_complete(
                 subscription, montant_total, db, assureur_id=assureur_id
             )
+            assureur_share = rep.assureur
+            mh_share = rep.mhc
+            broker_share = rep.courtier
+            broker_id = rep.courtier_id or broker_id
+            broker_name = rep.courtier_nom or broker_name
+            broker_pct = rep.courtier_pct
+            ekyc_share = rep.ekyc
+            reassureur_share = rep.reassureur
+            reassureur_nom = rep.reassureur_nom
 
         # Robustesse legacy: si l'écart comptable montre une commission courtier,
         # forcer le montant courtier et tenter de résoudre le nom/ID.
         # Ne jamais inférer un autre courtier que celui de la souscription si courtier_id est renseigné.
         explicit_sub_courtier_id = getattr(subscription, "courtier_id", None) if subscription else None
         if status_code in {"paid", "provisional"}:
-            expected_broker = (montant_total - mh_share - assureur_share - (ekyc_share or Decimal("0.00"))).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            )
+            expected_broker = (
+                montant_total - mh_share - assureur_share
+                - (ekyc_share or Decimal("0.00")) - (reassureur_share or Decimal("0.00"))
+            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             if expected_broker > Decimal("0.00") and (not broker_share or broker_share <= Decimal("0.00")):
                 broker_share = expected_broker
             if expected_broker > Decimal("0.00") and (not broker_id or not broker_name) and assureur_id:
@@ -1497,6 +1518,8 @@ async def get_accounting_transactions(
                 montant_courtier=broker_share or None,
                 montant_mh=mh_share,
                 montant_ekyc=ekyc_share or None,
+                montant_reassureur=reassureur_share or None,
+                reassureur_nom=reassureur_nom,
                 montant_assure=insured_share or None,
                 statut_transaction=status_label,
                 status_code=status_code,

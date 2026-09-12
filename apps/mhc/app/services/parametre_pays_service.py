@@ -50,6 +50,20 @@ def get_cout_police(
     return Decimal("0")
 
 
+def get_reassureur(
+    db: Session, pays_assureur: Optional[str]
+) -> Tuple[str, Decimal]:
+    """Retourne (nom réassureur, taux %) pour le pays assureur. Défaut : SCGRÉ 10 %."""
+    param = get_parametre_pays_assureur(db, pays_assureur)
+    nom = (param.reassureur_nom or "SCGRÉ") if param else "SCGRÉ"
+    pct = (
+        Decimal(str(param.reassureur_pct))
+        if param and param.reassureur_pct is not None
+        else Decimal("10")
+    )
+    return nom, pct
+
+
 def get_active_taxes(
     db: Session, pays_assureur: Optional[str]
 ) -> List[TaxePaysAssureur]:

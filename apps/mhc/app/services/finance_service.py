@@ -3,6 +3,7 @@ Service pour la gestion financière avec transactions ACID et anti-doublon
 """
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
+from dataclasses import dataclass
 from typing import Dict, Optional, List, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
@@ -17,10 +18,27 @@ from app.models.paiement import Paiement
 from app.models.souscription import Souscription
 from app.models.produit_assurance import ProduitAssurance
 from app.models.courtier import Courtier
+from app.models.assureur import Assureur
 from app.core.enums import CleRepartition, StatutPaiement
 from app.core.tarification_defaults import EKYC_FEE_PER_DOSSIER
+from app.services.parametre_pays_service import get_reassureur
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LedgerRepartition:
+    """Répartition comptable d'un encaissement souscription (tableau de répartition)."""
+
+    assureur: Decimal = Decimal("0.00")  # Part assureur = participation % × Prime Nette
+    courtier: Decimal = Decimal("0.00")
+    courtier_id: Optional[int] = None
+    courtier_nom: Optional[str] = None
+    courtier_pct: Optional[Decimal] = None
+    reassureur: Decimal = Decimal("0.00")  # Part réassureur (SCGRÉ ou autre, par pays)
+    reassureur_nom: Optional[str] = None
+    mhc: Decimal = Decimal("0.00")  # Part MHC nette (reliquat PN + chargements - eKYC)
+    ekyc: Decimal = Decimal("0.00")  # Part partenaire eKYC (350 FCFA/dossier)
 
 
 class FinanceService:
@@ -338,60 +356,105 @@ class FinanceService:
         return min(EKYC_FEE_PER_DOSSIER, mh)
 
     @staticmethod
-    def ledger_with_optional_courtier(
+    def ledger_repartition_complete(
         subscription: Optional[Souscription],
         montant_total: Decimal,
         db: Session,
         assureur_id: Optional[int] = None,
-    ) -> Tuple[Decimal, Decimal, Decimal, Optional[int], Optional[str], Optional[Decimal], Decimal]:
+    ) -> LedgerRepartition:
         """
-        Retourne (assureur, mh_net, courtier, courtier_id, courtier_nom, commission_pct, ekyc).
-        - assureur : Prime Nette
-        - mh_net : chargements MHC (Coût de Police + Taxe + taxes additionnelles) - part eKYC
-        - ekyc : 350 FCFA/dossier prélevés sur la part MHC
-        - commission courtier appliquée sur la prime d'assurance uniquement.
-        """
-        assureur_share, mh_gross = FinanceService.ledger_prime_and_frais_split(
-            subscription, montant_total
-        )
-        ekyc_share = FinanceService.ledger_ekyc_share(subscription, mh_gross)
-        mh_share = (mh_gross - ekyc_share).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        if not subscription:
-            return assureur_share, mh_share, Decimal("0.00"), None, None, None, ekyc_share
+        Répartition selon le « Tableau de répartition » :
 
+        - Canal assureur : assureur = participation % × PN (commission_assureur_pct du
+          produit), réassureur = r % × PN, MHC = (100 − P − r) % × PN.
+        - Canal courtier : courtier = C % × PN, puis reliquat → réassureur r %,
+          MHC (100 − r) % du reliquat. Assureur = 0.
+        - Chargements (Coût de Police + Taxe + taxes additionnelles) → MHC.
+        - eKYC : 350 FCFA/dossier prélevés sur la part MHC.
+        """
+        rep = LedgerRepartition()
+        mt = (montant_total or Decimal("0.00")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        pn_raw = getattr(subscription, "prime_assurance", None) if subscription else None
+        if pn_raw is None:
+            # Anciennes souscriptions sans détail : tout le paiement part à l'assureur
+            rep.assureur = mt
+            return rep
+
+        pn = Decimal(str(pn_raw)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        chargements = (mt - pn).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if chargements < Decimal("0.00"):
+            chargements = Decimal("0.00")
+
+        # Réassureur du pays assureur (défaut SCGRÉ 10 %)
+        pays_assureur = None
+        if assureur_id:
+            assureur_row = db.query(Assureur).filter(Assureur.id == assureur_id).first()
+            pays_assureur = assureur_row.pays if assureur_row else None
+        reassureur_nom, reassureur_pct = get_reassureur(db, pays_assureur)
+        rep.reassureur_nom = reassureur_nom
+
+        # Résolution du courtier (canal courtier)
         courtier = None
         courtier_id = getattr(subscription, "courtier_id", None)
         if courtier_id:
             courtier = db.query(Courtier).filter(Courtier.id == courtier_id).first()
-        elif assureur_id:
-            # Fallback legacy: certaines souscriptions historiques n'ont pas courtier_id.
-            # On rattache alors le courtier du même assureur (premier id pour stabilité).
+        elif getattr(subscription, "canal_distribution", None) == "courtier" and assureur_id:
+            # Fallback legacy : courtier unique rattaché à l'assureur
             matches = (
                 db.query(Courtier)
                 .filter(Courtier.assureur_id == assureur_id)
                 .order_by(Courtier.id.asc())
                 .all()
             )
-            if len(matches) == 1:
+            if matches:
                 courtier = matches[0]
-            elif len(matches) > 1:
-                courtier = matches[0]
-                logger.warning(
-                    "Plusieurs courtiers trouvés pour assureur_id=%s, fallback sur id=%s",
-                    assureur_id,
-                    courtier.id,
-                )
+                if len(matches) > 1:
+                    logger.warning(
+                        "Plusieurs courtiers trouvés pour assureur_id=%s, fallback sur id=%s",
+                        assureur_id,
+                        courtier.id,
+                    )
 
-        if not courtier:
-            return assureur_share, mh_share, Decimal("0.00"), None, None, None, ekyc_share
-        pct = Decimal(str(courtier.commission_pct or Decimal("0.00")))
-        courtier_share = (assureur_share * (pct / Decimal("100"))).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
-        assureur_share = (assureur_share - courtier_share).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
-        return assureur_share, mh_share, courtier_share, courtier.id, courtier.nom, pct, ekyc_share
+        if courtier:
+            # Canal courtier : commission C % × PN, reliquat → réassureur r % / MHC reste
+            c_pct = Decimal(str(courtier.commission_pct or Decimal("0.00")))
+            rep.courtier = (pn * c_pct / Decimal("100")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            rep.courtier_id = courtier.id
+            rep.courtier_nom = courtier.nom
+            rep.courtier_pct = c_pct
+            reliquat = (pn - rep.courtier).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            rep.reassureur = (reliquat * reassureur_pct / Decimal("100")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            mh_pn = (reliquat - rep.reassureur).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        else:
+            # Canal assureur : assureur P % × PN, réassureur r % × PN, MHC reste
+            produit = None
+            if getattr(subscription, "produit_assurance_id", None):
+                produit = (
+                    db.query(ProduitAssurance)
+                    .filter(ProduitAssurance.id == subscription.produit_assurance_id)
+                    .first()
+                )
+            participation_pct = Decimal("0.00")
+            if produit is not None and produit.commission_assureur_pct is not None:
+                participation_pct = Decimal(str(produit.commission_assureur_pct))
+            rep.assureur = (pn * participation_pct / Decimal("100")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            rep.reassureur = (pn * reassureur_pct / Decimal("100")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            mh_pn = (pn - rep.assureur - rep.reassureur).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+
+        mh_gross = (mh_pn + chargements).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        rep.ekyc = FinanceService.ledger_ekyc_share(subscription, mh_gross)
+        rep.mhc = (mh_gross - rep.ekyc).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return rep
 
     @staticmethod
     def refund_policy_breakdown(

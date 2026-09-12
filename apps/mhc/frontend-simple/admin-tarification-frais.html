@@ -42,8 +42,8 @@
             <div>
                 <h2>Chargements : Coût de Police, Taxe et taxes additionnelles</h2>
                 <p class="text-muted" style="margin: 0.35rem 0 0; max-width: 52rem;">
-                    Paramétrez le <strong>Coût de Police</strong> (forfait), la <strong>Taxe</strong> (frais de service, %) et les
-                    <strong>taxes additionnelles</strong> par <strong>pays de l’assureur</strong>.
+                    Paramétrez le <strong>Coût de Police</strong> (forfait), la <strong>Taxe</strong> (frais de service, %),
+                    les <strong>taxes additionnelles</strong> et le <strong>réassureur</strong> par <strong>pays de l’assureur</strong>.
                     La Taxe et les taxes additionnelles s’appliquent sur la <strong>Prime Nette + Coût de Police</strong>.
                     Prime Nette Totale = Prime Nette + Coût de Police + Taxe + taxes additionnelles.
                 </p>
@@ -68,6 +68,19 @@
                     <label>Taxe (% de Prime Nette + Coût de Police) *</label>
                     <input type="number" id="feeInput" min="0" max="100" step="0.01" value="15">
                     <small class="muted">Fait office de frais de service (part MHC).</small>
+                </div>
+            </div>
+
+            <div class="form-grid two-col" style="margin-bottom: 1rem;">
+                <div class="form-group">
+                    <label>Réassureur</label>
+                    <input type="text" id="reassureurNomInput" placeholder="ex: SCGRÉ" maxlength="200">
+                    <small class="muted">Partenaire réassurance du pays (défaut : SCGRÉ).</small>
+                </div>
+                <div class="form-group">
+                    <label>Part réassureur (% de la Prime Nette)</label>
+                    <input type="number" id="reassureurPctInput" min="0" max="100" step="0.01" value="10">
+                    <small class="muted">Canal courtier : appliqué sur le reliquat après commission.</small>
                 </div>
             </div>
 

@@ -780,6 +780,8 @@ def create_parametre_pays(
         pays_assureur=body.pays_assureur.strip(),
         frais_services_pct=body.frais_services_pct,
         cout_police=body.cout_police or Decimal("0"),
+        reassureur_nom=(body.reassureur_nom or "SCGRÉ").strip(),
+        reassureur_pct=body.reassureur_pct if body.reassureur_pct is not None else Decimal("10"),
         actif=body.actif,
     )
     db.add(param)
@@ -819,6 +821,8 @@ def list_parametres_pays(
                 pays_assureur=p.pays_assureur,
                 frais_services_pct=float(p.frais_services_pct),
                 cout_police=float(p.cout_police or 0),
+                reassureur_nom=p.reassureur_nom or "SCGRÉ",
+                reassureur_pct=float(p.reassureur_pct if p.reassureur_pct is not None else 10),
                 actif=p.actif,
                 total_taxes_pct=total_pct,
                 nombre_taxes=len([t for t in (p.taxes or []) if t.actif]),
@@ -869,6 +873,10 @@ def update_parametre_pays(
         param.frais_services_pct = body.frais_services_pct
     if body.cout_police is not None:
         param.cout_police = body.cout_police
+    if body.reassureur_nom is not None:
+        param.reassureur_nom = body.reassureur_nom.strip() or "SCGRÉ"
+    if body.reassureur_pct is not None:
+        param.reassureur_pct = body.reassureur_pct
     if body.actif is not None:
         param.actif = body.actif
 

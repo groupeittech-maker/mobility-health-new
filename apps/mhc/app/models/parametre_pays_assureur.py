@@ -15,6 +15,8 @@ class ParametrePaysAssureur(Base, TimestampMixin):
     pays_assureur = Column(String(100), nullable=False, unique=True, index=True)
     frais_services_pct = Column(Numeric(5, 2), nullable=False, default=15)
     cout_police = Column(Numeric(12, 2), nullable=False, default=0)  # Coût de Police (forfait FCFA, part MHC)
+    reassureur_nom = Column(String(200), nullable=False, default="SCGRÉ")  # Réassureur du pays
+    reassureur_pct = Column(Numeric(5, 2), nullable=False, default=10)  # Part réassureur (% Prime Nette / reliquat)
     actif = Column(Boolean, nullable=False, default=True)
 
     taxes = relationship(

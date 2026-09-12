@@ -289,7 +289,7 @@ function buildTransactionCard(item, showActions) {
                     ${refLine}
                     <div class="accounting-tx-card__grid">
                         <div>
-                            <span class="sos-alert-card__label">Prime assurance (total)</span>
+                            <span class="sos-alert-card__label">Prime Nette Totale encaissée</span>
                             <div class="sos-alert-card__value">${formatAmount(item.montant_total)}</div>
                         </div>
                         <div>
@@ -297,12 +297,16 @@ function buildTransactionCard(item, showActions) {
                             <div class="sos-alert-card__value">${formatShareAmount(item.montant_assure)}</div>
                         </div>
                         <div>
-                            <span class="sos-alert-card__label">Part assureur</span>
+                            <span class="sos-alert-card__label">Part assureur (participation)</span>
                             <div class="sos-alert-card__value">${formatAmount(item.montant_assureur)}</div>
                         </div>
                         <div>
-                            <span class="sos-alert-card__label">Commision perçu par le courtier</span>
+                            <span class="sos-alert-card__label">Commission courtier</span>
                             <div class="sos-alert-card__value">${formatShareAmount(item.montant_courtier)}</div>
+                        </div>
+                        <div>
+                            <span class="sos-alert-card__label">Part réassureur${item.reassureur_nom ? ' (' + item.reassureur_nom + ')' : ''}</span>
+                            <div class="sos-alert-card__value">${formatShareAmount(item.montant_reassureur)}</div>
                         </div>
                         <div>
                             <span class="sos-alert-card__label">Part MHC (nette)</span>
