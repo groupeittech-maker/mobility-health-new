@@ -163,11 +163,15 @@ async def get_pending_subscriptions(
         # Avis médical rendu (favorable ou défavorable) : l'agent de production statue en dernier.
         # Tant que validation_medicale est vide/pending, le dossier reste côté validateur médical.
         validation_medicale_terminee = Souscription.validation_medicale.in_(["approved", "rejected"])
-        # Pipeline pré-paiement (moteur de décision) : dossiers routés directement
-        # à l'étape production, sans paiement encore encaissé.
+        # Pipeline pré-paiement (moteur de décision) : dossiers routés à l'étape
+        # production, sans paiement encore encaissé. Inclut les dossiers legacy
+        # « technique » (validation_technique pending) fusionnés dans production.
         decision_pipeline_production = and_(
             Souscription.statut == StatutSouscription.EN_ATTENTE_VALIDATION,
-            Souscription.validation_finale == "pending",
+            or_(
+                Souscription.validation_finale == "pending",
+                Souscription.validation_technique == "pending",
+            ),
         )
         try:
             souscriptions_query = (
