@@ -3,12 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Étape 4 • Paiement</title>
+    <title>Dossier • Paiement</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
-        .page-header {
-            margin-bottom: 1.5rem;
-        }
+        .page-header { margin-bottom: 1.5rem; }
         .layout-two-columns {
             display: grid;
             grid-template-columns: 320px 1fr;
@@ -21,9 +19,7 @@
             padding: 2rem;
             box-shadow: 0 12px 34px rgba(25, 68, 132, 0.12);
         }
-        .summary-item {
-            margin-bottom: 1rem;
-        }
+        .summary-item { margin-bottom: 1rem; }
         .summary-item span {
             display: block;
             font-size: 0.85rem;
@@ -69,50 +65,29 @@
             cursor: pointer;
             min-width: 220px;
         }
-        .primary-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        .secondary-btn {
-            background-color: var(--secondary-color);
-            color: white;
-            padding: 0.9rem 1.8rem;
-            border-radius: 999px;
-            text-decoration: none;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 12px 20px rgba(79, 31, 120, 0.3);
-        }
-        .secondary-btn:hover {
-            background-color: var(--secondary-dark);
-        }
+        .primary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .message {
             margin-bottom: 1rem;
             padding: 0.9rem 1.1rem;
             border-radius: 8px;
             display: none;
         }
-        .message.error {
-            background: #fdecea;
-            border: 1px solid #f5c6cb;
-            color: #c0392b;
+        .message.error { background: #fdecea; border: 1px solid #f5c6cb; color: #c0392b; }
+        .message.success { background: #e9f7ef; border: 1px solid #c3e6cb; color: #1e8449; }
+        .message.info { background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; display: none; }
+        .message.info.show { display: block; }
+        .divider { border: none; border-top: 1px dashed var(--border-color); margin: 1.5rem 0; }
+        .status-pill {
+            display: inline-block;
+            padding: 0.25rem 0.8rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
         }
-        .message.success {
-            background: #e9f7ef;
-            border: 1px solid #c3e6cb;
-            color: #1e8449;
-        }
-        .divider {
-            border: none;
-            border-top: 1px dashed var(--border-color);
-            margin: 1.5rem 0;
-        }
-        @media (max-width: 900px) {
-            .layout-two-columns {
-                grid-template-columns: 1fr;
-            }
-        }
+        .status-pill.review { background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; }
+        .status-pill.payable { background: #e9f7ef; color: #1e8449; border: 1px solid #c3e6cb; }
+        .status-pill.refused { background: #fdecea; color: #c0392b; border: 1px solid #f5c6cb; }
+        @media (max-width: 900px) { .layout-two-columns { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body class="protected">
@@ -133,25 +108,20 @@
 
     <main class="container">
         <div class="page-header">
-            <p>Étape 4 / 5</p>
+            <p>Dossier de souscription</p>
             <h2>Paiement sécurisé</h2>
-            <p>Vérifiez le récapitulatif puis réglez votre souscription pour passer à l’attestation provisoire.</p>
+            <p>Soumettez votre dossier à la décision automatique puis réglez votre souscription une fois approuvée.</p>
         </div>
 
         <div id="paymentMessage" class="message"></div>
+        <div id="reviewNotice" class="message info" style="display:none;"></div>
 
         <div class="layout-two-columns">
             <aside class="panel">
                 <h3>Résumé</h3>
-                <div id="checkoutSummary">
-                    <p>Chargement...</p>
-                </div>
+                <div id="checkoutSummary"><p>Chargement...</p></div>
                 <hr class="divider">
-                <p><strong>Questionnaires transmis :</strong></p>
-                <ul>
-                    <li>Administratif / technique ✅</li>
-                    <li>Médical ✅</li>
-                </ul>
+                <div id="dossierStatus"></div>
             </aside>
 
             <section class="payment-card">
@@ -166,7 +136,7 @@
                     </div>
                 </div>
 
-                <div>
+                <div id="paymentMethodsBlock" style="display:none;">
                     <h4>Mode de paiement</h4>
                     <div class="payment-methods" id="paymentMethods">
                         <label><input type="radio" name="paymentMethod" value="carte_bancaire" checked> Carte bancaire</label>
@@ -176,18 +146,19 @@
                     </div>
                 </div>
 
-                <div style="display: flex; gap: 1rem; align-items: center; margin-top: 1.5rem;">
-                    <button type="button" class="btn btn-secondary" onclick="goBackToQuestionnaire()">← Retour</button>
-                    <button id="payNowBtn" class="primary-btn">Payer maintenant</button>
+                <div style="display: flex; gap: 1rem; align-items: center; margin-top: 1.5rem; flex-wrap: wrap;">
+                    <a href="user-dashboard.html" class="btn btn-secondary">← Retour au tableau de bord</a>
+                    <button id="submitDossierBtn" class="primary-btn" style="display:none;">Soumettre le dossier</button>
+                    <button id="checkStatusBtn" class="primary-btn" style="display:none;">Vérifier le statut</button>
+                    <button id="payNowBtn" class="primary-btn" style="display:none;">Payer maintenant</button>
                 </div>
             </section>
         </div>
     </main>
 
-    <script src="js/api.js?v=20260912-1"></script>
+    <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/currency.js"></script>
-    <script src="js/payment-checkout.js?v=20260912-1"></script>
+    <script src="js/payment-subscription.js?v=20260912-1"></script>
 </body>
 </html>
-

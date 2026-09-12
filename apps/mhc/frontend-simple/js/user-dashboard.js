@@ -78,10 +78,15 @@ async function loadDashboardData() {
     initUserNotificationsModule();
 }
 
+// Statuts des dossiers reprenables / en attente d'action ou de validation
+const PENDING_STATUTS = new Set(['en_attente', 'pending', 'en_attente_validation', 'en_attente_paiement']);
+const RESUMABLE_STATUTS = new Set(['en_attente', 'pending', 'en_attente_validation', 'en_attente_paiement']);
+const isPendingStatut = (s) => PENDING_STATUTS.has(s.statut);
+
 function applySubscriptionStats(subscriptions) {
     const list = Array.isArray(subscriptions) ? subscriptions : [];
     const active = list.filter(s => s.statut === 'active').length;
-    const pending = list.filter(s => s.statut === 'en_attente' || s.statut === 'pending').length;
+    const pending = list.filter(isPendingStatut).length;
     const expired = list.filter(s => s.statut === 'expiree' || s.statut === 'expired').length;
     const setText = (id, value) => {
         const el = document.getElementById(id);
@@ -138,7 +143,7 @@ async function loadSubscriptions() {
         
         // Filtrer par statut
         const active = allSubscriptions.filter(s => s.statut === 'active');
-        const pending = allSubscriptions.filter(s => s.statut === 'en_attente' || s.statut === 'pending');
+        const pending = allSubscriptions.filter(isPendingStatut);
         const expired = allSubscriptions.filter(s => s.statut === 'expiree' || s.statut === 'expired');
         
         console.log('📊 Répartition par statut:', {
@@ -282,10 +287,15 @@ function displaySubscriptions(containerId, subscriptions) {
 function getSubscriptionActions(subscription) {
     const actions = [];
     
-    // Si la souscription est en attente, on peut voir le statut de paiement
-    if (subscription.statut === 'en_attente' || subscription.statut === 'pending') {
-        actions.push(`<button class="btn btn-primary btn-sm" onclick="viewSubscriptionDetails(${subscription.id})">Voir les détails</button>`);
-        actions.push(`<button class="btn btn-secondary btn-sm" onclick="viewAttestations(${subscription.id})">Voir les attestations</button>`);
+    // Dossier reprenable : soumettre / suivre la validation / payer
+    if (RESUMABLE_STATUTS.has(subscription.statut)) {
+        const resumeLabel = subscription.statut === 'en_attente_paiement' ? 'Payer' : 'Reprendre';
+        actions.push(`<a href="payment-subscription.html?subscription_id=${subscription.id}" class="btn btn-primary btn-sm">${resumeLabel}</a>`);
+        actions.push(`<button class="btn btn-secondary btn-sm" onclick="viewSubscriptionDetails(${subscription.id})">Détails</button>`);
+    }
+
+    if (subscription.statut === 'refusee') {
+        actions.push(`<button class="btn btn-secondary btn-sm" onclick="viewSubscriptionDetails(${subscription.id})">Voir les détails</button>`);
     }
     
     // Si la souscription est active, on peut voir les attestations et déclarer un sinistre
@@ -310,6 +320,9 @@ function getStatusClass(statut) {
         'active': 'active',
         'en_attente': 'en_attente',
         'pending': 'en_attente',
+        'en_attente_validation': 'en_attente',
+        'en_attente_paiement': 'en_attente',
+        'refusee': 'expiree',
         'expiree': 'expiree',
         'expired': 'expiree',
         'suspendue': 'suspendue',
@@ -322,8 +335,11 @@ function getStatusClass(statut) {
 function getStatusLabel(statut) {
     const labelMap = {
         'active': 'En cours',
-        'en_attente': 'En attente',
-        'pending': 'En attente',
+        'en_attente': 'Brouillon',
+        'pending': 'Brouillon',
+        'en_attente_validation': 'En validation',
+        'en_attente_paiement': 'À payer',
+        'refusee': 'Refusée',
         'expiree': 'Expirée',
         'expired': 'Expirée',
         'suspendue': 'Suspendue',
@@ -387,7 +403,7 @@ function filterSubscriptions(searchTerm) {
         // Si pas de recherche, réafficher toutes les souscriptions
         displaySubscriptions('subscriptionsAllList', allSubscriptions);
         const active = allSubscriptions.filter(s => s.statut === 'active');
-        const pending = allSubscriptions.filter(s => s.statut === 'en_attente' || s.statut === 'pending');
+        const pending = allSubscriptions.filter(isPendingStatut);
         const expired = allSubscriptions.filter(s => s.statut === 'expiree' || s.statut === 'expired');
         displaySubscriptions('subscriptionsActiveList', active);
         displaySubscriptions('subscriptionsPendingList', pending);
@@ -407,7 +423,7 @@ function filterSubscriptions(searchTerm) {
     
     // Filtrer par statut
     const active = filtered.filter(s => s.statut === 'active');
-    const pending = filtered.filter(s => s.statut === 'en_attente' || s.statut === 'pending');
+    const pending = filtered.filter(isPendingStatut);
     const expired = filtered.filter(s => s.statut === 'expiree' || s.statut === 'expired');
     
     // Afficher les résultats filtrés
