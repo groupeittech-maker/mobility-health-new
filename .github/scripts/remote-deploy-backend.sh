@@ -147,16 +147,16 @@ start_mhc_stack
 echo "[4/6] ⏳ Waiting for services..."
 sleep 20
 sudo docker compose $COMPOSE_FILES ps
-sudo docker compose $COMPOSE_FILES exec -T db pg_isready -U postgres || true
+sudo docker compose $COMPOSE_FILES exec -T db pg_isready -U postgres < /dev/null || true
 
 echo "[5/6] 📊 Running database migrations..."
-sudo docker compose $COMPOSE_FILES exec -T api alembic current || true
-if ! sudo docker compose $COMPOSE_FILES exec -T api alembic upgrade head; then
+sudo docker compose $COMPOSE_FILES exec -T api alembic current < /dev/null || true
+if ! sudo docker compose $COMPOSE_FILES exec -T api alembic upgrade head < /dev/null; then
   echo "❌ Échec des migrations Alembic"
   sudo docker compose $COMPOSE_FILES logs api --tail 80 || true
   exit 1
 fi
-sudo docker compose $COMPOSE_FILES exec -T api alembic current || true
+sudo docker compose $COMPOSE_FILES exec -T api alembic current < /dev/null || true
 
 echo "[6/6] 🔄 Restarting API..."
 sudo docker compose $COMPOSE_FILES restart api

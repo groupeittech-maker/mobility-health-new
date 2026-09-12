@@ -22,7 +22,12 @@ scp -4 app.tar.gz alembic.tar.gz docker-compose.yml docker-compose.prod.yml \
   Dockerfile Dockerfile.prod requirements.txt alembic.ini \
   mhc-vps:/tmp/
 
-ssh -4 mhc-vps "bash -s" < .github/scripts/remote-deploy-frontend.sh
+# Scripts distants envoyés par scp puis exécutés depuis /tmp : NE PAS utiliser
+# `ssh "bash -s" < script` — les `docker compose exec` consomment stdin et
+# tronqueraient silencieusement la fin du script (migrations jamais exécutées).
+scp -4 .github/scripts/remote-deploy-frontend.sh .github/scripts/remote-deploy-backend.sh mhc-vps:/tmp/
+
+ssh -4 mhc-vps "bash /tmp/remote-deploy-frontend.sh < /dev/null"
 
 if [ -n "${SMTP_PASSWORD:-}" ]; then
   scp -4 .github/scripts/configure-smtp-env.sh mhc-vps:/tmp/configure-smtp-env.sh
@@ -31,5 +36,5 @@ else
   echo "⚠️ SMTP_PASSWORD absent — .env SMTP inchangé"
 fi
 
-ssh -4 mhc-vps "bash -s" < .github/scripts/remote-deploy-backend.sh
+ssh -4 mhc-vps "bash /tmp/remote-deploy-backend.sh < /dev/null"
 echo "✅ Déploiement SSH terminé"
