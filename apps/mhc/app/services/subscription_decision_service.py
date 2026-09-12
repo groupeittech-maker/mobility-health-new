@@ -102,6 +102,36 @@ PRODUCTION_REVIEW_HINTS = [
 
 REVIEW_STEP_ORDER = ["medical", "technical", "production"]
 
+# Clés (normalisées : minuscules, sans séparateurs) des questions médicales
+# oui/non dont une réponse affirmative impose une revue médicale.
+MEDICAL_DECLARATION_KEYS = {
+    "maladesouscription",      # malade au moment de la souscription
+    "malade12mois",            # malade au cours des 12 derniers mois
+    "maladiechronique",        # maladie chronique
+    "maladieschroniques",
+    "traitementsencours",
+    "traitementmedical",
+    "hospitalisation12mois",
+    "maladiescontagieuses",
+    "contactpersonnemalade",
+    "antecedentsrecents",
+    "voyagemedical",           # voyage à but médical
+}
+
+
+def _normalized_key(key: Any) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(key).lower())
+
+
+def _is_affirmative(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value > 0
+    if isinstance(value, str):
+        return value.strip().lower() in {"oui", "yes", "true", "vrai", "1"}
+    return False
+
 
 # ---------------------------------------------------------------------------
 # Structures de retour
@@ -238,21 +268,40 @@ def _is_subscriber_minor(user: Optional[User]) -> bool:
     return age is not None and age < 18
 
 
+# Clés dont la valeur ne doit jamais alimenter la détection d'indices médicaux :
+# photos base64, documents, identité — sinon un blob base64 (ou un nom comme
+# « Sida ») déclenche aléatoirement les hints (« sida », « cancer »…).
+_FLAT_SKIP_KEY_TOKENS = (
+    "photo", "image", "base64", "file", "fichier", "document",
+    "fullname", "full_name", "birthdate", "date_naissance", "datenaissance",
+    "email", "telephone", "phone", "passport", "signature",
+)
+
+
 def _flatten_reponses(reponses: Any) -> list[str]:
     """Aplatit un dict de réponses en liste de chaînes normalisées."""
     result: list[str] = []
     if not reponses:
         return result
 
-    def _walk(value: Any):
+    def _walk(value: Any, key: str = ""):
+        k = _normalized_key(key)
+        if any(tok in k for tok in _FLAT_SKIP_KEY_TOKENS):
+            return
         if isinstance(value, dict):
-            for v in value.values():
-                _walk(v)
+            for k2, v in value.items():
+                _walk(v, k2)
         elif isinstance(value, list):
             for item in value:
                 _walk(item)
         elif value is not None:
-            result.append(str(value).lower().strip())
+            s = str(value).lower().strip()
+            if s.startswith("data:"):
+                return
+            # Blob encodé (base64/hex long sans espace) : jamais une réponse médicale
+            if len(s) > 300 and " " not in s:
+                return
+            result.append(s)
 
     _walk(reponses)
     return result
@@ -394,6 +443,15 @@ class SubscriptionDecisionEngine:
         if age is not None and age >= 70:
             review_steps.add("medical")
             reasons.append(f"Assuré âgé de {age} ans : revue médicale requise")
+
+        # Réponses « oui » aux questions médicales structurées → revue médicale
+        if isinstance(reponses, dict) and any(
+            _is_affirmative(v)
+            for k, v in reponses.items()
+            if _normalized_key(k) in MEDICAL_DECLARATION_KEYS
+        ):
+            review_steps.add("medical")
+            reasons.append("Condition médicale déclarée (réponse « oui ») : revue médicale requise")
 
         if _contains_any(flat, MEDICAL_REVIEW_HINTS):
             review_steps.add("medical")

@@ -132,6 +132,47 @@ class TestSubscriptionDecisionEngineEvaluate:
         )
         assert result.decision == "approve"
 
+    def test_approve_photo_base64_not_scanned(self):
+        """Régression : la photo médicale base64 contient aléatoirement des
+        sous-chaînes comme « sida »/« cancer » — elle ne doit jamais être
+        injectée dans la détection d'indices (refus automatique abusif)."""
+        sub = _subscription()
+        result = SubscriptionDecisionEngine.evaluate(
+            db=None,
+            souscription=sub,
+            user=_user(30),
+            product=_product(),
+            project=_project(),
+            questionnaire=_questionnaire({
+                "enceinte": "non",
+                "malade_souscription": "non",
+                "maladie_chronique": "non",
+                "voyage_medical": "non",
+                "photo_medicale": "data:image/jpeg;base64,xxsidaxxcancerxxdialysexx",
+                "photoMedicale": "data:image/jpeg;base64,xxsidaxx",
+                "photo_identity": "data:image/jpeg;base64,xxtumeurxx",
+            }),
+        )
+        assert result.decision == "approve"
+        assert sub.statut == StatutSouscription.EN_ATTENTE_PAIEMENT
+
+    def test_review_medical_declared_condition(self):
+        """Une réponse « oui » à une question médicale déclenche la revue."""
+        sub = _subscription()
+        result = SubscriptionDecisionEngine.evaluate(
+            db=None,
+            souscription=sub,
+            user=_user(30),
+            product=_product(),
+            project=_project(),
+            questionnaire=_questionnaire({
+                "enceinte": "non",
+                "maladie_chronique": "oui",
+            }),
+        )
+        assert result.decision == "review"
+        assert "medical" in result.review_steps
+
     def test_review_medical_pregnancy(self):
         sub = _subscription()
         result = SubscriptionDecisionEngine.evaluate(
