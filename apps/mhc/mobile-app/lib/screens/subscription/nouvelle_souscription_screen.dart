@@ -23,7 +23,11 @@ int? _optInt(dynamic value) {
 
 /// Flux "Nouvelle souscription" : 5 étapes (Voyage, Produit, Médical, Paiement, Attestation) – connecté API.
 class NouvelleSouscriptionScreen extends StatefulWidget {
-  const NouvelleSouscriptionScreen({super.key});
+  const NouvelleSouscriptionScreen({super.key, this.resumeSubscriptionId});
+
+  /// Reprise d'un dossier existant depuis l'historique : l'écran saute
+  /// directement à l'étape où le dossier s'est arrêté.
+  final int? resumeSubscriptionId;
 
   @override
   State<NouvelleSouscriptionScreen> createState() => _NouvelleSouscriptionScreenState();
@@ -59,6 +63,43 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
   String _canalDistribution = 'assureur';
   int? _selectedCourtierId;
   List<Map<String, dynamic>> _courtiers = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    final resumeId = widget.resumeSubscriptionId;
+    if (resumeId != null) {
+      _resumeSubscription(resumeId);
+    }
+  }
+
+  /// Reprend un dossier existant là où il s'est arrêté :
+  /// - en_attente (jamais soumis) -> étape 3 (médical)
+  /// - en_attente_validation / en_attente_paiement -> étape 4 (paiement)
+  Future<void> _resumeSubscription(int subscriptionId) async {
+    try {
+      final sub = await _subscriptionsService.getSubscription(subscriptionId);
+      if (!mounted) return;
+      setState(() {
+        _subscriptionId = sub.id;
+        _projetId = sub.projetVoyageId;
+        _montant = sub.prixApplique > 0
+            ? sub.prixApplique
+            : (sub.primeAssurance ?? 0) +
+                (sub.coutPolice ?? 0) +
+                (sub.fraisServices ?? 0) +
+                (sub.taxesTotal ?? 0);
+        _primePourPaiement = sub.primeAssurance;
+        _coutPolice = sub.coutPolice;
+        _fraisPourPaiement = sub.fraisServices;
+        _taxesTotal = sub.taxesTotal;
+        _taxes = sub.taxes;
+        _currentStep = sub.statut == 'en_attente' ? 3 : 4;
+      });
+    } catch (e) {
+      if (mounted) _showErrorSnackBar(e);
+    }
+  }
 
   Future<List<Map<String, dynamic>>> _loadCourtiersForProducts(
     List<ProductModel> products,

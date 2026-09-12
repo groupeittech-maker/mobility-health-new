@@ -5,6 +5,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/utils/api_error_helper.dart';
 import '../../models/subscription.dart';
 import '../../services/api_services.dart';
+import '../subscription/nouvelle_souscription_screen.dart';
 import 'subscription_detail_screen.dart';
 
 /// Historique : souscriptions, alertes, prestations (séjours) – connecté au backend.
@@ -157,9 +158,21 @@ class _SouscriptionsListState extends State<_SouscriptionsList> {
           Color statusColor = AppColors.mutedText;
           if (statut == 'active') statusColor = AppColors.success;
           if (statut == 'en_attente' || statut == 'pending') statusColor = AppColors.warning;
-          if (statut == 'expiree' || statut == 'expired') statusColor = AppColors.danger;
+          if (statut == 'en_attente_validation') statusColor = const Color(0xFFEA580C);
+          if (statut == 'en_attente_paiement') statusColor = AppColors.secondary;
+          if (statut == 'refusee' || statut == 'expiree' || statut == 'expired') {
+            statusColor = AppColors.danger;
+          }
           if (statut == 'resiliee') statusColor = const Color(0xFF64748B);
           final isResiliee = statut == 'resiliee';
+          // Dossiers reprenables : le parcours reprend là où il s'est arrêté
+          // (étape médical si jamais soumis, paiement sinon).
+          final isResumable = const {
+            'en_attente',
+            'pending',
+            'en_attente_validation',
+            'en_attente_paiement',
+          }.contains(statut);
           return Material(
             color: Colors.transparent,
             child: InkWell(
@@ -168,7 +181,9 @@ class _SouscriptionsListState extends State<_SouscriptionsList> {
                   : () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => SubscriptionDetailScreen(subscription: s),
+                          builder: (_) => isResumable
+                              ? NouvelleSouscriptionScreen(resumeSubscriptionId: s.id)
+                              : SubscriptionDetailScreen(subscription: s),
                         ),
                       );
                     },
@@ -179,7 +194,7 @@ class _SouscriptionsListState extends State<_SouscriptionsList> {
                 opacity: isResiliee ? 0.7 : 1,
                 child: _HistoryCard(
                   title: s.numeroSouscription.isNotEmpty ? s.numeroSouscription : 'Souscription #${s.id}',
-                  status: statut,
+                  status: _statutLabel(statut),
                   statusColor: statusColor,
                   fields: [
                     ('Date', _formatDateStr(s.createdAt)),
@@ -193,6 +208,30 @@ class _SouscriptionsListState extends State<_SouscriptionsList> {
         },
       ),
     );
+  }
+}
+
+/// Libellé français des statuts de souscription pour l'historique.
+String _statutLabel(String statut) {
+  switch (statut) {
+    case 'en_attente':
+    case 'pending':
+      return 'brouillon';
+    case 'en_attente_validation':
+      return 'en validation';
+    case 'en_attente_paiement':
+      return 'à payer';
+    case 'active':
+      return 'active';
+    case 'refusee':
+      return 'refusée';
+    case 'resiliee':
+      return 'résiliée';
+    case 'expiree':
+    case 'expired':
+      return 'expirée';
+    default:
+      return statut;
   }
 }
 

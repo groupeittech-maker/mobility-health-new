@@ -61,11 +61,13 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
     _syncDossierState();
   }
 
-  /// Resynchronise l'état du dossier avec le statut serveur (ré-ouverture écran).
-  Future<void> _syncDossierState() async {
+  /// Resynchronise l'état du dossier avec le statut serveur (ré-ouverture écran
+  /// ou vérification manuelle — une revue humaine peut prendre plusieurs jours).
+  Future<void> _syncDossierState({bool showFeedback = false}) async {
     try {
       final sub = await _subscriptionsService.getSubscription(widget.subscriptionId);
       if (!mounted) return;
+      final previous = _dossierState;
       setState(() {
         if (sub.statut == 'en_attente_paiement') {
           _dossierState = 'approved';
@@ -75,8 +77,19 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
           _dossierState = 'refused';
         }
       });
-    } catch (_) {
-      // Silencieux : l'utilisateur pourra toujours soumettre le dossier.
+      if (showFeedback && _dossierState == 'in_review' && previous == 'in_review') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Le dossier est toujours en cours de validation.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted && showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de vérifier le statut pour le moment.')),
+        );
+      }
     }
   }
 
@@ -357,9 +370,25 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Votre dossier a été soumis à une validation humaine. '
-            'Vous serez informé dès qu\'il est approuvé — le paiement sera alors disponible.',
+            'Votre dossier a été soumis à une validation humaine — cela peut prendre '
+            'plusieurs jours le temps de l\'enquête. Vous serez informé dès qu\'il '
+            'est approuvé : le paiement sera alors disponible et vous pourrez '
+            'reprendre ici.',
             style: TextStyle(fontSize: 13, color: Color(0xFF7C2D12)),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => _syncDossierState(showFeedback: true),
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Vérifier le statut'),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF9A3412),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
           ),
           if (_decisionReasons.isNotEmpty) ...[
             const SizedBox(height: 8),
