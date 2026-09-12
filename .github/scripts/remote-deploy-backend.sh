@@ -162,23 +162,31 @@ echo "[6/6] 🔄 Restarting API..."
 sudo docker compose $COMPOSE_FILES restart api
 sudo docker compose $COMPOSE_FILES ps
 
-# Conf Nginx : installer la version du dépôt si fournie (client_max_body_size 25m, etc.)
+# Conf Nginx :
+# 1) Limite de corps globale via conf.d — le vhost réellement actif pour le
+#    domaine n'est pas forcément notre fichier sites-enabled (nginx -t a déjà
+#    signalé "conflicting server name ... ignored" : un autre vhost gagne).
+#    client_max_body_size au niveau http s'applique à tous les vhosts.
+echo 'client_max_body_size 25m;' | sudo tee /etc/nginx/conf.d/mhc-body-size.conf >/dev/null
+
+# 2) Installer la conf de référence du dépôt (vhosts /api /ws, documentation
+#    vivante). Reste inactive pour les noms déjà servis par un autre fichier.
 if [ -f /tmp/mobility-health-production.conf ]; then
   NGINX_SITE="/etc/nginx/sites-available/mobility-health-production.conf"
   sudo cp "$NGINX_SITE" /tmp/mobility-health-production.conf.bak 2>/dev/null || true
   sudo cp /tmp/mobility-health-production.conf "$NGINX_SITE"
   sudo ln -sf "$NGINX_SITE" /etc/nginx/sites-enabled/mobility-health-production.conf
-  if sudo nginx -t; then
-    sudo systemctl reload nginx
-    echo "✅ Nginx conf mise à jour et rechargée"
-  else
-    echo "❌ nginx -t a échoué — restauration de la conf précédente"
-    [ -f /tmp/mobility-health-production.conf.bak ] && sudo cp /tmp/mobility-health-production.conf.bak "$NGINX_SITE"
-    sudo nginx -t || true
-  fi
   rm -f /tmp/mobility-health-production.conf
+fi
+
+if sudo nginx -t; then
+  sudo systemctl reload nginx
+  echo "✅ Nginx conf mise à jour et rechargée"
 else
-  sudo systemctl reload nginx || true
+  echo "❌ nginx -t a échoué — restauration de la conf précédente"
+  [ -f /tmp/mobility-health-production.conf.bak ] && sudo cp /tmp/mobility-health-production.conf.bak "$NGINX_SITE" 2>/dev/null || true
+  sudo rm -f /etc/nginx/conf.d/mhc-body-size.conf
+  sudo nginx -t || true
 fi
 
 echo "🧪 Testing API health..."
