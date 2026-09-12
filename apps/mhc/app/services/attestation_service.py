@@ -73,13 +73,11 @@ class AttestationService:
     def create_attestation_provisoire(
         db: Session,
         souscription: Souscription,
-        paiement: Optional[Paiement] = None,
+        paiement: Paiement,
         user: Optional[User] = None
     ) -> Attestation:
         """
-        Crée une attestation provisoire après paiement — ou dès l'entrée du
-        dossier dans le pipeline de revue (paiement pas encore encaissé, alors
-        ``paiement`` est None).
+        Crée une attestation provisoire après paiement.
         
         IMPORTANT: 
         - La souscription est toujours liée à l'abonné (souscription.user_id)
@@ -101,8 +99,7 @@ class AttestationService:
         
         # L'objet user est l'abonné (souscripteur) - utilisé comme fallback si traveler_info est vide
         # La souscription reste toujours liée à l'abonné (souscription.user_id)
-        fallback_user_id = paiement.user_id if paiement else souscription.user_id
-        user_obj = user or db.query(UserModel).filter(UserModel.id == fallback_user_id).first()
+        user_obj = user or db.query(UserModel).filter(UserModel.id == paiement.user_id).first()
         
         logger.info(
             f"📄 Création attestation provisoire - Souscription ID: {souscription.id}, "
@@ -190,7 +187,7 @@ class AttestationService:
         # Créer l'attestation en base
         attestation = Attestation(
             souscription_id=souscription.id,
-            paiement_id=paiement.id if paiement else None,
+            paiement_id=paiement.id,
             type_attestation="provisoire",
             numero_attestation=numero_attestation,
             chemin_fichier_minio=chemin_fichier,
@@ -209,41 +206,6 @@ class AttestationService:
         db.refresh(attestation)
         
         return attestation
-
-    @staticmethod
-    def ensure_review_attestation(
-        db: Session,
-        souscription: Souscription,
-    ) -> Optional[Attestation]:
-        """
-        Garantit qu'une attestation provisoire existe pour un dossier entré dans
-        le pipeline de revue (avant paiement). Sans elle, le dossier est invisible
-        des files de revue (/attestations/reviews/*) qui sont attestation-based.
-        Idempotent : retourne l'existante si déjà créée. Ne lève jamais
-        d'exception — une erreur PDF/Minio ne doit pas bloquer la décision.
-        """
-        try:
-            existing = (
-                db.query(Attestation)
-                .filter(
-                    Attestation.souscription_id == souscription.id,
-                    Attestation.type_attestation == "provisoire",
-                )
-                .order_by(Attestation.created_at.desc())
-                .first()
-            )
-            if existing:
-                return existing
-            return AttestationService.create_attestation_provisoire(
-                db=db, souscription=souscription, paiement=None
-            )
-        except Exception as exc:  # pragma: no cover - garde-fou pipeline
-            logger.warning(
-                "Attestation provisoire de revue non créée pour souscription %s: %s",
-                getattr(souscription, "id", "?"),
-                exc,
-            )
-            return None
 
     @staticmethod
     def create_attestation_definitive(

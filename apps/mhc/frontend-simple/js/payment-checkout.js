@@ -176,6 +176,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                 body: JSON.stringify(payload)
             });
 
+            // Le moteur de décision peut router le dossier en revue humaine :
+            // dans ce cas aucun paiement n'a été encaissé.
+            if (response && response.decision === 'review') {
+                const reasons = Array.isArray(response.reasons) && response.reasons.length
+                    ? `<br><small>${response.reasons.map(escapeHtml).join('<br>')}</small>`
+                    : '';
+                showMessage(
+                    `Votre dossier a été soumis à une validation humaine (réf. ${escapeHtml(response.numero_souscription || '')}). `
+                    + `Vous serez informé dès qu'il est approuvé — le paiement sera alors disponible.${reasons}`,
+                    'info',
+                );
+                sessionStorage.removeItem('forms_payload');
+                sessionStorage.removeItem('subscription_draft');
+                try { sessionStorage.removeItem('tier_info'); } catch (e) {}
+                setTimeout(() => {
+                    window.location.href = 'user-dashboard.html';
+                }, 4000);
+                return;
+            }
+
             sessionStorage.setItem('payment_info', JSON.stringify(response));
             sessionStorage.removeItem('forms_payload');
             sessionStorage.removeItem('subscription_draft');

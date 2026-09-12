@@ -1177,37 +1177,6 @@ async def get_attestation_reviews(
             detail=_VALIDATION_ROLE_ERRORS.get(normalized_type, "Accès non autorisé pour cette validation")
         )
 
-    # Auto-réparation : dossiers routés en revue par le moteur de décision sans
-    # attestation provisoire (créés avant le branchement pipeline) — on la crée
-    # à la volée pour qu'ils apparaissent dans la file correspondante.
-    try:
-        step_field = {
-            "medecin": "validation_medicale",
-            "technique": "validation_technique",
-            "production": "validation_finale",
-        }[normalized_type]
-        stuck = (
-            db.query(Souscription)
-            .filter(
-                Souscription.statut == StatutSouscription.EN_ATTENTE_VALIDATION,
-                getattr(Souscription, step_field) == "pending",
-            )
-            .all()
-        )
-        for sub in stuck:
-            has_prov = (
-                db.query(Attestation.id)
-                .filter(
-                    Attestation.souscription_id == sub.id,
-                    Attestation.type_attestation == "provisoire",
-                )
-                .first()
-            )
-            if not has_prov:
-                AttestationService.ensure_review_attestation(db, sub)
-    except Exception as exc:
-        logger.warning("Auto-réparation attestation provisoire de revue impossible: %s", exc)
-
     attestations = (
         db.query(Attestation)
         .options(

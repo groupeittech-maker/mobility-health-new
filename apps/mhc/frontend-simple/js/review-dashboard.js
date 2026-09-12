@@ -888,11 +888,21 @@ async function loadReviewItems() {
             if (reviewContext.type === 'medecin') {
                 window._medicalReviewItems = items || [];
             }
+            // Dossiers routés en revue par le moteur de décision (avant paiement)
+            const decisionStep = { medecin: 'medical', technique: 'technical' }[reviewContext.type];
+            window._decisionDossierStep = decisionStep || null;
+            window._decisionDossierItems = [];
+            if (decisionStep && typeof productionSubscriptionsAPI !== 'undefined') {
+                window._decisionDossierItems = await productionSubscriptionsAPI
+                    .reviewQueue(decisionStep)
+                    .catch(() => []);
+            }
         }
-        
-        const count = items && items.length ? items.length : 0;
+
+        const dossierItems = window._decisionDossierItems || [];
+        const count = ((items && items.length) || 0) + dossierItems.length;
         updateNavAvisCount(count);
-        if (!items || !items.length) {
+        if ((!items || !items.length) && !dossierItems.length) {
             container.innerHTML = `<div class="alert alert-info">${reviewContext.config.emptyState}</div>`;
             document.getElementById('reviewPagination') && (document.getElementById('reviewPagination').innerHTML = '');
             return;
@@ -913,6 +923,17 @@ async function loadReviewItems() {
             });
         } else {
             container.innerHTML = pageData.map(renderReviewCard).join('');
+        }
+        // Section dédiée : dossiers du moteur de décision à valider avant paiement
+        if (dossierItems.length && window._decisionDossierStep) {
+            const dossierHtml = dossierItems
+                .map((s) => renderDecisionDossierCard(s, window._decisionDossierStep))
+                .join('');
+            container.innerHTML = `
+                <div class="decision-dossier-block" style="margin-bottom: 1.5rem;">
+                    <h4 style="margin: 0 0 0.75rem;">Dossiers à valider avant paiement</h4>
+                    ${dossierHtml}
+                </div>` + container.innerHTML;
         }
         const pagEl = document.getElementById('reviewPagination');
         if (pagEl && items.length > ROWS_PER_PAGE) {
@@ -2224,6 +2245,152 @@ async function rejectProductionSubscription(subscriptionId) {
 window.approveProductionSubscription = approveProductionSubscription;
 window.rejectProductionSubscription = rejectProductionSubscription;
 window.openProductionSubscriptionDetailModal = openProductionSubscriptionDetailModal;
+
+// ---------------------------------------------------------------------------
+// Dossiers du moteur de décision (revue avant paiement, sans attestation)
+// ---------------------------------------------------------------------------
+const DECISION_STEP_LABELS = {
+    medical: 'médicale',
+    technical: 'technique',
+    production: 'de production',
+};
+
+function renderDecisionDossierCard(sub, step) {
+    const clientLabel = formatSubscriptionClient(sub);
+    const productLabel = sub.produit_assurance?.nom || sub.produit_assurance?.libelle || 'Non renseigné';
+    const subCur = sub.produit_assurance && sub.produit_assurance.currency;
+    const priceLabel =
+        sub.prix_applique != null && sub.prix_applique !== ''
+            ? formatMontantDevis(sub.prix_applique, subCur)
+            : '—';
+    const travelWindow = sub.date_debut && sub.date_fin
+        ? `${formatDate(sub.date_debut)} → ${formatDate(sub.date_fin)}`
+        : sub.date_debut ? formatDate(sub.date_debut) : '—';
+    const stepLabel = DECISION_STEP_LABELS[step] || step;
+    return `
+        <div class="card review-card production-compact-card" data-subscription-id="${sub.id}">
+            <div class="card-body">
+                <h4 class="card-title">Souscription ${escapeHtml(sub.numero_souscription)}</h4>
+                <p class="muted">Soumise le ${formatDateTime(sub.created_at)}</p>
+                <div class="review-meta" style="margin: 0.75rem 0;">
+                    <p><strong>Client:</strong> ${escapeHtml(clientLabel)}</p>
+                    <p><strong>Produit:</strong> ${escapeHtml(productLabel)}</p>
+                    <p><strong>Prix:</strong> ${priceLabel} • <strong>Période:</strong> ${travelWindow}</p>
+                </div>
+                <span class="pill status-pending" style="font-size: 0.8rem;">En attente validation ${stepLabel} (avant paiement)</span>
+                <div class="review-card-actions" style="margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="openDecisionDossierModal(${sub.id}, '${step}')">Voir le détail</button>
+                    <button type="button" class="btn btn-success btn-sm" onclick="submitDecisionDossier(${sub.id}, '${step}', true)">Approuver</button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="rejectDecisionDossier(${sub.id}, '${step}')">Refuser</button>
+                </div>
+            </div>
+        </div>`;
+}
+
+function ensureDecisionDossierModalDom() {
+    if (document.getElementById('decisionDossierOverlay')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'decisionDossierOverlay';
+    overlay.className = 'modal-overlay';
+    overlay.hidden = true;
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    overlay.innerHTML = `
+        <div id="decisionDossierModal" class="card" role="dialog" aria-labelledby="decisionDossierTitle"
+             style="max-width:1100px;width:min(96vw,1100px);max-height:92vh;overflow:auto;border-radius:18px;box-shadow:0 18px 48px rgba(15,23,42,0.22);">
+            <div class="card-body">
+                <h3 id="decisionDossierTitle" style="margin-top:0;">Détail du dossier</h3>
+                <div id="decisionDossierBody"></div>
+                <div id="decisionDossierActions" style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:flex-end;margin-top:1rem;"></div>
+            </div>
+        </div>`;
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeDecisionDossierModal();
+    });
+    document.body.appendChild(overlay);
+}
+
+function closeDecisionDossierModal() {
+    const overlay = document.getElementById('decisionDossierOverlay');
+    if (overlay) {
+        overlay.hidden = true;
+        overlay.style.display = 'none';
+    }
+}
+
+async function openDecisionDossierModal(subscriptionId, step) {
+    ensureDecisionDossierModalDom();
+    const overlay = document.getElementById('decisionDossierOverlay');
+    const body = document.getElementById('decisionDossierBody');
+    const actions = document.getElementById('decisionDossierActions');
+    const titleEl = document.getElementById('decisionDossierTitle');
+    overlay.hidden = false;
+    overlay.style.display = 'flex';
+    titleEl.textContent = 'Détail – Souscription en cours de chargement…';
+    body.innerHTML = '<div class="loading"><div class="spinner"></div></div><p class="muted">Chargement du dossier…</p>';
+    actions.innerHTML = '';
+
+    try {
+        const item = await productionSubscriptionsAPI.getDossier(subscriptionId);
+        titleEl.textContent = `Détail – Souscription ${item.numero_souscription}`;
+        body.innerHTML = renderProductionDetailContent(item);
+        actions.innerHTML = `
+            <button type="button" class="btn btn-secondary btn-sm" id="decisionDossierCloseBtn">Fermer</button>
+            <textarea id="decisionDossierComment" rows="2" placeholder="Commentaire (obligatoire en cas de refus)" style="width:100%;margin:0.5rem 0;box-sizing:border-box;"></textarea>
+            <button type="button" class="btn btn-danger btn-sm" id="decisionDossierRejectBtn">Refuser</button>
+            <button type="button" class="btn btn-success btn-sm" id="decisionDossierApproveBtn">Approuver</button>
+        `;
+        document.getElementById('decisionDossierCloseBtn').onclick = closeDecisionDossierModal;
+        document.getElementById('decisionDossierRejectBtn').onclick = async () => {
+            const comment = document.getElementById('decisionDossierComment')?.value?.trim();
+            if (!comment) {
+                if (typeof showAlert === 'function') showAlert('Merci de préciser un commentaire en cas de refus.', 'error');
+                return;
+            }
+            closeDecisionDossierModal();
+            await submitDecisionDossier(subscriptionId, step, false, comment);
+        };
+        document.getElementById('decisionDossierApproveBtn').onclick = async () => {
+            closeDecisionDossierModal();
+            await submitDecisionDossier(subscriptionId, step, true, null);
+        };
+    } catch (err) {
+        body.innerHTML = `<p class="alert alert-error">${escapeHtml(err.message || 'Impossible de charger le dossier.')}</p>`;
+        actions.innerHTML = '<button type="button" class="btn btn-secondary btn-sm" id="decisionDossierCloseBtn">Fermer</button>';
+        document.getElementById('decisionDossierCloseBtn').onclick = closeDecisionDossierModal;
+    }
+}
+
+async function submitDecisionDossier(subscriptionId, step, approved, comment) {
+    try {
+        await productionSubscriptionsAPI.reviewDecision(subscriptionId, step, {
+            approved,
+            notes: comment || null,
+        });
+        if (typeof showAlert === 'function') {
+            showAlert(approved ? 'Dossier approuvé.' : 'Dossier refusé.', 'success');
+        }
+        await loadReviewItems();
+    } catch (error) {
+        if (typeof showAlert === 'function') showAlert(error.message || 'Impossible d\'enregistrer la décision.', 'error');
+    }
+}
+
+async function rejectDecisionDossier(subscriptionId, step) {
+    const comment = window.prompt('Commentaire obligatoire en cas de refus :');
+    if (comment === null) return;
+    if (!comment.trim()) {
+        if (typeof showAlert === 'function') showAlert('Merci de préciser un commentaire en cas de refus.', 'error');
+        return;
+    }
+    await submitDecisionDossier(subscriptionId, step, false, comment.trim());
+}
+
+window.renderDecisionDossierCard = renderDecisionDossierCard;
+window.openDecisionDossierModal = openDecisionDossierModal;
+window.closeDecisionDossierModal = closeDecisionDossierModal;
+window.submitDecisionDossier = submitDecisionDossier;
+window.rejectDecisionDossier = rejectDecisionDossier;
 
 function renderQuestionnaireBlock(key, questionnaire) {
     const label = QUESTIONNAIRE_LABELS[key] || `Questionnaire ${key}`;

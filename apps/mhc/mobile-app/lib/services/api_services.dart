@@ -128,6 +128,26 @@ class SubscriptionsService {
     return SubscriptionModel.fromJson(data);
   }
 
+  /// Soumettre le dossier au moteur de décision (POST /subscriptions/:id/evaluate).
+  /// Retourne {decision: approve|review|reject, primary_step, reasons, statut, ...}.
+  Future<Map<String, dynamic>> evaluateSubscription(
+    int subscriptionId, {
+    int? voyageurAge,
+    String? voyageurDateNaissance,
+  }) async {
+    final body = <String, dynamic>{
+      if (voyageurAge != null) 'voyageur_age': voyageurAge,
+      if (voyageurDateNaissance != null) 'voyageur_date_naissance': voyageurDateNaissance,
+    };
+    final data = await _api.post<Map<String, dynamic>>(
+      '/subscriptions/$subscriptionId/evaluate',
+      body: body,
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+    clearSubscriptionsCache();
+    return data;
+  }
+
   /// Demander la résiliation d'une souscription (POST /subscriptions/:id/request-resiliation).
   Future<SubscriptionModel> requestResiliation(int subscriptionId, {String? notes}) async {
     final body = <String, dynamic>{};

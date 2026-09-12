@@ -51,6 +51,75 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
   String? _error;
   String _selectedMethod = 'carte_bancaire';
 
+  /// État du dossier : to_submit | approved | in_review | refused
+  String _dossierState = 'to_submit';
+  List<String> _decisionReasons = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _syncDossierState();
+  }
+
+  /// Resynchronise l'état du dossier avec le statut serveur (ré-ouverture écran).
+  Future<void> _syncDossierState() async {
+    try {
+      final sub = await _subscriptionsService.getSubscription(widget.subscriptionId);
+      if (!mounted) return;
+      setState(() {
+        if (sub.statut == 'en_attente_paiement') {
+          _dossierState = 'approved';
+        } else if (sub.statut == 'en_attente_validation') {
+          _dossierState = 'in_review';
+        } else if (sub.statut == 'refusee') {
+          _dossierState = 'refused';
+        }
+      });
+    } catch (_) {
+      // Silencieux : l'utilisateur pourra toujours soumettre le dossier.
+    }
+  }
+
+  /// « Soumettre le dossier » : le moteur de décision évalue le dossier.
+  /// approve → le paiement devient disponible ; review → validation humaine ;
+  /// reject → dossier refusé.
+  Future<void> _submitDossier() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _decisionReasons = const [];
+    });
+    try {
+      final result = await _subscriptionsService.evaluateSubscription(
+        widget.subscriptionId,
+        voyageurAge: widget.age,
+      );
+      final decision = (result['decision'] ?? '').toString();
+      final reasons = (result['reasons'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const <String>[];
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _decisionReasons = reasons;
+        if (decision == 'approve') {
+          _dossierState = 'approved';
+        } else if (decision == 'review') {
+          _dossierState = 'in_review';
+        } else {
+          _dossierState = 'refused';
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e is Exception ? e.toString().replaceFirst('Exception: ', '') : e.toString();
+      });
+    }
+  }
+
   /// Confirme le paiement côté backend : crée le paiement et l'attestation provisoire (comme le web).
   Future<void> _payNow() async {
     setState(() {
@@ -178,8 +247,11 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            // Mode de paiement (identique au web)
-            Container(
+            if (_dossierState == 'in_review') _buildReviewNotice(),
+            if (_dossierState == 'refused') _buildRefusedNotice(),
+            if (_dossierState == 'approved')
+              // Mode de paiement (identique au web) — visible uniquement après approbation
+              Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: AppColors.surfaceCard,
@@ -232,7 +304,11 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: _loading ? null : _payNow,
+                onPressed: _loading
+                    ? null
+                    : (_dossierState == 'to_submit' ? _submitDossier
+                        : _dossierState == 'approved' ? _payNow
+                        : null),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -246,11 +322,95 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
                         width: 24,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : const Text('Payer maintenant'),
+                    : Text(_dossierState == 'to_submit' ? 'Soumettre le dossier' : 'Payer maintenant'),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildReviewNotice() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFDBA74)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.hourglass_top, color: Color(0xFFEA580C)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Dossier en cours de validation',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF9A3412)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Votre dossier a été soumis à une validation humaine. '
+            'Vous serez informé dès qu\'il est approuvé — le paiement sera alors disponible.',
+            style: TextStyle(fontSize: 13, color: Color(0xFF7C2D12)),
+          ),
+          if (_decisionReasons.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ..._decisionReasons.map((r) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text('• $r', style: const TextStyle(fontSize: 12, color: Color(0xFF7C2D12))),
+                )),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRefusedNotice() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.danger.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.danger.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.cancel_outlined, color: AppColors.danger),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Dossier refusé',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.danger),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Votre dossier ne peut pas donner lieu à une souscription. '
+            'Contactez le service client pour plus d\'informations.',
+            style: TextStyle(fontSize: 13, color: Color(0xFF7F1D1D)),
+          ),
+          if (_decisionReasons.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ..._decisionReasons.map((r) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text('• $r', style: const TextStyle(fontSize: 12, color: Color(0xFF7F1D1D))),
+                )),
+          ],
+        ],
       ),
     );
   }

@@ -380,6 +380,27 @@ class SubscriptionDecisionEngine:
                 detail="La souscription est déjà dans un état terminal",
             )
 
+        # Idempotence : un dossier déjà approuvé ou déjà en revue renvoie son
+        # état actuel sans ré-évaluer (ni réinitialiser les validations faites).
+        if souscription.statut == StatutSouscription.EN_ATTENTE_PAIEMENT:
+            return DecisionResult(decision="approve", reasons=["Dossier déjà approuvé"])
+        if souscription.statut == StatutSouscription.EN_ATTENTE_VALIDATION:
+            pending = [
+                step
+                for step in REVIEW_STEP_ORDER
+                if getattr(souscription, {
+                    "medical": "validation_medicale",
+                    "technical": "validation_technique",
+                    "production": "validation_finale",
+                }[step]) == "pending"
+            ]
+            return DecisionResult(
+                decision="review",
+                primary_step=pending[0] if pending else None,
+                review_steps=pending,
+                reasons=["Dossier déjà en cours de validation humaine"],
+            )
+
         user = user or souscription.user
         product = product or souscription.produit_assurance
         project = project or souscription.projet_voyage
@@ -521,24 +542,13 @@ class SubscriptionDecisionEngine:
         primary_step: str,
     ) -> None:
         """
-        Rend le dossier visible dans le pipeline de revue existant :
-        - crée l'attestation provisoire si absente (les files de revue sont
-          attestation-based : /attestations/reviews/{type})
-        - notifie les relecteurs habilités pour l'étape en cours.
+        Rend le dossier visible dans le pipeline de revue (souscription-based) :
+        notifie les relecteurs habilités pour l'étape en cours. La file de revue
+        lit les souscriptions EN_ATTENTE_VALIDATION — pas d'attestation ici.
         Ne lève jamais d'exception.
         """
         if db is None:
             return
-        try:
-            from app.services.attestation_service import AttestationService
-
-            AttestationService.ensure_review_attestation(db, souscription)
-        except Exception as exc:  # pragma: no cover
-            logger.warning(
-                "Attestation provisoire non créée pour souscription %s: %s",
-                getattr(souscription, "id", "?"),
-                exc,
-            )
         try:
             from app.core.enums import Role
             from app.services.notification_service import NotificationService
@@ -677,6 +687,9 @@ class SubscriptionDecisionEngine:
 
         if not approved:
             souscription.statut = StatutSouscription.REFUSEE
+            SubscriptionDecisionEngine._notify_client_outcome(
+                db, souscription, approved=False, notes=notes
+            )
             return DecisionResult(
                 decision="reject",
                 reasons=[f"Revue {step} rejetée" + (f" ({notes})" if notes else "")],
@@ -701,8 +714,52 @@ class SubscriptionDecisionEngine:
 
         # Toutes les revues sont approuvées : le dossier peut payer
         souscription.statut = StatutSouscription.EN_ATTENTE_PAIEMENT
+        SubscriptionDecisionEngine._notify_client_outcome(db, souscription, approved=True)
         return DecisionResult(
             decision="approve",
             reasons=[f"Revue {step} approuvée, dossier prêt pour paiement"],
             risk_score=0,
         )
+
+    @staticmethod
+    def _notify_client_outcome(
+        db: Optional[Session],
+        souscription: Souscription,
+        approved: bool,
+        notes: Optional[str] = None,
+    ) -> None:
+        """Informe le client de l'issue de la revue humaine de son dossier."""
+        if db is None:
+            return
+        try:
+            from app.services.notification_service import NotificationService
+
+            if approved:
+                titre = "Dossier approuvé — paiement disponible"
+                message = (
+                    f"Votre souscription #{souscription.numero_souscription} a été approuvée "
+                    "par la revue. Vous pouvez procéder au paiement."
+                )
+            else:
+                titre = "Dossier refusé"
+                message = (
+                    f"Votre souscription #{souscription.numero_souscription} a été refusée "
+                    "après revue. Contactez le service client pour plus d'informations."
+                )
+                if notes:
+                    message += f" Motif : {notes}"
+            NotificationService.create_notification(
+                user_id=souscription.user_id,
+                type_notification="souscription_decision_result",
+                titre=titre,
+                message=message,
+                lien_relation_id=souscription.id,
+                lien_relation_type="souscription",
+                channels=["push"],
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.warning(
+                "Notification client décision impossible pour souscription %s: %s",
+                getattr(souscription, "id", "?"),
+                exc,
+            )

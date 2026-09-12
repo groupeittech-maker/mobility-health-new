@@ -44,6 +44,69 @@ class ValidationRequest(BaseModel):
     notes: Optional[str] = None
 
 
+_REVIEW_QUEUE_MATRIX = {
+    "medical": [Role.MEDICAL_REVIEWER, Role.DOCTOR, Role.MEDECIN_REFERENT_MH],
+    "technical": [Role.TECHNICAL_REVIEWER, Role.FINANCE_MANAGER, Role.HOSPITAL_ADMIN],
+    "production": [Role.PRODUCTION_AGENT],
+}
+_REVIEW_QUEUE_FIELDS = {
+    "medical": "validation_medicale",
+    "technical": "validation_technique",
+    "production": "validation_finale",
+}
+
+
+@router.get("/review-queue", response_model=List[SouscriptionResponse])
+async def get_review_queue(
+    step: str = "medical",
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    File de revue du moteur de décision (avant paiement) : souscriptions
+    EN_ATTENTE_VALIDATION dont l'étape demandée est en attente.
+    step ∈ {medical, technical, production}.
+    """
+    if step not in _REVIEW_QUEUE_FIELDS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Étape de revue inconnue : {step} (attendu: medical, technical, production)",
+        )
+
+    current_role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    allowed = {r.value if hasattr(r, "value") else str(r) for r in _REVIEW_QUEUE_MATRIX[step]}
+    if current_role not in allowed and current_role != Role.ADMIN.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Accès réservé aux relecteurs de l'étape {step}",
+        )
+
+    step_field = getattr(Souscription, _REVIEW_QUEUE_FIELDS[step])
+    try:
+        query = db.query(Souscription).options(
+            selectinload(Souscription.produit_assurance),
+            selectinload(Souscription.projet_voyage),
+            selectinload(Souscription.user),
+        )
+    except Exception:
+        query = db.query(Souscription)
+
+    souscriptions = (
+        query
+        .filter(
+            Souscription.statut == StatutSouscription.EN_ATTENTE_VALIDATION,
+            step_field == "pending",
+        )
+        .order_by(Souscription.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return souscriptions
+
+
 @router.get("/pending", response_model=List[SouscriptionResponse])
 async def get_pending_subscriptions(
     skip: int = 0,
@@ -166,7 +229,7 @@ async def validate_medical(
     subscription_id: int,
     validation: ValidationRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([Role.DOCTOR]))
+    current_user: User = Depends(require_role([Role.DOCTOR, Role.MEDICAL_REVIEWER, Role.MEDECIN_REFERENT_MH]))
 ):
     """
     Valider médicalement une souscription (legacy / optionnel).
@@ -481,10 +544,20 @@ async def get_subscription_dossier(
     request: Request,
     subscription_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([Role.PRODUCTION_AGENT, Role.ADMIN]))
+    current_user: User = Depends(require_role([
+        Role.PRODUCTION_AGENT,
+        Role.ADMIN,
+        Role.MEDICAL_REVIEWER,
+        Role.DOCTOR,
+        Role.MEDECIN_REFERENT_MH,
+        Role.TECHNICAL_REVIEWER,
+        Role.FINANCE_MANAGER,
+        Role.HOSPITAL_ADMIN,
+    ]))
 ):
     """
-    Dossier complet d'une souscription pour l'agent de production.
+    Dossier complet d'une souscription pour les relecteurs (médical, technique,
+    production) et l'agent de production.
     Retourne questionnaires, documents, données civiles/médicales (même format que validation inscription).
     """
     from app.api.v1.attestations import (

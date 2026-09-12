@@ -564,6 +564,19 @@ const productionSubscriptionsAPI = {
     getDossier: async (subscriptionId) => {
         return apiCall(`/admin/subscriptions/${subscriptionId}/dossier`);
     },
+    // File de revue du moteur de décision (dossiers EN_ATTENTE_VALIDATION, avant paiement)
+    reviewQueue: async (step) => {
+        return apiCall(`/admin/subscriptions/review-queue?step=${encodeURIComponent(step)}&limit=100`);
+    },
+    // Décision sur un dossier en revue : medical | technical | production
+    reviewDecision: async (subscriptionId, step, data) => {
+        const endpoints = { medical: 'validate_medical', technical: 'validate_tech', production: 'approve_final' };
+        return apiCall(`/admin/subscriptions/${subscriptionId}/${endpoints[step]}`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+            timeoutMs: 90000,
+        });
+    },
     approveFinal: async (subscriptionId, data) => {
         return apiCall(`/admin/subscriptions/${subscriptionId}/approve_final`, {
             method: 'POST',
