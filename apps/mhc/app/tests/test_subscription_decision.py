@@ -202,7 +202,7 @@ class TestSubscriptionDecisionEngineEvaluate:
         assert result.primary_step == "medical"
         assert sub.validation_medicale == "pending"
 
-    def test_review_technical_long_trip(self):
+    def test_review_production_long_trip(self):
         sub = _subscription()
         result = SubscriptionDecisionEngine.evaluate(
             db=None,
@@ -213,8 +213,9 @@ class TestSubscriptionDecisionEngineEvaluate:
             questionnaire=_questionnaire({}),
         )
         assert result.decision == "review"
-        assert "technical" in result.review_steps
-        assert sub.validation_technique == "pending"
+        assert "production" in result.review_steps
+        assert sub.validation_finale == "pending"
+        assert sub.validation_technique is None
 
     def test_reject_subscriber_minor(self):
         sub = _subscription()
@@ -280,13 +281,13 @@ class TestSubscriptionDecisionEngineEvaluate:
 
 
 class TestSubscriptionDecisionEngineRecordReview:
-    def test_medical_approved_then_technical_pending(self):
+    def test_medical_approved_then_production_pending(self):
         sub = _subscription()
         sub.validation_medicale = "pending"
-        sub.validation_technique = "pending"
+        sub.validation_finale = "pending"
         result = SubscriptionDecisionEngine.record_review(None, sub, "medical", True, 10)
         assert result.decision == "review"
-        assert result.primary_step == "technical"
+        assert result.primary_step == "production"
         assert sub.validation_medicale == "approved"
         assert sub.statut == StatutSouscription.EN_ATTENTE_VALIDATION
 
@@ -294,9 +295,21 @@ class TestSubscriptionDecisionEngineRecordReview:
         sub = _subscription()
         sub.statut = StatutSouscription.EN_ATTENTE_VALIDATION
         sub.validation_medicale = "approved"
-        sub.validation_technique = "pending"
-        result = SubscriptionDecisionEngine.record_review(None, sub, "technical", True, 10)
+        sub.validation_finale = "pending"
+        result = SubscriptionDecisionEngine.record_review(None, sub, "production", True, 10)
         assert result.decision == "approve"
+        assert sub.statut == StatutSouscription.EN_ATTENTE_PAIEMENT
+
+    def test_legacy_technical_pending_handled_by_production(self):
+        # Dossiers routés « technique » avant la fusion : l'agent de production statue.
+        sub = _subscription()
+        sub.statut = StatutSouscription.EN_ATTENTE_VALIDATION
+        sub.validation_medicale = "approved"
+        sub.validation_technique = "pending"
+        result = SubscriptionDecisionEngine.record_review(None, sub, "production", True, 10)
+        assert result.decision == "approve"
+        assert sub.validation_technique == "approved"
+        assert sub.validation_finale == "approved"
         assert sub.statut == StatutSouscription.EN_ATTENTE_PAIEMENT
 
     def test_medical_rejected_refuse_subscription(self):

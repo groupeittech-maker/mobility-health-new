@@ -2,6 +2,7 @@ from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.sql import or_, and_
 from app.core.database import get_db
 from app.core.config import settings
 from app.core.enums import Role, StatutSouscription, StatutPaiement
@@ -46,12 +47,10 @@ class ValidationRequest(BaseModel):
 
 _REVIEW_QUEUE_MATRIX = {
     "medical": [Role.MEDICAL_REVIEWER, Role.DOCTOR, Role.MEDECIN_REFERENT_MH],
-    "technical": [Role.TECHNICAL_REVIEWER, Role.FINANCE_MANAGER, Role.HOSPITAL_ADMIN],
     "production": [Role.PRODUCTION_AGENT],
 }
 _REVIEW_QUEUE_FIELDS = {
     "medical": "validation_medicale",
-    "technical": "validation_technique",
     "production": "validation_finale",
 }
 
@@ -67,12 +66,13 @@ async def get_review_queue(
     """
     File de revue du moteur de décision (avant paiement) : souscriptions
     EN_ATTENTE_VALIDATION dont l'étape demandée est en attente.
-    step ∈ {medical, technical, production}.
+    step ∈ {medical, production}. La revue « technique » est fusionnée dans
+    l'étape production (agent de production).
     """
     if step not in _REVIEW_QUEUE_FIELDS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Étape de revue inconnue : {step} (attendu: medical, technical, production)",
+            detail=f"Étape de revue inconnue : {step} (attendu: medical, production)",
         )
 
     current_role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
@@ -83,7 +83,16 @@ async def get_review_queue(
             detail=f"Accès réservé aux relecteurs de l'étape {step}",
         )
 
-    step_field = getattr(Souscription, _REVIEW_QUEUE_FIELDS[step])
+    # Compat : les dossiers routés « technique » (validation_technique pending,
+    # créés avant la fusion) relèvent de l'agent de production.
+    if step == "production":
+        pending_condition = or_(
+            Souscription.validation_finale == "pending",
+            Souscription.validation_technique == "pending",
+        )
+    else:
+        pending_condition = getattr(Souscription, _REVIEW_QUEUE_FIELDS[step]) == "pending"
+
     try:
         query = db.query(Souscription).options(
             selectinload(Souscription.produit_assurance),
@@ -97,7 +106,7 @@ async def get_review_queue(
         query
         .filter(
             Souscription.statut == StatutSouscription.EN_ATTENTE_VALIDATION,
-            step_field == "pending",
+            pending_condition,
         )
         .order_by(Souscription.created_at.desc())
         .offset(skip)
@@ -139,7 +148,6 @@ async def get_pending_subscriptions(
     
     try:
         from sqlalchemy import exists, select
-        from sqlalchemy.sql import or_, and_
 
         paiement_valide_subq = (
             select(Paiement.id)
@@ -280,41 +288,6 @@ async def validate_medical(
             lien_relation_type="souscription"
         )
         db.add(notification)
-
-    db.commit()
-    db.refresh(souscription)
-
-    return souscription
-
-
-@router.post("/{subscription_id}/validate_tech", response_model=SouscriptionResponse)
-async def validate_tech(
-    subscription_id: int,
-    validation: ValidationRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([Role.FINANCE_MANAGER, Role.TECHNICAL_REVIEWER, Role.HOSPITAL_ADMIN]))
-):
-    """
-    Valider techniquement une souscription.
-    Accessible par les agents techniques (finance_manager) et admins.
-    """
-    souscription = db.query(Souscription).filter(Souscription.id == subscription_id).first()
-    
-    if not souscription:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Souscription non trouvée"
-        )
-    
-    # Enregistrer la revue technique et avancer le workflow
-    SubscriptionDecisionEngine.record_review(
-        db=db,
-        souscription=souscription,
-        step="technical",
-        approved=validation.approved,
-        validator_user_id=current_user.id,
-        notes=validation.notes,
-    )
 
     db.commit()
     db.refresh(souscription)

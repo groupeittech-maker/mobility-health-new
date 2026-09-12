@@ -100,7 +100,7 @@ PRODUCTION_REVIEW_HINTS = [
     "parachutisme",
 ]
 
-REVIEW_STEP_ORDER = ["medical", "technical", "production"]
+REVIEW_STEP_ORDER = ["medical", "production"]
 
 # Clés (normalisées : minuscules, sans séparateurs) des questions médicales
 # oui/non dont une réponse affirmative impose une revue médicale.
@@ -139,7 +139,7 @@ def _is_affirmative(value: Any) -> bool:
 @dataclass
 class DecisionResult:
     decision: str  # approve | reject | review
-    primary_step: Optional[str] = None  # medical | technical | production
+    primary_step: Optional[str] = None  # medical | production
     review_steps: list[str] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
     risk_score: int = 0
@@ -390,10 +390,16 @@ class SubscriptionDecisionEngine:
                 for step in REVIEW_STEP_ORDER
                 if getattr(souscription, {
                     "medical": "validation_medicale",
-                    "technical": "validation_technique",
                     "production": "validation_finale",
                 }[step]) == "pending"
             ]
+            # Dossier legacy « technique » (validation_technique pending) →
+            # désormais traité par l'agent de production.
+            if (
+                "production" not in pending
+                and souscription.validation_technique == "pending"
+            ):
+                pending.append("production")
             return DecisionResult(
                 decision="review",
                 primary_step=pending[0] if pending else None,
@@ -478,22 +484,22 @@ class SubscriptionDecisionEngine:
             review_steps.add("medical")
             reasons.append("Antécédent / condition médicale déclarée : revue médicale requise")
 
-        # Technique
+        # Revue production (agent de production) — ex-« technique » fusionnée
         if duration is not None and duration > 30:
-            review_steps.add("technical")
-            reasons.append(f"Séjour long ({duration} jours) : revue technique requise")
+            review_steps.add("production")
+            reasons.append(f"Séjour long ({duration} jours) : revue production requise")
 
         if project and project.nombre_participants and project.nombre_participants > 1:
-            review_steps.add("technical")
-            reasons.append("Plusieurs participants : revue technique requise")
+            review_steps.add("production")
+            reasons.append("Plusieurs participants : revue production requise")
 
         if souscription.prix_applique is not None and souscription.prix_applique > 200000:
-            review_steps.add("technical")
-            reasons.append("Montant élevé : revue technique requise")
+            review_steps.add("production")
+            reasons.append("Montant élevé : revue production requise")
 
         if _contains_any(flat, TECHNICAL_REVIEW_HINTS):
-            review_steps.add("technical")
-            reasons.append("Indicateur technique détecté : revue technique requise")
+            review_steps.add("production")
+            reasons.append("Indicateur technique détecté : revue production requise")
 
         # Production
         if _contains_any(flat, PRODUCTION_REVIEW_HINTS):
@@ -526,12 +532,10 @@ class SubscriptionDecisionEngine:
     # Étape de revue → rôles habilités (même matrice que l'UI de revue existante)
     _REVIEW_STEP_ROLES = {
         "medical": ("MEDICAL_REVIEWER", "DOCTOR", "MEDECIN_REFERENT_MH"),
-        "technical": ("TECHNICAL_REVIEWER", "FINANCE_MANAGER", "HOSPITAL_ADMIN"),
         "production": ("PRODUCTION_AGENT",),
     }
     _REVIEW_STEP_LABELS = {
         "medical": "médicale",
-        "technical": "technique",
         "production": "de production",
     }
 
@@ -598,8 +602,6 @@ class SubscriptionDecisionEngine:
         for step in review_steps:
             if step == "medical":
                 souscription.validation_medicale = "pending"
-            elif step == "technical":
-                souscription.validation_technique = "pending"
             elif step == "production":
                 souscription.validation_finale = "pending"
 
@@ -646,7 +648,7 @@ class SubscriptionDecisionEngine:
     ) -> DecisionResult:
         """
         Enregistre le résultat d'une étape de revue et avance le workflow.
-        step ∈ {"medical", "technical", "production"}
+        step ∈ {"medical", "production"}
         """
         now = datetime.utcnow()
         if step == "medical":
@@ -659,22 +661,22 @@ class SubscriptionDecisionEngine:
             souscription.validation_medicale_par = validator_user_id
             souscription.validation_medicale_date = now
             souscription.validation_medicale_notes = notes
-        elif step == "technical":
-            if souscription.validation_technique != "pending":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Revue technique non en attente",
-                )
-            souscription.validation_technique = "approved" if approved else "rejected"
-            souscription.validation_technique_par = validator_user_id
-            souscription.validation_technique_date = now
-            souscription.validation_technique_notes = notes
         elif step == "production":
-            if souscription.validation_finale != "pending":
+            # Compat : dossiers routés « technique » avant fusion des étapes —
+            # l'agent de production statue aussi sur validation_technique.
+            if (
+                souscription.validation_finale != "pending"
+                and souscription.validation_technique != "pending"
+            ):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Approbation finale non en attente",
                 )
+            if souscription.validation_technique == "pending":
+                souscription.validation_technique = "approved" if approved else "rejected"
+                souscription.validation_technique_par = validator_user_id
+                souscription.validation_technique_date = now
+                souscription.validation_technique_notes = notes
             souscription.validation_finale = "approved" if approved else "rejected"
             souscription.validation_finale_par = validator_user_id
             souscription.validation_finale_date = now
@@ -699,7 +701,6 @@ class SubscriptionDecisionEngine:
         # Détermine la prochaine étape encore pending
         attr_map = {
             "medical": "validation_medicale",
-            "technical": "validation_technique",
             "production": "validation_finale",
         }
         for next_step in REVIEW_STEP_ORDER:

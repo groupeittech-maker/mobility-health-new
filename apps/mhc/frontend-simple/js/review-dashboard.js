@@ -889,7 +889,8 @@ async function loadReviewItems() {
                 window._medicalReviewItems = items || [];
             }
             // Dossiers routés en revue par le moteur de décision (avant paiement)
-            const decisionStep = { medecin: 'medical', technique: 'technical' }[reviewContext.type];
+            // (l'ex-étape « technique » est fusionnée dans « production »)
+            const decisionStep = { medecin: 'medical' }[reviewContext.type];
             window._decisionDossierStep = decisionStep || null;
             window._decisionDossierItems = [];
             if (decisionStep && typeof productionSubscriptionsAPI !== 'undefined') {
@@ -2251,7 +2252,6 @@ window.openProductionSubscriptionDetailModal = openProductionSubscriptionDetailM
 // ---------------------------------------------------------------------------
 const DECISION_STEP_LABELS = {
     medical: 'médicale',
-    technical: 'technique',
     production: 'de production',
 };
 

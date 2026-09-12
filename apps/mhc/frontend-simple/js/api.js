@@ -568,9 +568,9 @@ const productionSubscriptionsAPI = {
     reviewQueue: async (step) => {
         return apiCall(`/admin/subscriptions/review-queue?step=${encodeURIComponent(step)}&limit=100`);
     },
-    // Décision sur un dossier en revue : medical | technical | production
+    // Décision sur un dossier en revue : medical | production
     reviewDecision: async (subscriptionId, step, data) => {
-        const endpoints = { medical: 'validate_medical', technical: 'validate_tech', production: 'approve_final' };
+        const endpoints = { medical: 'validate_medical', production: 'approve_final' };
         return apiCall(`/admin/subscriptions/${subscriptionId}/${endpoints[step]}`, {
             method: 'POST',
             body: JSON.stringify(data),
