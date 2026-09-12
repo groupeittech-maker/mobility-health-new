@@ -481,7 +481,7 @@ class SubscriptionDecisionEngine:
 
         if review_steps:
             ordered = [s for s in REVIEW_STEP_ORDER if s in review_steps]
-            return SubscriptionDecisionEngine._apply_review(souscription, ordered, reasons)
+            return SubscriptionDecisionEngine._apply_review(souscription, ordered, reasons, db)
 
         # 3. Acceptation automatique
         return SubscriptionDecisionEngine._apply_approve(souscription, reasons)
@@ -502,11 +502,84 @@ class SubscriptionDecisionEngine:
         )
         return DecisionResult(decision="reject", reasons=reasons, risk_score=100)
 
+    # Étape de revue → rôles habilités (même matrice que l'UI de revue existante)
+    _REVIEW_STEP_ROLES = {
+        "medical": ("MEDICAL_REVIEWER", "DOCTOR", "MEDECIN_REFERENT_MH"),
+        "technical": ("TECHNICAL_REVIEWER", "FINANCE_MANAGER", "HOSPITAL_ADMIN"),
+        "production": ("PRODUCTION_AGENT",),
+    }
+    _REVIEW_STEP_LABELS = {
+        "medical": "médicale",
+        "technical": "technique",
+        "production": "de production",
+    }
+
+    @staticmethod
+    def _dispatch_to_review_pipeline(
+        db: Optional[Session],
+        souscription: Souscription,
+        primary_step: str,
+    ) -> None:
+        """
+        Rend le dossier visible dans le pipeline de revue existant :
+        - crée l'attestation provisoire si absente (les files de revue sont
+          attestation-based : /attestations/reviews/{type})
+        - notifie les relecteurs habilités pour l'étape en cours.
+        Ne lève jamais d'exception.
+        """
+        if db is None:
+            return
+        try:
+            from app.services.attestation_service import AttestationService
+
+            AttestationService.ensure_review_attestation(db, souscription)
+        except Exception as exc:  # pragma: no cover
+            logger.warning(
+                "Attestation provisoire non créée pour souscription %s: %s",
+                getattr(souscription, "id", "?"),
+                exc,
+            )
+        try:
+            from app.core.enums import Role
+            from app.services.notification_service import NotificationService
+
+            role_names = SubscriptionDecisionEngine._REVIEW_STEP_ROLES.get(primary_step, ())
+            roles = [r for r in Role if r.value in role_names or r.name in role_names]
+            if not roles:
+                return
+            reviewers = (
+                db.query(User)
+                .filter(User.role.in_(roles), User.is_active == True)  # noqa: E712
+                .all()
+            )
+            label = SubscriptionDecisionEngine._REVIEW_STEP_LABELS.get(primary_step, primary_step)
+            for reviewer in reviewers:
+                NotificationService.create_notification(
+                    user_id=reviewer.id,
+                    type_notification="souscription_review",
+                    titre=f"Dossier à valider — revue {label}",
+                    message=(
+                        f"La souscription #{souscription.numero_souscription} a été "
+                        f"routée en revue {label} par le moteur de décision. "
+                        "Merci de procéder à l'évaluation."
+                    ),
+                    lien_relation_id=souscription.id,
+                    lien_relation_type="souscription",
+                    channels=["push"],
+                )
+        except Exception as exc:  # pragma: no cover
+            logger.warning(
+                "Notification relecteurs impossible pour souscription %s: %s",
+                getattr(souscription, "id", "?"),
+                exc,
+            )
+
     @staticmethod
     def _apply_review(
         souscription: Souscription,
         review_steps: list[str],
         reasons: list[str],
+        db: Optional[Session] = None,
     ) -> DecisionResult:
         souscription.statut = StatutSouscription.EN_ATTENTE_VALIDATION
         souscription.validation_medicale = None
@@ -519,6 +592,8 @@ class SubscriptionDecisionEngine:
                 souscription.validation_technique = "pending"
             elif step == "production":
                 souscription.validation_finale = "pending"
+
+        SubscriptionDecisionEngine._dispatch_to_review_pipeline(db, souscription, review_steps[0])
 
         risk_score = 30 + min(len(review_steps) * 20, 50)
         logger.info(

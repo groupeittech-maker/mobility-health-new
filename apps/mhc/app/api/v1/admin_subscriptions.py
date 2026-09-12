@@ -76,7 +76,7 @@ async def get_pending_subscriptions(
     
     try:
         from sqlalchemy import exists, select
-        from sqlalchemy.sql import or_
+        from sqlalchemy.sql import or_, and_
 
         paiement_valide_subq = (
             select(Paiement.id)
@@ -92,6 +92,12 @@ async def get_pending_subscriptions(
         # Avis médical rendu (favorable ou défavorable) : l'agent de production statue en dernier.
         # Tant que validation_medicale est vide/pending, le dossier reste côté validateur médical.
         validation_medicale_terminee = Souscription.validation_medicale.in_(["approved", "rejected"])
+        # Pipeline pré-paiement (moteur de décision) : dossiers routés directement
+        # à l'étape production, sans paiement encore encaissé.
+        decision_pipeline_production = and_(
+            Souscription.statut == StatutSouscription.EN_ATTENTE_VALIDATION,
+            Souscription.validation_finale == "pending",
+        )
         try:
             souscriptions_query = (
                 db.query(Souscription)
@@ -101,9 +107,14 @@ async def get_pending_subscriptions(
                     selectinload(Souscription.user),
                 )
                 .filter(
-                    exists(paiement_valide_subq),
-                    validation_medicale_terminee,
-                    validation_finale_pending,
+                    or_(
+                        and_(
+                            exists(paiement_valide_subq),
+                            validation_medicale_terminee,
+                            validation_finale_pending,
+                        ),
+                        decision_pipeline_production,
+                    )
                 )
                 .order_by(Souscription.created_at.desc())
             )
@@ -112,9 +123,14 @@ async def get_pending_subscriptions(
             souscriptions_query = (
                 db.query(Souscription)
                 .filter(
-                    exists(paiement_valide_subq),
-                    validation_medicale_terminee,
-                    validation_finale_pending,
+                    or_(
+                        and_(
+                            exists(paiement_valide_subq),
+                            validation_medicale_terminee,
+                            validation_finale_pending,
+                        ),
+                        decision_pipeline_production,
+                    )
                 )
                 .order_by(Souscription.created_at.desc())
             )

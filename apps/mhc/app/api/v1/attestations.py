@@ -160,11 +160,21 @@ def _normalize_status_value(value: Optional[str]) -> str:
 
 
 def _build_validation_states(souscription: Souscription) -> Dict[str, ValidationState]:
+    # Dossiers du moteur de décision (EN_ATTENTE_VALIDATION) : seules les étapes
+    # marquées « pending » sont requises ; les autres sont « not_required » pour
+    # ne pas faire apparaître le dossier dans les files de revue non concernées.
+    # Dossiers legacy : None → « pending » (comportement historique conservé).
+    is_decision_pipeline = souscription.statut == StatutSouscription.EN_ATTENTE_VALIDATION
     states: Dict[str, ValidationState] = {}
     for key, fields in _SUBSCRIPTION_VALIDATION_FIELDS.items():
         status_field, notes_field, reviewer_field, date_field = fields
+        raw_status = getattr(souscription, status_field, None)
+        if raw_status is None and is_decision_pipeline:
+            status_value = "not_required"
+        else:
+            status_value = _normalize_status_value(raw_status)
         states[key] = ValidationState(
-            status=_normalize_status_value(getattr(souscription, status_field, None)),
+            status=status_value,
             notes=getattr(souscription, notes_field, None),
             reviewer_id=getattr(souscription, reviewer_field, None),
             decided_at=getattr(souscription, date_field, None),
@@ -300,6 +310,36 @@ def _notify_production_agents_if_ready(
         )
 
 
+def _notify_client_decision_outcome(db: Session, souscription: Souscription) -> None:
+    """Pipeline pré-paiement : informe le client quand sa revue se termine."""
+    if souscription.statut == StatutSouscription.EN_ATTENTE_PAIEMENT:
+        titre = "Dossier approuvé — paiement disponible"
+        message = (
+            f"Votre souscription #{souscription.numero_souscription} a été approuvée "
+            "par la revue. Vous pouvez procéder au paiement."
+        )
+    elif souscription.statut == StatutSouscription.REFUSEE:
+        titre = "Dossier refusé"
+        message = (
+            f"Votre souscription #{souscription.numero_souscription} a été refusée "
+            "après revue. Contactez le service client pour plus d'informations."
+        )
+    else:
+        return
+    try:
+        NotificationService.create_notification(
+            user_id=souscription.user_id,
+            type_notification="souscription_decision_result",
+            titre=titre,
+            message=message,
+            lien_relation_id=souscription.id,
+            lien_relation_type="souscription",
+            channels=["push"],
+        )
+    except Exception as exc:
+        logger.warning("Notification client décision impossible: %s", exc)
+
+
 def _update_subscription_validation_state(
     souscription: Optional[Souscription],
     validation_type: str,
@@ -328,9 +368,29 @@ def _update_subscription_validation_state(
         souscription.validation_finale_par = user_id
         souscription.validation_finale_date = decision_date
         souscription.validation_finale_notes = notes
-        souscription.statut = (
-            StatutSouscription.ACTIVE if is_valid else StatutSouscription.RESILIEE
-        )
+        # Pipeline pré-paiement (moteur de décision) : approbation → paiement,
+        # refus → dossier refusé. Pipeline post-paiement (legacy) : inchangé.
+        if souscription.statut == StatutSouscription.EN_ATTENTE_VALIDATION:
+            souscription.statut = (
+                StatutSouscription.EN_ATTENTE_PAIEMENT
+                if is_valid
+                else StatutSouscription.REFUSEE
+            )
+        else:
+            souscription.statut = (
+                StatutSouscription.ACTIVE if is_valid else StatutSouscription.RESILIEE
+            )
+
+    # Pipeline pré-paiement : progression du statut pour les étapes non-finales.
+    if souscription.statut == StatutSouscription.EN_ATTENTE_VALIDATION:
+        if not is_valid:
+            souscription.statut = StatutSouscription.REFUSEE
+        elif not any(
+            getattr(souscription, f) == "pending"
+            for f in ("validation_medicale", "validation_technique", "validation_finale")
+        ):
+            # Toutes les revues requises sont approuvées → le client peut payer.
+            souscription.statut = StatutSouscription.EN_ATTENTE_PAIEMENT
 
 
 @router.get("/subscriptions/{subscription_id}/attestations", response_model=List[AttestationResponse])
@@ -1117,6 +1177,37 @@ async def get_attestation_reviews(
             detail=_VALIDATION_ROLE_ERRORS.get(normalized_type, "Accès non autorisé pour cette validation")
         )
 
+    # Auto-réparation : dossiers routés en revue par le moteur de décision sans
+    # attestation provisoire (créés avant le branchement pipeline) — on la crée
+    # à la volée pour qu'ils apparaissent dans la file correspondante.
+    try:
+        step_field = {
+            "medecin": "validation_medicale",
+            "technique": "validation_technique",
+            "production": "validation_finale",
+        }[normalized_type]
+        stuck = (
+            db.query(Souscription)
+            .filter(
+                Souscription.statut == StatutSouscription.EN_ATTENTE_VALIDATION,
+                getattr(Souscription, step_field) == "pending",
+            )
+            .all()
+        )
+        for sub in stuck:
+            has_prov = (
+                db.query(Attestation.id)
+                .filter(
+                    Attestation.souscription_id == sub.id,
+                    Attestation.type_attestation == "provisoire",
+                )
+                .first()
+            )
+            if not has_prov:
+                AttestationService.ensure_review_attestation(db, sub)
+    except Exception as exc:
+        logger.warning("Auto-réparation attestation provisoire de revue impossible: %s", exc)
+
     attestations = (
         db.query(Attestation)
         .options(
@@ -1354,6 +1445,11 @@ async def create_validation(
         )
         db.add(validation_obj)
 
+    # Le dossier venait-il du pipeline de revue pré-paiement (moteur de décision) ?
+    pre_payment_review = bool(
+        souscription and souscription.statut == StatutSouscription.EN_ATTENTE_VALIDATION
+    )
+
     _update_subscription_validation_state(
         souscription,
         normalized_type,
@@ -1362,6 +1458,9 @@ async def create_validation(
         current_user.id,
         validation_timestamp,
     )
+
+    if pre_payment_review and souscription is not None:
+        _notify_client_decision_outcome(db, souscription)
 
     db.flush()
 

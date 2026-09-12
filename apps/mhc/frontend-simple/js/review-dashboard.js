@@ -200,6 +200,7 @@ const STATUS_META = {
     pending: { label: 'En attente', className: 'status-pending' },
     approved: { label: 'Approuvé', className: 'status-active' },
     rejected: { label: 'Refusé', className: 'status-inactive' },
+    not_required: { label: 'Non requis', className: 'status-inactive' },
 };
 
 const ALERT_VALIDATION_ALLOWED_ROLES = new Set(['medecin_referent_mh']);
