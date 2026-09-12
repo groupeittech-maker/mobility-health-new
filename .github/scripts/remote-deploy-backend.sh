@@ -161,7 +161,25 @@ sudo docker compose $COMPOSE_FILES exec -T api alembic current < /dev/null || tr
 echo "[6/6] 🔄 Restarting API..."
 sudo docker compose $COMPOSE_FILES restart api
 sudo docker compose $COMPOSE_FILES ps
-sudo systemctl reload nginx || true
+
+# Conf Nginx : installer la version du dépôt si fournie (client_max_body_size 25m, etc.)
+if [ -f /tmp/mobility-health-production.conf ]; then
+  NGINX_SITE="/etc/nginx/sites-available/mobility-health-production.conf"
+  sudo cp "$NGINX_SITE" /tmp/mobility-health-production.conf.bak 2>/dev/null || true
+  sudo cp /tmp/mobility-health-production.conf "$NGINX_SITE"
+  sudo ln -sf "$NGINX_SITE" /etc/nginx/sites-enabled/mobility-health-production.conf
+  if sudo nginx -t; then
+    sudo systemctl reload nginx
+    echo "✅ Nginx conf mise à jour et rechargée"
+  else
+    echo "❌ nginx -t a échoué — restauration de la conf précédente"
+    [ -f /tmp/mobility-health-production.conf.bak ] && sudo cp /tmp/mobility-health-production.conf.bak "$NGINX_SITE"
+    sudo nginx -t || true
+  fi
+  rm -f /tmp/mobility-health-production.conf
+else
+  sudo systemctl reload nginx || true
+fi
 
 echo "🧪 Testing API health..."
 sleep 15

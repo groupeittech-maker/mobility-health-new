@@ -27,6 +27,10 @@ scp -4 app.tar.gz alembic.tar.gz docker-compose.yml docker-compose.prod.yml \
 # tronqueraient silencieusement la fin du script (migrations jamais exécutées).
 scp -4 .github/scripts/remote-deploy-frontend.sh .github/scripts/remote-deploy-backend.sh mhc-vps:/tmp/
 
+# Conf Nginx production (client_max_body_size, proxys /api /ws) — installée par
+# remote-deploy-backend.sh avec `nginx -t` + sauvegarde avant remplacement.
+scp -4 deploy/nginx/mobility-health-production.conf mhc-vps:/tmp/mobility-health-production.conf
+
 ssh -4 mhc-vps "bash /tmp/remote-deploy-frontend.sh < /dev/null"
 
 if [ -n "${SMTP_PASSWORD:-}" ]; then
