@@ -1065,9 +1065,12 @@ async def confirm_payment(
             )
         if decision.decision == "review":
             db.commit()
+            detail = "Dossier soumis à validation humaine. Vous serez informé dès qu'il est approuvé."
+            if decision.reasons:
+                detail += " Motifs : " + "; ".join(decision.reasons)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Dossier soumis à validation humaine. Vous serez informé dès qu'il est approuvé."
+                detail=detail
             )
         # decision == "approve" : statut passé à EN_ATTENTE_PAIEMENT
 

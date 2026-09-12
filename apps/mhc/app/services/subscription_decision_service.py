@@ -263,6 +263,34 @@ def _contains_any(texts: list[str], hints: list[str]) -> bool:
     return any(hint in joined for hint in hints)
 
 
+_NEGATION_PREFIXES = ("non", "pas", "no ", "not ", "aucun", "aucune")
+
+
+def _is_pregnancy_positive(value: Any, *, free_text: bool = False) -> bool:
+    """
+    Détection affirmative de grossesse. Les formulaires envoient toujours la clé
+    « enceinte »/« pregnancy » — il faut regarder la valeur, pas la présence.
+
+    - free_text=False (clé grossesse dédiée) : « oui », true, 1, mois > 0, ou
+      texte mentionnant la grossesse → positif.
+    - free_text=True (valeur quelconque du questionnaire) : uniquement un texte
+      mentionnant la grossesse (un simple « oui » sur une autre question ne
+      doit pas déclencher la revue).
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value > 0
+    if isinstance(value, str):
+        t = value.strip().lower()
+        if not t or t.startswith(_NEGATION_PREFIXES) or "pas de grossesse" in t or "non enceinte" in t:
+            return False
+        if "enceinte" in t or "grossesse" in t or "pregnant" in t:
+            return True
+        return not free_text and t in {"oui", "yes", "true", "vrai", "1"}
+    return False
+
+
 def _destination_excluded(destination: str, product: ProduitAssurance) -> bool:
     zones = product.zones_geographiques or {}
     excluded = zones.get("pays_exclus") or zones.get("excluded") or []
@@ -354,9 +382,10 @@ class SubscriptionDecisionEngine:
             return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
 
         # 2. Règles de revue
-        # Médical
-        pregnant = any(k in reponses for k in MEDICAL_REVIEW_KEYS) or any(
-            "enceinte" in t or "grossesse" in t or "pregnant" in t for t in flat
+        # Médical — grossesse : uniquement si la réponse est affirmative
+        # (la clé « enceinte » est toujours envoyée par les formulaires, y compris avec « non »).
+        pregnant = any(_is_pregnancy_positive(reponses.get(k)) for k in MEDICAL_REVIEW_KEYS) or any(
+            _is_pregnancy_positive(t, free_text=True) for t in flat
         )
         if pregnant:
             review_steps.add("medical")

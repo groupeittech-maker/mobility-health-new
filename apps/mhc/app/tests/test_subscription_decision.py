@@ -100,6 +100,38 @@ class TestSubscriptionDecisionEngineEvaluate:
         assert result.decision == "reject"
         assert sub.statut == StatutSouscription.REFUSEE
 
+    def test_approve_pregnancy_answered_no(self):
+        """Régression : la clé « enceinte » est toujours envoyée (même « non »)
+        par les formulaires — elle ne doit pas déclencher la revue médicale."""
+        sub = _subscription()
+        result = SubscriptionDecisionEngine.evaluate(
+            db=None,
+            souscription=sub,
+            user=_user(30),
+            product=_product(),
+            project=_project(),
+            questionnaire=_questionnaire({
+                "enceinte": "non",
+                "pregnancy": "non",
+                "maladie_chronique": "non",
+            }),
+        )
+        assert result.decision == "approve"
+        assert sub.statut == StatutSouscription.EN_ATTENTE_PAIEMENT
+
+    def test_approve_pregnancy_empty_values(self):
+        """Clés présentes mais vides/nulles → pas de revue."""
+        sub = _subscription()
+        result = SubscriptionDecisionEngine.evaluate(
+            db=None,
+            souscription=sub,
+            user=_user(30),
+            product=_product(),
+            project=_project(),
+            questionnaire=_questionnaire({"enceinte": "", "mois_grossesse": None}),
+        )
+        assert result.decision == "approve"
+
     def test_review_medical_pregnancy(self):
         sub = _subscription()
         result = SubscriptionDecisionEngine.evaluate(
