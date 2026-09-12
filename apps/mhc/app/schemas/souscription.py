@@ -12,6 +12,7 @@ class SouscriptionBase(BaseModel):
     numero_souscription: str
     prix_applique: Decimal
     prime_assurance: Optional[Decimal] = None
+    cout_police: Optional[Decimal] = None
     frais_services: Optional[Decimal] = None
     taxes: Optional[List[TaxeDetail]] = None
     taxes_total: Optional[Decimal] = None
@@ -82,6 +83,7 @@ class SubscriptionQuotePriceItem(BaseModel):
     produit_assurance_id: int
     prix_applique: float
     prime_assurance: Optional[float] = None
+    cout_police: Optional[float] = None
     frais_services: Optional[float] = None
     taxes_total: Optional[float] = None
     taxes: Optional[List[TaxeDetail]] = None

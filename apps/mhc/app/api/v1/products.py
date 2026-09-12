@@ -177,6 +177,7 @@ async def post_calculate_voyage_premium(body: VoyagePremiumCalculateRequest):
     return VoyagePremiumCalculateResponse(
         tarif_base=r.tarif_base,
         frais_services=r.frais_services,
+        cout_police=r.cout_police,
         montant_surprime=r.montant_surprime,
         prime_totale=r.prime_totale,
         tarif_total=r.tarif_total,
@@ -284,6 +285,7 @@ async def get_product_quote(
         tranche_duree_code=detail.tranche_duree_code,
         frais_services=detail.frais_services,
         prime_assurance=detail.prime_assurance,
+        cout_police=detail.cout_police,
         taxes_total=detail.taxes_total,
         taxes=taxe_list if taxe_list else None,
     )

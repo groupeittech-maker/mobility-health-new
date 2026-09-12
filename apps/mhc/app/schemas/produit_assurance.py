@@ -125,10 +125,11 @@ class ProduitQuoteResponse(BaseModel):
     tarif_total: Optional[Decimal] = None  # Redondant avec prix ; utile pour lecture API explicite
     zone_geographique_code: Optional[str] = None  # Code zone canonique si grille voyage
     tranche_duree_code: Optional[str] = None
-    frais_services: Optional[Decimal] = None  # Frais de services
-    prime_assurance: Optional[Decimal] = None  # Prime + surprime âge (sans frais/services/taxes) ; sinon = prix
+    frais_services: Optional[Decimal] = None  # « Taxe » (frais de service MHC)
+    prime_assurance: Optional[Decimal] = None  # Prime Nette (+ surprime âge) ; sinon = prix
+    cout_police: Optional[Decimal] = None  # Coût de Police forfaitaire (part MHC)
     taxes_total: Optional[Decimal] = None
-    taxes: Optional[List[TaxeDetail]] = None
+    taxes: Optional[List[TaxeDetail]] = None  # Taxes additionnelles
 
 
 class VoyagePremiumCalculateRequest(BaseModel):
@@ -153,6 +154,7 @@ class VoyagePremiumCalculateRequest(BaseModel):
 class VoyagePremiumCalculateResponse(BaseModel):
     tarif_base: Decimal
     frais_services: Decimal
+    cout_police: Decimal = Decimal("0")
     montant_surprime: Decimal
     prime_totale: Decimal
     tarif_total: Decimal

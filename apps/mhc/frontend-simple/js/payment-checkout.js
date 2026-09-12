@@ -114,15 +114,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             quote.frais_services != null &&
             Number(quote.frais_services) > 0
         ) {
+            let cpHtml = '';
+            if (quote.cout_police != null && Number(quote.cout_police) > 0) {
+                cpHtml = ` <span class="checkout-price-muted">+ Coût de Police</span> ${formatCurrency(quote.cout_police)}`;
+            }
             let taxHtml = '';
             if (quote.taxes && quote.taxes.length) {
                 for (const t of quote.taxes) {
                     if (Number(t.montant) > 0) {
-                        taxHtml += ` <span class="checkout-price-muted">+ ${escapeHtml(t.nom)}</span> ${formatCurrency(t.montant)}`;
+                        taxHtml += ` <span class="checkout-price-muted">+ Taxe additionnelle (${escapeHtml(t.nom)})</span> ${formatCurrency(t.montant)}`;
                     }
                 }
             }
-            priceLabel.innerHTML = `${formatCurrency(quote.prime_assurance)} <span class="checkout-price-muted">+ frais</span> ${formatCurrency(quote.frais_services)}${taxHtml} <span class="checkout-price-muted">=</span> <strong>${formatCurrency(quote.prix)}</strong>`;
+            priceLabel.innerHTML = `${formatCurrency(quote.prime_assurance)}${cpHtml} <span class="checkout-price-muted">+ Taxe</span> ${formatCurrency(quote.frais_services)}${taxHtml} <span class="checkout-price-muted">=</span> <strong>${formatCurrency(quote.prix)}</strong>`;
         } else {
             priceLabel.textContent = formatCurrency(montant);
         }

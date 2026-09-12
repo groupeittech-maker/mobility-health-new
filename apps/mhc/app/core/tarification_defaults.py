@@ -15,6 +15,9 @@ DEFAULT_SURPRIME_81_89_PCT = Decimal("4")
 # Grille voyage JSON : frais de services = ce % de la prime après surprime âge
 FRAIS_SERVICES_SUR_PRIME_PCT = Decimal("15")
 
+# Frais facturés par le partenaire eKYC par dossier souscrit (prélevés sur la part MHC)
+EKYC_FEE_PER_DOSSIER = Decimal("350")
+
 # Multiplicateurs pour repli grille SQL (prix réf. × coeff)
 DEFAULT_COEFFICIENT_MOINS_18 = Decimal("1.30")
 DEFAULT_COEFFICIENT_70_75 = Decimal("1.02")

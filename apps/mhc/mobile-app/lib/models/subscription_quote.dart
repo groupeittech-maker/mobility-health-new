@@ -40,6 +40,7 @@ class SubscriptionQuoteLine {
   final int produitAssuranceId;
   final double prixApplique;
   final double? primeAssurance;
+  final double? coutPolice;
   final double? fraisServices;
   final double? taxesTotal;
   final List<Map<String, dynamic>>? taxes;
@@ -53,6 +54,7 @@ class SubscriptionQuoteLine {
     required this.produitAssuranceId,
     required this.prixApplique,
     this.primeAssurance,
+    this.coutPolice,
     this.fraisServices,
     this.taxesTotal,
     this.taxes,
@@ -82,6 +84,7 @@ class SubscriptionQuoteLine {
       produitAssuranceId: id is num ? id.toInt() : 0,
       prixApplique: px is num ? px.toDouble() : double.tryParse(px?.toString() ?? '0') ?? 0,
       primeAssurance: optNum(json['prime_assurance']),
+      coutPolice: optNum(json['cout_police']),
       fraisServices: optNum(json['frais_services']),
       taxesTotal: optNum(json['taxes_total']),
       taxes: (json['taxes'] as List<dynamic>?)?.map((t) => Map<String, dynamic>.from(t as Map)).toList(),

@@ -1,5 +1,6 @@
 """Admin : référentiels de tarification (zones, fenêtres durée, tranches âge, frais et taxes)."""
 from datetime import datetime
+from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -778,6 +779,7 @@ def create_parametre_pays(
     param = ParametrePaysAssureur(
         pays_assureur=body.pays_assureur.strip(),
         frais_services_pct=body.frais_services_pct,
+        cout_police=body.cout_police or Decimal("0"),
         actif=body.actif,
     )
     db.add(param)
@@ -816,6 +818,7 @@ def list_parametres_pays(
             ParametrePaysListResponse(
                 pays_assureur=p.pays_assureur,
                 frais_services_pct=float(p.frais_services_pct),
+                cout_police=float(p.cout_police or 0),
                 actif=p.actif,
                 total_taxes_pct=total_pct,
                 nombre_taxes=len([t for t in (p.taxes or []) if t.actif]),
@@ -864,6 +867,8 @@ def update_parametre_pays(
         param.pays_assureur = body.pays_assureur.strip()
     if body.frais_services_pct is not None:
         param.frais_services_pct = body.frais_services_pct
+    if body.cout_police is not None:
+        param.cout_police = body.cout_police
     if body.actif is not None:
         param.actif = body.actif
 

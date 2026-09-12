@@ -14,6 +14,7 @@ class StepPaiementScreen extends StatefulWidget {
     required this.subscriptionId,
     required this.montant,
     this.primeAssurance,
+    this.coutPolice,
     this.fraisServices,
     this.taxesTotal,
     this.taxes,
@@ -24,6 +25,7 @@ class StepPaiementScreen extends StatefulWidget {
   final int subscriptionId;
   final double montant;
   final double? primeAssurance;
+  final double? coutPolice;
   final double? fraisServices;
   final double? taxesTotal;
   final List<Map<String, dynamic>>? taxes;
@@ -61,7 +63,10 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
       if (montant <= 0 &&
           subscription.primeAssurance != null &&
           subscription.fraisServices != null) {
-        montant = subscription.primeAssurance! + subscription.fraisServices! + (subscription.taxesTotal ?? 0);
+        montant = subscription.primeAssurance! +
+            (subscription.coutPolice ?? 0) +
+            subscription.fraisServices! +
+            (subscription.taxesTotal ?? 0);
       }
       if (montant <= 0) {
         throw Exception('Montant de paiement invalide pour cette souscription.');
@@ -132,7 +137,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Montant total',
+                    'Décompte de la prime',
                     style: TextStyle(
                       fontSize: 14,
                       color: Color(0xFF64748B),
@@ -143,12 +148,17 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
                       widget.fraisServices != null &&
                       widget.fraisServices! > 0) ...[
                     _PaiementLigneMontant(
-                      label: 'Prime d’assurance',
+                      label: 'Prime Nette',
                       value: widget.primeAssurance!,
                     ),
                     const SizedBox(height: 6),
                     _PaiementLigneMontant(
-                      label: 'Frais de services',
+                      label: 'Coût de Police',
+                      value: widget.coutPolice ?? 0,
+                    ),
+                    const SizedBox(height: 6),
+                    _PaiementLigneMontant(
+                      label: 'Taxe',
                       value: widget.fraisServices!,
                     ),
                     const SizedBox(height: 6),
@@ -252,7 +262,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
         final nom = t['nom']?.toString() ?? 'Taxe';
         final montant = (t['montant'] as num?)?.toDouble() ?? 0;
         if (montant > 0) {
-          rows.add(_PaiementLigneMontant(label: nom, value: montant));
+          rows.add(_PaiementLigneMontant(label: 'Taxe additionnelle ($nom)', value: montant));
           rows.add(const SizedBox(height: 6));
         }
       }

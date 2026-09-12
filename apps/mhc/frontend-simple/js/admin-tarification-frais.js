@@ -90,8 +90,9 @@ function renderParams(params) {
                     <span>${escapeHtml(p.pays_assureur)}</span>
                     <span class="badge">${p.actif ? 'Actif' : 'Inactif'}</span>
                 </h4>
-                <p class="muted">Frais de services : <strong>${p.frais_services_pct} %</strong></p>
-                <p class="muted">Taxes actives : <strong>${p.nombre_taxes}</strong> (${p.total_taxes_pct} % au total)</p>
+                <p class="muted">Coût de Police : <strong>${p.cout_police || 0} FCFA</strong></p>
+                <p class="muted">Taxe (frais de service) : <strong>${p.frais_services_pct} %</strong></p>
+                <p class="muted">Taxes additionnelles actives : <strong>${p.nombre_taxes}</strong> (${p.total_taxes_pct} % au total)</p>
                 <div style="margin-top:0.75rem;">
                     <button type="button" class="btn btn-sm btn-primary" data-action="edit" data-country="${escapeHtml(p.pays_assureur)}">Modifier</button>
                     <button type="button" class="btn btn-sm btn-danger" data-action="delete" data-country="${escapeHtml(p.pays_assureur)}">Supprimer</button>
@@ -125,6 +126,7 @@ async function loadCountryDetail(country) {
         const p = await apiCall(`/admin/tarification/parametres-pays/${encodeURIComponent(country)}`);
         document.getElementById('countryInput').value = p.pays_assureur;
         document.getElementById('feeInput').value = p.frais_services_pct;
+        document.getElementById('coutPoliceInput').value = p.cout_police != null ? p.cout_police : 0;
         document.getElementById('activeInput').checked = p.actif;
         editingCountry = p.pays_assureur;
         document.getElementById('taxesContainer').innerHTML = '';
@@ -138,6 +140,7 @@ function resetForm() {
     editingCountry = null;
     document.getElementById('countryInput').value = '';
     document.getElementById('feeInput').value = '15';
+    document.getElementById('coutPoliceInput').value = '0';
     document.getElementById('activeInput').checked = true;
     document.getElementById('taxesContainer').innerHTML = '';
 }
@@ -146,15 +149,20 @@ async function saveParam() {
     showAlert('formAlert', '', false);
     const pays = document.getElementById('countryInput').value.trim();
     const frais = parseFloat(document.getElementById('feeInput').value);
+    const coutPolice = parseFloat(document.getElementById('coutPoliceInput').value) || 0;
     const actif = document.getElementById('activeInput').checked;
     if (!pays) return showAlert('formAlert', 'Le pays est obligatoire', true);
     if (!Number.isFinite(frais) || frais < 0 || frais > 100) {
-        return showAlert('formAlert', 'Les frais doivent être un % entre 0 et 100', true);
+        return showAlert('formAlert', 'La Taxe doit être un % entre 0 et 100', true);
+    }
+    if (coutPolice < 0) {
+        return showAlert('formAlert', 'Le Coût de Police doit être positif', true);
     }
 
     const payload = {
         pays_assureur: pays,
         frais_services_pct: frais,
+        cout_police: coutPolice,
         actif,
         taxes: getTaxesFromForm(),
     };

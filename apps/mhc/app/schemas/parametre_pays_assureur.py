@@ -31,6 +31,7 @@ class TaxePaysAssureurResponse(TaxePaysAssureurBase):
 class ParametrePaysAssureurBase(BaseModel):
     pays_assureur: str
     frais_services_pct: Decimal = Field(..., ge=0, le=100)
+    cout_police: Decimal = Field(default=Decimal("0"), ge=0)
     actif: bool = True
 
 
@@ -41,6 +42,7 @@ class ParametrePaysAssureurCreate(ParametrePaysAssureurBase):
 class ParametrePaysAssureurUpdate(BaseModel):
     pays_assureur: Optional[str] = None
     frais_services_pct: Optional[Decimal] = Field(None, ge=0, le=100)
+    cout_police: Optional[Decimal] = Field(None, ge=0)
     actif: Optional[bool] = None
     taxes: Optional[List[TaxePaysAssureurCreate]] = None
 
@@ -55,6 +57,7 @@ class ParametrePaysAssureurResponse(ParametrePaysAssureurBase):
 class ParametrePaysListResponse(BaseModel):
     pays_assureur: str
     frais_services_pct: float
+    cout_police: float = 0.0
     actif: bool
     total_taxes_pct: float
     nombre_taxes: int
@@ -63,6 +66,7 @@ class ParametrePaysListResponse(BaseModel):
 class PaysTaxesDetail(BaseModel):
     pays_assureur: str
     frais_services_pct: float
+    cout_police: float = 0.0
     taxes: List[TaxePaysAssureurResponse] = []
     total_taxes_pct: float
     prix_multiplicateur: float

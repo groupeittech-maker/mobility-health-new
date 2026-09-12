@@ -372,16 +372,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         const frais = quote.frais_services;
         const prime = quote.prime_assurance;
+        const coutPolice = quote.cout_police;
+        let cpHtml = '';
+        if (coutPolice != null && Number(coutPolice) > 0) {
+            cpHtml = ` <span class="product-price-plus">+ Coût de Police</span> ${formatPrice(coutPolice)}`;
+        }
         let taxHtml = '';
         if (quote.taxes && quote.taxes.length) {
             for (const t of quote.taxes) {
                 if (Number(t.montant) > 0) {
-                    taxHtml += ` <span class="product-price-plus">+ ${escapeHtml(t.nom)}</span> ${formatPrice(t.montant)}`;
+                    taxHtml += ` <span class="product-price-plus">+ Taxe additionnelle (${escapeHtml(t.nom)})</span> ${formatPrice(t.montant)}`;
                 }
             }
         }
         if (frais != null && Number(frais) > 0 && prime != null) {
-            return `${formatPrice(prime)} <span class="product-price-plus">+ frais</span> ${formatPrice(frais)}${taxHtml} <span class="product-price-plus">=</span> ${formatPrice(quote.prix)}`;
+            return `${formatPrice(prime)}${cpHtml} <span class="product-price-plus">+ Taxe</span> ${formatPrice(frais)}${taxHtml} <span class="product-price-plus">=</span> ${formatPrice(quote.prix)}`;
         }
         return formatPrice(quote.prix);
     }
@@ -866,9 +871,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (quote && quote.from_tarif && quote.prix != null) {
             if (quote.prime_assurance != null && quote.frais_services != null && Number(quote.frais_services) > 0) {
-                rows.push(['Prime d’assurance (hors frais)', formatPrice(quote.prime_assurance)]);
-                rows.push(['Frais de services', formatPrice(quote.frais_services)]);
-                rows.push(['Total à payer', formatPrice(quote.prix)]);
+                rows.push(['Prime Nette', formatPrice(quote.prime_assurance)]);
+                rows.push(['Coût de Police', formatPrice(quote.cout_police || 0)]);
+                rows.push(['Taxe', formatPrice(quote.frais_services)]);
+                if (quote.taxes && quote.taxes.length) {
+                    for (const t of quote.taxes) {
+                        if (Number(t.montant) > 0) {
+                            rows.push([`Taxe additionnelle (${t.nom})`, formatPrice(t.montant)]);
+                        }
+                    }
+                }
+                rows.push(['Prime Nette Totale', formatPrice(quote.prix)]);
             } else {
                 rows.push(['Montant estimé (votre profil)', formatPrice(quote.prix)]);
             }

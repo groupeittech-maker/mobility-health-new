@@ -38,9 +38,10 @@ class Souscription(Base, TimestampMixin):
     projet_voyage_id = Column(Integer, ForeignKey("projets_voyage.id", ondelete="SET NULL"), nullable=True, index=True)
     numero_souscription = Column(String(100), unique=True, nullable=False, index=True)
     prix_applique = Column(Numeric(10, 2), nullable=False)  # Prix final appliqué à la souscription (prime + frais + taxes)
-    prime_assurance = Column(Numeric(12, 2), nullable=True)  # Prime + surprime (hors frais et taxes)
-    frais_services = Column(Numeric(12, 2), nullable=True)  # Frais de services
-    taxes = Column(JSON, nullable=True, default=list)  # Liste [{nom, taux_pct, montant}, ...]
+    prime_assurance = Column(Numeric(12, 2), nullable=True)  # Prime Nette (+ surprime, hors chargements)
+    cout_police = Column(Numeric(12, 2), nullable=True)  # Coût de Police (forfait, part MHC)
+    frais_services = Column(Numeric(12, 2), nullable=True)  # Taxe (frais de service MHC)
+    taxes = Column(JSON, nullable=True, default=list)  # Taxes additionnelles [{nom, taux_pct, montant}, ...]
     taxes_total = Column(Numeric(12, 2), nullable=True)  # Total des taxes
     canal_distribution = Column(String(20), nullable=False, default="assureur")  # assureur | courtier
     courtier_id = Column(Integer, ForeignKey("courtiers.id", ondelete="SET NULL"), nullable=True, index=True)

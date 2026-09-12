@@ -18,6 +18,7 @@ from app.models.souscription import Souscription
 from app.models.produit_assurance import ProduitAssurance
 from app.models.courtier import Courtier
 from app.core.enums import CleRepartition, StatutPaiement
+from app.core.tarification_defaults import EKYC_FEE_PER_DOSSIER
 
 logger = logging.getLogger(__name__)
 
@@ -291,8 +292,9 @@ class FinanceService:
         montant_total: Decimal,
     ) -> Tuple[Decimal, Decimal]:
         """
-        Répartition comptable des encaissements souscription : part assureur = prime d'assurance,
-        Mobility Health = frais de services (plus de pourcentage sur le total payé).
+        Répartition comptable des encaissements souscription : part assureur = Prime Nette
+        (prime_assurance), Mobility Health = tout le chargement (Coût de Police + Taxe +
+        taxes additionnelles) = montant total - Prime Nette.
         """
         mt = montant_total or Decimal("0.00")
         if not subscription:
@@ -303,8 +305,8 @@ class FinanceService:
 
         if prime is not None and frais is not None:
             part_ass = Decimal(str(prime)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-            part_mh = Decimal(str(frais)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-            return part_ass, part_mh
+            part_mh = (mt - part_ass).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            return part_ass, part_mh if part_mh > 0 else Decimal("0.00")
 
         if prime is not None:
             part_ass = Decimal(str(prime)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -320,21 +322,42 @@ class FinanceService:
         return mt.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), Decimal("0.00")
 
     @staticmethod
+    def ledger_ekyc_share(
+        subscription: Optional[Souscription],
+        mh_share: Decimal,
+    ) -> Decimal:
+        """
+        Part du partenaire eKYC (350 FCFA par dossier souscrit), prélevée
+        sur la part MHC. 0 pour les anciennes souscriptions sans détail.
+        """
+        if not subscription or getattr(subscription, "prime_assurance", None) is None:
+            return Decimal("0.00")
+        mh = (mh_share or Decimal("0.00")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if mh <= Decimal("0.00"):
+            return Decimal("0.00")
+        return min(EKYC_FEE_PER_DOSSIER, mh)
+
+    @staticmethod
     def ledger_with_optional_courtier(
         subscription: Optional[Souscription],
         montant_total: Decimal,
         db: Session,
         assureur_id: Optional[int] = None,
-    ) -> Tuple[Decimal, Decimal, Decimal, Optional[int], Optional[str], Optional[Decimal]]:
+    ) -> Tuple[Decimal, Decimal, Decimal, Optional[int], Optional[str], Optional[Decimal], Decimal]:
         """
-        Retourne (assureur, mh, courtier, courtier_id, courtier_nom, commission_pct).
-        commission courtier appliquée sur la prime d'assurance uniquement.
+        Retourne (assureur, mh_net, courtier, courtier_id, courtier_nom, commission_pct, ekyc).
+        - assureur : Prime Nette
+        - mh_net : chargements MHC (Coût de Police + Taxe + taxes additionnelles) - part eKYC
+        - ekyc : 350 FCFA/dossier prélevés sur la part MHC
+        - commission courtier appliquée sur la prime d'assurance uniquement.
         """
-        assureur_share, mh_share = FinanceService.ledger_prime_and_frais_split(
+        assureur_share, mh_gross = FinanceService.ledger_prime_and_frais_split(
             subscription, montant_total
         )
+        ekyc_share = FinanceService.ledger_ekyc_share(subscription, mh_gross)
+        mh_share = (mh_gross - ekyc_share).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         if not subscription:
-            return assureur_share, mh_share, Decimal("0.00"), None, None, None
+            return assureur_share, mh_share, Decimal("0.00"), None, None, None, ekyc_share
 
         courtier = None
         courtier_id = getattr(subscription, "courtier_id", None)
@@ -360,7 +383,7 @@ class FinanceService:
                 )
 
         if not courtier:
-            return assureur_share, mh_share, Decimal("0.00"), None, None, None
+            return assureur_share, mh_share, Decimal("0.00"), None, None, None, ekyc_share
         pct = Decimal(str(courtier.commission_pct or Decimal("0.00")))
         courtier_share = (assureur_share * (pct / Decimal("100"))).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
@@ -368,7 +391,7 @@ class FinanceService:
         assureur_share = (assureur_share - courtier_share).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
-        return assureur_share, mh_share, courtier_share, courtier.id, courtier.nom, pct
+        return assureur_share, mh_share, courtier_share, courtier.id, courtier.nom, pct, ekyc_share
 
     @staticmethod
     def refund_policy_breakdown(
@@ -384,7 +407,7 @@ class FinanceService:
         - résiliation: assureur + courtier remboursent intégralement, MH perçoit 30 % de la prime.
         """
         mt = (montant_total or Decimal("0.00")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        prime_share, frais_share = FinanceService.ledger_prime_and_frais_split(
+        prime_share, _ = FinanceService.ledger_prime_and_frais_split(
             subscription, mt
         )
 
@@ -401,9 +424,17 @@ class FinanceService:
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             )
         else:
-            mh_retained = frais_share if has_explicit_breakdown else (
-                mt * Decimal("0.10")
-            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            if has_explicit_breakdown:
+                # MHC conserve ses chargements propres : « Taxe » (frais de service)
+                # + Coût de Police. Les taxes additionnelles sont remboursées.
+                mh_retained = (
+                    Decimal(str(getattr(subscription, "frais_services", None) or 0))
+                    + Decimal(str(getattr(subscription, "cout_police", None) or 0))
+                ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            else:
+                mh_retained = (mt * Decimal("0.10")).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
 
         if mh_retained < Decimal("0.00"):
             mh_retained = Decimal("0.00")

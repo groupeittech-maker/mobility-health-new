@@ -14,6 +14,7 @@ class ParametrePaysAssureur(Base, TimestampMixin):
     id = Column(Integer, primary_key=True, index=True)
     pays_assureur = Column(String(100), nullable=False, unique=True, index=True)
     frais_services_pct = Column(Numeric(5, 2), nullable=False, default=15)
+    cout_police = Column(Numeric(12, 2), nullable=False, default=0)  # Coût de Police (forfait FCFA, part MHC)
     actif = Column(Boolean, nullable=False, default=True)
 
     taxes = relationship(

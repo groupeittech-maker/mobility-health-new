@@ -51,6 +51,7 @@ class AccountingTransaction(BaseModel):
     montant_assureur: Decimal
     montant_courtier: Optional[Decimal] = None
     montant_mh: Decimal
+    montant_ekyc: Optional[Decimal] = None  # Part partenaire eKYC (350 FCFA/dossier, prélevée sur la part MHC)
     montant_assure: Optional[Decimal] = None
     statut_transaction: str
     status_code: str

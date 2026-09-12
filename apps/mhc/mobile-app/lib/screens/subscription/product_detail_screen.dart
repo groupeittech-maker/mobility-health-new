@@ -176,7 +176,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             const SizedBox(height: 20),
           ],
           if (q != null && q.hasBreakdown) ...[
-            const _SectionTitle('Prime et frais de service'),
+            const _SectionTitle('Décompte de la prime'),
             const SizedBox(height: 8),
             _TableQuoteBreakdown(line: q, currency: cur),
             const SizedBox(height: 8),
@@ -189,7 +189,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Text(
-                'Règle appliquée : frais de service ≈ ${widget.fraisSurPrimePct.toStringAsFixed(0)} % de la prime d’assurance.',
+                'Règle appliquée : Taxe = ${widget.fraisSurPrimePct.toStringAsFixed(0)} % de (Prime Nette + Coût de Police).',
                 style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B)),
               ),
             ),
@@ -356,15 +356,16 @@ class _TableQuoteBreakdown extends StatelessWidget {
       for (final t in line.taxes ?? []) {
         final montant = (t['montant'] as num?)?.toDouble() ?? 0;
         if (montant > 0) {
-          taxRows.add(['${t['nom'] ?? 'Taxe'}', '${montant.toStringAsFixed(0)} $currency']);
+          taxRows.add(['Taxe additionnelle (${t['nom'] ?? 'Taxe'})', '${montant.toStringAsFixed(0)} $currency']);
         }
       }
     }
     final rows = <List<String>>[
-      ['Prime d’assurance', '${line.primeAssurance!.toStringAsFixed(0)} $currency'],
-      ['Frais de services', '${line.fraisServices!.toStringAsFixed(0)} $currency'],
+      ['Prime Nette', '${line.primeAssurance!.toStringAsFixed(0)} $currency'],
+      ['Coût de Police', '${(line.coutPolice ?? 0).toStringAsFixed(0)} $currency'],
+      ['Taxe', '${line.fraisServices!.toStringAsFixed(0)} $currency'],
       ...taxRows,
-      ['Total à payer', '${line.prixApplique.toStringAsFixed(0)} $currency'],
+      ['Prime Nette Totale', '${line.prixApplique.toStringAsFixed(0)} $currency'],
     ];
     return Container(
       decoration: BoxDecoration(
@@ -386,7 +387,7 @@ class _TableQuoteBreakdown extends StatelessWidget {
             ],
           ),
           ...rows.asMap().entries.map((e) {
-            final isTotal = e.value[0] == 'Total à payer';
+            final isTotal = e.value[0] == 'Prime Nette Totale';
             return TableRow(
               decoration: BoxDecoration(
                 color: e.key.isEven ? Colors.white : const Color(0xFFF8FAFC),

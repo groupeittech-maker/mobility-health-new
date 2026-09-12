@@ -305,8 +305,12 @@ function buildTransactionCard(item, showActions) {
                             <div class="sos-alert-card__value">${formatShareAmount(item.montant_courtier)}</div>
                         </div>
                         <div>
-                            <span class="sos-alert-card__label">Frais de service MHC</span>
+                            <span class="sos-alert-card__label">Part MHC (nette)</span>
                             <div class="sos-alert-card__value">${formatAmount(item.montant_mh)}</div>
+                        </div>
+                        <div>
+                            <span class="sos-alert-card__label">Part eKYC (350 FCFA/dossier)</span>
+                            <div class="sos-alert-card__value">${formatShareAmount(item.montant_ekyc)}</div>
                         </div>
                     </div>
                 </div>

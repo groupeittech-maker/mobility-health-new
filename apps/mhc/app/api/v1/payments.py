@@ -796,6 +796,7 @@ async def checkout_payment(
         numero_souscription=numero_souscription,
         prix_applique=montant,
         prime_assurance=td.prime_assurance,
+        cout_police=td.cout_police,
         frais_services=td.frais_services,
         taxes=td.taxes,
         taxes_total=td.taxes_total,
@@ -1372,6 +1373,7 @@ async def get_accounting_transactions(
 
         insured_share = Decimal("0.00")
         broker_share = Decimal("0.00")
+        ekyc_share = Decimal("0.00")
         broker_id = getattr(subscription, "courtier_id", None) if subscription else None
         broker_name = None
         broker_pct = None
@@ -1406,13 +1408,13 @@ async def get_accounting_transactions(
         elif has_definitive_attestation:
             status_code = "paid"
             status_label = "payé - attestation definitive"
-            assureur_share, mh_share, broker_share, broker_id, broker_name, broker_pct = FinanceService.ledger_with_optional_courtier(
+            assureur_share, mh_share, broker_share, broker_id, broker_name, broker_pct, ekyc_share = FinanceService.ledger_with_optional_courtier(
                 subscription, montant_total, db, assureur_id=assureur_id
             )
         else:
             status_code = "provisional"
             status_label = "reçu provisoire - attestation définitive"
-            assureur_share, mh_share, broker_share, broker_id, broker_name, broker_pct = FinanceService.ledger_with_optional_courtier(
+            assureur_share, mh_share, broker_share, broker_id, broker_name, broker_pct, ekyc_share = FinanceService.ledger_with_optional_courtier(
                 subscription, montant_total, db, assureur_id=assureur_id
             )
 
@@ -1421,7 +1423,7 @@ async def get_accounting_transactions(
         # Ne jamais inférer un autre courtier que celui de la souscription si courtier_id est renseigné.
         explicit_sub_courtier_id = getattr(subscription, "courtier_id", None) if subscription else None
         if status_code in {"paid", "provisional"}:
-            expected_broker = (montant_total - mh_share - assureur_share).quantize(
+            expected_broker = (montant_total - mh_share - assureur_share - (ekyc_share or Decimal("0.00"))).quantize(
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             )
             if expected_broker > Decimal("0.00") and (not broker_share or broker_share <= Decimal("0.00")):
@@ -1494,6 +1496,7 @@ async def get_accounting_transactions(
                 montant_assureur=assureur_share,
                 montant_courtier=broker_share or None,
                 montant_mh=mh_share,
+                montant_ekyc=ekyc_share or None,
                 montant_assure=insured_share or None,
                 statut_transaction=status_label,
                 status_code=status_code,

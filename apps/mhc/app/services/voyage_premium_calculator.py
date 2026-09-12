@@ -121,6 +121,7 @@ class InsurancePremiumResult:
     age_voyageur: int
     taxes_total: Decimal = Decimal("0")
     taxes: List[Any] = field(default_factory=list)
+    cout_police: Decimal = Decimal("0")  # Coût de Police forfaitaire (part MHC)
 
 
 def _dec(x) -> Decimal:
@@ -255,17 +256,19 @@ def calculateInsurancePremium(
     surprime_resolver: Optional[SurprimePctResolver] = None,
     frais_services_pct: Optional[Decimal] = None,
     taxes: Optional[List[Any]] = None,
+    cout_police: Optional[Decimal] = None,
 ) -> InsurancePremiumResult:
     """
-    Calcule prime grille, surprime (sur la prime grille), frais (% de la prime après
-    surprime) et taxes (% de la prime après surprime) puis total.
+    Calcule prime grille, surprime (sur la prime grille), Coût de Police (forfait),
+    Taxe et taxes additionnelles (% sur Prime Nette + Coût de Police) puis total.
 
     - zone_geographique : INTRA_AFRIQUE | RSA_MAGHREB | EXTRA_AFRIQUE | INTER_AFRIQUE
     - duree_voyage : 1 à 90 jours
     - age_voyageur : entier raisonnable (0–120)
     - surprime_resolver(age) -> % à appliquer sur la prime de grille (0 = tarif normal)
-    - frais_services_pct : % de frais sur prime totale (défaut 15 %)
-    - taxes : liste d'objets avec .nom et .taux_pct
+    - frais_services_pct : % « Taxe » sur (prime totale + coût de police) (défaut 15 %)
+    - taxes : liste d'objets avec .nom et .taux_pct (même base)
+    - cout_police : montant forfaitaire (défaut 0)
     """
     z = normalize_zone_code(zone_geographique)
     if z not in ZONES_CANONIQUES:
@@ -313,13 +316,20 @@ def calculateInsurancePremium(
 
     montant_surprime = (prime_base * (pct / Decimal("100"))).quantize(Decimal("0.01"))
     prime_totale = (prime_base + montant_surprime).quantize(Decimal("0.01"))
-    frais = frais_services_depuis_prime(prime_totale, frais_services_pct)
+    cp = Decimal(str(cout_police)) if cout_police is not None else Decimal("0")
+    if cp < 0:
+        raise VoyagePremiumValidationError(
+            "Le coût de police ne peut pas être négatif.",
+            "cout_police_negatif",
+        )
+    base_taxable = (prime_totale + cp).quantize(Decimal("0.01"))
+    frais = frais_services_depuis_prime(base_taxable, frais_services_pct)
 
     taxes_total = Decimal("0")
     taxes_detail: List[Dict[str, Any]] = []
     for taxe in (taxes or []):
         taux = Decimal(str(getattr(taxe, "taux_pct", 0)))
-        montant_taxe = (prime_totale * taux / Decimal("100")).quantize(Decimal("0.01"))
+        montant_taxe = (base_taxable * taux / Decimal("100")).quantize(Decimal("0.01"))
         taxes_total += montant_taxe
         taxes_detail.append({
             "nom": getattr(taxe, "nom", "Taxe"),
@@ -327,7 +337,7 @@ def calculateInsurancePremium(
             "montant": montant_taxe,
         })
 
-    total = (prime_totale + frais + taxes_total).quantize(Decimal("0.01"))
+    total = (prime_totale + cp + frais + taxes_total).quantize(Decimal("0.01"))
 
     return InsurancePremiumResult(
         tarif_base=prime_base,
@@ -344,6 +354,7 @@ def calculateInsurancePremium(
         age_voyageur=age_voyageur,
         taxes_total=taxes_total,
         taxes=taxes_detail,
+        cout_police=cp,
     )
 
 

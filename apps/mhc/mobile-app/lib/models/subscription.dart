@@ -6,6 +6,7 @@ class SubscriptionModel {
   final String numeroSouscription;
   final double prixApplique;
   final double? primeAssurance;
+  final double? coutPolice;
   final double? fraisServices;
   final double? taxesTotal;
   final List<Map<String, dynamic>>? taxes;
@@ -29,6 +30,7 @@ class SubscriptionModel {
     required this.numeroSouscription,
     required this.prixApplique,
     this.primeAssurance,
+    this.coutPolice,
     this.fraisServices,
     this.taxesTotal,
     this.taxes,
@@ -65,6 +67,11 @@ class SubscriptionModel {
           ? ((json['prime_assurance'] is num)
               ? (json['prime_assurance'] as num).toDouble()
               : double.tryParse(json['prime_assurance'].toString()))
+          : null,
+      coutPolice: json['cout_police'] != null
+          ? ((json['cout_police'] is num)
+              ? (json['cout_police'] as num).toDouble()
+              : double.tryParse(json['cout_police'].toString()))
           : null,
       fraisServices: json['frais_services'] != null
           ? ((json['frais_services'] is num)

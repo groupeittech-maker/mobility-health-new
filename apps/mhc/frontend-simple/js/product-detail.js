@@ -107,10 +107,10 @@ async function loadProductDetail(productId) {
                 <h2>Primes générées</h2>
                 <table class="product-detail-table">
                     <tbody>
-                        <tr><td>Prime nette</td><td>${a(pg.prime_nette)}</td></tr>
+                        <tr><td>Prime Nette</td><td>${a(pg.prime_nette)}</td></tr>
                         <tr><td>Accessoire</td><td>${a(pg.accessoire)}</td></tr>
                         <tr><td>Taxes</td><td>${a(pg.taxes)}</td></tr>
-                        <tr><td>Prime total</td><td>${a(pg.prime_total)}</td></tr>
+                        <tr><td>Prime Nette Totale</td><td>${a(pg.prime_total)}</td></tr>
                     </tbody>
                 </table>
             </div>`

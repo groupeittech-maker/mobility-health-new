@@ -265,6 +265,10 @@ async def start_subscription(
         "statut": StatutSouscription.EN_ATTENTE,  # Statut 'pending' (en_attente)
         "notes": subscription_data.notes,
     }
+    if hasattr(Souscription, "cout_police"):
+        souscription_kwargs["cout_police"] = tarif_detail.cout_police
+    else:
+        logger.warning("Souscription.cout_police absent sur le modèle chargé; valeur ignorée.")
     if hasattr(Souscription, "taxes"):
         souscription_kwargs["taxes"] = tarif_detail.taxes
     else:
@@ -365,6 +369,7 @@ async def quote_subscription_prices(
                 produit_assurance_id=pid,
                 prix_applique=float(d.prix),
                 prime_assurance=float(d.prime_assurance) if d.prime_assurance is not None else None,
+                cout_police=float(d.cout_police) if d.cout_police is not None else None,
                 frais_services=float(d.frais_services) if d.frais_services is not None else None,
                 taxes_total=float(d.taxes_total) if d.taxes_total is not None else None,
                 taxes=taxe_list if taxe_list else None,

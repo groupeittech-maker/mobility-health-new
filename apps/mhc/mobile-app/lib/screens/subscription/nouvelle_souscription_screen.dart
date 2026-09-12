@@ -35,6 +35,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
   int? _subscriptionId;
   double _montant = 0;
   double? _primePourPaiement;
+  double? _coutPolice;
   double? _fraisPourPaiement;
   double? _taxesTotal;
   List<Map<String, dynamic>>? _taxes;
@@ -361,6 +362,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
           _subscriptionId = sub.id;
           _montant = sub.prixApplique;
           _primePourPaiement = sub.primeAssurance;
+          _coutPolice = sub.coutPolice;
           _fraisPourPaiement = sub.fraisServices;
           _taxesTotal = sub.taxesTotal;
           _taxes = sub.taxes;
@@ -512,6 +514,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
                           subscriptionId: _subscriptionId!,
                           montant: _montant,
                           primeAssurance: _primePourPaiement,
+                          coutPolice: _coutPolice,
                           fraisServices: _fraisPourPaiement,
                           taxesTotal: _taxesTotal,
                           taxes: _taxes,

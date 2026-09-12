@@ -38,7 +38,7 @@
             html += '<h3 class="mh-voyage-ref__title">PRIMES &amp; FRAIS DE SERVICES</h3>';
             const pctFrais = d.frais_sur_prime_pct != null ? String(d.frais_sur_prime_pct) : '15';
             html +=
-                `<p class="mh-voyage-ref__subtitle">Par zone tarifaire (parcours résidence → destination) et durée. Frais de services = ${escapeHtml(pctFrais)}&nbsp;% de la prime <strong>après</strong> surprime âge (ci-dessous : indicatif 18–69 ans, sans surprime). Devise : FCFA.</p>`;
+                `<p class="mh-voyage-ref__subtitle">Par zone tarifaire (parcours résidence → destination) et durée. Taxe (frais de service) = ${escapeHtml(pctFrais)}&nbsp;% de (Prime Nette + Coût de Police) — ci-dessous : Prime Nette indicative 18–69 ans, sans surprime. Devise : FCFA.</p>`;
             html += '</div>';
 
             html += '<div class="mh-primes-table-wrap">';
