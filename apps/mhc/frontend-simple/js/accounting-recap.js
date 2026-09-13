@@ -1,8 +1,8 @@
 /**
  * Onglet « Récapitulatif » du portail comptable MH.
  * Agrège /payments/accounting/transactions avec filtres dynamiques :
- * période, poste (assureur / courtier / réassureur / produit / mois / statut)
- * et présente les montants totaux par groupe + ligne TOTAL.
+ * période, poste (assureur / courtier / réassureur / eKYC / MHC / reversé),
+ * regroupement et présente les montants totaux par groupe + ligne TOTAL.
  */
 const recapState = {
     transactions: [],
@@ -12,6 +12,8 @@ const recapState = {
         dateFrom: '',
         dateTo: '',
         groupBy: 'assureur',
+        share: 'all',
+        shareOnly: false,
         assureur: 'all',
         courtier: 'all',
         reassureur: 'all',
@@ -28,6 +30,16 @@ const RECAP_SHARE_KEYS = [
     'montant_mh',
     'montant_assure',
 ];
+
+const RECAP_SHARE_LABELS = {
+    montant_total: 'Total encaissé',
+    montant_assureur: 'Part assureur',
+    montant_courtier: 'Commission courtier',
+    montant_reassureur: 'Part réassureur',
+    montant_ekyc: 'Part eKYC',
+    montant_mh: 'Part MHC nette',
+    montant_assure: 'Reversé assuré',
+};
 
 function escapeHtmlRecap(s) {
     if (s == null) return '';
@@ -89,11 +101,14 @@ function recapPeriodRange() {
 }
 
 function recapMatchesFilters(item) {
-    const { assureur, courtier, reassureur, status } = recapState.filters;
+    const { assureur, courtier, reassureur, status, share, shareOnly } = recapState.filters;
     if (status !== 'all' && (item.status_code || '') !== status) return false;
     if (assureur !== 'all' && (item.assureur_nom || '—') !== assureur) return false;
     if (courtier !== 'all' && (item.courtier_nom || '—') !== courtier) return false;
     if (reassureur !== 'all' && (item.reassureur_nom || '—') !== reassureur) return false;
+
+    // « Uniquement les transactions comportant cette part »
+    if (share !== 'all' && shareOnly && !(Number(item[share] || 0) > 0)) return false;
 
     const { from, to } = recapPeriodRange();
     if (from || to) {
@@ -156,6 +171,38 @@ function populateRecapFilters() {
     populateRecapSelect('recapReassureur', unique((t) => t.reassureur_nom || '—'));
 }
 
+function recapCellClass(shareKey) {
+    const focus = recapState.filters.share === shareKey ? ' recap-col--focus' : '';
+    return `num${focus}`;
+}
+
+function renderRecapTotals(filtered) {
+    const container = document.getElementById('recapTotals');
+    if (!container) return;
+
+    const totals = { count: filtered.length };
+    for (const k of RECAP_SHARE_KEYS) {
+        totals[k] = filtered.reduce((sum, t) => sum + Number(t[k] || 0), 0);
+    }
+
+    const focusShare = recapState.filters.share;
+    const keys = RECAP_SHARE_KEYS;
+    container.innerHTML =
+        `<div class="recap-total-card recap-total-card--count">
+            <span class="recap-total-card__label">Transactions</span>
+            <span class="recap-total-card__value">${totals.count}</span>
+        </div>` +
+        keys
+            .map((k) => {
+                const focus = focusShare === k ? ' recap-total-card--focus' : '';
+                return `<div class="recap-total-card${focus}">
+                    <span class="recap-total-card__label">${RECAP_SHARE_LABELS[k]}</span>
+                    <span class="recap-total-card__value">${formatRecapAmount(totals[k])}</span>
+                </div>`;
+            })
+            .join('');
+}
+
 function renderRecapTable() {
     const tbody = document.getElementById('recapTableBody');
     const tfoot = document.getElementById('recapTableFoot');
@@ -167,7 +214,16 @@ function renderRecapTable() {
             RECAP_GROUP_LABELS[recapState.filters.groupBy] || 'Groupe';
     }
 
+    // Met en évidence la colonne de la part sélectionnée dans l'en-tête
+    document.querySelectorAll('#recapTable thead th[data-share]').forEach((th) => {
+        th.classList.toggle(
+            'recap-col--focus',
+            recapState.filters.share === th.getAttribute('data-share')
+        );
+    });
+
     const filtered = recapState.transactions.filter(recapMatchesFilters);
+    renderRecapTotals(filtered);
 
     // Agrégation par groupe
     const groups = new Map();
@@ -197,14 +253,14 @@ function renderRecapTable() {
             ([key, acc]) => `
             <tr>
                 <td>${escapeHtmlRecap(key)}</td>
-                <td>${acc.count}</td>
-                <td><strong>${formatRecapAmount(acc.montant_total)}</strong></td>
-                <td>${formatRecapAmount(acc.montant_assureur)}</td>
-                <td>${formatRecapAmount(acc.montant_courtier)}</td>
-                <td>${formatRecapAmount(acc.montant_reassureur)}</td>
-                <td>${formatRecapAmount(acc.montant_ekyc)}</td>
-                <td>${formatRecapAmount(acc.montant_mh)}</td>
-                <td>${formatRecapAmount(acc.montant_assure)}</td>
+                <td class="num">${acc.count}</td>
+                <td class="${recapCellClass('montant_total')}"><strong>${formatRecapAmount(acc.montant_total)}</strong></td>
+                <td class="${recapCellClass('montant_assureur')}">${formatRecapAmount(acc.montant_assureur)}</td>
+                <td class="${recapCellClass('montant_courtier')}">${formatRecapAmount(acc.montant_courtier)}</td>
+                <td class="${recapCellClass('montant_reassureur')}">${formatRecapAmount(acc.montant_reassureur)}</td>
+                <td class="${recapCellClass('montant_ekyc')}">${formatRecapAmount(acc.montant_ekyc)}</td>
+                <td class="${recapCellClass('montant_mh')}">${formatRecapAmount(acc.montant_mh)}</td>
+                <td class="${recapCellClass('montant_assure')}">${formatRecapAmount(acc.montant_assure)}</td>
             </tr>`
         )
         .join('');
@@ -216,16 +272,16 @@ function renderRecapTable() {
         for (const k of RECAP_SHARE_KEYS) total[k] += acc[k];
     }
     tfoot.innerHTML = `
-        <tr style="font-weight:700; border-top:2px solid var(--border-color);">
+        <tr>
             <td>TOTAL</td>
-            <td>${total.count}</td>
-            <td>${formatRecapAmount(total.montant_total)}</td>
-            <td>${formatRecapAmount(total.montant_assureur)}</td>
-            <td>${formatRecapAmount(total.montant_courtier)}</td>
-            <td>${formatRecapAmount(total.montant_reassureur)}</td>
-            <td>${formatRecapAmount(total.montant_ekyc)}</td>
-            <td>${formatRecapAmount(total.montant_mh)}</td>
-            <td>${formatRecapAmount(total.montant_assure)}</td>
+            <td class="num">${total.count}</td>
+            <td class="${recapCellClass('montant_total')}">${formatRecapAmount(total.montant_total)}</td>
+            <td class="${recapCellClass('montant_assureur')}">${formatRecapAmount(total.montant_assureur)}</td>
+            <td class="${recapCellClass('montant_courtier')}">${formatRecapAmount(total.montant_courtier)}</td>
+            <td class="${recapCellClass('montant_reassureur')}">${formatRecapAmount(total.montant_reassureur)}</td>
+            <td class="${recapCellClass('montant_ekyc')}">${formatRecapAmount(total.montant_ekyc)}</td>
+            <td class="${recapCellClass('montant_mh')}">${formatRecapAmount(total.montant_mh)}</td>
+            <td class="${recapCellClass('montant_assure')}">${formatRecapAmount(total.montant_assure)}</td>
         </tr>`;
 
     if (typeof paginateTable === 'function') {
@@ -239,18 +295,8 @@ async function loadRecapTransactions() {
         tbody.innerHTML = '<tr><td colspan="9" class="muted">Chargement en cours...</td></tr>';
     }
     try {
-        // Réutilise les transactions déjà chargées/enrichies par l'onglet
-        // « Frais & remboursements » si disponibles, sinon appel dédié.
-        if (
-            window.accountingState &&
-            Array.isArray(window.accountingState.transactions) &&
-            window.accountingState.transactions.length
-        ) {
-            recapState.transactions = window.accountingState.transactions;
-        } else {
-            const data = await apiCall('/payments/accounting/transactions');
-            recapState.transactions = Array.isArray(data) ? data : [];
-        }
+        const data = await apiCall('/payments/accounting/transactions');
+        recapState.transactions = Array.isArray(data) ? data : [];
         recapState.loaded = true;
         populateRecapFilters();
         renderRecapTable();
@@ -276,6 +322,10 @@ function initRecapFilters() {
                 if (fromWrap) fromWrap.hidden = !custom;
                 if (toWrap) toWrap.hidden = !custom;
             }
+            if (key === 'share') {
+                const wrap = document.getElementById('recapShareOnlyWrap');
+                if (wrap) wrap.hidden = e.target.value === 'all';
+            }
             if (rerender) renderRecapTable();
         });
     };
@@ -283,11 +333,17 @@ function initRecapFilters() {
     bind('recapPeriod', 'period');
     bind('recapDateFrom', 'dateFrom');
     bind('recapDateTo', 'dateTo');
+    bind('recapShare', 'share');
     bind('recapGroupBy', 'groupBy');
     bind('recapAssureur', 'assureur');
     bind('recapCourtier', 'courtier');
     bind('recapReassureur', 'reassureur');
     bind('recapStatus', 'status');
+
+    document.getElementById('recapShareOnly')?.addEventListener('change', (e) => {
+        recapState.filters.shareOnly = e.target.checked;
+        renderRecapTable();
+    });
 
     document
         .getElementById('recapReloadBtn')

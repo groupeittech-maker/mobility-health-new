@@ -103,79 +103,103 @@
                 </p>
             </div>
 
-            <div class="table-toolbar" style="flex-wrap: wrap; gap: 0.75rem;">
-                <label style="display:flex; align-items:center; gap:0.4rem;">
-                    Période
-                    <select id="recapPeriod" aria-label="Période">
-                        <option value="all">Toute la période</option>
-                        <option value="month">Mois courant</option>
-                        <option value="last_month">Mois précédent</option>
-                        <option value="quarter">Trimestre courant</option>
-                        <option value="year">Année courante</option>
-                        <option value="custom">Personnalisée</option>
-                    </select>
-                </label>
-                <label style="display:flex; align-items:center; gap:0.4rem;" id="recapFromWrap" hidden>
-                    Du <input type="date" id="recapDateFrom">
-                </label>
-                <label style="display:flex; align-items:center; gap:0.4rem;" id="recapToWrap" hidden>
-                    Au <input type="date" id="recapDateTo">
-                </label>
-                <label style="display:flex; align-items:center; gap:0.4rem;">
-                    Regrouper par
-                    <select id="recapGroupBy" aria-label="Regrouper par">
-                        <option value="assureur" selected>Assureur</option>
-                        <option value="courtier">Courtier</option>
-                        <option value="reassureur">Réassureur</option>
-                        <option value="produit">Produit</option>
-                        <option value="mois">Mois</option>
-                        <option value="statut">Statut</option>
-                        <option value="all">Aucun (total global)</option>
-                    </select>
-                </label>
-                <label style="display:flex; align-items:center; gap:0.4rem;">
-                    Assureur
-                    <select id="recapAssureur" aria-label="Filtrer par assureur">
-                        <option value="all">Tous</option>
-                    </select>
-                </label>
-                <label style="display:flex; align-items:center; gap:0.4rem;">
-                    Courtier
-                    <select id="recapCourtier" aria-label="Filtrer par courtier">
-                        <option value="all">Tous</option>
-                    </select>
-                </label>
-                <label style="display:flex; align-items:center; gap:0.4rem;">
-                    Réassureur
-                    <select id="recapReassureur" aria-label="Filtrer par réassureur">
-                        <option value="all">Tous</option>
-                    </select>
-                </label>
-                <label style="display:flex; align-items:center; gap:0.4rem;">
-                    Statut
-                    <select id="recapStatus" aria-label="Filtrer par statut">
-                        <option value="all">Tous</option>
-                        <option value="paid">Payé</option>
-                        <option value="provisional">Provisoire</option>
-                        <option value="refunded">Remboursé</option>
-                    </select>
-                </label>
-                <button class="btn" id="recapReloadBtn">Actualiser</button>
+            <div class="filters-panel">
+                <div class="filters-grid">
+                    <label class="filters-field">
+                        <span>Période</span>
+                        <select id="recapPeriod" aria-label="Période">
+                            <option value="all">Toute la période</option>
+                            <option value="month">Mois courant</option>
+                            <option value="last_month">Mois précédent</option>
+                            <option value="quarter">Trimestre courant</option>
+                            <option value="year">Année courante</option>
+                            <option value="custom">Personnalisée</option>
+                        </select>
+                    </label>
+                    <label class="filters-field" id="recapFromWrap" hidden>
+                        <span>Du</span>
+                        <input type="date" id="recapDateFrom">
+                    </label>
+                    <label class="filters-field" id="recapToWrap" hidden>
+                        <span>Au</span>
+                        <input type="date" id="recapDateTo">
+                    </label>
+                    <label class="filters-field">
+                        <span>Part à analyser</span>
+                        <select id="recapShare" aria-label="Part à analyser">
+                            <option value="all">Toutes les parts</option>
+                            <option value="montant_assureur">Part assureur</option>
+                            <option value="montant_courtier">Commission courtier</option>
+                            <option value="montant_reassureur">Part réassureur</option>
+                            <option value="montant_ekyc">Part eKYC</option>
+                            <option value="montant_mh">Part MHC nette</option>
+                            <option value="montant_assure">Reversé assuré</option>
+                        </select>
+                    </label>
+                    <label class="filters-field">
+                        <span>Regrouper par</span>
+                        <select id="recapGroupBy" aria-label="Regrouper par">
+                            <option value="assureur" selected>Assureur</option>
+                            <option value="courtier">Courtier</option>
+                            <option value="reassureur">Réassureur</option>
+                            <option value="produit">Produit</option>
+                            <option value="mois">Mois</option>
+                            <option value="statut">Statut</option>
+                            <option value="all">Aucun (total global)</option>
+                        </select>
+                    </label>
+                    <label class="filters-field">
+                        <span>Assureur</span>
+                        <select id="recapAssureur" aria-label="Filtrer par assureur">
+                            <option value="all">Tous</option>
+                        </select>
+                    </label>
+                    <label class="filters-field">
+                        <span>Courtier</span>
+                        <select id="recapCourtier" aria-label="Filtrer par courtier">
+                            <option value="all">Tous</option>
+                        </select>
+                    </label>
+                    <label class="filters-field">
+                        <span>Réassureur</span>
+                        <select id="recapReassureur" aria-label="Filtrer par réassureur">
+                            <option value="all">Tous</option>
+                        </select>
+                    </label>
+                    <label class="filters-field">
+                        <span>Statut</span>
+                        <select id="recapStatus" aria-label="Filtrer par statut">
+                            <option value="all">Tous</option>
+                            <option value="paid">Payé</option>
+                            <option value="provisional">Provisoire</option>
+                            <option value="refunded">Remboursé</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="filters-actions">
+                    <label class="filters-check" id="recapShareOnlyWrap" hidden>
+                        <input type="checkbox" id="recapShareOnly">
+                        Uniquement les transactions comportant cette part
+                    </label>
+                    <button class="btn" id="recapReloadBtn">Actualiser</button>
+                </div>
             </div>
 
-            <div class="table-wrapper">
-                <table class="data-table" id="recapTable">
+            <div class="recap-totals" id="recapTotals"></div>
+
+            <div class="table-wrapper table-wrapper--scrollable">
+                <table class="data-table recap-table" id="recapTable">
                     <thead>
                         <tr>
                             <th id="recapGroupHeader">Groupe</th>
-                            <th>Nb</th>
-                            <th>Total encaissé</th>
-                            <th>Part assureur</th>
-                            <th>Commission courtier</th>
-                            <th>Part réassureur</th>
-                            <th>Part eKYC</th>
-                            <th>Part MHC nette</th>
-                            <th>Reversé assuré</th>
+                            <th class="num">Nb</th>
+                            <th class="num" data-share="montant_total">Total encaissé</th>
+                            <th class="num" data-share="montant_assureur">Part assureur</th>
+                            <th class="num" data-share="montant_courtier">Commission courtier</th>
+                            <th class="num" data-share="montant_reassureur">Part réassureur</th>
+                            <th class="num" data-share="montant_ekyc">Part eKYC</th>
+                            <th class="num" data-share="montant_mh">Part MHC nette</th>
+                            <th class="num" data-share="montant_assure">Reversé assuré</th>
                         </tr>
                     </thead>
                     <tbody id="recapTableBody">

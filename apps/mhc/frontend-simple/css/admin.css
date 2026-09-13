@@ -5072,3 +5072,157 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
     min-height: 48px;
 }
 
+
+/* ===== Récapitulatif comptable MH ===== */
+
+.filters-panel {
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 1rem;
+}
+
+.filters-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--secondary-color);
+}
+
+.filters-field input,
+.filters-field select {
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: #fff;
+    color: var(--dark-text);
+    min-width: 0;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filters-field input:focus,
+.filters-field select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(8, 173, 160, 0.12);
+}
+
+.filters-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--border-color);
+}
+
+.filters-check {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--dark-text);
+    cursor: pointer;
+}
+
+/* Cartes de totaux filtrés */
+.recap-totals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.recap-total-card {
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 0.9rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.recap-total-card__label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--secondary-color);
+}
+
+.recap-total-card__value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--dark-text);
+}
+
+.recap-total-card--count {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.recap-total-card--count .recap-total-card__label,
+.recap-total-card--count .recap-total-card__value {
+    color: #fff;
+}
+
+.recap-total-card--focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(8, 173, 160, 0.18), 0 4px 12px rgba(8, 173, 160, 0.12);
+}
+
+.recap-total-card--focus .recap-total-card__value {
+    color: var(--primary-color);
+}
+
+/* Tableau récapitulatif */
+.table-wrapper--scrollable {
+    max-height: 65vh;
+    overflow-y: auto !important;
+}
+
+.table-wrapper--scrollable .data-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.table-wrapper--scrollable .data-table tfoot td {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+}
+
+.recap-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.recap-table td.recap-col--focus,
+.recap-table th.recap-col--focus {
+    background: rgba(8, 173, 160, 0.1);
+    color: var(--primary-color);
+    font-weight: 700;
+}
+
+.recap-table tfoot td {
+    font-weight: 700;
+    background: #f1f5f9;
+    border-top: 2px solid var(--primary-color);
+    color: var(--dark-text);
+}
