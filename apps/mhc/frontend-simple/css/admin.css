@@ -5244,3 +5244,20 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
     white-space: normal;
     min-width: 140px;
 }
+
+/* Recap : en-tetes sticky opaques et sur une seule ligne (pas de chevauchement) */
+.table-wrapper--scrollable .recap-table thead th {
+    white-space: nowrap;
+    hyphens: none;
+    word-break: keep-all;
+    overflow-wrap: normal;
+    min-width: 0;
+    padding: 0.9rem 1rem;
+    font-size: 0.78rem;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+}
+
+.table-wrapper--scrollable .recap-table tfoot td {
+    background: #f1f5f9;
+    white-space: nowrap;
+}
