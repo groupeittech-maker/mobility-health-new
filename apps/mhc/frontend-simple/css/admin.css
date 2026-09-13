@@ -5245,16 +5245,24 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
     min-width: 140px;
 }
 
-/* Recap : en-tetes sticky opaques et sur une seule ligne (pas de chevauchement) */
+/* Recap : en-tetes sticky opaques, libelles sur 2 lignes, colonnes alignees */
 .table-wrapper--scrollable .recap-table thead th {
-    white-space: nowrap;
+    white-space: normal;
     hyphens: none;
-    word-break: keep-all;
+    word-break: normal;
     overflow-wrap: normal;
-    min-width: 0;
+    min-width: 110px;
+    max-width: 170px;
     padding: 0.9rem 1rem;
     font-size: 0.78rem;
+    line-height: 1.35;
+    text-align: left;
+    vertical-align: bottom;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+}
+
+.table-wrapper--scrollable .recap-table thead th.num {
+    text-align: right;
 }
 
 .table-wrapper--scrollable .recap-table tfoot td {
