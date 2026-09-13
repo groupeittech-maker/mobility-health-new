@@ -34,6 +34,7 @@
             </div>
             <div class="section-tabs" id="accountingTabs">
                 <button class="tab-btn active" id="tabFees" data-section="feesSection">Frais & remboursements</button>
+                <button class="tab-btn" id="tabRecap" data-section="recapSection">Récapitulatif</button>
                 <button class="tab-btn" id="tabInvoices" data-section="invoicesSection">Factures hospitalières</button>
                 <button class="tab-btn" id="tabHistory" data-section="historySection">Historique des factures</button>
             </div>
@@ -89,6 +90,106 @@
                     En cas de dossier remboursé (refus), 90&nbsp;% est reversé à l’assuré et 10&nbsp;% reste acquis à Mobility Health.
                 </p>
             </div>
+        </section>
+
+        <!-- Récapitulatif des transactions et répartitions -->
+        <section id="recapSection" class="dashboard-section" hidden>
+            <div class="section-heading">
+                <h3>Récapitulatif des transactions et répartitions</h3>
+                <p class="muted">
+                    Synthèse des montants encaissés et de leur répartition entre assureur, courtier,
+                    réassureur, eKYC et Mobility Health. Filtrez par période et par poste, et regroupez
+                    les lignes selon l'axe souhaité.
+                </p>
+            </div>
+
+            <div class="table-toolbar" style="flex-wrap: wrap; gap: 0.75rem;">
+                <label style="display:flex; align-items:center; gap:0.4rem;">
+                    Période
+                    <select id="recapPeriod" aria-label="Période">
+                        <option value="all">Toute la période</option>
+                        <option value="month">Mois courant</option>
+                        <option value="last_month">Mois précédent</option>
+                        <option value="quarter">Trimestre courant</option>
+                        <option value="year">Année courante</option>
+                        <option value="custom">Personnalisée</option>
+                    </select>
+                </label>
+                <label style="display:flex; align-items:center; gap:0.4rem;" id="recapFromWrap" hidden>
+                    Du <input type="date" id="recapDateFrom">
+                </label>
+                <label style="display:flex; align-items:center; gap:0.4rem;" id="recapToWrap" hidden>
+                    Au <input type="date" id="recapDateTo">
+                </label>
+                <label style="display:flex; align-items:center; gap:0.4rem;">
+                    Regrouper par
+                    <select id="recapGroupBy" aria-label="Regrouper par">
+                        <option value="assureur" selected>Assureur</option>
+                        <option value="courtier">Courtier</option>
+                        <option value="reassureur">Réassureur</option>
+                        <option value="produit">Produit</option>
+                        <option value="mois">Mois</option>
+                        <option value="statut">Statut</option>
+                        <option value="all">Aucun (total global)</option>
+                    </select>
+                </label>
+                <label style="display:flex; align-items:center; gap:0.4rem;">
+                    Assureur
+                    <select id="recapAssureur" aria-label="Filtrer par assureur">
+                        <option value="all">Tous</option>
+                    </select>
+                </label>
+                <label style="display:flex; align-items:center; gap:0.4rem;">
+                    Courtier
+                    <select id="recapCourtier" aria-label="Filtrer par courtier">
+                        <option value="all">Tous</option>
+                    </select>
+                </label>
+                <label style="display:flex; align-items:center; gap:0.4rem;">
+                    Réassureur
+                    <select id="recapReassureur" aria-label="Filtrer par réassureur">
+                        <option value="all">Tous</option>
+                    </select>
+                </label>
+                <label style="display:flex; align-items:center; gap:0.4rem;">
+                    Statut
+                    <select id="recapStatus" aria-label="Filtrer par statut">
+                        <option value="all">Tous</option>
+                        <option value="paid">Payé</option>
+                        <option value="provisional">Provisoire</option>
+                        <option value="refunded">Remboursé</option>
+                    </select>
+                </label>
+                <button class="btn" id="recapReloadBtn">Actualiser</button>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="data-table" id="recapTable">
+                    <thead>
+                        <tr>
+                            <th id="recapGroupHeader">Groupe</th>
+                            <th>Nb</th>
+                            <th>Total encaissé</th>
+                            <th>Part assureur</th>
+                            <th>Commission courtier</th>
+                            <th>Part réassureur</th>
+                            <th>Part eKYC</th>
+                            <th>Part MHC nette</th>
+                            <th>Reversé assuré</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recapTableBody">
+                        <tr><td colspan="9" class="muted">Chargement en cours...</td></tr>
+                    </tbody>
+                    <tfoot id="recapTableFoot"></tfoot>
+                </table>
+            </div>
+            <p class="table-note muted">
+                * Les montants sont agrégés depuis les transactions de souscription encaissées :
+                prime nette totale répartie entre assureur (participation), courtier (commission),
+                réassureur, eKYC (350 FCFA/dossier prélevé sur la part MHC) et la part nette MHC.
+                « Reversé assuré » concerne les dossiers remboursés (90 % à l'assuré).
+            </p>
         </section>
 
         <!-- Factures hospitalières -->
@@ -192,6 +293,7 @@
     <script src="js/accounting-ledger.js"></script>
     <script src="js/mh-invoices.js"></script>
     <script src="js/accounting-portal.js"></script>
+    <script src="js/accounting-recap.js?v=20260913-1"></script>
 </body>
 </html>
 
