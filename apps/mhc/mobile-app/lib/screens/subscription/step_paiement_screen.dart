@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
@@ -19,6 +20,7 @@ class StepPaiementScreen extends StatefulWidget {
     this.taxesTotal,
     this.taxes,
     this.age,
+    this.onDossierStateChanged,
     required this.onContinue,
   });
 
@@ -30,6 +32,9 @@ class StepPaiementScreen extends StatefulWidget {
   final double? taxesTotal;
   final List<Map<String, dynamic>>? taxes;
   final int? age;
+  /// Notifie le parent quand le dossier passe en revue/approuvé/refusé —
+  /// les étapes précédentes du formulaire sont alors verrouillées.
+  final void Function(String? dossierState)? onDossierStateChanged;
   final VoidCallback onContinue;
 
   @override
@@ -77,6 +82,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
           _dossierState = 'refused';
         }
       });
+      widget.onDossierStateChanged?.call(_dossierState);
       if (showFeedback && _dossierState == 'in_review' && previous == 'in_review') {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -124,6 +130,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
           _dossierState = 'refused';
         }
       });
+      widget.onDossierStateChanged?.call(_dossierState);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -383,6 +390,19 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
               onPressed: () => _syncDossierState(showFeedback: true),
               icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Vérifier le statut'),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF9A3412),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => context.go('/home?tab=2'),
+              icon: const Icon(Icons.history, size: 18),
+              label: const Text('Voir dans l\'historique'),
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF9A3412),
                 padding: EdgeInsets.zero,

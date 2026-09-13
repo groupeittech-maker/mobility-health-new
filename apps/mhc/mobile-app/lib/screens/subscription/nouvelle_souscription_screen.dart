@@ -63,6 +63,15 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
   String _canalDistribution = 'assureur';
   int? _selectedCourtierId;
   List<Map<String, dynamic>> _courtiers = const [];
+  /// Dossier soumis à la décision (revue/approuvé/refusé) : les étapes
+  /// précédentes sont verrouillées — le dossier conserve sa trace.
+  bool _dossierLocked = false;
+
+  void _onDossierStateChanged(String? state) {
+    if (state != null && !_dossierLocked) {
+      setState(() => _dossierLocked = true);
+    }
+  }
 
   @override
   void initState() {
@@ -95,6 +104,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
         _taxesTotal = sub.taxesTotal;
         _taxes = sub.taxes;
         _currentStep = sub.statut == 'en_attente' ? 3 : 4;
+        _dossierLocked = sub.statut != 'en_attente';
       });
     } catch (e) {
       if (mounted) _showErrorSnackBar(e);
@@ -148,15 +158,17 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
   }
 
   void _goToPreviousStep() {
-    if (_currentStep > 1) {
-      setState(() => _currentStep -= 1);
+    // Dossier soumis (revue/approuvé/refusé) : on ne peut plus remonter
+    // dans le formulaire — retour direct à l'écran précédent (historique).
+    if (_dossierLocked || _currentStep <= 1) {
+      Navigator.of(context).pop();
       return;
     }
-    Navigator.of(context).pop();
+    setState(() => _currentStep -= 1);
   }
 
   void _jumpToPreviousStep() {
-    if (_currentStep <= 1) return;
+    if (_dossierLocked || _currentStep <= 1) return;
     setState(() => _currentStep -= 1);
   }
 
@@ -457,7 +469,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
     // qui déborde dès que l’espace utile < hauteur du stepper). Le scroll des étapes gère
     // viewInsets via padding (ex. StepVoyageScreen).
     return PopScope(
-      canPop: _currentStep == 1,
+      canPop: _currentStep == 1 || _dossierLocked,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         _goToPreviousStep();
@@ -486,7 +498,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SubscriptionStepper(currentStep: _currentStep),
-            if (_currentStep > 1)
+            if (_currentStep > 1 && !_dossierLocked)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                 child: Align(
@@ -560,6 +572,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
                           taxesTotal: _taxesTotal,
                           taxes: _taxes,
                           age: _subscriberAge,
+                          onDossierStateChanged: _onDossierStateChanged,
                           onContinue: () => setState(() {
                             _attestationReloadTick += 1;
                             _currentStep = 5;

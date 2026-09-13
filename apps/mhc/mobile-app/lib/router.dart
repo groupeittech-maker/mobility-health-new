@@ -46,7 +46,18 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/home',
-      builder: (context, state) => const HomeScreen(),
+      builder: (context, state) {
+        final tab = int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0;
+        return HomeScreen(initialTab: tab.clamp(0, 2));
+      },
+    ),
+    GoRoute(
+      path: '/subscription/new',
+      builder: (context, state) {
+        final resumeId =
+            int.tryParse(state.uri.queryParameters['subscription_id'] ?? '');
+        return NouvelleSouscriptionScreen(resumeSubscriptionId: resumeId);
+      },
     ),
     GoRoute(
       path: '/referent',
@@ -81,10 +92,6 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/referent/profil',
       builder: (context, state) => const ReferentProfileScreen(),
-    ),
-    GoRoute(
-      path: '/subscription/new',
-      builder: (context, state) => const NouvelleSouscriptionScreen(),
     ),
     GoRoute(
       path: '/attestations',

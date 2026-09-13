@@ -15,14 +15,18 @@ import 'sos_screen.dart';
 enum _HomeTab { souscription, alerteSos, historique }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.initialTab = 0});
+
+  /// Onglet affiché à l'ouverture (0 Souscription, 1 Alerte SOS, 2 Historique).
+  final int initialTab;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  _HomeTab _currentTab = _HomeTab.souscription;
+  late _HomeTab _currentTab =
+      _HomeTab.values[widget.initialTab.clamp(0, _HomeTab.values.length - 1)];
 
   @override
   void initState() {
