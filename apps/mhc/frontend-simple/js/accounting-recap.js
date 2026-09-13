@@ -51,16 +51,9 @@ function escapeHtmlRecap(s) {
 function formatRecapAmount(value) {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return '—';
-    try {
-        if (typeof formatPortalCurrency === 'function') {
-            return formatPortalCurrency(numeric);
-        }
-    } catch (_) {}
-    return numeric.toLocaleString('fr-FR', {
-        style: 'currency',
-        currency: 'XAF',
-        maximumFractionDigits: 0,
-    });
+    // Nombre groupé sans devise — la devise est indiquée dans l'en-tête
+    // de colonne (« (FCFA) ») pour éviter les retours à la ligne.
+    return numeric.toLocaleString('fr-FR', { maximumFractionDigits: 0 });
 }
 
 function parseRecapDate(value) {

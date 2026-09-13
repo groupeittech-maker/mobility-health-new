@@ -5226,3 +5226,21 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
     border-top: 2px solid var(--primary-color);
     color: var(--dark-text);
 }
+
+/* Recap : montants sur une seule ligne, tableau extensible horizontalement */
+.recap-table {
+    min-width: 1150px;
+}
+
+.recap-table th,
+.recap-table td {
+    white-space: nowrap;
+    min-width: 0;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+}
+
+.recap-table td:first-child {
+    white-space: normal;
+    min-width: 140px;
+}
