@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistiques - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="protected">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_mobility_healthcare_officiel.png?v=3" alt="Mobility HealthCare" class="brand-logo">
+                <span class="brand-text">Statistiques MH</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="accounting-portal.html">Comptabilité</a></li>
+                <li><a href="statistics-portal.html" class="active">Statistiques</a></li>
+                <li><a href="admin-dashboard.html" id="adminLink">Admin</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <div>
+                <h2>Module statistique</h2>
+                <p class="muted">
+                    Tableaux de bord et analyses sur les souscriptions, paiements, sinistres,
+                    validations, finances, utilisateurs, produits et eKYC.
+                </p>
+            </div>
+            <div class="section-tabs" id="statsTabs">
+                <button class="tab-btn active" data-section="overviewSection">Vue d'ensemble</button>
+                <button class="tab-btn" data-section="subscriptionsSection">Souscriptions</button>
+                <button class="tab-btn" data-section="paymentsSection">Paiements</button>
+                <button class="tab-btn" data-section="claimsSection">Sinistres</button>
+                <button class="tab-btn" data-section="reviewsSection">Validation</button>
+                <button class="tab-btn" data-section="financeSection">Finance</button>
+                <button class="tab-btn" data-section="usersSection">Utilisateurs</button>
+                <button class="tab-btn" data-section="productsSection">Produits</button>
+                <button class="tab-btn" data-section="ekycSection">eKYC</button>
+            </div>
+        </div>
+
+        <section class="dashboard-section">
+            <div class="filters-panel">
+                <div class="filters-grid" id="statsFilters">
+                    <label class="filters-field">
+                        <span>Du</span>
+                        <input type="date" id="filterStart">
+                    </label>
+                    <label class="filters-field">
+                        <span>Au</span>
+                        <input type="date" id="filterEnd">
+                    </label>
+                    <label class="filters-field">
+                        <span>Produit</span>
+                        <select id="filterProduit"><option value="">Tous</option></select>
+                    </label>
+                    <label class="filters-field">
+                        <span>Assureur</span>
+                        <select id="filterAssureur"><option value="">Tous</option></select>
+                    </label>
+                    <label class="filters-field">
+                        <span>Courtier</span>
+                        <select id="filterCourtier"><option value="">Tous</option></select>
+                    </label>
+                    <label class="filters-field">
+                        <span>Pays</span>
+                        <input type="text" id="filterPays" placeholder="Ex: CI, SN, CM">
+                    </label>
+                    <label class="filters-field">
+                        <span>Canal</span>
+                        <select id="filterCanal">
+                            <option value="">Tous</option>
+                            <option value="assureur">Assureur</option>
+                            <option value="courtier">Courtier</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="filters-actions">
+                    <button class="btn" id="statsReloadBtn">Actualiser</button>
+                    <button class="btn btn--secondary" id="statsExportBtn" disabled>Exporter JSON</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="overviewSection" class="dashboard-section">
+            <h3>Vue d'ensemble</h3>
+            <div class="dashboard-stats" id="overviewCards"></div>
+            <div class="panel">
+                <h4>Souscriptions par statut</h4>
+                <div class="bar-chart" id="overviewStatusBars"></div>
+            </div>
+        </section>
+
+        <section id="subscriptionsSection" class="dashboard-section" hidden>
+            <h3>Souscriptions</h3>
+            <div class="dashboard-stats" id="subscriptionsCards"></div>
+            <div class="table-wrapper">
+                <h4>Par produit</h4>
+                <table class="data-table">
+                    <thead><tr><th>Produit</th><th class="num">Nb</th><th class="num">Montant (FCFA)</th></tr></thead>
+                    <tbody id="subscriptionsByProduct"></tbody>
+                </table>
+            </div>
+            <div class="table-wrapper">
+                <h4>Par assureur</h4>
+                <table class="data-table">
+                    <thead><tr><th>Assureur</th><th class="num">Nb</th><th class="num">Montant (FCFA)</th></tr></thead>
+                    <tbody id="subscriptionsByAssureur"></tbody>
+                </table>
+            </div>
+            <div class="table-wrapper">
+                <h4>Par courtier</h4>
+                <table class="data-table">
+                    <thead><tr><th>Courtier</th><th class="num">Nb</th><th class="num">Montant (FCFA)</th></tr></thead>
+                    <tbody id="subscriptionsByCourtier"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="paymentsSection" class="dashboard-section" hidden>
+            <h3>Paiements</h3>
+            <div class="dashboard-stats" id="paymentsCards"></div>
+            <div class="panel-grid">
+                <div class="panel">
+                    <h4>Par statut</h4>
+                    <div class="bar-chart" id="paymentsStatusBars"></div>
+                </div>
+                <div class="panel">
+                    <h4>Par type</h4>
+                    <div class="bar-chart" id="paymentsTypeBars"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="claimsSection" class="dashboard-section" hidden>
+            <h3>Sinistres</h3>
+            <div class="dashboard-stats" id="claimsCards"></div>
+            <div class="table-wrapper">
+                <h4>Top prestations</h4>
+                <table class="data-table">
+                    <thead><tr><th>Prestation</th><th class="num">Code</th><th class="num">Nb</th><th class="num">Montant (FCFA)</th></tr></thead>
+                    <tbody id="claimsTopPrestations"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="reviewsSection" class="dashboard-section" hidden>
+            <h3>Pipeline de validation</h3>
+            <div class="dashboard-stats" id="reviewsCards"></div>
+            <div class="panel-grid">
+                <div class="panel">
+                    <h4>Médical</h4>
+                    <div class="bar-chart" id="medicalStatusBars"></div>
+                </div>
+                <div class="panel">
+                    <h4>Production</h4>
+                    <div class="bar-chart" id="productionStatusBars"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="financeSection" class="dashboard-section" hidden>
+            <h3>Finance</h3>
+            <div class="dashboard-stats" id="financeCards"></div>
+            <div class="table-wrapper">
+                <h4>Par assureur</h4>
+                <table class="data-table">
+                    <thead><tr><th>Assureur</th><th class="num">Nb</th><th class="num">Prime (FCFA)</th></tr></thead>
+                    <tbody id="financeByAssureur"></tbody>
+                </table>
+            </div>
+            <div class="table-wrapper">
+                <h4>Par courtier</h4>
+                <table class="data-table">
+                    <thead><tr><th>Courtier</th><th class="num">Nb</th><th class="num">Prime (FCFA)</th></tr></thead>
+                    <tbody id="financeByCourtier"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="usersSection" class="dashboard-section" hidden>
+            <h3>Utilisateurs</h3>
+            <div class="dashboard-stats" id="usersCards"></div>
+            <div class="panel-grid">
+                <div class="panel">
+                    <h4>Par pays</h4>
+                    <div class="bar-chart" id="usersCountryBars"></div>
+                </div>
+                <div class="panel">
+                    <h4>Par rôle</h4>
+                    <div class="bar-chart" id="usersRoleBars"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="productsSection" class="dashboard-section" hidden>
+            <h3>Produits & destinations</h3>
+            <div class="dashboard-stats" id="productsCards"></div>
+            <div class="panel-grid">
+                <div class="panel">
+                    <h4>Top produits</h4>
+                    <div class="bar-chart" id="topProductsBars"></div>
+                </div>
+                <div class="panel">
+                    <h4>Top destinations</h4>
+                    <div class="bar-chart" id="topDestinationsBars"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="ekycSection" class="dashboard-section" hidden>
+            <h3>eKYC</h3>
+            <div class="dashboard-stats" id="ekycCards"></div>
+            <div class="panel">
+                <h4>Par statut</h4>
+                <div class="bar-chart" id="ekycStatusBars"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/currency.js"></script>
+    <script src="js/statistics-portal.js"></script>
+</body>
+</html>
