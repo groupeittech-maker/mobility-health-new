@@ -199,7 +199,8 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$API_HEALTHY" = false ]; do
   if curl -f -s https://srv1324425.hstgr.cloud/health >/dev/null 2>&1; then
     API_HEALTHY=true
     echo "✅ API health check passed (attempt $RETRY_COUNT/$MAX_RETRIES)"
-    curl -s https://srv1324425.hstgr.cloud/health | head -n 5
+    # pipefail + head fermé tôt → curl exit 23 ; ne pas faire échouer le déploiement
+    curl -s https://srv1324425.hstgr.cloud/health | head -n 5 || true
   else
     if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
       echo "⚠️ API health check failed (attempt $RETRY_COUNT/$MAX_RETRIES), retrying..."
