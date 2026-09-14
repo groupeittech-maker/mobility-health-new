@@ -73,10 +73,14 @@
 
     function buildQueryParams() {
         const params = new URLSearchParams();
-        const start = $('#filterStart').value;
-        const end = $('#filterEnd').value;
-        if (start) params.set('start_date', start);
-        if (end) params.set('end_date', end);
+        const period = $('#filterPeriod').value;
+        if (period) params.set('period', period);
+        if (period === 'custom') {
+            const start = $('#filterStart').value;
+            const end = $('#filterEnd').value;
+            if (start) params.set('start_date', start);
+            if (end) params.set('end_date', end);
+        }
         const produit = $('#filterProduit').value;
         if (produit) params.set('produit_id', produit);
         const assureur = $('#filterAssureur').value;
@@ -285,6 +289,19 @@
         });
     }
 
+    function toggleCustomDateFields() {
+        const isCustom = $('#filterPeriod').value === 'custom';
+        $('#filterStartWrap').hidden = !isCustom;
+        $('#filterEndWrap').hidden = !isCustom;
+    }
+
+    function initPeriodFilter() {
+        const periodSelect = $('#filterPeriod');
+        if (!periodSelect) return;
+        periodSelect.addEventListener('change', toggleCustomDateFields);
+        toggleCustomDateFields();
+    }
+
     function initExport() {
         $('#statsExportBtn').addEventListener('click', () => {
             if (!currentData) return;
@@ -300,6 +317,7 @@
 
     async function init() {
         initTabs();
+        initPeriodFilter();
         await loadFilters();
         $('#statsReloadBtn').addEventListener('click', loadStatistics);
         initExport();

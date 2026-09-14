@@ -1,5 +1,5 @@
-from datetime import date
-from typing import Optional
+from datetime import date, timedelta
+from typing import Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -23,9 +23,40 @@ def _require_admin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+def _resolve_period(period: Optional[str]) -> Tuple[Optional[date], Optional[date]]:
+    """Convertit une période prédéfinie en dates de début/fin."""
+    if not period or period == "all":
+        return None, None
+
+    today = date.today()
+
+    if period == "month":
+        return today.replace(day=1), today
+
+    if period == "last_month":
+        first_of_month = today.replace(day=1)
+        last_of_previous = first_of_month - timedelta(days=1)
+        first_of_previous = last_of_previous.replace(day=1)
+        return first_of_previous, last_of_previous
+
+    if period == "quarter":
+        quarter_start_month = ((today.month - 1) // 3) * 3 + 1
+        return today.replace(month=quarter_start_month, day=1), today
+
+    if period == "year":
+        return today.replace(month=1, day=1), today
+
+    if period == "week":
+        return today - timedelta(days=today.weekday()), today
+
+    # 'custom' ou valeur inconnue : conserver les dates explicites
+    return None, None
+
+
 def _common_params(
     start_date: Optional[date] = Query(None, description="Date de début (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="Date de fin (YYYY-MM-DD)"),
+    period: Optional[str] = Query(None, description="Période prédéfinie (all, week, month, last_month, quarter, year, custom)"),
     produit_id: Optional[int] = Query(None, description="ID du produit d'assurance"),
     assureur_id: Optional[int] = Query(None, description="ID de l'assureur"),
     courtier_id: Optional[int] = Query(None, description="ID du courtier"),
@@ -33,6 +64,10 @@ def _common_params(
     canal: Optional[str] = Query(None, description="Canal de distribution (assureur/courtier)"),
     group_by: Optional[str] = Query(None, description="Groupe temporel (day, week, month, quarter, year)"),
 ):
+    if period and period != "custom":
+        resolved_start, resolved_end = _resolve_period(period)
+        start_date, end_date = resolved_start, resolved_end
+
     return {
         "start_date": start_date,
         "end_date": end_date,
@@ -113,11 +148,14 @@ async def finance_statistics(
 async def users_statistics(
     start_date: Optional[date] = Query(None, description="Date de début (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="Date de fin (YYYY-MM-DD)"),
+    period: Optional[str] = Query(None, description="Période prédéfinie"),
     pays: Optional[str] = Query(None, description="Pays"),
     group_by: Optional[str] = Query(None, description="Groupe temporel"),
     db: Session = Depends(get_db),
     current_user: User = Depends(_require_admin),
 ):
+    if period and period != "custom":
+        start_date, end_date = _resolve_period(period)
     return StatisticsService.users(db, start_date, end_date, group_by, pays)
 
 
@@ -134,7 +172,10 @@ async def products_statistics(
 async def ekyc_statistics(
     start_date: Optional[date] = Query(None, description="Date de début (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="Date de fin (YYYY-MM-DD)"),
+    period: Optional[str] = Query(None, description="Période prédéfinie"),
     db: Session = Depends(get_db),
     current_user: User = Depends(_require_admin),
 ):
+    if period and period != "custom":
+        start_date, end_date = _resolve_period(period)
     return StatisticsService.ekyc(db, start_date, end_date)

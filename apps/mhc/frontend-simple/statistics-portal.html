@@ -58,10 +58,22 @@
             <div class="filters-panel">
                 <div class="filters-grid" id="statsFilters">
                     <label class="filters-field">
+                        <span>Période</span>
+                        <select id="filterPeriod">
+                            <option value="all">Toute la période</option>
+                            <option value="week">Semaine courante</option>
+                            <option value="month" selected>Mois courant</option>
+                            <option value="last_month">Mois précédent</option>
+                            <option value="quarter">Trimestre courant</option>
+                            <option value="year">Année courante</option>
+                            <option value="custom">Personnalisée</option>
+                        </select>
+                    </label>
+                    <label class="filters-field" id="filterStartWrap" hidden>
                         <span>Du</span>
                         <input type="date" id="filterStart">
                     </label>
-                    <label class="filters-field">
+                    <label class="filters-field" id="filterEndWrap" hidden>
                         <span>Au</span>
                         <input type="date" id="filterEnd">
                     </label>

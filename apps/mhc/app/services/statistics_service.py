@@ -576,15 +576,16 @@ class StatisticsService:
         pays: Optional[str] = None,
         canal: Optional[str] = None,
         group_by: Optional[str] = None,
+        period: Optional[str] = None,
     ) -> Dict[str, Any]:
         return {
             "overview": StatisticsService.overview(db, start_date, end_date, produit_id, assureur_id, courtier_id, pays, canal),
-            "subscriptions": StatisticsService.subscriptions(db, start_date, end_date, None, produit_id, assureur_id, courtier_id, pays, canal),
-            "payments": StatisticsService.payments(db, start_date, end_date, None, produit_id, assureur_id, courtier_id, pays, canal),
-            "claims": StatisticsService.claims(db, start_date, end_date, None, produit_id, assureur_id, courtier_id, pays, canal),
+            "subscriptions": StatisticsService.subscriptions(db, start_date, end_date, group_by, produit_id, assureur_id, courtier_id, pays, canal),
+            "payments": StatisticsService.payments(db, start_date, end_date, group_by, produit_id, assureur_id, courtier_id, pays, canal),
+            "claims": StatisticsService.claims(db, start_date, end_date, group_by, produit_id, assureur_id, courtier_id, pays, canal),
             "reviews": StatisticsService.reviews(db, start_date, end_date, produit_id, assureur_id, courtier_id, pays, canal),
             "finance": StatisticsService.finance(db, start_date, end_date, produit_id, assureur_id, courtier_id, pays, canal),
-            "users": StatisticsService.users(db, start_date, end_date, None, pays),
+            "users": StatisticsService.users(db, start_date, end_date, group_by, pays),
             "products": StatisticsService.products(db, start_date, end_date, produit_id, assureur_id, courtier_id, pays, canal),
             "ekyc": StatisticsService.ekyc(db, start_date, end_date),
         }
