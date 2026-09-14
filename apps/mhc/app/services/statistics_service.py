@@ -575,6 +575,7 @@ class StatisticsService:
         courtier_id: Optional[int] = None,
         pays: Optional[str] = None,
         canal: Optional[str] = None,
+        group_by: Optional[str] = None,
     ) -> Dict[str, Any]:
         return {
             "overview": StatisticsService.overview(db, start_date, end_date, produit_id, assureur_id, courtier_id, pays, canal),

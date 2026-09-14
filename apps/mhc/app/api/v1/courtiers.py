@@ -13,6 +13,7 @@ from app.services.minio_service import MinioService
 router = APIRouter()
 
 
+@router.get("", response_model=List[CourtierResponse])
 @router.get("/", response_model=List[CourtierResponse])
 async def list_courtiers(
     assureur_id: Optional[int] = Query(None),
