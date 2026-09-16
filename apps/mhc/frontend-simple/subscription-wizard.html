@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nouvelle souscription - Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <style>
+        /* Stepper identique au mobile : cercles + connecteurs */
+        .mh-stepper {
+            display: flex;
+            align-items: flex-start;
+            padding: 12px 8px;
+            margin-bottom: 8px;
+        }
+        .mh-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 56px;
+        }
+        .mh-step-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #E2E8F0;
+            color: #64748B;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .mh-step.active .mh-step-circle,
+        .mh-step.completed .mh-step-circle {
+            background: var(--primary-color, #14AE98);
+            color: #fff;
+        }
+        .mh-step-label {
+            margin-top: 4px;
+            font-size: 10px;
+            color: #64748B;
+        }
+        .mh-step.active .mh-step-label,
+        .mh-step.completed .mh-step-label {
+            color: var(--primary-color, #14AE98);
+        }
+        .mh-step.active .mh-step-label { font-weight: 600; }
+        .mh-step-connector {
+            flex: 1;
+            height: 2px;
+            background: #E2E8F0;
+            margin: 16px 4px 0;
+        }
+        .mh-step-connector.filled { background: var(--primary-color, #14AE98); }
+
+        .wizard-step { display: none; }
+        .wizard-step.active { display: block; }
+
+        .mh-card {
+            background: rgba(255,255,255,0.98);
+            border: 1px solid rgba(78,38,124,0.2);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 14px rgba(15,23,42,0.06);
+        }
+        .mh-section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--secondary-color, #4e267c);
+            margin: 4px 0 16px;
+        }
+        .mh-sub-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--secondary-color, #4e267c);
+            margin: 12px 0 8px;
+        }
+        .mh-muted { color: #64748B; font-size: 13px; }
+        .mh-error-text { color: var(--danger-color, #ef4444); font-size: 13px; }
+
+        .mh-radio-row, .mh-check-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+        }
+        .mh-yesno { display: flex; gap: 8px; }
+        .mh-chip {
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 8px 18px;
+            background: #fff;
+            cursor: pointer;
+            font-weight: 600;
+            color: #64748B;
+        }
+        .mh-chip.selected {
+            background: var(--primary-color, #14AE98);
+            border-color: var(--primary-color, #14AE98);
+            color: #fff;
+        }
+        .mh-doc-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 10px 14px;
+            background: #fff;
+            cursor: pointer;
+            font-weight: 700;
+            color: var(--secondary-color, #4e267c);
+            margin: 0 8px 8px 0;
+        }
+        .mh-list-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #fff;
+        }
+        .mh-list-item .grow { flex: 1; min-width: 0; }
+        .mh-icon-danger { color: var(--danger-color, #ef4444); cursor: pointer; border: none; background: none; font-size: 18px; }
+
+        .mh-product-card {
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            background: #fff;
+        }
+        .mh-product-card.selected { border-color: var(--primary-color, #14AE98); box-shadow: 0 0 0 2px rgba(20,174,152,0.25); }
+        .mh-product-head { display: flex; align-items: center; gap: 12px; }
+        .mh-product-logo { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; }
+        .mh-product-name { font-weight: 700; color: #1E293B; }
+        .mh-product-sub { font-size: 12px; color: #64748B; }
+        .mh-price { font-size: 20px; font-weight: 800; color: var(--primary-color, #14AE98); }
+        .mh-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            background: rgba(20,174,152,0.12);
+            color: var(--primary-dark, #109681);
+        }
+        .mh-price-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .mh-price-table td { padding: 6px 0; border-bottom: 1px solid #F1F5F9; }
+        .mh-price-table td:last-child { text-align: right; font-weight: 600; }
+        .mh-price-table tr.total td { font-weight: 800; border-bottom: none; color: #1E293B; }
+
+        .mh-notice {
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 14px;
+            font-size: 14px;
+        }
+        .mh-notice.info { background: rgba(20,174,152,0.08); border: 1px solid rgba(20,174,152,0.3); }
+        .mh-notice.warn { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.35); }
+        .mh-notice.danger { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.35); color: var(--danger-color, #ef4444); }
+
+        .mh-photo-preview {
+            width: 96px; height: 96px; object-fit: cover;
+            border-radius: 12px; border: 1px solid #E2E8F0;
+        }
+        .modal { display: none; }
+        .modal.open { display: flex; }
+        .mh-modal-wide .modal-content { max-width: 720px; width: 95%; max-height: 85vh; overflow-y: auto; }
+    </style>
+</head>
+<body class="protected">
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_mobility_healthcare_officiel.png?v=3" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="user-dashboard.html">Tableau de bord</a></li>
+                <li><a href="user-attestations.html">Mes Attestations</a></li>
+                <li><a href="user-products.html">Mes Produits</a></li>
+                <li><a href="#" onclick="logout(); return false;">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2>Nouvelle souscription</h2>
+        </div>
+
+        <!-- Stepper : Voyage, Produit, Médical, Paiement, Attestation -->
+        <div class="mh-stepper" id="wizardStepper"></div>
+
+        <div id="wizardBackRow" style="display:none; margin-bottom:8px;">
+            <button type="button" class="btn btn-outline btn-sm" id="wizardBackBtn">← Étape précédente</button>
+        </div>
+
+        <div id="wizardMessage"></div>
+
+        <!-- ===== Étape 1 : Voyage ===== -->
+        <section class="wizard-step" id="step-voyage">
+            <h3 class="mh-section-title">Informations sur le voyage</h3>
+            <div class="mh-card">
+                <div class="form-group">
+                    <label for="voyagePays">Pays de destination *</label>
+                    <select id="voyagePays" class="search-input" style="width:100%;"></select>
+                    <small id="voyageResidenceHint" class="mh-muted"></small>
+                    <small id="voyagePaysError" class="mh-error-text" style="display:none;">Requis</small>
+                </div>
+                <div class="form-group">
+                    <label for="voyageVille">Ville de destination *</label>
+                    <select id="voyageVille" class="search-input" style="width:100%;" disabled></select>
+                    <small id="voyageVilleError" class="mh-error-text" style="display:none;">Requis</small>
+                </div>
+                <div class="form-group">
+                    <label for="voyageTransport">Moyen de transport *</label>
+                    <select id="voyageTransport" class="search-input" style="width:100%;">
+                        <option value="">Sélectionner</option>
+                        <option>Avion</option>
+                        <option>Train</option>
+                        <option>Voiture</option>
+                        <option>Bateau</option>
+                    </select>
+                </div>
+                <div class="form-group" style="display:flex; gap:12px; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:160px;">
+                        <label for="voyageDepart">Date de départ</label>
+                        <input type="date" id="voyageDepart">
+                    </div>
+                    <div style="flex:1; min-width:160px;">
+                        <label for="voyageRetour">Date de retour</label>
+                        <input type="date" id="voyageRetour">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Durée du séjour</label>
+                    <input type="text" id="voyageDuree" readonly value="Calcul automatique" class="mh-muted">
+                </div>
+
+                <div class="mh-sub-title">Qui est le voyageur assuré ? *</div>
+                <div class="mh-radio-row"><input type="radio" name="voyageur" id="voyageurAdult" value="adult" checked><label for="voyageurAdult">Moi (adulte)</label></div>
+                <div class="mh-radio-row"><input type="radio" name="voyageur" id="voyageurWithChildren" value="with_children"><label for="voyageurWithChildren">Moi + enfants mineurs</label></div>
+                <div class="mh-radio-row"><input type="radio" name="voyageur" id="voyageurChildOnly" value="child_only"><label for="voyageurChildOnly">Un enfant mineur seul</label></div>
+
+                <div id="childOnlyBlock" style="display:none; margin-top:10px;">
+                    <div class="mh-sub-title">Enfant voyageur
+                        <button type="button" class="btn btn-outline btn-sm" id="addChildOnlyBtn" style="margin-left:8px;">+ Ajouter l'enfant</button>
+                    </div>
+                    <p class="mh-muted" id="childOnlyEmpty">Aucun enfant voyageur ajouté. Le parent reste abonné, l'enfant est le bénéficiaire du voyage.</p>
+                    <div id="childOnlyList"></div>
+                </div>
+
+                <div id="withChildrenBlock" style="display:none; margin-top:10px;">
+                    <div class="mh-sub-title">Enfants accompagnés
+                        <button type="button" class="btn btn-outline btn-sm" id="addMinorBtn" style="margin-left:8px;">+ Ajouter un enfant</button>
+                    </div>
+                    <p class="mh-muted" id="minorsEmpty">Aucun enfant ajouté. Utilisez « Ajouter un enfant » pour saisir l'identité, le passeport et la photo du passeport.</p>
+                    <div id="minorsList"></div>
+                </div>
+
+                <div class="mh-sub-title" style="margin-top:20px;">Pièces justificatives</div>
+                <p class="mh-muted">Joignez vos documents (passeport, billet, etc.)</p>
+                <div>
+                    <button type="button" class="mh-doc-chip" data-doctype="passport" data-doclabel="Passeport">Passeport ＋</button>
+                    <button type="button" class="mh-doc-chip" data-doctype="travel_booking" data-doclabel="Billet / réservation">Billet / réservation ＋</button>
+                    <button type="button" class="mh-doc-chip" data-doctype="other" data-doclabel="Autre document">Autre document ＋</button>
+                </div>
+                <input type="file" id="docFileInput" accept=".jpg,.jpeg,.png,.pdf" style="display:none;">
+                <div id="docsList"></div>
+            </div>
+            <button type="button" class="btn btn-primary" id="voyageContinueBtn" style="width:100%; padding:14px;">Continuer vers le choix du produit</button>
+        </section>
+
+        <!-- ===== Étape 2 : Produit ===== -->
+        <section class="wizard-step" id="step-produit">
+            <h3 class="mh-section-title">Choix du produit</h3>
+            <div class="mh-card">
+                <div class="mh-sub-title">Canal de souscription</div>
+                <div class="mh-radio-row"><input type="radio" name="canal" id="canalAssureur" value="assureur" checked><label for="canalAssureur">Compagnie directe</label></div>
+                <div class="mh-radio-row"><input type="radio" name="canal" id="canalCourtier" value="courtier"><label for="canalCourtier">Via courtier</label></div>
+                <div class="form-group" id="courtierSelectWrap" style="display:none;">
+                    <label for="courtierSelect">Courtier</label>
+                    <select id="courtierSelect" class="search-input" style="width:100%;"></select>
+                </div>
+            </div>
+            <div id="productsLoading" class="loading" style="display:none;"><div class="spinner"></div></div>
+            <div id="productsList"></div>
+            <div class="mh-card">
+                <div class="mh-sub-title">Photo pour l'e-carte (obligatoire)</div>
+                <input type="file" id="ecardPhotoInput" accept="image/*">
+                <div id="ecardPhotoPreview" style="margin-top:8px;"></div>
+                <div class="mh-sub-title" style="margin-top:16px;">Déclarations et consentements</div>
+                <div class="mh-check-row"><input type="checkbox" id="consentCG"><label for="consentCG">J'ai lu et j'accepte les conditions générales.</label></div>
+                <div class="mh-check-row"><input type="checkbox" id="consentExclusions" disabled><label for="consentExclusions">J'ai lu et j'accepte les exclusions. <span class="mh-muted">(ouvrez « Voir les détails » d'un produit pour activer)</span></label></div>
+            </div>
+            <button type="button" class="btn btn-primary" id="produitContinueBtn" style="width:100%; padding:14px;" disabled>Continuer vers les formulaires</button>
+        </section>
+
+        <!-- ===== Étape 3 : Médical ===== -->
+        <section class="wizard-step" id="step-medical">
+            <h3 class="mh-section-title">Questionnaire médical</h3>
+            <div class="mh-card" id="medicalPhotoSummary"></div>
+            <div class="mh-card">
+                <div class="mh-sub-title">Questions de santé</div>
+                <div class="form-group"><label>1. Êtes-vous malade au moment de la souscription ?</label><div class="mh-yesno" data-q="malade_souscription"><button type="button" class="mh-chip" data-v="oui">Oui</button><button type="button" class="mh-chip" data-v="non">Non</button></div></div>
+                <div class="form-group"><label>2. Avez-vous été malade au cours des 12 derniers mois ?</label><div class="mh-yesno" data-q="malade_12_mois"><button type="button" class="mh-chip" data-v="oui">Oui</button><button type="button" class="mh-chip" data-v="non">Non</button></div></div>
+                <div class="form-group"><label>3. Souffrez-vous d'une maladie chronique ?</label><div class="mh-yesno" data-q="maladie_chronique"><button type="button" class="mh-chip" data-v="oui">Oui</button><button type="button" class="mh-chip" data-v="non">Non</button></div></div>
+                <div class="form-group"><label>4. Êtes-vous enceinte au moment de la souscription ?</label><div class="mh-yesno" data-q="enceinte"><button type="button" class="mh-chip" data-v="oui">Oui</button><button type="button" class="mh-chip" data-v="non">Non</button></div></div>
+                <div class="form-group" id="moisGrossesseWrap" style="display:none;"><label for="moisGrossesse">De combien de mois ?</label><input type="number" id="moisGrossesse" min="1" max="9" step="1"></div>
+                <div class="form-group"><label>5. Faites-vous un voyage à but médical ?</label><div class="mh-yesno" data-q="voyage_medical"><button type="button" class="mh-chip" data-v="oui">Oui</button><button type="button" class="mh-chip" data-v="non">Non</button></div></div>
+                <div class="mh-notice danger" id="pregnancyNotice" style="display:none;">Vous n'êtes pas éligible pour être assuré par nos services (grossesse de plus de 5 mois).</div>
+            </div>
+            <div class="mh-card">
+                <div class="mh-check-row"><input type="checkbox" id="declarationSante"><label for="declarationSante">Je déclare que les informations fournies sont exactes et complètes.</label></div>
+            </div>
+            <button type="button" class="btn btn-primary" id="medicalContinueBtn" style="width:100%; padding:14px;">Continuer vers le paiement</button>
+        </section>
+
+        <!-- ===== Étape 4 : Paiement ===== -->
+        <section class="wizard-step" id="step-paiement">
+            <h3 class="mh-section-title">Paiement</h3>
+            <div id="paiementLoading" class="loading"><div class="spinner"></div></div>
+            <div id="paiementContent" style="display:none;">
+                <div class="mh-notice info" id="payStateSubmit">
+                    <p>Votre dossier est prêt à être soumis à l'évaluation.</p>
+                    <button type="button" class="btn btn-primary" id="submitDossierBtn">Soumettre le dossier</button>
+                </div>
+                <div class="mh-notice warn" id="payStateReview" style="display:none;">
+                    <p><strong>Dossier en cours de validation.</strong> Nos équipes examinent votre demande. Vous serez notifié du résultat.</p>
+                    <div id="reviewReasons"></div>
+                    <button type="button" class="btn btn-outline btn-sm" id="checkStatusBtn">Vérifier le statut</button>
+                    <a class="btn btn-outline btn-sm" href="user-dashboard.html">Voir dans l'historique</a>
+                </div>
+                <div class="mh-notice danger" id="payStateRefused" style="display:none;">
+                    <p><strong>Dossier refusé.</strong></p>
+                    <ul id="refusedReasons"></ul>
+                </div>
+                <div id="payStateApproved" style="display:none;">
+                    <div class="mh-card">
+                        <div class="mh-sub-title">Décompte de la prime</div>
+                        <table class="mh-price-table" id="priceBreakdown"></table>
+                    </div>
+                    <div class="mh-card">
+                        <div class="mh-sub-title">Mode de paiement</div>
+                        <div class="mh-radio-row"><input type="radio" name="payMethod" id="pmCard" value="carte_bancaire" checked><label for="pmCard">Carte bancaire</label></div>
+                        <div class="mh-radio-row"><input type="radio" name="payMethod" id="pmMtn" value="mobile_money_mtn"><label for="pmMtn">Mobile Money (MTN)</label></div>
+                        <div class="mh-radio-row"><input type="radio" name="payMethod" id="pmOrange" value="mobile_money_orange"><label for="pmOrange">Mobile Money (Orange)</label></div>
+                        <div class="mh-radio-row"><input type="radio" name="payMethod" id="pmVirement" value="virement"><label for="pmVirement">Virement bancaire</label></div>
+                    </div>
+                    <button type="button" class="btn btn-primary" id="payNowBtn" style="width:100%; padding:14px;">Payer maintenant</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== Étape 5 : Attestation ===== -->
+        <section class="wizard-step" id="step-attestation">
+            <h3 class="mh-section-title">Attestation</h3>
+            <div id="attestationsLoading" class="loading"><div class="spinner"></div></div>
+            <div id="attestationsList"></div>
+            <button type="button" class="btn btn-primary" id="attestationDoneBtn" style="width:100%; padding:14px; display:none;">Terminer</button>
+        </section>
+    </main>
+
+    <!-- Modal ajout enfant -->
+    <div id="minorModal" class="modal" aria-hidden="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Informations de l'enfant</h3>
+                <button type="button" class="close" id="closeMinorModal">&times;</button>
+            </div>
+            <div class="form-group"><label for="minorNom">Nom de l'enfant *</label><input type="text" id="minorNom"></div>
+            <div class="form-group"><label for="minorNaissance">Date de naissance *</label><input type="date" id="minorNaissance"></div>
+            <div class="form-group"><label for="minorPasseport">Numéro de passeport *</label><input type="text" id="minorPasseport"></div>
+            <div class="form-group"><label for="minorValidite">Validité du passeport (expiration) *</label><input type="date" id="minorValidite"></div>
+            <div class="form-group"><label for="minorPhoto">Photo du passeport *</label><input type="file" id="minorPhoto" accept="image/*,.pdf"></div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="cancelMinorBtn">Annuler</button>
+                <button type="button" class="btn btn-primary" id="saveMinorBtn">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal détail produit -->
+    <div id="productModal" class="modal mh-modal-wide" aria-hidden="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="productModalTitle">Détails du produit</h3>
+                <button type="button" class="close" id="closeProductModal">&times;</button>
+            </div>
+            <div id="productModalBody"></div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-primary" id="productModalOk" disabled>Valider et revenir au choix du produit</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/subscription-wizard.js"></script>
+</body>
+</html>

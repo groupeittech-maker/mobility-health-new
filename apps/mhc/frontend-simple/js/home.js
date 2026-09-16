@@ -111,7 +111,7 @@ async function loadProducts() {
                     })() : ''}
                     <div class="product-actions">
                         <a href="product-detail.html?id=${product.id}" class="btn btn-secondary">En savoir plus</a>
-                        <a href="subscription-start.html?product_id=${product.id}" class="btn btn-primary">Souscrire</a>
+                        <a href="subscription-wizard.html" class="btn btn-primary">Souscrire</a>
                     </div>
                 </div>
             `;

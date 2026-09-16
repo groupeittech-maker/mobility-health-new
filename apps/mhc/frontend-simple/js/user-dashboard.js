@@ -290,7 +290,7 @@ function getSubscriptionActions(subscription) {
     // Dossier reprenable : soumettre / suivre la validation / payer
     if (RESUMABLE_STATUTS.has(subscription.statut)) {
         const resumeLabel = subscription.statut === 'en_attente_paiement' ? 'Payer' : 'Reprendre';
-        actions.push(`<a href="payment-subscription.html?subscription_id=${subscription.id}" class="btn btn-primary btn-sm">${resumeLabel}</a>`);
+        actions.push(`<a href="subscription-wizard.html?subscription_id=${subscription.id}" class="btn btn-primary btn-sm">${resumeLabel}</a>`);
         actions.push(`<button class="btn btn-secondary btn-sm" onclick="viewSubscriptionDetails(${subscription.id})">Détails</button>`);
     }
 
@@ -302,7 +302,7 @@ function getSubscriptionActions(subscription) {
     if (subscription.statut === 'active') {
         actions.push(`<button class="btn btn-primary btn-sm" onclick="viewSubscriptionDetails(${subscription.id})">Voir les détails</button>`);
         actions.push(`<button class="btn btn-secondary btn-sm" onclick="viewAttestations(${subscription.id})">Mes attestations</button>`);
-        actions.push(`<a href="sos-alert.html?subscription_id=${subscription.id}" class="btn btn-danger btn-sm">Déclarer un sinistre</a>`);
+        actions.push(`<a href="user-dashboard.html?tab=sos" class="btn btn-danger btn-sm">Déclarer un sinistre</a>`);
     }
     
     // Si la souscription est expirée, on peut voir l'historique
@@ -920,8 +920,8 @@ async function resolveUserNotificationLink(notification) {
     }
     if (notification.lien_relation_type === 'souscription' && notification.lien_relation_id) {
         if (notification.type_notification === 'questionnaire_long_reminder') {
-            // Rediriger vers le formulaire de questionnaire long
-            return `forms-medical.html?subscription_id=${notification.lien_relation_id}&mode=long`;
+            // Rediriger vers le questionnaire médical du wizard de souscription
+            return `subscription-wizard.html?subscription_id=${notification.lien_relation_id}`;
         }
         return `subscription-details.html?subscription_id=${notification.lien_relation_id}`;
     }

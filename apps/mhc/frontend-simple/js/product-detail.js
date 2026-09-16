@@ -182,7 +182,7 @@ async function loadProductDetail(productId) {
                 </div>
 
                 <div class="product-detail-actions">
-                    <a href="subscription-start.html?product_id=${product.id}" class="btn btn-primary btn-large">
+                    <a href="subscription-wizard.html" class="btn btn-primary btn-large">
                         Souscrire maintenant
                     </a>
                     <a href="index.html#products" class="btn btn-secondary">

@@ -180,8 +180,31 @@
 
                 <div class="form-group">
                     <label for="phone">Téléphone <span style="color: var(--danger-color);">*</span></label>
-                    <input type="tel" id="phone" name="phone" required autocomplete="tel">
-                    <small style="color: var(--secondary-color);">Format: +33 6 12 34 56 78</small>
+                    <div style="display:flex; gap:8px;">
+                        <select id="phone_code" name="phone_code" style="max-width:140px;" aria-label="Indicatif pays">
+                            <option value="+221" selected>🇸🇳 +221</option>
+                            <option value="+33">🇫🇷 +33</option>
+                            <option value="+225">🇨🇮 +225</option>
+                            <option value="+226">🇧🇫 +226</option>
+                            <option value="+223">🇲🇱 +223</option>
+                            <option value="+224">🇬🇳 +224</option>
+                            <option value="+228">🇹🇬 +228</option>
+                            <option value="+229">🇧🇯 +229</option>
+                            <option value="+237">🇨🇲 +237</option>
+                            <option value="+241">🇬🇦 +241</option>
+                            <option value="+242">🇨🇬 +242</option>
+                            <option value="+243">🇨🇩 +243</option>
+                            <option value="+212">🇲🇦 +212</option>
+                            <option value="+213">🇩🇿 +213</option>
+                            <option value="+216">🇹🇳 +216</option>
+                            <option value="+32">🇧🇪 +32</option>
+                            <option value="+41">🇨🇭 +41</option>
+                            <option value="+1">🇺🇸 +1</option>
+                            <option value="+44">🇬🇧 +44</option>
+                        </select>
+                        <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="771234567" style="flex:1;" inputmode="tel">
+                    </div>
+                    <small style="color: var(--secondary-color);">Indicatif + numéro (ex. +221 77 123 45 67)</small>
                 </div>
 
                 <div class="form-group">

@@ -298,7 +298,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 password: password,
                 full_name: formData.get('full_name'),
                 date_naissance: formData.get('date_naissance') || null,
-                telephone: formData.get('phone') || null,
+                telephone: (() => {
+                    // Même format que le mobile : indicatif + chiffres uniquement
+                    const digits = (formData.get('phone') || '').replace(/\D/g, '');
+                    if (!digits) return null;
+                    const code = (formData.get('phone_code') || '').trim();
+                    return `${code}${digits}`;
+                })(),
                 sexe: formData.get('sexe') || null,
                 pays_residence: paysResidenceInput?.getAttribute('data-country-code') || getCountryCode(formData.get('pays_residence')) || null,
                 nationalite: nationaliteInput?.getAttribute('data-country-code') || getCountryCode(formData.get('nationalite')) || null,

@@ -1,164 +1,22 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dossier • Paiement</title>
-    <link rel="stylesheet" href="css/style.css">
-    <style>
-        .page-header { margin-bottom: 1.5rem; }
-        .layout-two-columns {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            gap: 1.5rem;
-        }
-        .panel, .payment-card {
-            background: #fff;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            padding: 2rem;
-            box-shadow: 0 12px 34px rgba(25, 68, 132, 0.12);
-        }
-        .summary-item { margin-bottom: 1rem; }
-        .summary-item span {
-            display: block;
-            font-size: 0.85rem;
-            color: var(--secondary-color);
-        }
-        .payment-methods {
-            display: flex;
-            flex-direction: column;
-            gap: 0.8rem;
-            margin-bottom: 1.5rem;
-        }
-        .payment-methods label {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-weight: 500;
-        }
-        .payment-details {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 1.5rem;
-        }
-        .price-highlight {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            line-height: 1.45;
-        }
-        .checkout-price-muted {
-            font-size: 0.55em;
-            font-weight: 600;
-            color: var(--secondary-color);
-            margin: 0 0.2em;
-        }
-        .primary-btn {
-            background: linear-gradient(135deg,var(--secondary-color),var(--primary-color));
-            color: #fff;
-            padding: 0.9rem 1.8rem;
-            border-radius: 999px;
-            text-decoration: none;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            min-width: 220px;
-        }
-        .primary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        .message {
-            margin-bottom: 1rem;
-            padding: 0.9rem 1.1rem;
-            border-radius: 8px;
-            display: none;
-        }
-        .message.error { background: #fdecea; border: 1px solid #f5c6cb; color: #c0392b; }
-        .message.success { background: #e9f7ef; border: 1px solid #c3e6cb; color: #1e8449; }
-        .message.info { background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; display: none; }
-        .message.info.show { display: block; }
-        .divider { border: none; border-top: 1px dashed var(--border-color); margin: 1.5rem 0; }
-        .status-pill {
-            display: inline-block;
-            padding: 0.25rem 0.8rem;
-            border-radius: 999px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-        .status-pill.review { background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; }
-        .status-pill.payable { background: #e9f7ef; color: #1e8449; border: 1px solid #c3e6cb; }
-        .status-pill.refused { background: #fdecea; color: #c0392b; border: 1px solid #f5c6cb; }
-        @media (max-width: 900px) { .layout-two-columns { grid-template-columns: 1fr; } }
-    </style>
+    <title>Nouvelle souscription - Mobility Health</title>
+    <script>
+        (function () {
+            var keep = ['subscription_id'];
+            var params = new URLSearchParams(window.location.search);
+            var out = new URLSearchParams();
+            keep.forEach(function (k) { if (params.get(k)) out.set(k, params.get(k)); });
+            var target = 'subscription-wizard.html' + (out.toString() ? '?' + out.toString() : '');
+            window.location.replace(target);
+        })();
+    </script>
 </head>
-<body class="protected">
-    <nav class="navbar">
-        <div class="container">
-            <div class="navbar-brand">
-                <img src="assets/logo_mobility_healthcare_officiel.png?v=3" alt="Mobility HealthCare" class="brand-logo">
-            </div>
-            <ul class="nav-menu">
-                <li><a href="user-dashboard.html">Tableau de bord</a></li>
-                <li><a href="user-attestations.html">Mes Attestations</a></li>
-                <li><a href="user-products.html">Mes Produits</a></li>
-                <li><a href="project-wizard.html">Nouvelle souscription</a></li>
-                <li><a href="#" onclick="logout(); return false;">Déconnexion</a></li>
-            </ul>
-        </div>
-    </nav>
-
-    <main class="container">
-        <div class="page-header">
-            <p>Dossier de souscription</p>
-            <h2>Paiement sécurisé</h2>
-            <p>Soumettez votre dossier à la décision automatique puis réglez votre souscription une fois approuvée.</p>
-        </div>
-
-        <div id="paymentMessage" class="message"></div>
-        <div id="reviewNotice" class="message info" style="display:none;"></div>
-
-        <div class="layout-two-columns">
-            <aside class="panel">
-                <h3>Résumé</h3>
-                <div id="checkoutSummary"><p>Chargement...</p></div>
-                <hr class="divider">
-                <div id="dossierStatus"></div>
-            </aside>
-
-            <section class="payment-card">
-                <div class="payment-details">
-                    <div>
-                        <strong>Montant total</strong>
-                        <div class="price-highlight" id="priceLabel">—</div>
-                    </div>
-                    <div>
-                        <strong>Produit</strong>
-                        <div id="productLabel">—</div>
-                    </div>
-                </div>
-
-                <div id="paymentMethodsBlock" style="display:none;">
-                    <h4>Mode de paiement</h4>
-                    <div class="payment-methods" id="paymentMethods">
-                        <label><input type="radio" name="paymentMethod" value="carte_bancaire" checked> Carte bancaire</label>
-                        <label><input type="radio" name="paymentMethod" value="mobile_money_mtn"> Mobile Money (MTN)</label>
-                        <label><input type="radio" name="paymentMethod" value="mobile_money_orange"> Mobile Money (Orange)</label>
-                        <label><input type="radio" name="paymentMethod" value="virement"> Virement bancaire</label>
-                    </div>
-                </div>
-
-                <div style="display: flex; gap: 1rem; align-items: center; margin-top: 1.5rem; flex-wrap: wrap;">
-                    <a href="user-dashboard.html" class="btn btn-secondary">← Retour au tableau de bord</a>
-                    <button id="submitDossierBtn" class="primary-btn" style="display:none;">Soumettre le dossier</button>
-                    <button id="checkStatusBtn" class="primary-btn" style="display:none;">Vérifier le statut</button>
-                    <button id="payNowBtn" class="primary-btn" style="display:none;">Payer maintenant</button>
-                </div>
-            </section>
-        </div>
-    </main>
-
-    <script src="js/api.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/currency.js"></script>
-    <script src="js/payment-subscription.js?v=20260912-1"></script>
+<body>
+    <p>Redirection vers la nouvelle souscription… <a id="fallback" href="subscription-wizard.html">Cliquez ici</a>.</p>
+    <script>document.getElementById('fallback').href = 'subscription-wizard.html' + (window.location.search.includes('subscription_id') ? window.location.search : '');</script>
 </body>
 </html>

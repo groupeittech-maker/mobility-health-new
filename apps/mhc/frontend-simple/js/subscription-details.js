@@ -333,7 +333,7 @@ function updateActionLinks(subscription, attestationsLink, sosLink, resiliationB
 
     if (sosLink) {
         if (subscription.statut === 'active') {
-            sosLink.href = `sos-alert.html?subscription_id=${subscription.id}`;
+            sosLink.href = `user-dashboard.html?tab=sos`;
             sosLink.classList.remove('disabled');
             sosLink.removeAttribute('aria-disabled');
             sosLink.removeAttribute('title');
