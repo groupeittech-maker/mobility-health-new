@@ -77,6 +77,16 @@
         .quick-action-card h3 { margin: 0 0 0.5rem 0; color: var(--secondary-color); }
         .quick-action-card p { margin: 0; color: var(--muted-text); font-size: 0.9rem; }
 
+        /* Métriques — survol doux */
+        .dashboard-stats .stat-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .dashboard-stats .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 26px rgba(15,23,42,0.1);
+        }
+        .dashboard-stats a.stat-card { color: inherit; }
+
         /* Carrousel partenaires (mobile : "Nos partenaires assurance") */
         .partners-strip {
             display: flex;
@@ -85,16 +95,22 @@
             padding: 0.5rem 0 1rem;
         }
         .partner-card {
-            min-width: 140px;
+            min-width: 150px;
             background: #fff;
             border: 1px solid var(--border-color);
-            border-radius: 12px;
+            border-radius: 14px;
             padding: 1rem;
             text-align: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .partner-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(15,23,42,0.1);
+            border-color: rgba(20,174,152,0.4);
         }
         .partner-card img {
-            max-width: 90px;
-            max-height: 48px;
+            max-width: 96px;
+            max-height: 52px;
             object-fit: contain;
             display: block;
             margin: 0 auto 0.5rem;
@@ -105,17 +121,36 @@
         .sos-panel { max-width: 640px; margin: 0 auto; }
         .sos-big-button {
             width: 100%;
-            padding: 1.5rem;
-            font-size: 1.25rem;
+            padding: 1.6rem;
+            font-size: 1.3rem;
             font-weight: 800;
             color: #fff;
-            background: #dc3545;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
             border: none;
-            border-radius: 14px;
+            border-radius: 18px;
             cursor: pointer;
             margin-bottom: 1rem;
+            box-shadow: 0 10px 28px rgba(220,38,38,0.35);
+            transition: transform 0.15s ease, box-shadow 0.2s ease;
         }
-        .sos-big-button:disabled { background: #e2e8f0; color: #64748b; cursor: not-allowed; }
+        .sos-big-button:not(:disabled) {
+            animation: sosPulse 2.2s ease-in-out infinite;
+        }
+        .sos-big-button:not(:disabled):hover {
+            transform: translateY(-2px) scale(1.01);
+            box-shadow: 0 14px 34px rgba(220,38,38,0.45);
+        }
+        @keyframes sosPulse {
+            0%, 100% { box-shadow: 0 10px 28px rgba(220,38,38,0.35); }
+            50% { box-shadow: 0 10px 28px rgba(220,38,38,0.35), 0 0 0 12px rgba(220,38,38,0.08); }
+        }
+        .sos-big-button:disabled {
+            background: #e2e8f0;
+            color: #64748b;
+            cursor: not-allowed;
+            box-shadow: none;
+            animation: none;
+        }
         .sos-note { color: var(--muted-text); font-size: 0.9rem; text-align: center; margin-bottom: 1rem; }
 
         /* Sous-onglets Historique (mobile : Souscriptions / Alertes / Prestations) */
@@ -199,11 +234,14 @@
         .empty-state-icon { font-size: 3rem; margin-bottom: 1rem; }
         .hist-item {
             background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 1rem;
+            border: 1px solid #e9edf5;
+            border-radius: 12px;
+            padding: 1rem 1.15rem;
             margin-bottom: 0.75rem;
+            box-shadow: 0 2px 8px rgba(15,23,42,0.04);
+            transition: box-shadow 0.2s ease, transform 0.2s ease;
         }
+        .hist-item:hover { box-shadow: 0 6px 16px rgba(15,23,42,0.08); transform: translateY(-1px); }
         .hist-item .muted { font-size: 0.85rem; color: #64748b; }
     </style>
 </head>

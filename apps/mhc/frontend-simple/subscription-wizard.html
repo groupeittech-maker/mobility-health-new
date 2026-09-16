@@ -7,68 +7,87 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/admin.css">
     <style>
+        .mh-wizard-wrap { max-width: 860px; margin: 0 auto; padding-bottom: 3rem; }
+        .mh-wizard-wrap .dashboard-header { border-bottom: none; margin-bottom: 0.75rem; }
+        .mh-wizard-wrap .dashboard-header h2 { color: var(--secondary-color, #4e267c); }
+
         /* Stepper identique au mobile : cercles + connecteurs */
         .mh-stepper {
             display: flex;
             align-items: flex-start;
-            padding: 12px 8px;
-            margin-bottom: 8px;
+            padding: 14px 12px;
+            margin-bottom: 14px;
+            background: #fff;
+            border: 1px solid #E9EDF5;
+            border-radius: 16px;
+            box-shadow: 0 4px 14px rgba(15,23,42,0.05);
         }
         .mh-step {
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-width: 56px;
+            min-width: 60px;
         }
         .mh-step-circle {
-            width: 32px;
-            height: 32px;
+            width: 34px;
+            height: 34px;
             border-radius: 50%;
-            background: #E2E8F0;
-            color: #64748B;
+            background: #EEF2F7;
+            color: #94A3B8;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 600;
-            font-size: 12px;
+            font-weight: 700;
+            font-size: 13px;
+            transition: all 0.25s ease;
         }
-        .mh-step.active .mh-step-circle,
+        .mh-step.active .mh-step-circle {
+            background: var(--primary-color, #14AE98);
+            color: #fff;
+            box-shadow: 0 0 0 5px rgba(20,174,152,0.18);
+        }
         .mh-step.completed .mh-step-circle {
             background: var(--primary-color, #14AE98);
             color: #fff;
         }
         .mh-step-label {
-            margin-top: 4px;
-            font-size: 10px;
-            color: #64748B;
+            margin-top: 6px;
+            font-size: 11px;
+            color: #94A3B8;
+            text-align: center;
         }
         .mh-step.active .mh-step-label,
         .mh-step.completed .mh-step-label {
             color: var(--primary-color, #14AE98);
         }
-        .mh-step.active .mh-step-label { font-weight: 600; }
+        .mh-step.active .mh-step-label { font-weight: 700; }
         .mh-step-connector {
             flex: 1;
-            height: 2px;
-            background: #E2E8F0;
-            margin: 16px 4px 0;
+            height: 3px;
+            border-radius: 3px;
+            background: #E9EDF5;
+            margin: 16px 6px 0;
+            transition: background 0.3s ease;
         }
         .mh-step-connector.filled { background: var(--primary-color, #14AE98); }
 
-        .wizard-step { display: none; }
+        .wizard-step { display: none; animation: mhFadeIn 0.25s ease; }
         .wizard-step.active { display: block; }
+        @keyframes mhFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
         .mh-card {
-            background: rgba(255,255,255,0.98);
-            border: 1px solid rgba(78,38,124,0.2);
-            border-radius: 16px;
-            padding: 20px;
+            background: #fff;
+            border: 1px solid #E9EDF5;
+            border-radius: 18px;
+            padding: 22px;
             margin-bottom: 16px;
-            box-shadow: 0 4px 14px rgba(15,23,42,0.06);
+            box-shadow: 0 4px 16px rgba(15,23,42,0.05);
+            transition: box-shadow 0.2s ease;
         }
+        .mh-card:hover { box-shadow: 0 8px 24px rgba(15,23,42,0.08); }
         .mh-section-title {
-            font-size: 18px;
-            font-weight: 700;
+            font-size: 20px;
+            font-weight: 800;
             color: var(--secondary-color, #4e267c);
             margin: 4px 0 16px;
         }
@@ -76,74 +95,115 @@
             font-size: 14px;
             font-weight: 700;
             color: var(--secondary-color, #4e267c);
-            margin: 12px 0 8px;
+            margin: 14px 0 8px;
         }
         .mh-muted { color: #64748B; font-size: 13px; }
         .mh-error-text { color: var(--danger-color, #ef4444); font-size: 13px; }
 
+        .wizard-step input[type="text"],
+        .wizard-step input[type="date"],
+        .wizard-step input[type="number"],
+        .wizard-step input[type="tel"],
+        .wizard-step input[type="file"],
+        .wizard-step select {
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 14px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            background: #FBFCFE;
+        }
+        .wizard-step input:focus,
+        .wizard-step select:focus {
+            border-color: var(--primary-color, #14AE98);
+            box-shadow: 0 0 0 4px rgba(20,174,152,0.12);
+            outline: none;
+        }
+        .wizard-step input[readonly] { background: #F8FAFC; color: #64748B; }
+
         .mh-radio-row, .mh-check-row {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 4px 0;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.15s ease;
         }
-        .mh-yesno { display: flex; gap: 8px; }
+        .mh-radio-row:hover, .mh-check-row:hover { background: #F8FAFC; }
+        .mh-radio-row input, .mh-check-row input { accent-color: var(--primary-color, #14AE98); width: 18px; height: 18px; }
+        .mh-radio-row label, .mh-check-row label { cursor: pointer; font-size: 14px; color: #1E293B; }
+
+        .mh-yesno { display: flex; gap: 10px; }
         .mh-chip {
-            border: 1px solid #E2E8F0;
+            flex: 1;
+            border: 1.5px solid #E2E8F0;
             border-radius: 12px;
-            padding: 8px 18px;
+            padding: 10px 18px;
             background: #fff;
             cursor: pointer;
-            font-weight: 600;
+            font-weight: 700;
+            font-size: 14px;
             color: #64748B;
+            transition: all 0.2s ease;
         }
+        .mh-chip:hover { border-color: var(--primary-color, #14AE98); color: var(--primary-color, #14AE98); }
         .mh-chip.selected {
             background: var(--primary-color, #14AE98);
             border-color: var(--primary-color, #14AE98);
             color: #fff;
+            box-shadow: 0 4px 12px rgba(20,174,152,0.3);
         }
         .mh-doc-chip {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            border: 1px solid #E2E8F0;
+            border: 1.5px dashed #C7D2E0;
             border-radius: 12px;
-            padding: 10px 14px;
-            background: #fff;
+            padding: 12px 16px;
+            background: #FBFCFE;
             cursor: pointer;
             font-weight: 700;
             color: var(--secondary-color, #4e267c);
             margin: 0 8px 8px 0;
+            transition: all 0.2s ease;
         }
+        .mh-doc-chip:hover { border-color: var(--primary-color, #14AE98); background: rgba(20,174,152,0.05); }
         .mh-list-item {
             display: flex;
             align-items: center;
             gap: 12px;
-            border: 1px solid #E2E8F0;
-            border-radius: 12px;
-            padding: 12px;
+            border: 1px solid #E9EDF5;
+            border-radius: 14px;
+            padding: 12px 14px;
             margin-bottom: 8px;
-            background: #fff;
+            background: #FBFCFE;
         }
         .mh-list-item .grow { flex: 1; min-width: 0; }
         .mh-icon-danger { color: var(--danger-color, #ef4444); cursor: pointer; border: none; background: none; font-size: 18px; }
 
         .mh-product-card {
-            border: 1px solid #E2E8F0;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 12px;
+            border: 1.5px solid #E9EDF5;
+            border-radius: 18px;
+            padding: 18px;
+            margin-bottom: 14px;
             background: #fff;
+            box-shadow: 0 4px 16px rgba(15,23,42,0.05);
+            transition: all 0.2s ease;
         }
-        .mh-product-card.selected { border-color: var(--primary-color, #14AE98); box-shadow: 0 0 0 2px rgba(20,174,152,0.25); }
+        .mh-product-card:hover { box-shadow: 0 8px 26px rgba(15,23,42,0.1); transform: translateY(-2px); }
+        .mh-product-card.selected {
+            border-color: var(--primary-color, #14AE98);
+            box-shadow: 0 0 0 3px rgba(20,174,152,0.22), 0 8px 26px rgba(15,23,42,0.1);
+        }
         .mh-product-head { display: flex; align-items: center; gap: 12px; }
-        .mh-product-logo { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; }
-        .mh-product-name { font-weight: 700; color: #1E293B; }
+        .mh-product-logo { width: 46px; height: 46px; object-fit: contain; border-radius: 10px; background: #F8FAFC; padding: 4px; }
+        .mh-product-name { font-weight: 700; color: #1E293B; font-size: 15px; }
         .mh-product-sub { font-size: 12px; color: #64748B; }
-        .mh-price { font-size: 20px; font-weight: 800; color: var(--primary-color, #14AE98); }
+        .mh-price { font-size: 22px; font-weight: 800; color: var(--primary-color, #14AE98); }
         .mh-badge {
             display: inline-block;
-            padding: 2px 10px;
+            padding: 3px 12px;
             border-radius: 999px;
             font-size: 11px;
             font-weight: 700;
@@ -151,27 +211,49 @@
             color: var(--primary-dark, #109681);
         }
         .mh-price-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        .mh-price-table td { padding: 6px 0; border-bottom: 1px solid #F1F5F9; }
+        .mh-price-table td { padding: 7px 0; border-bottom: 1px solid #F1F5F9; }
         .mh-price-table td:last-child { text-align: right; font-weight: 600; }
-        .mh-price-table tr.total td { font-weight: 800; border-bottom: none; color: #1E293B; }
+        .mh-price-table tr.total td { font-weight: 800; border-bottom: none; color: #1E293B; font-size: 16px; }
 
         .mh-notice {
-            border-radius: 10px;
-            padding: 14px 16px;
+            border-radius: 14px;
+            padding: 16px 18px;
             margin-bottom: 14px;
             font-size: 14px;
+            line-height: 1.5;
         }
-        .mh-notice.info { background: rgba(20,174,152,0.08); border: 1px solid rgba(20,174,152,0.3); }
+        .mh-notice.info { background: rgba(20,174,152,0.07); border: 1px solid rgba(20,174,152,0.3); }
         .mh-notice.warn { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.35); }
         .mh-notice.danger { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.35); color: var(--danger-color, #ef4444); }
 
         .mh-photo-preview {
             width: 96px; height: 96px; object-fit: cover;
-            border-radius: 12px; border: 1px solid #E2E8F0;
+            border-radius: 14px; border: 1px solid #E9EDF5;
+            box-shadow: 0 4px 12px rgba(15,23,42,0.08);
         }
+
+        .wizard-step .btn-primary {
+            border-radius: 14px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            box-shadow: 0 6px 18px rgba(20,174,152,0.3);
+            transition: all 0.2s ease;
+        }
+        .wizard-step .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(20,174,152,0.38); }
+        .wizard-step .btn-primary:disabled { opacity: 0.55; box-shadow: none; }
+
         .modal { display: none; }
         .modal.open { display: flex; }
+        .modal .modal-content { border-radius: 18px; }
         .mh-modal-wide .modal-content { max-width: 720px; width: 95%; max-height: 85vh; overflow-y: auto; }
+
+        @media (max-width: 640px) {
+            .mh-wizard-wrap { padding-left: 4px; padding-right: 4px; }
+            .mh-step { min-width: 48px; }
+            .mh-step-label { font-size: 10px; }
+            .mh-card { padding: 16px; }
+            .mh-yesno { width: 100%; }
+        }
     </style>
 </head>
 <body class="protected">
@@ -190,6 +272,7 @@
     </nav>
 
     <main class="container">
+        <div class="mh-wizard-wrap">
         <div class="dashboard-header">
             <h2>Nouvelle souscription</h2>
         </div>
@@ -365,6 +448,7 @@
             <div id="attestationsList"></div>
             <button type="button" class="btn btn-primary" id="attestationDoneBtn" style="width:100%; padding:14px; display:none;">Terminer</button>
         </section>
+        </div>
     </main>
 
     <!-- Modal ajout enfant -->
