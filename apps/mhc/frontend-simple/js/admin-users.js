@@ -76,6 +76,21 @@ function getRoleLabel(roleValue) {
     return match ? match.label : roleValue;
 }
 
+function formatCreatedAt(value) {
+    if (!value) {
+        return '—';
+    }
+    const date = new Date(value);
+    if (isNaN(date.getTime())) {
+        return '—';
+    }
+    return date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    });
+}
+
 function populateRoleSelect(selectElement, selectedValue = 'user') {
     if (!selectElement) {
         return;
@@ -140,7 +155,7 @@ function renderUsersTable(users) {
     const pageData = users.slice(start, start + ROWS_PER_PAGE);
     
     let html = '<div class="table-wrapper" style="overflow-x: scroll !important;"><table class="data-table" style="min-width: 100%;"><thead><tr>';
-    html += '<th>Email</th><th>Username</th><th>Rôle</th><th>Statut</th><th>Actions</th>';
+    html += '<th>Email</th><th>Username</th><th>Rôle</th><th>Statut</th><th>Date création</th><th>Actions</th>';
     html += '</tr></thead><tbody>';
     
     pageData.forEach(user => {
@@ -155,6 +170,7 @@ function renderUsersTable(users) {
                 <td>${user.username}</td>
                 <td>${roleLabel}</td>
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                <td>${formatCreatedAt(user.created_at)}</td>
                 <td class="table-actions">
                     <select class="action-select" data-user-id="${user.id}" data-user-name="${encodedName}">
                         <option value="">Actions</option>
