@@ -61,7 +61,8 @@ async def list_projets_voyage(
     query = db.query(ProjetVoyage).filter(ProjetVoyage.user_id == current_user.id)
     
     # Si l'utilisateur est admin, il peut voir tous les projets
-    if current_user.role.value == "admin":
+    _role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    if _role == "admin":
         query = db.query(ProjetVoyage)
     
     projets = query.order_by(ProjetVoyage.created_at.desc()).offset(skip).limit(limit).all()
@@ -630,7 +631,8 @@ def _get_project_or_404(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Projet de voyage non trouvé",
         )
-    if projet.user_id != current_user.id and current_user.role.value != "admin":
+    _role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    if projet.user_id != current_user.id and _role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Vous n'avez pas accès à ce projet",
