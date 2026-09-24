@@ -22,6 +22,18 @@ class ProduitAssuranceBase(BaseModel):
     assureur: Optional[str] = None  # Nom de l'assureur
     assureur_id: Optional[int] = None
     image_url: Optional[str] = None  # URL de l'image/miniature du produit
+    logo_url: Optional[str] = None  # Logo compagnie
+
+    # Paramètres produit (maquette « Nouveau produit ») — NULL = défaut pays
+    pays: Optional[str] = None
+    reassureur_id: Optional[int] = None
+    retention_assureur_pct: Optional[Decimal] = Field(default=None, ge=0, le=100)
+    commission_cession_pct: Optional[Decimal] = Field(default=None, ge=0, le=100)
+    cession_reassureur_pct: Optional[Decimal] = Field(default=None, ge=0, le=100)
+    cout_police_forfait: Optional[Decimal] = Field(default=None, ge=0)
+    taxe_pct: Optional[Decimal] = Field(default=None, ge=0, le=100)
+    taxe_additionnelle_pct: Optional[Decimal] = Field(default=None, ge=0, le=100)
+    commission_courtage_pct: Optional[Decimal] = Field(default=None, ge=0, le=100)
     
     # Coût et répartition
     cout: Decimal  # Coût de base du produit
@@ -79,6 +91,16 @@ class ProduitAssuranceUpdate(BaseModel):
     assureur: Optional[str] = None
     assureur_id: Optional[int] = None
     image_url: Optional[str] = None
+    logo_url: Optional[str] = None
+    pays: Optional[str] = None
+    reassureur_id: Optional[int] = None
+    retention_assureur_pct: Optional[Decimal] = Field(None, ge=0, le=100)
+    commission_cession_pct: Optional[Decimal] = Field(None, ge=0, le=100)
+    cession_reassureur_pct: Optional[Decimal] = Field(None, ge=0, le=100)
+    cout_police_forfait: Optional[Decimal] = Field(None, ge=0)
+    taxe_pct: Optional[Decimal] = Field(None, ge=0, le=100)
+    taxe_additionnelle_pct: Optional[Decimal] = Field(None, ge=0, le=100)
+    commission_courtage_pct: Optional[Decimal] = Field(None, ge=0, le=100)
     cout: Optional[Decimal] = None
     currency: Optional[str] = None
     cle_repartition: Optional[CleRepartition] = None

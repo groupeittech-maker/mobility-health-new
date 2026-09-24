@@ -26,6 +26,11 @@ from app.models.rapport import Rapport
 from app.models.invoice import Invoice, InvoiceItem
 from app.models.failed_task import FailedTask
 from app.models.alerte import Alerte
+from app.models.alerte_ops import AlerteEvent, AlerteNote, AlerteStatutMedical
+from app.models.reassureur import ProduitSurprime, Reassureur
+from app.models.medical_workflow import HospitalMedicalReport
+from app.models.finance_outbound import PaiementFournisseur
+from app.models.ops_modules import Hotel, HotelAssignment, TransportMission, TransportProvider
 from app.models.sinistre import Sinistre
 from app.models.sinistre_process_step import SinistreProcessStep
 from app.models.hospital import Hospital
@@ -79,6 +84,17 @@ __all__ = [
     "InvoiceItem",
     "FailedTask",
     "Alerte",
+    "AlerteEvent",
+    "AlerteNote",
+    "AlerteStatutMedical",
+    "Reassureur",
+    "ProduitSurprime",
+    "HospitalMedicalReport",
+    "PaiementFournisseur",
+    "Hotel",
+    "HotelAssignment",
+    "TransportMission",
+    "TransportProvider",
     "Sinistre",
     "SinistreProcessStep",
     "Hospital",

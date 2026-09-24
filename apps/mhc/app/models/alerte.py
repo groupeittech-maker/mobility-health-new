@@ -18,6 +18,9 @@ class Alerte(Base, TimestampMixin):
     description = Column(Text, nullable=True)  # Description de l'urgence
     statut = Column(String(20), default="en_attente", nullable=False, index=True)  # en_attente, en_cours, resolue, annulee
     priorite = Column(String(20), default="normale", nullable=False)  # faible, normale, elevee, critique
+    # Assignation du traitement (médecin-conseil ou affaires médicales) — utilisée pour l'escalade.
+    assigned_role = Column(String(40), nullable=True, index=True)
+    assigned_at = Column(DateTime, nullable=True)
     
     # Relations
     user = relationship("User", foreign_keys=[user_id])

@@ -6,8 +6,9 @@
     <title>Gestion des Utilisateurs - Back Office</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/backoffice.css">
 </head>
-<body>
+<body data-backoffice>
     <nav class="navbar">
         <div class="container">
             <div class="navbar-brand">
@@ -63,6 +64,11 @@
                     <div class="form-group">
                         <label for="userRole">Rôle *</label>
                         <select id="userRole" name="role" required></select>
+                    </div>
+
+                    <div class="form-group" id="reassureurGroup" style="display:none">
+                        <label for="userReassureur">Réassureur</label>
+                        <select id="userReassureur" name="reassureur_id"></select>
                     </div>
 
                     <div class="form-group">
@@ -170,6 +176,8 @@
     <script src="js/auth.js"></script>
     <script src="js/admin-users.js"></script>
     <script src="js/table-scrollbar-fix.js"></script>
+    <script src="js/permissions.js"></script>
+    <script src="js/backoffice-nav.js"></script>
 </body>
 </html>
 

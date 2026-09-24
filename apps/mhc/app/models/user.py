@@ -50,6 +50,8 @@ class User(Base, TimestampMixin):
     role = Column(RoleColumn, default=Role.USER, nullable=False)
     role_id = Column(Integer, ForeignKey("roles.id", ondelete="SET NULL"), nullable=True, index=True)
     hospital_id = Column(Integer, ForeignKey("hospitals.id", ondelete="SET NULL"), nullable=True, index=True)
+    # Rattachement à un réassureur (portail externe en consultation).
+    reassureur_id = Column(Integer, ForeignKey("reassureurs.id", ondelete="SET NULL"), nullable=True, index=True)
     created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     # Anciennement : validation médecin MH. Désormais l’activation se fait par e-mail (champs conservés pour l’historique / admin).
     email_verified = Column(Boolean, default=False, nullable=False)

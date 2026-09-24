@@ -130,10 +130,15 @@ async def start_subscription(
     # Si on essaie de souscrire pour un tiers, vérifier les permissions
     if subscription_data.user_id and subscription_data.user_id != current_user.id:
         # Vérifier que l'utilisateur actuel a les permissions pour souscrire pour un tiers
-        if current_user.role not in {Role.ADMIN, Role.PRODUCTION_AGENT}:
+        allowed_roles = {
+            Role.ADMIN, Role.PRODUCTION_AGENT, Role.ASSISTANT_SOUSCRIPTION,
+            Role.SUPERVISEUR_TECHNIQUE,
+            Role.AGENT_PRODUCTION_ASSUREUR, Role.AGENT_PRODUCTION_COURTIER,
+        }
+        if current_user.role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Vous n'avez pas les permissions pour souscrire pour un tiers. Rôles autorisés: ADMIN, PRODUCTION_AGENT"
+                detail="Vous n'avez pas les permissions pour souscrire pour un tiers."
             )
         
         # Vérifier que l'utilisateur cible existe

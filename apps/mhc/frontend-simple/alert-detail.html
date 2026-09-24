@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Détails de l'alerte — Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+    <style>
+        .ad-page { padding: 1.2rem 1.4rem 3rem; }
+        .ad-breadcrumb { font-size: .78rem; color: #8a8fa3; margin-bottom: .5rem; }
+        .ad-breadcrumb a { color: #6c5ce7; text-decoration: none; }
+
+        .ad-header { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+        .ad-title h1 { font-size: 1.35rem; color: #1e1650; margin: 0; display: flex; align-items: center; gap: .6rem; }
+        .ad-title .ad-date { font-size: .8rem; color: #8a8fa3; margin-top: .15rem; }
+        .ad-badge { padding: .25rem .7rem; border-radius: 1rem; font-size: .72rem; font-weight: 700; }
+        .ad-badge.urgente, .ad-badge.critique { background: #fde8e8; color: #c81e1e; }
+        .ad-badge.elevee { background: #fdf0dc; color: #b45309; }
+        .ad-badge.normale, .ad-badge.faible { background: #e8f0fe; color: #2d5bd7; }
+
+        .ad-timer { display: flex; align-items: center; gap: .55rem; background: #fff; border: 1px solid #f3c2c2; border-radius: .7rem; padding: .5rem .9rem; }
+        .ad-timer svg { color: #e23d3d; }
+        .ad-timer .t { font-size: 1.05rem; font-weight: 700; color: #e23d3d; font-variant-numeric: tabular-nums; }
+        .ad-timer small { display: block; font-size: .65rem; color: #b08080; }
+        .ad-status { display: flex; align-items: center; gap: .5rem; }
+        .ad-status label { font-size: .75rem; color: #8a8fa3; }
+        .ad-status select { padding: .45rem .7rem; border: 1px solid #e6e7f0; border-radius: .55rem; font-size: .82rem; background: #fffbe9; }
+        .ad-actions-top { margin-left: auto; display: flex; gap: .6rem; }
+        .btn { display: inline-flex; align-items: center; gap: .45rem; border: none; border-radius: .6rem; padding: .6rem 1.1rem; font-size: .83rem; font-weight: 600; cursor: pointer; }
+        .btn-primary { background: #6c5ce7; color: #fff; }
+        .btn-outline { background: #fff; color: #333; border: 1px solid #e2e4f0; }
+        .btn-outline:hover { background: #f6f7fc; }
+
+        /* Stepper */
+        .ad-steps { display: flex; align-items: center; justify-content: center; gap: 0; background: #fff; border: 1px solid #eceef6; border-radius: .8rem; padding: .8rem 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .ad-step { display: flex; align-items: center; gap: .5rem; font-size: .78rem; color: #9aa0b5; }
+        .ad-step .dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #d8dbe8; display: grid; place-items: center; font-weight: 700; font-size: .72rem; background: #fff; flex: none; }
+        .ad-step.done .dot { background: #6c5ce7; border-color: #6c5ce7; color: #fff; }
+        .ad-step.done { color: #1e1650; font-weight: 600; }
+        .ad-step.current .dot { border-color: #6c5ce7; color: #6c5ce7; box-shadow: 0 0 0 4px rgba(108,92,231,.15); }
+        .ad-step.current { color: #6c5ce7; font-weight: 700; }
+        .ad-step-sep { width: 40px; height: 2px; background: #e0e2ee; margin: 0 .6rem; }
+
+        /* Grid */
+        .ad-grid { display: grid; grid-template-columns: 320px 1fr 330px; gap: 1rem; align-items: start; }
+        .card { background: #fff; border: 1px solid #eceef6; border-radius: .8rem; overflow: hidden; }
+        .card + .card { margin-top: 1rem; }
+        .card-h { display: flex; align-items: center; gap: .5rem; padding: .8rem 1rem; border-bottom: 1px solid #f1f2f8; font-weight: 700; font-size: .85rem; color: #1e1650; }
+        .card-h svg { color: #6c5ce7; }
+        .card-h .card-h-link { margin-left: auto; font-size: .72rem; color: #6c5ce7; font-weight: 600; text-decoration: none; }
+        .card-b { padding: 1rem; }
+        .kv { display: grid; grid-template-columns: 110px 1fr; row-gap: .45rem; font-size: .8rem; }
+        .kv dt { color: #8a8fa3; }
+        .kv dd { margin: 0; color: #333; font-weight: 500; }
+        .ad-insured { display: flex; gap: .9rem; align-items: center; margin-bottom: .9rem; }
+        .ad-insured img, .ad-insured .ph { width: 62px; height: 62px; border-radius: .6rem; object-fit: cover; }
+        .ad-insured .ph { background: #eceef6; display: grid; place-items: center; color: #9aa0b5; font-size: 1.4rem; font-weight: 700; }
+        .ad-insured .n { font-weight: 700; font-size: .95rem; color: #1e1650; }
+        .ad-insured .r { font-size: .72rem; color: #6c5ce7; background: #efedfd; display: inline-block; padding: .12rem .5rem; border-radius: .8rem; margin-top: .2rem; }
+
+        #alertMap { height: 260px; border-radius: .6rem; }
+        .map-open { font-size: .72rem; color: #6c5ce7; text-decoration: none; font-weight: 600; }
+
+        table.fac { width: 100%; border-collapse: collapse; font-size: .78rem; }
+        table.fac th { text-align: left; color: #8a8fa3; font-weight: 600; padding: .45rem .5rem; border-bottom: 1px solid #f1f2f8; font-size: .72rem; }
+        table.fac td { padding: .55rem .5rem; border-bottom: 1px solid #f5f6fb; vertical-align: top; }
+        .fac-status { font-size: .7rem; font-weight: 700; color: #0a9b6c; background: #e4f8f0; padding: .15rem .5rem; border-radius: .7rem; white-space: nowrap; }
+        .fac-select { font-size: .72rem; font-weight: 600; color: #2d5bd7; background: #e8f0fe; border: none; border-radius: .45rem; padding: .3rem .6rem; cursor: pointer; white-space: nowrap; }
+        .fac-select:hover { background: #d8e6fd; }
+        .fac-select.selected { background: #0a9b6c; color: #fff; }
+
+        .comm-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4rem; margin-bottom: .8rem; }
+        .comm-btns button { border: 1px solid #e6e7f0; background: #fff; border-radius: .55rem; padding: .5rem .2rem; font-size: .7rem; font-weight: 600; color: #444; cursor: pointer; }
+        .comm-btns button:hover, .comm-btns button.active { border-color: #6c5ce7; color: #6c5ce7; background: #f6f4ff; }
+        .comm-tel { display: flex; align-items: center; gap: .5rem; font-weight: 700; color: #1e1650; margin-bottom: .7rem; font-size: .95rem; }
+        .btn-call { width: 100%; background: #0a9b6c; color: #fff; justify-content: center; }
+
+        .sm-row { display: grid; grid-template-columns: 120px 1fr; font-size: .78rem; padding: .35rem 0; border-bottom: 1px dashed #f1f2f8; }
+        .sm-row dt { color: #8a8fa3; }
+        .sm-row dd { margin: 0; font-weight: 600; }
+        .sm-badge { display: inline-block; padding: .12rem .55rem; border-radius: .7rem; font-size: .7rem; font-weight: 700; }
+        .sm-badge.conscient { background: #e4f8f0; color: #0a9b6c; }
+        .sm-badge.autre { background: #fdf0dc; color: #b45309; }
+
+        .note-item { font-size: .78rem; padding: .5rem 0; border-bottom: 1px dashed #f1f2f8; }
+        .note-item .meta { color: #8a8fa3; font-size: .7rem; margin-top: .15rem; }
+        .note-add { display: flex; gap: .5rem; margin-top: .6rem; }
+        .note-add input { flex: 1; border: 1px solid #e6e7f0; border-radius: .5rem; padding: .45rem .6rem; font-size: .8rem; }
+
+        .timeline { position: relative; padding-left: 1.2rem; }
+        .timeline::before { content: ''; position: absolute; left: 5px; top: 4px; bottom: 4px; width: 2px; background: #eceef6; }
+        .tl-item { position: relative; padding: .35rem 0 .6rem; font-size: .78rem; }
+        .tl-item::before { content: ''; position: absolute; left: -1.03rem; top: .6rem; width: 8px; height: 8px; border-radius: 50%; background: #6c5ce7; border: 2px solid #fff; box-shadow: 0 0 0 2px #eceef6; }
+        .tl-item .tl-time { color: #8a8fa3; font-size: .7rem; }
+        .tl-item .tl-actor { color: #8a8fa3; font-size: .7rem; }
+
+        .ad-actionbar { display: grid; grid-template-columns: repeat(4, 1fr); gap: .8rem; margin-top: 1rem; }
+        .action-card { background: #fff; border: 1px solid #eceef6; border-radius: .8rem; padding: .9rem 1rem; }
+        .action-card h4 { font-size: .82rem; color: #1e1650; margin: 0 0 .2rem; display: flex; gap: .45rem; align-items: center; }
+        .action-card p { font-size: .72rem; color: #8a8fa3; margin: 0 0 .7rem; }
+        .action-card .btn { width: 100%; justify-content: center; font-size: .78rem; padding: .55rem; }
+        .btn-red { background: #e23d3d; color: #fff; }
+        .btn-blue { background: #2d5bd7; color: #fff; }
+        .btn-green { background: #0a9b6c; color: #fff; }
+        .btn-purple { background: #7b5ce7; color: #fff; }
+
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(20,15,60,.45); display: none; align-items: center; justify-content: center; z-index: 2000; }
+        .modal-backdrop.open { display: flex; }
+        .modal { background: #fff; border-radius: .9rem; width: 440px; max-width: 94vw; max-height: 88vh; overflow-y: auto; padding: 1.2rem 1.3rem; }
+        .modal h3 { margin: 0 0 1rem; font-size: 1rem; color: #1e1650; }
+        .modal label { display: block; font-size: .75rem; color: #8a8fa3; margin: .6rem 0 .25rem; }
+        .modal input, .modal select, .modal textarea { width: 100%; border: 1px solid #e6e7f0; border-radius: .55rem; padding: .5rem .65rem; font-size: .83rem; box-sizing: border-box; }
+        .modal .modal-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.1rem; }
+
+        .docs-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+        .doc-chip { display: flex; align-items: center; gap: .35rem; font-size: .72rem; background: #f6f7fc; border: 1px solid #e6e7f0; border-radius: .5rem; padding: .35rem .6rem; color: #444; text-decoration: none; }
+        .doc-chip:hover { border-color: #6c5ce7; color: #6c5ce7; }
+
+        .toast { position: fixed; bottom: 1.4rem; right: 1.4rem; background: #1e1650; color: #fff; padding: .7rem 1.1rem; border-radius: .6rem; font-size: .82rem; z-index: 3000; display: none; }
+        .toast.show { display: block; }
+        .toast.error { background: #c81e1e; }
+
+        @media (max-width: 1200px) {
+            .ad-grid { grid-template-columns: 1fr 1fr; }
+            .ad-actionbar { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 800px) {
+            .ad-grid { grid-template-columns: 1fr; }
+            .ad-actionbar { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body data-backoffice>
+    <main class="container ad-page">
+        <div class="ad-breadcrumb">
+            <a href="sos-dashboard.html">Centre d'alertes urgences</a>
+            <span class="sep">›</span> Détails de l'alerte
+        </div>
+
+        <div class="ad-header">
+            <div class="ad-title">
+                <h1>Alerte urgente : <span id="alertNumero">—</span> <span class="ad-badge" id="alertPriorite">—</span></h1>
+                <div class="ad-date" id="alertDate">—</div>
+            </div>
+            <div class="ad-timer">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 14.5 15"/><line x1="9" y1="2" x2="15" y2="2"/></svg>
+                <div><span class="t" id="alertTimer">00:00:00</span><small>Depuis réception</small></div>
+            </div>
+            <div class="ad-status">
+                <label for="statutSelect">Statut</label>
+                <select id="statutSelect">
+                    <option value="en_attente">En attente</option>
+                    <option value="en_cours">En cours de traitement</option>
+                    <option value="resolue">Résolue</option>
+                    <option value="annulee">Annulée</option>
+                </select>
+            </div>
+            <div class="ad-actions-top">
+                <button class="btn btn-outline" id="btnTransfer" type="button">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                    Transférer l'alerte
+                </button>
+                <button class="btn btn-primary" id="btnRespond" type="button">✓ Répondre à l'alerte</button>
+            </div>
+        </div>
+
+        <div class="ad-steps" id="stepper"></div>
+
+        <div class="ad-grid">
+            <div>
+                <div class="card">
+                    <div class="card-h">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        Informations de l'assuré
+                    </div>
+                    <div class="card-b">
+                        <div class="ad-insured">
+                            <div class="ph" id="insuredInitials">—</div>
+                            <div>
+                                <div class="n" id="insuredName">—</div>
+                                <div class="r" id="insuredType">Assuré principal</div>
+                            </div>
+                        </div>
+                        <dl class="kv">
+                            <dt>N° assuré</dt><dd id="kvNumeroAssure">—</dd>
+                            <dt>Date de naissance</dt><dd id="kvNaissance">—</dd>
+                            <dt>Nationalité</dt><dd id="kvNationalite">—</dd>
+                            <dt>Passeport</dt><dd id="kvPasseport">—</dd>
+                            <dt>Téléphone</dt><dd id="kvTel">—</dd>
+                            <dt>Email</dt><dd id="kvEmail">—</dd>
+                            <dt>Type de contrat</dt><dd id="kvContrat">—</dd>
+                            <dt>Couverture</dt><dd id="kvCouverture">—</dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-h">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        Détails de l'alerte
+                    </div>
+                    <div class="card-b">
+                        <dl class="kv">
+                            <dt>Type d'urgence</dt><dd id="kvType">—</dd>
+                            <dt>Date &amp; heure</dt><dd id="kvDateHeure">—</dd>
+                            <dt>Lieu</dt><dd id="kvLieu">—</dd>
+                            <dt>Position GPS</dt><dd id="kvGps">—</dd>
+                            <dt>Motif</dt><dd id="kvMotif">—</dd>
+                            <dt>Description</dt><dd id="kvDescription">—</dd>
+                            <dt>Sinistre</dt><dd id="kvSinistre">—</dd>
+                        </dl>
+                        <div style="margin-top:.8rem">
+                            <div style="font-size:.72rem;color:#8a8fa3;margin-bottom:.4rem">Documents joints (<span id="docCount">0</span>)</div>
+                            <div class="docs-row" id="docsRow"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <div class="card-h">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        Localisation de l'assuré
+                        <a class="card-h-link" id="openMapsLink" target="_blank" rel="noopener">Ouvrir dans Google Maps</a>
+                    </div>
+                    <div class="card-b"><div id="alertMap"></div></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-h">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                        Établissements de santé à proximité
+                    </div>
+                    <div class="card-b" style="padding:.4rem .8rem .8rem">
+                        <table class="fac">
+                            <thead><tr><th>Établissement</th><th>Distance</th><th>Temps</th><th>Spécialités</th><th>Disponibilité</th><th>Actions</th></tr></thead>
+                            <tbody id="facBody"><tr><td colspan="6" style="color:#8a8fa3">Chargement…</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <div class="card-h">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                        Communication
+                    </div>
+                    <div class="card-b">
+                        <div class="comm-btns">
+                            <button type="button" id="commAppel">Appeler</button>
+                            <button type="button" id="commSms">SMS</button>
+                            <button type="button" id="commWa">WhatsApp</button>
+                            <button type="button" id="commEmail">Email</button>
+                        </div>
+                        <div class="comm-tel">📞 <span id="commPhone">—</span></div>
+                        <button class="btn btn-call" id="btnCall" type="button">Lancer l'appel</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-h">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                        Statut médical <span style="font-weight:400;color:#8a8fa3;font-size:.7rem">(selon l'appel)</span>
+                        <a class="card-h-link" href="#" id="editStatutMedical">Modifier</a>
+                    </div>
+                    <div class="card-b" style="padding:.4rem 1rem .8rem">
+                        <dl>
+                            <div class="sm-row"><dt>État du patient</dt><dd><span class="sm-badge" id="smEtat">—</span></dd></div>
+                            <div class="sm-row"><dt>Niveau de gravité</dt><dd id="smGravite">Modéré</dd></div>
+                            <div class="sm-row"><dt>Signes et symptômes</dt><dd id="smSymptomes">—</dd></div>
+                            <div class="sm-row"><dt>Besoins immédiats</dt><dd id="smBesoins">—</dd></div>
+                            <div class="sm-row"><dt>Allergies connues</dt><dd id="smAllergies">—</dd></div>
+                            <div class="sm-row"><dt>Traitements en cours</dt><dd id="smTraitements">—</dd></div>
+                        </dl>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-h">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                        Notes
+                    </div>
+                    <div class="card-b" style="padding:.6rem 1rem .9rem">
+                        <div id="notesList"></div>
+                        <div class="note-add">
+                            <input type="text" id="noteInput" placeholder="Ajouter une note…">
+                            <button class="btn btn-primary" id="btnAddNote" type="button" style="padding:.45rem .8rem">+</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-h">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        Historique de l'alerte
+                    </div>
+                    <div class="card-b"><div class="timeline" id="timeline"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ad-actionbar">
+            <div class="action-card">
+                <h4>🚑 Envoi d'une ambulance</h4>
+                <p>Demande une ambulance pour l'assuré</p>
+                <button class="btn btn-red" id="btnAmbulance" type="button">Lancer l'envoi d'ambulance</button>
+            </div>
+            <div class="action-card">
+                <h4>🏥 Prévenir l'hôpital</h4>
+                <p>Informer l'établissement de l'arrivée du patient</p>
+                <button class="btn btn-blue" id="btnNotifyHospital" type="button">Notifier l'hôpital</button>
+            </div>
+            <div class="action-card">
+                <h4>📋 Prise en charge directe</h4>
+                <p>Organiser la prise en charge sans ambulance</p>
+                <button class="btn btn-green" id="btnPriseEnCharge" type="button">Valider la prise en charge</button>
+            </div>
+            <div class="action-card">
+                <h4>🏨 Hôtel</h4>
+                <p>Organiser un hébergement pour l'assuré</p>
+                <button class="btn btn-purple" id="btnHotel" type="button">Gérer l'hôtel</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal transfert -->
+    <div class="modal-backdrop" id="transferModal">
+        <div class="modal">
+            <h3>Transférer l'alerte</h3>
+            <label>Destination</label>
+            <select id="transferTarget">
+                <option value="affaires_medicales">Affaires médicales</option>
+                <option value="medecin_conseil">Médecin-conseil</option>
+            </select>
+            <label>Commentaire (optionnel)</label>
+            <textarea id="transferComment" rows="3"></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-outline" type="button" data-close>Annuler</button>
+                <button class="btn btn-primary" type="button" id="btnDoTransfer">Transférer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal statut médical -->
+    <div class="modal-backdrop" id="smModal">
+        <div class="modal">
+            <h3>Statut médical du patient</h3>
+            <label>État du patient</label>
+            <select id="smEtatInput">
+                <option value="">—</option>
+                <option value="Conscient">Conscient</option>
+                <option value="Inconscient">Inconscient</option>
+                <option value="Agité">Agité</option>
+                <option value="Semi-conscient">Semi-conscient</option>
+            </select>
+            <label>Signes et symptômes</label>
+            <textarea id="smSymptomesInput" rows="2" placeholder="Douleurs thoraciques…"></textarea>
+            <label>Besoins immédiats</label>
+            <textarea id="smBesoinsInput" rows="2" placeholder="Évaluation médicale, imagerie…"></textarea>
+            <label>Allergies connues</label>
+            <textarea id="smAllergiesInput" rows="2" placeholder="Non renseignées"></textarea>
+            <label>Traitements en cours</label>
+            <textarea id="smTraitementsInput" rows="2" placeholder="Non renseignés"></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-outline" type="button" data-close>Annuler</button>
+                <button class="btn btn-primary" type="button" id="btnSaveSm">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal hôtel -->
+    <div class="modal-backdrop" id="hotelModal">
+        <div class="modal">
+            <h3>Organiser un hébergement</h3>
+            <label>Hôtel</label>
+            <select id="hotelSelect"></select>
+            <label>Nombre de nuits</label>
+            <input type="number" id="hotelNuits" min="1" value="1">
+            <label>Notes</label>
+            <textarea id="hotelNotes" rows="2"></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-outline" type="button" data-close>Annuler</button>
+                <button class="btn btn-primary" type="button" id="btnDoHotel">Réserver</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/permissions.js"></script>
+    <script src="js/backoffice-nav.js"></script>
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script src="js/alert-detail.js"></script>
+</body>
+</html>

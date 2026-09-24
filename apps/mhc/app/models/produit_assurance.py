@@ -20,6 +20,19 @@ class ProduitAssurance(Base, TimestampMixin):
     assureur = Column(String(200), nullable=True)  # Nom de l'assureur (legacy string)
     assureur_id = Column(Integer, ForeignKey("assureurs.id", ondelete="SET NULL"), nullable=True, index=True)
     image_url = Column(String(500), nullable=True)  # URL de l'image/miniature du produit
+    logo_url = Column(String(500), nullable=True)  # Logo compagnie (maquette produit)
+
+    # Paramètres réassurance / fiscalité au niveau produit (maquette « Nouveau produit »).
+    # Les défauts pays (parametres_pays_assureur) restent utilisés quand ces champs sont NULL.
+    pays = Column(String(100), nullable=True)
+    reassureur_id = Column(Integer, ForeignKey("reassureurs.id", ondelete="SET NULL"), nullable=True, index=True)
+    retention_assureur_pct = Column(Numeric(5, 2), nullable=True)  # % rétention assureur de la prime nette
+    commission_cession_pct = Column(Numeric(5, 2), nullable=True)  # % commission de cession sur cession réassureur
+    cession_reassureur_pct = Column(Numeric(5, 2), nullable=True)  # % cession réassureur de la prime nette
+    cout_police_forfait = Column(Numeric(10, 2), nullable=True)  # coût de police forfaitaire (B)
+    taxe_pct = Column(Numeric(5, 2), nullable=True)  # taxe % (C)
+    taxe_additionnelle_pct = Column(Numeric(5, 2), nullable=True)  # taxe additionnelle % (D)
+    commission_courtage_pct = Column(Numeric(5, 2), nullable=True)  # commission de courtage (intermédiaires)
     
     # Coût et répartition
     cout = Column(Numeric(10, 2), nullable=False)  # Coût de base du produit
@@ -72,6 +85,7 @@ class ProduitAssurance(Base, TimestampMixin):
     souscriptions = relationship("Souscription", back_populates="produit_assurance")
     historique_prix = relationship("HistoriquePrix", back_populates="produit_assurance", cascade="all, delete-orphan")
     assureur_obj = relationship("Assureur", back_populates="produits_assurance")
+    reassureur = relationship("Reassureur", back_populates="produits")
     prime_tarifs = relationship(
         "ProduitPrimeTarif",
         back_populates="produit_assurance",

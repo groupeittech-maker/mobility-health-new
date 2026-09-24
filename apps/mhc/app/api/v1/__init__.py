@@ -37,6 +37,12 @@ from app.api.v1 import (
     avenants,
     ekyc,
     admin_statistics,
+    alerte_ops,
+    admin_reassureurs,
+    medical_workflow,
+    finance_outbound,
+    reassureur_portal,
+    ops_modules,
 )
 
 from app.api.v1.notifications import _get_notifications_handler, NotificationResponse
@@ -178,3 +184,9 @@ api_router.include_router(mhc_care_documents.router, prefix="/mhc", tags=["mhc-p
 api_router.include_router(avenants.router, tags=["avenants"])
 api_router.include_router(ekyc.router)
 api_router.include_router(admin_statistics.router, prefix="/admin/statistics", tags=["admin-statistics"])
+api_router.include_router(alerte_ops.router, prefix="/alertes", tags=["alertes-ops"])
+api_router.include_router(admin_reassureurs.router, prefix="/admin/reassureurs", tags=["admin-reassureurs"])
+api_router.include_router(medical_workflow.router, prefix="/medical", tags=["medical-workflow"])
+api_router.include_router(finance_outbound.router, prefix="/finance", tags=["finance-outbound"])
+api_router.include_router(reassureur_portal.router, prefix="/reassureur", tags=["reassureur-portal"])
+api_router.include_router(ops_modules.router, prefix="/ops", tags=["ops-modules"])

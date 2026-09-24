@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portail réassureur — Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/backoffice.css">
+    <style>
+        .rp-page { padding: 1.2rem 1.4rem 3rem; }
+        .rp-head h1 { font-size: 1.35rem; color: #1e1650; margin: 0 0 .2rem; }
+        .rp-head p { color: #8a8fa3; font-size: .82rem; margin: 0 0 1rem; }
+        .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: .8rem; margin-bottom: 1rem; }
+        .kpi { background: #fff; border: 1px solid #eceef6; border-radius: .8rem; padding: .9rem 1rem; }
+        .kpi .l { font-size: .72rem; color: #8a8fa3; }
+        .kpi .v { font-size: 1.15rem; font-weight: 700; color: #1e1650; margin-top: .2rem; }
+        .card { background: #fff; border: 1px solid #eceef6; border-radius: .8rem; overflow: hidden; margin-bottom: 1rem; }
+        .card-h { padding: .8rem 1rem; border-bottom: 1px solid #f1f2f8; font-weight: 700; font-size: .88rem; color: #1e1650; }
+        table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+        th { text-align: left; color: #8a8fa3; font-size: .72rem; font-weight: 600; padding: .6rem 1rem; border-bottom: 1px solid #f1f2f8; }
+        td { padding: .6rem 1rem; border-bottom: 1px solid #f5f6fb; }
+        .badge { font-size: .68rem; font-weight: 700; padding: .15rem .55rem; border-radius: .7rem; background: #e8f0fe; color: #2d5bd7; }
+        .toast { position: fixed; bottom: 1.4rem; right: 1.4rem; background: #1e1650; color: #fff; padding: .7rem 1.1rem; border-radius: .6rem; font-size: .82rem; z-index: 3000; display: none; }
+        .toast.show { display: block; } .toast.error { background: #c81e1e; }
+    </style>
+</head>
+<body data-backoffice>
+    <main class="container rp-page">
+        <div class="rp-head">
+            <h1>Portail réassureur — <span id="rsName">—</span></h1>
+            <p>Consultation de la production, des sinistres, des encaissements et des quote-parts</p>
+        </div>
+
+        <div class="kpis">
+            <div class="kpi"><div class="l">Produits cédés</div><div class="v" id="kProd">—</div></div>
+            <div class="kpi"><div class="l">Souscriptions</div><div class="v" id="kSub">—</div></div>
+            <div class="kpi"><div class="l">Sinistres</div><div class="v" id="kSin">—</div></div>
+            <div class="kpi"><div class="l">Encaissé</div><div class="v" id="kEnc">—</div></div>
+        </div>
+
+        <div class="card">
+            <div class="card-h">Production (polices sur produits cédés)</div>
+            <table>
+                <thead><tr><th>N° souscription</th><th>Statut</th><th>Prime</th><th>Date</th></tr></thead>
+                <tbody id="prodBody"><tr><td colspan="4" style="color:#8a8fa3">Chargement…</td></tr></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <div class="card-h">Sinistres</div>
+            <table>
+                <thead><tr><th>N° sinistre</th><th>Statut</th><th>Date</th></tr></thead>
+                <tbody id="sinBody"><tr><td colspan="3" style="color:#8a8fa3">Chargement…</td></tr></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <div class="card-h">Quote-parts sinistres (suivi d'encaissement)</div>
+            <table>
+                <thead><tr><th>Référence</th><th>Montant</th><th>Période</th><th>Statut</th><th>Date</th></tr></thead>
+                <tbody id="qpBody"><tr><td colspan="5" style="color:#8a8fa3">Chargement…</td></tr></tbody>
+            </table>
+        </div>
+    </main>
+    <div class="toast" id="toast"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/permissions.js"></script>
+    <script src="js/backoffice-nav.js"></script>
+    <script>
+        const $ = id => document.getElementById(id);
+        const esc = v => { const d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; };
+        const fmt = n => (n == null ? '—' : n.toLocaleString('fr-FR'));
+        const toast = (m, e) => { const t = $('toast'); t.textContent = m; t.className = 'toast show' + (e ? ' error' : ''); setTimeout(() => t.className = 'toast', 3000); };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!(await requireAuth())) return;
+            try {
+                const d = await apiCall('/reassureur/overview');
+                $('rsName').textContent = d.reassureur?.nom || '—';
+                $('kProd').textContent = (d.produits || []).length;
+                $('kSub').textContent = d.production?.nb_souscriptions ?? 0;
+                $('kSin').textContent = d.sinistres?.total ?? 0;
+                $('kEnc').textContent = fmt(d.encaissements?.montant_total);
+                $('prodBody').innerHTML = (d.production?.items || []).map(s =>
+                    `<tr><td>${esc(s.numero)}</td><td><span class="badge">${esc(s.statut)}</span></td><td>${fmt(s.prix_applique)}</td><td>${esc((s.created_at || '').slice(0, 10))}</td></tr>`).join('')
+                    || '<tr><td colspan="4" style="color:#8a8fa3">Aucune souscription</td></tr>';
+                $('sinBody').innerHTML = (d.sinistres?.items || []).map(s =>
+                    `<tr><td>${esc(s.numero || '#' + s.id)}</td><td><span class="badge">${esc(s.statut)}</span></td><td>${esc((s.created_at || '').slice(0, 10))}</td></tr>`).join('')
+                    || '<tr><td colspan="3" style="color:#8a8fa3">Aucun sinistre</td></tr>';
+                $('qpBody').innerHTML = (d.quote_parts || []).map(p =>
+                    `<tr><td>${esc(p.reference)}</td><td>${fmt(p.montant)} ${esc(p.devise)}</td><td>${esc(p.periode || '—')}</td><td><span class="badge">${esc(p.statut)}</span></td><td>${esc((p.created_at || '').slice(0, 10))}</td></tr>`).join('')
+                    || '<tr><td colspan="5" style="color:#8a8fa3">Aucune quote-part</td></tr>';
+            } catch (e) {
+                toast(e.message || 'Accès refusé', true);
+            }
+        });
+    </script>
+</body>
+</html>

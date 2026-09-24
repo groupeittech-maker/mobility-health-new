@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validations médicales — Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/backoffice.css">
+    <style>
+        .mv-page { padding: 1.2rem 1.4rem 3rem; }
+        .mv-page h1 { font-size: 1.35rem; color: #1e1650; margin: 0 0 .2rem; }
+        .mv-sub { color: #8a8fa3; font-size: .82rem; margin-bottom: 1rem; }
+        .card { background: #fff; border: 1px solid #eceef6; border-radius: .8rem; overflow: hidden; margin-bottom: 1rem; }
+        .card-h { padding: .8rem 1rem; border-bottom: 1px solid #f1f2f8; font-weight: 700; font-size: .88rem; color: #1e1650; }
+        table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+        th { text-align: left; color: #8a8fa3; font-size: .72rem; font-weight: 600; padding: .6rem 1rem; border-bottom: 1px solid #f1f2f8; }
+        td { padding: .6rem 1rem; border-bottom: 1px solid #f5f6fb; vertical-align: top; }
+        .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: .7rem; }
+        .b-soumis { background: #fdf0dc; color: #b45309; }
+        .b-validee_mc { background: #e8f0fe; color: #2d5bd7; }
+        .b-esc { background: #fde8e8; color: #c81e1e; }
+        .btn { border: none; border-radius: .45rem; padding: .35rem .7rem; font-size: .74rem; font-weight: 600; cursor: pointer; margin-right: .35rem; }
+        .btn-ok { background: #0a9b6c; color: #fff; }
+        .btn-ko { background: #fde8e8; color: #c81e1e; }
+        .toast { position: fixed; bottom: 1.4rem; right: 1.4rem; background: #1e1650; color: #fff; padding: .7rem 1.1rem; border-radius: .6rem; font-size: .82rem; z-index: 3000; display: none; }
+        .toast.show { display: block; } .toast.error { background: #c81e1e; }
+    </style>
+</head>
+<body data-backoffice>
+    <main class="container mv-page">
+        <h1>Validations médicales</h1>
+        <p class="mv-sub" id="mvSub">File des éléments en attente de votre validation</p>
+
+        <div class="card">
+            <div class="card-h">Rapports médicaux (<span id="rc">0</span>)</div>
+            <table>
+                <thead><tr><th>#</th><th>Séjour</th><th>Type</th><th>Résumé</th><th>Statut</th><th>Actions</th></tr></thead>
+                <tbody id="reportsBody"><tr><td colspan="6" style="color:#8a8fa3">Chargement…</td></tr></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <div class="card-h">Documents de prise en charge (<span id="dc">0</span>)</div>
+            <table>
+                <thead><tr><th>#</th><th>Sinistre</th><th>Document</th><th>N°</th><th>Groupe attendu</th><th>Actions</th></tr></thead>
+                <tbody id="docsBody"><tr><td colspan="6" style="color:#8a8fa3">Chargement…</td></tr></tbody>
+            </table>
+        </div>
+    </main>
+    <div class="toast" id="toast"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/permissions.js"></script>
+    <script src="js/backoffice-nav.js"></script>
+    <script>
+        const $ = id => document.getElementById(id);
+        const esc = v => { const d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; };
+        const toast = (m, e) => { const t = $('toast'); t.textContent = m; t.className = 'toast show' + (e ? ' error' : ''); setTimeout(() => t.className = 'toast', 3000); };
+        const ROLE = localStorage.getItem('user_role') || '';
+        const IS_AM = ['superviseur_affaires_medicales', 'agent_medical_mhc', 'agent_conformite_medical', 'medical_reviewer', 'admin'].includes(ROLE);
+
+        async function load() {
+            const data = await apiCall('/medical/validations/pending');
+            $('mvSub').textContent = IS_AM
+                ? 'Niveau 2 — validations affaires médicales + éléments escaladés (médecin-conseil indisponible)'
+                : 'Niveau 1 — validations médecin-conseil';
+
+            const reports = data.reports || [];
+            $('rc').textContent = reports.length;
+            $('reportsBody').innerHTML = reports.map(r => `
+                <tr>
+                    <td>${r.id}</td>
+                    <td>#${r.stay_id}</td>
+                    <td>${r.report_type === 'final' ? 'Rapport final' : "Rapport d'étape"}</td>
+                    <td style="max-width:320px">${esc((r.resume || '').slice(0, 140))}${r.escalated ? ' <span class="badge b-esc">escaladé</span>' : ''}</td>
+                    <td><span class="badge b-${r.statut}">${r.statut === 'soumis' ? 'Attente 1re val.' : 'Attente 2e val.'}</span></td>
+                    <td>
+                        <button class="btn btn-ok" data-v="${r.id}:accorde">Accorder</button>
+                        <button class="btn btn-ko" data-v="${r.id}:refuse">Refuser</button>
+                    </td>
+                </tr>`).join('') || '<tr><td colspan="6" style="color:#8a8fa3">Aucun rapport en attente</td></tr>';
+
+            const docs = data.care_documents || [];
+            $('dc').textContent = docs.length;
+            $('docsBody').innerHTML = docs.map(d => `
+                <tr>
+                    <td>${d.document_id}</td>
+                    <td>#${d.sinistre_id}</td>
+                    <td>${esc(d.document_type)}</td>
+                    <td>${esc(d.numero)}</td>
+                    <td>${esc(d.groupe_attendu)}</td>
+                    <td>
+                        <button class="btn btn-ok" data-doc="${d.document_id}:accorde">Valider</button>
+                        <button class="btn btn-ko" data-doc="${d.document_id}:refuse">Refuser</button>
+                    </td>
+                </tr>`).join('') || '<tr><td colspan="6" style="color:#8a8fa3">Aucun document en attente</td></tr>';
+
+            document.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', async () => {
+                const [id, decision] = b.dataset.v.split(':');
+                const commentaire = decision === 'refuse' ? prompt('Motif du refus :') : null;
+                try {
+                    await apiCall(`/medical/medical-reports/${id}/validate`, { method: 'POST', body: JSON.stringify({ decision, commentaire }) });
+                    toast('Validation enregistrée'); load();
+                } catch (e) { toast(e.message || 'Erreur', true); }
+            }));
+            document.querySelectorAll('[data-doc]').forEach(b => b.addEventListener('click', async () => {
+                const [id, decision] = b.dataset.doc.split(':');
+                try {
+                    await apiCall(`/mhc/care-documents/${id}/validation`, { method: 'POST', body: JSON.stringify({ approve: decision === 'accorde' }) });
+                    toast('Validation enregistrée'); load();
+                } catch (e) { toast(e.message || 'Erreur', true); }
+            }));
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!(await requireAuth())) return;
+            load();
+        });
+    </script>
+</body>
+</html>

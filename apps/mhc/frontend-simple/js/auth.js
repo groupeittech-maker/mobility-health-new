@@ -40,6 +40,11 @@ async function validateAuth() {
         localStorage.setItem('user_role', user.role);
         localStorage.setItem('user_id', user.id);
         localStorage.setItem('user_name', user.full_name || user.username);
+        if (user.permissions && typeof user.permissions === 'object') {
+            localStorage.setItem('user_permissions', JSON.stringify(user.permissions));
+        } else {
+            localStorage.removeItem('user_permissions');
+        }
         if (user.pays_residence) {
             localStorage.setItem('user_pays_residence', user.pays_residence);
         } else {
@@ -80,6 +85,7 @@ function clearAuth() {
     localStorage.removeItem('user_role');
     localStorage.removeItem('user_id');
     localStorage.removeItem('user_name');
+    localStorage.removeItem('user_permissions');
     localStorage.removeItem('user_pays_residence');
     localStorage.removeItem('hospital_id');
     localStorage.removeItem('hospital_name');

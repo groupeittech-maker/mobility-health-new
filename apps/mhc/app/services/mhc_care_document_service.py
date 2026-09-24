@@ -70,7 +70,13 @@ GROUP_LABELS: Dict[str, str] = {
 GROUP_ROLES: Dict[str, set] = {
     GROUP_MEDECIN_CONSEIL: {Role.MEDECIN_REFERENT_MH},
     GROUP_PARTENAIRE_SANTE: {Role.MEDECIN_HOPITAL, Role.HOSPITAL_ADMIN, Role.AGENT_RECEPTION_HOPITAL},
-    GROUP_POLE_MEDICAL_MHC: {Role.MEDICAL_REVIEWER},
+    # Pôle médical MHC = affaires médicales (superviseur, agent, conformité) + medical reviewer.
+    GROUP_POLE_MEDICAL_MHC: {
+        Role.MEDICAL_REVIEWER,
+        Role.AGENT_MEDICAL_MHC,
+        Role.SUPERVISEUR_AFFAIRES_MEDICALES,
+        Role.AGENT_CONFORMITE_MEDICAL,
+    },
 }
 
 # Émetteur autorisé par type de document (colonne « Émis »).

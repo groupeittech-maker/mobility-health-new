@@ -2,13 +2,19 @@ import logging
 from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 from decimal import Decimal
 from app.core.database import get_db
 
 logger = logging.getLogger(__name__)
-from app.core.enums import Role
 from app.api.v1.auth import get_current_user
+from app.core.permissions import (
+    F_COMPTES_PRODUITS,
+    LEVEL_CONSULTATION,
+    LEVEL_EDITION,
+    has_permission,
+)
 from app.models.user import User
 from app.models.produit_assurance import ProduitAssurance
 from app.models.produit_prime_tarif import ProduitPrimeTarif
@@ -19,6 +25,7 @@ from app.models.tarification import (
     TarificationZone,
 )
 from app.models.assureur import Assureur
+from app.models.reassureur import ProduitSurprime
 from app.models.historique_prix import HistoriquePrix
 from app.models.audit import AuditLog
 from app.schemas.produit_assurance import (
@@ -43,11 +50,27 @@ router = APIRouter()
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    """Dependency to require admin role"""
-    if current_user.role != Role.ADMIN:
+    """Gestion des produits : niveau 'edition' sur la fonctionnalité comptes_produits."""
+    role = getattr(current_user, "role", None)
+    if hasattr(role, "value"):
+        role = role.value
+    if not has_permission(str(role or "user"), F_COMPTES_PRODUITS, LEVEL_EDITION):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions. Admin role required."
+            detail="Not enough permissions. Product management required."
+        )
+    return current_user
+
+
+def require_products_consult(current_user: User = Depends(get_current_user)) -> User:
+    """Consultation des produits : niveau 'consultation' sur comptes_produits."""
+    role = getattr(current_user, "role", None)
+    if hasattr(role, "value"):
+        role = role.value
+    if not has_permission(str(role or "user"), F_COMPTES_PRODUITS, LEVEL_CONSULTATION):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions. Product consultation required."
         )
     return current_user
 
@@ -127,7 +150,7 @@ async def get_products(
     limit: int = 100,
     est_actif: Optional[bool] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_products_consult)
 ):
     """Get list of products (admin only)"""
     import logging
@@ -193,7 +216,7 @@ async def get_products(
 async def get_product(
     product_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_products_consult)
 ):
     """Get product by ID (admin only)"""
     try:
@@ -337,7 +360,7 @@ async def delete_product(
 async def get_price_history(
     product_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_products_consult)
 ):
     """Get price history for a product (admin only)"""
     product = db.query(ProduitAssurance).filter(ProduitAssurance.id == product_id).first()
@@ -360,7 +383,7 @@ async def get_price_history(
 async def list_product_tarifs(
     product_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_products_consult),
 ):
     """Liste des tarifs de prime pour un produit (admin)."""
     product = db.query(ProduitAssurance).filter(ProduitAssurance.id == product_id).first()
@@ -462,7 +485,7 @@ async def delete_product_tarif(
 async def list_product_grille_finale(
     product_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_products_consult),
 ):
     product = db.query(ProduitAssurance).filter(ProduitAssurance.id == product_id).first()
     if not product:
@@ -591,3 +614,145 @@ async def delete_product_grille_finale_cell(
         db.delete(row)
         db.commit()
     return None
+
+
+# ========== Surprimes par tranche d'âge (table produit) ==========
+
+
+class ProduitSurprimePayload(BaseModel):
+    age_min: int
+    age_max: int
+    taux_pct: float = 0
+    montant_fixe: Optional[float] = None
+    formule: Optional[str] = None
+
+
+@router.get("/{product_id}/surprimes")
+async def list_product_surprimes(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_products_consult),
+):
+    rows = (
+        db.query(ProduitSurprime)
+        .filter(ProduitSurprime.produit_id == product_id)
+        .order_by(ProduitSurprime.age_min)
+        .all()
+    )
+    return [
+        {
+            "id": r.id,
+            "age_min": r.age_min,
+            "age_max": r.age_max,
+            "taux_pct": float(r.taux_pct) if r.taux_pct is not None else 0,
+            "montant_fixe": float(r.montant_fixe) if r.montant_fixe is not None else None,
+            "formule": r.formule,
+        }
+        for r in rows
+    ]
+
+
+@router.put("/{product_id}/surprimes")
+async def replace_product_surprimes(
+    product_id: int,
+    payload: List[ProduitSurprimePayload],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    product = db.query(ProduitAssurance).filter(ProduitAssurance.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+    db.query(ProduitSurprime).filter(ProduitSurprime.produit_id == product_id).delete()
+    for item in payload:
+        db.add(ProduitSurprime(produit_id=product_id, **item.model_dump()))
+    db.commit()
+    return await list_product_surprimes(product_id, db, current_user)
+
+
+# ========== Décompte de la prime (maquette : A + B + C + D) ==========
+
+
+def _pays_defaults(db: Session, product: ProduitAssurance):
+    """Paramètres pays de l'assureur utilisés en repli quand le produit ne fixe rien."""
+    from app.models.parametre_pays_assureur import ParametrePaysAssureur
+    pays = product.pays
+    if not pays and product.assureur_obj is not None:
+        pays = getattr(product.assureur_obj, "pays", None)
+    if not pays:
+        return None
+    return (
+        db.query(ParametrePaysAssureur)
+        .filter(ParametrePaysAssureur.pays_assureur == pays, ParametrePaysAssureur.actif == True)
+        .first()
+    )
+
+
+@router.get("/{product_id}/decompte")
+async def get_product_decompte(
+    product_id: int,
+    prime_nette: float = Query(..., description="Montant de la prime nette (A)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_products_consult),
+):
+    """Décomposition A+B+C+D de la prime + commission courtage + répartition."""
+    product = db.query(ProduitAssurance).filter(ProduitAssurance.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+    defaults = _pays_defaults(db, product)
+
+    a = Decimal(str(prime_nette))
+    cout_police = product.cout_police_forfait
+    if cout_police is None and defaults is not None:
+        cout_police = defaults.cout_police
+    b = Decimal(str(cout_police or 0))
+    taxe_pct = product.taxe_pct if product.taxe_pct is not None else Decimal("0")
+    c = (a * Decimal(str(taxe_pct)) / Decimal("100")).quantize(Decimal("0.01"))
+    taxe_add_pct = product.taxe_additionnelle_pct if product.taxe_additionnelle_pct is not None else Decimal("0")
+    d = (a * Decimal(str(taxe_add_pct)) / Decimal("100")).quantize(Decimal("0.01"))
+    total = a + b + c + d
+
+    courtage_pct = product.commission_courtage_pct if product.commission_courtage_pct is not None else Decimal("0")
+    commission_courtage = (a * Decimal(str(courtage_pct)) / Decimal("100")).quantize(Decimal("0.01"))
+
+    cession_pct = product.cession_reassureur_pct
+    if cession_pct is None and defaults is not None:
+        cession_pct = defaults.reassureur_pct
+    cession_pct = Decimal(str(cession_pct or 0))
+    cession = (a * cession_pct / Decimal("100")).quantize(Decimal("0.01"))
+
+    retention_pct = Decimal(str(product.retention_assureur_pct or 0))
+    retention = (a * retention_pct / Decimal("100")).quantize(Decimal("0.01"))
+
+    comm_cession_pct = Decimal(str(product.commission_cession_pct or 0))
+    commission_cession = (cession * comm_cession_pct / Decimal("100")).quantize(Decimal("0.01"))
+
+    mhc = (a - cession - retention).quantize(Decimal("0.01"))
+
+    return {
+        "prime_nette": float(a),
+        "decompte": [
+            {"code": "A", "label": "Prime nette", "montant": float(a)},
+            {"code": "B", "label": "Coût de police", "montant": float(b)},
+            {"code": "C", "label": f"Taxe ({taxe_pct}%)", "montant": float(c)},
+            {"code": "D", "label": f"Taxe additionnelle ({taxe_add_pct}%)", "montant": float(d)},
+        ],
+        "prime_totale": float(total),
+        "commission_courtage": {
+            "taux_pct": float(courtage_pct),
+            "montant": float(commission_courtage),
+            "formule": f"{a} × {courtage_pct}%",
+        },
+        "repartition": [
+            {"beneficiaire": "Réassureur (cession)", "base": "Prime nette", "taux_pct": float(cession_pct), "montant": float(cession)},
+            {"beneficiaire": "Commission de cession", "base": "Cession", "taux_pct": float(comm_cession_pct), "montant": float(commission_cession)},
+            {"beneficiaire": "Assureur (rétention)", "base": "Prime nette", "taux_pct": float(retention_pct), "montant": float(retention)},
+            {"beneficiaire": "Intermédiaire (courtage)", "base": "Prime nette", "taux_pct": float(courtage_pct), "montant": float(commission_courtage)},
+            {"beneficiaire": "Coût de police (MHC)", "base": "Forfait", "taux_pct": None, "montant": float(b)},
+            {"beneficiaire": "Fisc (taxes C+D)", "base": "Taxes", "taux_pct": None, "montant": float(c + d)},
+            {"beneficiaire": "Reliquat MHC", "base": "Prime nette", "taux_pct": None, "montant": float(mhc)},
+        ],
+        "sources": {
+            "cout_police": "produit" if product.cout_police_forfait is not None else ("pays" if defaults else None),
+            "cession": "produit" if product.cession_reassureur_pct is not None else ("pays" if defaults else None),
+        },
+    }

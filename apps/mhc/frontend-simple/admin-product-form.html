@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nouveau produit de tarification — Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/backoffice.css">
+    <style>
+        .pf-page { padding: 1.2rem 1.4rem 3rem; }
+        .pf-breadcrumb { font-size: .78rem; color: #8a8fa3; margin-bottom: .5rem; }
+        .pf-breadcrumb a { color: #6c5ce7; text-decoration: none; }
+        .pf-head h1 { font-size: 1.35rem; color: #1e1650; margin: 0 0 .2rem; }
+        .pf-head p { color: #8a8fa3; font-size: .82rem; margin: 0 0 1.1rem; }
+
+        .pf-layout { display: grid; grid-template-columns: 1fr 340px; gap: 1.2rem; align-items: start; }
+        .pf-section { background: #fff; border: 1px solid #eceef6; border-radius: .8rem; margin-bottom: 1rem; }
+        .pf-sec-h { padding: .8rem 1.1rem; border-bottom: 1px solid #f1f2f8; font-weight: 700; font-size: .88rem; color: #1e1650; }
+        .pf-sec-h small { display: block; font-weight: 400; color: #8a8fa3; font-size: .72rem; margin-top: .15rem; }
+        .pf-sec-b { padding: 1rem 1.1rem; }
+        .pf-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .8rem 1rem; }
+        .pf-grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .pf-field label { display: block; font-size: .74rem; font-weight: 600; color: #555; margin-bottom: .3rem; }
+        .pf-field label .req { color: #e23d3d; }
+        .pf-field input, .pf-field select, .pf-field textarea {
+            width: 100%; border: 1px solid #e2e4f0; border-radius: .55rem; padding: .55rem .7rem;
+            font-size: .83rem; box-sizing: border-box; background: #fff;
+        }
+        .pf-field input:focus, .pf-field select:focus { border-color: #6c5ce7; outline: none; box-shadow: 0 0 0 3px rgba(108,92,231,.12); }
+        .pf-field .hint { font-size: .68rem; color: #9aa0b5; margin-top: .2rem; }
+        .pf-span2 { grid-column: span 2; }
+        .pf-logo-drop { display: flex; align-items: center; gap: .7rem; border: 1.5px dashed #d8dbe8; border-radius: .6rem; padding: .8rem; }
+        .pf-logo-drop img { width: 48px; height: 48px; object-fit: contain; border-radius: .4rem; }
+
+        .pf-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+        .pf-table th { text-align: left; color: #8a8fa3; font-size: .72rem; font-weight: 600; padding: .45rem .5rem; border-bottom: 1px solid #f1f2f8; }
+        .pf-table td { padding: .45rem .5rem; border-bottom: 1px solid #f5f6fb; vertical-align: middle; }
+        .pf-table input, .pf-table select { width: 100%; border: 1px solid #e2e4f0; border-radius: .4rem; padding: .35rem .5rem; font-size: .78rem; box-sizing: border-box; }
+        .pf-addrow { font-size: .75rem; color: #6c5ce7; background: none; border: none; cursor: pointer; font-weight: 600; padding: .3rem 0; }
+        .pf-delrow { color: #c81e1e; border: none; background: none; cursor: pointer; font-size: .85rem; }
+
+        .pf-summary { position: sticky; top: 80px; }
+        .pf-sum-card { background: #fff; border: 1px solid #eceef6; border-radius: .8rem; overflow: hidden; }
+        .pf-sum-h { padding: .8rem 1.1rem; border-bottom: 1px solid #f1f2f8; font-weight: 700; font-size: .88rem; color: #1e1650; display: flex; align-items: center; gap: .5rem; }
+        .pf-sum-b { padding: 1rem 1.1rem; }
+        .pf-sum-row { display: flex; justify-content: space-between; font-size: .8rem; padding: .35rem 0; }
+        .pf-sum-row .k { color: #555; }
+        .pf-sum-row .v { font-weight: 600; color: #1e1650; }
+        .pf-sum-total { border-top: 1px solid #f1f2f8; margin-top: .5rem; padding-top: .6rem; font-size: .9rem; font-weight: 700; color: #1e1650; }
+        .pf-sum-note { background: #f6f8ff; border: 1px solid #dfe6fb; border-radius: .6rem; padding: .7rem .8rem; font-size: .72rem; color: #44508a; margin-top: .9rem; line-height: 1.5; }
+        .pf-base-input { display: flex; gap: .5rem; align-items: center; margin-bottom: .7rem; }
+        .pf-base-input input { flex: 1; border: 1px solid #e2e4f0; border-radius: .5rem; padding: .45rem .6rem; font-size: .82rem; }
+
+        .pf-submit-bar { display: flex; gap: .7rem; margin-top: .5rem; }
+        .pf-submit-bar .btn { padding: .7rem 1.4rem; }
+        .toast { position: fixed; bottom: 1.4rem; right: 1.4rem; background: #1e1650; color: #fff; padding: .7rem 1.1rem; border-radius: .6rem; font-size: .82rem; z-index: 3000; display: none; }
+        .toast.show { display: block; } .toast.error { background: #c81e1e; }
+
+        @media (max-width: 1100px) { .pf-layout { grid-template-columns: 1fr; } .pf-summary { position: static; } }
+        @media (max-width: 700px) { .pf-grid, .pf-grid-3 { grid-template-columns: 1fr; } .pf-span2 { grid-column: auto; } }
+    </style>
+</head>
+<body data-backoffice>
+    <main class="container pf-page">
+        <div class="pf-breadcrumb"><a href="admin-products.html">Produits</a> <span class="sep">›</span> <span id="bcCurrent">Nouveau produit</span></div>
+        <div class="pf-head">
+            <h1 id="pageTitle">Nouveau produit de tarification</h1>
+            <p>Configurez les paramètres tarifaires et les zones de couverture du produit</p>
+        </div>
+
+        <div class="pf-layout">
+            <div>
+                <!-- 1. Informations générales -->
+                <div class="pf-section">
+                    <div class="pf-sec-h">Informations générales du produit</div>
+                    <div class="pf-sec-b">
+                        <div class="pf-grid pf-grid-3">
+                            <div class="pf-field"><label>Nom du produit <span class="req">*</span></label><input id="fNom" placeholder="ex: MHC Travel Essentiel"></div>
+                            <div class="pf-field"><label>Code produit</label><input id="fCode" placeholder="ex: TRV-ESS"></div>
+                            <div class="pf-field"><label>Version</label><input id="fVersion" placeholder="ex: V1.0"></div>
+                            <div class="pf-field"><label>Statut</label><select id="fStatut"><option value="actif">Actif</option><option value="inactif">Inactif</option></select></div>
+                            <div class="pf-field"><label>Pays de l'assureur <span class="req">*</span></label><input id="fPays" placeholder="ex: Congo"></div>
+                            <div class="pf-field"><label>Devise</label><select id="fCurrency"><option value="XAF">XAF (FCFA)</option><option value="EUR">EUR</option><option value="USD">USD</option></select></div>
+                            <div class="pf-field"><label>Compagnie d'assurance <span class="req">*</span></label><select id="fAssureur"><option value="">— Sélectionner —</option></select></div>
+                            <div class="pf-field"><label>Réassureur</label><select id="fReassureur"><option value="">— Sélectionner —</option></select></div>
+                            <div class="pf-field"><label>Coût de base (tarif de référence) <span class="req">*</span></label><input id="fCout" type="number" min="0" step="0.01" placeholder="ex: 25000"></div>
+                        </div>
+                        <div class="pf-grid" style="margin-top:.9rem">
+                            <div class="pf-field"><label>Rétention assureur (%)</label><input id="fRetention" type="number" min="0" max="100" step="0.01" placeholder="ex: 65"><div class="hint">Part de la prime nette conservée par l'assureur</div></div>
+                            <div class="pf-field"><label>Cession réassureur (%)</label><input id="fCession" type="number" min="0" max="100" step="0.01" placeholder="ex: 20"><div class="hint">Part de la prime nette cédée au réassureur</div></div>
+                            <div class="pf-field"><label>Commission de cession (%)</label><input id="fCommCession" type="number" min="0" max="100" step="0.01" placeholder="ex: 15"><div class="hint">% reversé à l'assureur sur la cession</div></div>
+                            <div class="pf-field"><label>Coût de police forfaitaire</label><input id="fCoutPolice" type="number" min="0" step="0.01" placeholder="ex: 5000"><div class="hint">Forfait ajouté à la prime (B)</div></div>
+                            <div class="pf-field"><label>Taxe (%)</label><input id="fTaxe" type="number" min="0" max="100" step="0.01" placeholder="ex: 14.5"><div class="hint">Taxe sur la prime nette (C)</div></div>
+                            <div class="pf-field"><label>Taxe additionnelle (%)</label><input id="fTaxeAdd" type="number" min="0" max="100" step="0.01" placeholder="ex: 2"><div class="hint">Taxe additionnelle (D)</div></div>
+                        </div>
+                        <div class="pf-grid" style="margin-top:.9rem">
+                            <div class="pf-field pf-span2">
+                                <label>Logo de la compagnie</label>
+                                <div class="pf-logo-drop">
+                                    <img id="logoPreview" src="" alt="" style="display:none">
+                                    <div>
+                                        <input type="file" id="fLogo" accept="image/*" style="font-size:.78rem">
+                                        <div class="hint">PNG/JPG — affiché sur les attestations et le récap produit</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Zones -->
+                <div class="pf-section">
+                    <div class="pf-sec-h">Zones géographiques et pays couverts</div>
+                    <div class="pf-sec-b">
+                        <div class="pf-field">
+                            <label>Zones de couverture</label>
+                            <div id="zonesChecks" style="display:flex;gap:.6rem;flex-wrap:wrap"></div>
+                        </div>
+                        <div class="pf-field" style="margin-top:.8rem">
+                            <label>Pays exclus (optionnel)</label>
+                            <input id="fPaysExclus" placeholder="ex: Corée du Nord, Iran…">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Tarifs -->
+                <div class="pf-section">
+                    <div class="pf-sec-h">Tarifs par zone et durée
+                        <small>Grille finale du produit (zone × fenêtre de durée × tranche d'âge)</small>
+                    </div>
+                    <div class="pf-sec-b" id="tarifsSection">
+                        <table class="pf-table" id="tarifsTable">
+                            <thead><tr><th>Zone</th><th>Fenêtre durée</th><th>Tranche d'âge</th><th>Prix</th><th></th></tr></thead>
+                            <tbody id="tarifsBody"><tr><td colspan="5" style="color:#8a8fa3">Enregistrez d'abord le produit pour gérer la grille, ou <a href="admin-tarification.html">ouvrez la tarification</a>.</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 4. Surprimes -->
+                <div class="pf-section">
+                    <div class="pf-sec-h">Surprimes par tranche d'âge
+                        <small>Appliquées sur le tarif de la ligne sélectionnée</small>
+                    </div>
+                    <div class="pf-sec-b">
+                        <table class="pf-table">
+                            <thead><tr><th>Âge min</th><th>Âge max</th><th>Formule</th><th>Taux (%)</th><th>Montant fixe</th><th></th></tr></thead>
+                            <tbody id="surprimesBody"></tbody>
+                        </table>
+                        <button class="pf-addrow" id="btnAddSurprime" type="button">+ Ajouter une tranche</button>
+                    </div>
+                </div>
+
+                <!-- 5. Décompte -->
+                <div class="pf-section">
+                    <div class="pf-sec-h">Décompte de la prime
+                        <small>Prime totale = A + B + C + D</small>
+                    </div>
+                    <div class="pf-sec-b">
+                        <table class="pf-table">
+                            <thead><tr><th>Composante</th><th>Détail</th><th style="text-align:right">Montant</th></tr></thead>
+                            <tbody id="decompteBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 6. Courtage -->
+                <div class="pf-section">
+                    <div class="pf-sec-h">Commission de courtage</div>
+                    <div class="pf-sec-b">
+                        <div class="pf-grid">
+                            <div class="pf-field"><label>Taux (%)</label><input id="fCourtage" type="number" min="0" max="100" step="0.01" placeholder="ex: 10"></div>
+                            <div class="pf-field"><label>Formule</label><input id="fCourtageFormule" readonly placeholder="Prime nette × taux"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. Répartition -->
+                <div class="pf-section">
+                    <div class="pf-sec-h">Répartition de la prime
+                        <small>Répartition entre les bénéficiaires selon les paramètres saisis</small>
+                    </div>
+                    <div class="pf-sec-b">
+                        <table class="pf-table">
+                            <thead><tr><th>Bénéficiaire</th><th>Base de calcul</th><th>Taux</th><th style="text-align:right">Montant</th></tr></thead>
+                            <tbody id="repartitionBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="pf-submit-bar">
+                    <button class="btn btn-outline" type="button" onclick="location.href='admin-products.html'">Annuler</button>
+                    <button class="btn btn-primary" id="btnSave" type="button" style="background:#6c5ce7;color:#fff;border:none;border-radius:.6rem;padding:.7rem 1.4rem;font-weight:600;cursor:pointer">Enregistrer le produit</button>
+                </div>
+            </div>
+
+            <!-- Résumé latéral -->
+            <aside class="pf-summary">
+                <div class="pf-sum-card">
+                    <div class="pf-sum-h">📊 Résumé du produit</div>
+                    <div class="pf-sum-b">
+                        <div class="pf-base-input">
+                            <input type="number" id="simPrimeNette" placeholder="Prime nette de test" value="25000">
+                            <span style="font-size:.75rem;color:#8a8fa3" id="simCurrency">XAF</span>
+                        </div>
+                        <div class="pf-sum-row"><span class="k">Prime nette (A)</span><span class="v" id="sumA">—</span></div>
+                        <div class="pf-sum-row"><span class="k">Coût police (B)</span><span class="v" id="sumB">—</span></div>
+                        <div class="pf-sum-row"><span class="k">Taxe (C)</span><span class="v" id="sumC">—</span></div>
+                        <div class="pf-sum-row"><span class="k">Taxe add. (D)</span><span class="v" id="sumD">—</span></div>
+                        <div class="pf-sum-row pf-sum-total"><span>Prime totale</span><span id="sumTotal">—</span></div>
+                        <div class="pf-sum-note" id="sumNote">Renseignez les paramètres pour voir la répartition en temps réel.</div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/permissions.js"></script>
+    <script src="js/backoffice-nav.js"></script>
+    <script src="js/admin-product-form.js"></script>
+</body>
+</html>

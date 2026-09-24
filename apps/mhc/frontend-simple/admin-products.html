@@ -6,8 +6,9 @@
     <title>Gestion des Produits - Back Office</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/backoffice.css">
 </head>
-<body>
+<body data-backoffice>
     <nav class="navbar">
         <div class="container">
             <div class="navbar-brand">
@@ -40,7 +41,7 @@
                     <a href="admin-tarification.html">Zones &amp; pays</a> · <a href="admin-destinations.html">Destinations</a>
                 </p>
             </div>
-            <button class="btn btn-primary" onclick="showProductModal()">Créer un produit</button>
+            <button class="btn btn-primary" onclick="window.location.href='admin-product-form.html'">Créer un produit</button>
         </div>
 
         <section class="product-form-section" style="margin-bottom: 1.5rem;">
@@ -319,6 +320,8 @@
     <script src="js/currency.js"></script>
     <script src="js/voyage-tariff-reference-ui.js?v=1"></script>
     <script src="js/admin-products.js?v=20260403-1"></script>
+    <script src="js/permissions.js"></script>
+    <script src="js/backoffice-nav.js"></script>
 </body>
 </html>
 

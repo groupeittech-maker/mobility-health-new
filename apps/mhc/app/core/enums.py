@@ -20,6 +20,22 @@ class Role(str, Enum):
     AGENT_RECEPTION_HOPITAL = "agent_reception_hopital"
     MEDECIN_REFERENT_MH = "medecin_referent_mh"
     MEDECIN_HOPITAL = "medecin_hopital"
+    # Profils internes MHC (matrice Edition/Contrôle/Consultation)
+    SUPERVISEUR_TECHNIQUE = "superviseur_technique"
+    AGENT_CONFORMITE_PRODUCTION = "agent_conformite_production"
+    AGENT_CONFORMITE_SINISTRE = "agent_conformite_sinistre"
+    SUPERVISEUR_AFFAIRES_MEDICALES = "superviseur_affaires_medicales"
+    AGENT_MEDICAL_MHC = "agent_medical_mhc"
+    AGENT_CONFORMITE_MEDICAL = "agent_conformite_medical"
+    SUPERVISEUR_COMPTABLE = "superviseur_comptable"
+    AGENT_CONFORMITE_COMPTABLE = "agent_conformite_comptable"
+    # Profils externes (comptes créés par l'administrateur MHC)
+    AGENT_PRODUCTION_ASSUREUR = "agent_production_assureur"
+    AGENT_PRODUCTION_COURTIER = "agent_production_courtier"
+    ASSISTANT_SOUSCRIPTION = "assistant_souscription"
+    AGENT_SINISTRE_COURTIER = "agent_sinistre_courtier"
+    AGENT_MEDICAL_ASSUREUR = "agent_medical_assureur"
+    AGENT_VERIFICATEUR_REASSUREUR = "agent_verificateur_reassureur"
 
 
 class StatutSouscription(str, Enum):

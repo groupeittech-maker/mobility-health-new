@@ -28,6 +28,7 @@ class UserCreate(BaseModel):
     is_active: bool = True
     role_id: int | None = None
     hospital_id: int | None = None
+    reassureur_id: int | None = None
 
 
 class UserUpdate(BaseModel):
@@ -37,6 +38,7 @@ class UserUpdate(BaseModel):
     is_active: bool | None = None
     role: Role | None = None
     hospital_id: int | None = None
+    reassureur_id: int | None = None
 
 
 class UserPasswordReset(BaseModel):
@@ -205,6 +207,7 @@ async def create_user(
         is_active=user_data.is_active,
         role_id=user_data.role_id,
         hospital_id=user_data.hospital_id,
+        reassureur_id=user_data.reassureur_id,
         created_by_id=current_user.id,  # Lien avec l'admin qui crée le compte
         send_welcome_email=True
     )

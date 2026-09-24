@@ -997,6 +997,7 @@ function buildSosRealtimeAlertCard(alert) {
                         <strong class="reception-alert-card__numero">${escapeHtml(numero)}</strong>
                         <span class="status-badge ${statusClass}">${statusLabel}</span>
                         <span class="priority-badge ${priorityClass}">${priorityLabel}</span>
+                        <a href="alert-detail.html?id=${alert.id}" onclick="event.stopPropagation()" style="margin-left:auto;font-size:.72rem;font-weight:600;color:#6c5ce7;text-decoration:none;white-space:nowrap">Détails ›</a>
                     </div>
                     <p class="reception-alert-card__patient">${escapeHtml(userName)}</p>
                     <div class="sos-alert-card__grid">
@@ -1062,6 +1063,7 @@ function buildSosHistoryAlertCard(alert) {
                         <strong class="reception-alert-card__numero">${escapeHtml(numero)}</strong>
                         <span class="status-badge ${statusClass}">${statusLabel}</span>
                         <span class="priority-badge ${priorityClass}">${priorityLabel}</span>
+                        <a href="alert-detail.html?id=${alert.id}" onclick="event.stopPropagation()" style="margin-left:auto;font-size:.72rem;font-weight:600;color:#6c5ce7;text-decoration:none;white-space:nowrap">Détails ›</a>
                     </div>
                     <p class="reception-alert-card__patient">${escapeHtml(userName)}</p>
                     <div class="sos-alert-card__grid">

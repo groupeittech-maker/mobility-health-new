@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hôtels &amp; Transport médical — Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/backoffice.css">
+    <style>
+        .op-page { padding: 1.2rem 1.4rem 3rem; }
+        .op-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+        .op-head h1 { font-size: 1.35rem; color: #1e1650; margin: 0; }
+        .tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
+        .tab { border: 1px solid #e2e4f0; background: #fff; border-radius: .55rem; padding: .5rem 1rem; font-size: .8rem; font-weight: 600; cursor: pointer; color: #555; }
+        .tab.active { background: #6c5ce7; color: #fff; border-color: #6c5ce7; }
+        .card { background: #fff; border: 1px solid #eceef6; border-radius: .8rem; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+        th { text-align: left; color: #8a8fa3; font-size: .72rem; font-weight: 600; padding: .7rem 1rem; border-bottom: 1px solid #f1f2f8; }
+        td { padding: .7rem 1rem; border-bottom: 1px solid #f5f6fb; }
+        .btn-primary { background: #6c5ce7; color: #fff; border: none; border-radius: .6rem; padding: .55rem 1rem; font-size: .82rem; font-weight: 600; cursor: pointer; }
+        .toast { position: fixed; bottom: 1.4rem; right: 1.4rem; background: #1e1650; color: #fff; padding: .7rem 1.1rem; border-radius: .6rem; font-size: .82rem; z-index: 3000; display: none; }
+        .toast.show { display: block; } .toast.error { background: #c81e1e; }
+    </style>
+</head>
+<body data-backoffice>
+    <main class="container op-page">
+        <div class="op-head">
+            <h1>Hôtels &amp; Transport médical</h1>
+            <button class="btn-primary" id="btnNew">+ Ajouter</button>
+        </div>
+        <div class="tabs">
+            <button class="tab active" data-tab="hotels">Hôtels</button>
+            <button class="tab" data-tab="providers">Transporteurs médicaux</button>
+        </div>
+        <div class="card">
+            <table>
+                <thead id="thead"></thead>
+                <tbody id="tbody"><tr><td style="color:#8a8fa3">Chargement…</td></tr></tbody>
+            </table>
+        </div>
+    </main>
+    <div class="toast" id="toast"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/permissions.js"></script>
+    <script src="js/backoffice-nav.js"></script>
+    <script>
+        const $ = id => document.getElementById(id);
+        const esc = v => { const d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; };
+        const toast = (m, e) => { const t = $('toast'); t.textContent = m; t.className = 'toast show' + (e ? ' error' : ''); setTimeout(() => t.className = 'toast', 3000); };
+        let tab = 'hotels';
+
+        async function load() {
+            if (tab === 'hotels') {
+                $('thead').innerHTML = '<tr><th>Nom</th><th>Ville</th><th>Pays</th><th>Catégorie</th><th>Contact</th><th>Statut</th></tr>';
+                const rows = await apiCall('/ops/hotels');
+                $('tbody').innerHTML = (rows || []).map(h => `
+                    <tr><td><strong>${esc(h.nom)}</strong></td><td>${esc(h.ville || '—')}</td><td>${esc(h.pays || '—')}</td>
+                    <td>${esc(h.categorie || '—')}</td><td>${esc(h.contact_nom || h.telephone || '—')}</td>
+                    <td>${h.est_actif ? 'Actif' : 'Inactif'}</td></tr>`).join('')
+                    || '<tr><td colspan="6" style="color:#8a8fa3">Aucun hôtel</td></tr>';
+            } else {
+                $('thead').innerHTML = '<tr><th>Nom</th><th>Type</th><th>Ville</th><th>Pays</th><th>Contact</th><th>Statut</th></tr>';
+                const rows = await apiCall('/ops/transport-providers');
+                $('tbody').innerHTML = (rows || []).map(p => `
+                    <tr><td><strong>${esc(p.nom)}</strong></td><td>${esc(p.type_vehicule || '—')}</td><td>${esc(p.ville || '—')}</td>
+                    <td>${esc(p.pays || '—')}</td><td>${esc(p.contact_nom || p.telephone || '—')}</td>
+                    <td>${p.est_actif ? 'Actif' : 'Inactif'}</td></tr>`).join('')
+                    || '<tr><td colspan="6" style="color:#8a8fa3">Aucun transporteur</td></tr>';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!(await requireAuth())) return;
+            const wanted = new URLSearchParams(location.search).get('tab');
+            if (wanted === 'providers') {
+                tab = 'providers';
+                document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.tab === 'providers'));
+            }
+            document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+                t.classList.add('active');
+                tab = t.dataset.tab;
+                load();
+            }));
+            $('btnNew').addEventListener('click', async () => {
+                const nom = prompt(tab === 'hotels' ? 'Nom de l\u2019hôtel :' : 'Nom du transporteur :');
+                if (!nom) return;
+                const ville = prompt('Ville :') || null;
+                const pays = prompt('Pays :') || null;
+                const tel = prompt('Téléphone :') || null;
+                const extra = tab === 'hotels'
+                    ? { categorie: prompt('Catégorie (ex: 4 étoiles) :') || null }
+                    : { type_vehicule: prompt('Type (ambulance / vsl / taxi_medicalise / avion_sanitaire) :') || null };
+                try {
+                    await apiCall('/ops/' + (tab === 'hotels' ? 'hotels' : 'transport-providers'), {
+                        method: 'POST',
+                        body: JSON.stringify({ nom, ville, pays, telephone: tel, ...extra }),
+                    });
+                    toast('Enregistré'); load();
+                } catch (e) { toast(e.message || 'Erreur', true); }
+            });
+            load();
+        });
+    </script>
+</body>
+</html>

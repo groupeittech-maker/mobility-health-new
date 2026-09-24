@@ -1326,9 +1326,9 @@ function populateProductForm(product) {
     });
 }
 
-// Éditer un produit
+// Éditer un produit — formulaire pleine page (maquette tarification)
 async function editProduct(productId) {
-    showProductModal(productId);
+    window.location.href = `admin-product-form.html?id=${productId}`;
 }
 
 // Supprimer un produit

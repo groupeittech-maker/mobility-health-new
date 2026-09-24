@@ -64,6 +64,22 @@ const ROLE_OPTIONS = [
     { value: 'agent_reception_hopital', label: "Agent réception hôpital" },
     { value: 'medecin_referent_mh', label: 'Médecin référent MH' },
     { value: 'medecin_hopital', label: 'Médecin hôpital' },
+    // Profils internes MHC (matrice Edition/Contrôle/Consultation)
+    { value: 'superviseur_technique', label: 'Superviseur technique' },
+    { value: 'agent_conformite_production', label: 'Agent conformité production' },
+    { value: 'agent_conformite_sinistre', label: 'Agent conformité sinistre' },
+    { value: 'superviseur_affaires_medicales', label: 'Superviseur affaires médicales' },
+    { value: 'agent_medical_mhc', label: 'Agent médical MHC' },
+    { value: 'agent_conformite_medical', label: 'Agent conformité médical' },
+    { value: 'superviseur_comptable', label: 'Superviseur comptabilité et finances' },
+    { value: 'agent_conformite_comptable', label: 'Agent conformité comptable' },
+    // Profils externes (comptes créés par l'administrateur MHC)
+    { value: 'agent_production_assureur', label: 'Agent production (assureur)' },
+    { value: 'agent_production_courtier', label: 'Agent production (intermédiaire)' },
+    { value: 'assistant_souscription', label: 'Assistant de souscription' },
+    { value: 'agent_sinistre_courtier', label: 'Agent sinistre (intermédiaire)' },
+    { value: 'agent_medical_assureur', label: 'Agent médical (assureur)' },
+    { value: 'agent_verificateur_reassureur', label: 'Agent vérificateur (réassureur)' },
 ];
 
 const resetPasswordContext = {
@@ -605,7 +621,27 @@ function setupCreateUserForm() {
     
     populateRoleSelect(roleSelect);
     resetStatusSelect(statusSelect);
-    
+
+    // Sélecteur réassureur affiché pour le profil vérificateur réassureur.
+    const reassureurGroup = document.getElementById('reassureurGroup');
+    const reassureurSelect = document.getElementById('userReassureur');
+    if (roleSelect && reassureurGroup && reassureurSelect) {
+        const refreshReassureurs = async () => {
+            const show = roleSelect.value === 'agent_verificateur_reassureur';
+            reassureurGroup.style.display = show ? '' : 'none';
+            if (show && !reassureurSelect.dataset.loaded && typeof apiCall === 'function') {
+                try {
+                    const items = await apiCall('/admin/reassureurs/');
+                    reassureurSelect.innerHTML = '<option value="">— Sélectionner —</option>' +
+                        (items || []).map(r => `<option value="${r.id}">${r.nom}</option>`).join('');
+                    reassureurSelect.dataset.loaded = '1';
+                } catch (_) { /* liste non accessible */ }
+            }
+        };
+        roleSelect.addEventListener('change', refreshReassureurs);
+        refreshReassureurs();
+    }
+
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const formData = new FormData(form);
@@ -620,6 +656,10 @@ function setupCreateUserForm() {
             role: formData.get('role'),
             is_active: formData.get('is_active') === 'true',
         };
+        const reassureurId = parseInt(formData.get('reassureur_id'), 10);
+        if (reassureurId) {
+            payload.reassureur_id = reassureurId;
+        }
         
         const pwd = payload.password || '';
         if (pwd.length < 8) {

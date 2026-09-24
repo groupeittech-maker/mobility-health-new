@@ -22,6 +22,7 @@ from app.core.security import (
 from app.core.config import settings
 from app.core.redis_client import get_redis
 from app.core.enums import Role
+from app.core.permissions import permissions_for_role
 from app.models.user import User
 from app.models.hospital import Hospital
 from app.services.email_delivery import EmailDeliveryError
@@ -310,6 +311,7 @@ class UserResponse(BaseModel):
     hospital_id: int | None = None
     hospital_nom: str | None = None
     email_verified: bool = False
+    permissions: dict = {}
 
     @field_validator("date_naissance", "validite_passeport", mode="before")
     @classmethod
@@ -874,6 +876,7 @@ async def get_current_user_info(
         "role": role_str,
         "hospital_id": getattr(current_user, "hospital_id", None),
         "hospital_nom": hospital_nom,
+        "permissions": permissions_for_role(role_str),
     }
 
 

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paiements sortants — Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/backoffice.css">
+    <style>
+        .fo-page { padding: 1.2rem 1.4rem 3rem; }
+        .fo-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .fo-head h1 { font-size: 1.35rem; color: #1e1650; margin: 0; }
+        .fo-filters { display: flex; gap: .6rem; margin-left: auto; }
+        .fo-filters select, .fo-filters input { border: 1px solid #e2e4f0; border-radius: .55rem; padding: .5rem .7rem; font-size: .8rem; background: #fff; }
+        .card { background: #fff; border: 1px solid #eceef6; border-radius: .8rem; overflow: hidden; margin-bottom: 1rem; }
+        .card-h { padding: .8rem 1rem; border-bottom: 1px solid #f1f2f8; font-weight: 700; font-size: .88rem; color: #1e1650; }
+        table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+        th { text-align: left; color: #8a8fa3; font-size: .72rem; font-weight: 600; padding: .6rem 1rem; border-bottom: 1px solid #f1f2f8; }
+        td { padding: .6rem 1rem; border-bottom: 1px solid #f5f6fb; }
+        .badge { font-size: .68rem; font-weight: 700; padding: .15rem .55rem; border-radius: .7rem; white-space: nowrap; }
+        .b-a_payer { background: #fdf0dc; color: #b45309; }
+        .b-controle { background: #e8f0fe; color: #2d5bd7; }
+        .b-paye { background: #e4f8f0; color: #0a9b6c; }
+        .b-annule { background: #f1f2f8; color: #8a8fa3; }
+        .btn { border: none; border-radius: .45rem; padding: .32rem .65rem; font-size: .72rem; font-weight: 600; cursor: pointer; margin-right: .3rem; }
+        .btn-c { background: #2d5bd7; color: #fff; }
+        .btn-p { background: #0a9b6c; color: #fff; }
+        .btn-x { background: #f1f2f8; color: #888; }
+        .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: .8rem; margin-bottom: 1rem; }
+        .kpi { background: #fff; border: 1px solid #eceef6; border-radius: .8rem; padding: .9rem 1rem; }
+        .kpi .l { font-size: .72rem; color: #8a8fa3; }
+        .kpi .v { font-size: 1.15rem; font-weight: 700; color: #1e1650; margin-top: .2rem; }
+        .btn-primary { background: #6c5ce7; color: #fff; border: none; border-radius: .55rem; padding: .55rem 1rem; font-size: .8rem; font-weight: 600; cursor: pointer; }
+        .toast { position: fixed; bottom: 1.4rem; right: 1.4rem; background: #1e1650; color: #fff; padding: .7rem 1.1rem; border-radius: .6rem; font-size: .82rem; z-index: 3000; display: none; }
+        .toast.show { display: block; } .toast.error { background: #c81e1e; }
+    </style>
+</head>
+<body data-backoffice>
+    <main class="container fo-page">
+        <div class="fo-head">
+            <h1>Paiements sortants</h1>
+            <button class="btn-primary" id="btnNew">+ Nouveau paiement</button>
+            <div class="fo-filters">
+                <select id="fType"><option value="">Tous les flux</option></select>
+                <select id="fStatut"><option value="">Tous statuts</option><option value="a_payer">À payer</option><option value="controle">Contrôlé</option><option value="paye">Payé</option><option value="annule">Annulé</option></select>
+                <input type="month" id="fPeriode">
+            </div>
+        </div>
+
+        <div class="kpis">
+            <div class="kpi"><div class="l">Polices émises</div><div class="v" id="kpiEmises">—</div></div>
+            <div class="kpi"><div class="l">Polices réglées</div><div class="v" id="kpiReglees">—</div></div>
+            <div class="kpi"><div class="l">Encaissé</div><div class="v" id="kpiEncaisse">—</div></div>
+            <div class="kpi"><div class="l">Écart de rapprochement</div><div class="v" id="kpiEcart">—</div></div>
+        </div>
+
+        <div class="card">
+            <div class="card-h">Flux de paiement</div>
+            <table>
+                <thead><tr><th>Référence</th><th>Flux</th><th>Bénéficiaire</th><th>Montant</th><th>Période</th><th>Statut</th><th>Actions</th></tr></thead>
+                <tbody id="rows"><tr><td colspan="7" style="color:#8a8fa3">Chargement…</td></tr></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <div class="card-h">Dossiers non réglés (rapprochement)</div>
+            <table>
+                <thead><tr><th>Souscription</th><th>Statut</th><th>Montant attendu</th><th>Créée le</th></tr></thead>
+                <tbody id="ecartsBody"><tr><td colspan="4" style="color:#8a8fa3">—</td></tr></tbody>
+            </table>
+        </div>
+    </main>
+    <div class="toast" id="toast"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/permissions.js"></script>
+    <script src="js/backoffice-nav.js"></script>
+    <script>
+        const $ = id => document.getElementById(id);
+        const esc = v => { const d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; };
+        const toast = (m, e) => { const t = $('toast'); t.textContent = m; t.className = 'toast show' + (e ? ' error' : ''); setTimeout(() => t.className = 'toast', 3200); };
+        const fmt = n => (n == null ? '—' : n.toLocaleString('fr-FR'));
+        const TYPE_LABELS = {
+            cession_reassurance: 'Cession réassurance', retention_assureur: 'Rétention assureur',
+            commission_cession: 'Commission de cession', commission_courtage: 'Commission de courtage',
+            cout_police: 'Coût de police', taxe: 'Taxe', taxe_additionnelle: 'Taxe additionnelle',
+            retrocession_mhc: 'Rétrocession MHC', quote_part_sinistre_reassureur: 'Quote-part sinistre (réassureur)',
+            facture_hopital: 'Facture hôpital',
+        };
+        const STATUT_LABELS = { a_payer: 'À payer', controle: 'Contrôlé', paye: 'Payé', annule: 'Annulé' };
+
+        function qs() {
+            const p = new URLSearchParams();
+            if ($('fType').value) p.set('type_paiement', $('fType').value);
+            if ($('fStatut').value) p.set('statut', $('fStatut').value);
+            if ($('fPeriode').value) p.set('periode', $('fPeriode').value);
+            return p.toString() ? '?' + p.toString() : '';
+        }
+
+        async function load() {
+            const rows = await apiCall('/finance/outbound' + qs());
+            $('rows').innerHTML = (rows || []).map(p => `
+                <tr>
+                    <td>${esc(p.reference)}</td>
+                    <td>${esc(TYPE_LABELS[p.type_paiement] || p.type_paiement)}</td>
+                    <td>${esc(p.beneficiaire_nom || p.beneficiaire_type)}</td>
+                    <td>${fmt(p.montant)} ${esc(p.devise)}</td>
+                    <td>${esc(p.periode || '—')}</td>
+                    <td><span class="badge b-${p.statut}">${STATUT_LABELS[p.statut] || p.statut}</span></td>
+                    <td>
+                        ${p.statut === 'a_payer' ? `<button class="btn btn-c" data-act="control:${p.id}">Contrôler</button>` : ''}
+                        ${(p.statut === 'a_payer' || p.statut === 'controle') ? `<button class="btn btn-p" data-act="pay:${p.id}">Payer</button>` : ''}
+                        ${p.statut !== 'paye' && p.statut !== 'annule' ? `<button class="btn btn-x" data-act="cancel:${p.id}">Annuler</button>` : ''}
+                    </td>
+                </tr>`).join('') || '<tr><td colspan="7" style="color:#8a8fa3">Aucun flux</td></tr>';
+            document.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', async () => {
+                const [act, id] = b.dataset.act.split(':');
+                try { await apiCall(`/finance/outbound/${id}/${act}`, { method: 'POST' }); toast('Fait'); load(); }
+                catch (e) { toast(e.message || 'Erreur', true); }
+            }));
+
+            try {
+                const r = await apiCall('/finance/reconciliation' + ($('fPeriode').value ? `?periode=${$('fPeriode').value}` : ''));
+                $('kpiEmises').textContent = r.polices_emises;
+                $('kpiReglees').textContent = r.polices_reglees;
+                $('kpiEncaisse').textContent = fmt(r.total_encaisse);
+                $('kpiEcart').textContent = fmt(r.ecart);
+                $('ecartsBody').innerHTML = (r.dossiers_non_regles || []).map(d => `
+                    <tr><td>${esc(d.numero_souscription || '#' + d.souscription_id)}</td><td>${esc(d.statut)}</td><td>${fmt(d.montant_attendu)}</td><td>${esc((d.created_at || '').slice(0, 10))}</td></tr>`).join('')
+                    || '<tr><td colspan="4" style="color:#8a8fa3">Aucun écart</td></tr>';
+            } catch (_) { /* permission insuffisante pour le rapprochement */ }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!(await requireAuth())) return;
+            $('fType').innerHTML = '<option value="">Tous les flux</option>' +
+                Object.entries(TYPE_LABELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+            ['fType', 'fStatut', 'fPeriode'].forEach(id => $(id).addEventListener('change', load));
+            $('btnNew').addEventListener('click', async () => {
+                const type = prompt('Type de flux :\n' + Object.entries(TYPE_LABELS).map(([k, v], i) => `${i + 1}. ${v}`).join('\n'), 'cession_reassurance');
+                if (!type || !TYPE_LABELS[type]) return;
+                const montant = parseFloat(prompt('Montant :', '0'));
+                if (!montant) return;
+                const beneficiaire_nom = prompt('Bénéficiaire :') || null;
+                try {
+                    await apiCall('/finance/outbound', { method: 'POST', body: JSON.stringify({ type_paiement: type, beneficiaire_type: 'autre', beneficiaire_nom, montant, periode: $('fPeriode').value || null }) });
+                    toast('Paiement créé'); load();
+                } catch (e) { toast(e.message || 'Erreur', true); }
+            });
+            load();
+        });
+    </script>
+</body>
+</html>

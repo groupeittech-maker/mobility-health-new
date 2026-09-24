@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Réassureurs — Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/backoffice.css">
+    <style>
+        .rs-page { padding: 1.2rem 1.4rem 3rem; }
+        .rs-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+        .rs-head h1 { font-size: 1.35rem; color: #1e1650; margin: 0; }
+        .btn-primary { background: #6c5ce7; color: #fff; border: none; border-radius: .6rem; padding: .6rem 1.1rem; font-size: .83rem; font-weight: 600; cursor: pointer; }
+        .card { background: #fff; border: 1px solid #eceef6; border-radius: .8rem; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+        th { text-align: left; color: #8a8fa3; font-size: .72rem; font-weight: 600; padding: .7rem 1rem; border-bottom: 1px solid #f1f2f8; }
+        td { padding: .7rem 1rem; border-bottom: 1px solid #f5f6fb; }
+        .badge { font-size: .7rem; font-weight: 700; padding: .15rem .55rem; border-radius: .7rem; }
+        .badge.on { background: #e4f8f0; color: #0a9b6c; }
+        .badge.off { background: #fde8e8; color: #c81e1e; }
+        .act { color: #6c5ce7; font-size: .76rem; font-weight: 600; background: none; border: none; cursor: pointer; margin-right: .6rem; }
+        .act.del { color: #c81e1e; }
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(20,15,60,.45); display: none; align-items: center; justify-content: center; z-index: 2000; }
+        .modal-backdrop.open { display: flex; }
+        .modal { background: #fff; border-radius: .9rem; width: 520px; max-width: 94vw; max-height: 88vh; overflow-y: auto; padding: 1.2rem 1.3rem; }
+        .modal h3 { margin: 0 0 1rem; font-size: 1rem; color: #1e1650; }
+        .fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem .9rem; }
+        .fgrid label { display: block; font-size: .74rem; font-weight: 600; color: #555; margin-bottom: .25rem; }
+        .fgrid input { width: 100%; border: 1px solid #e2e4f0; border-radius: .5rem; padding: .5rem .6rem; font-size: .82rem; box-sizing: border-box; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.1rem; }
+        .btn-outline { background: #fff; border: 1px solid #e2e4f0; border-radius: .6rem; padding: .55rem 1rem; font-size: .82rem; cursor: pointer; }
+        .toast { position: fixed; bottom: 1.4rem; right: 1.4rem; background: #1e1650; color: #fff; padding: .7rem 1.1rem; border-radius: .6rem; font-size: .82rem; z-index: 3000; display: none; }
+        .toast.show { display: block; } .toast.error { background: #c81e1e; }
+    </style>
+</head>
+<body data-backoffice>
+    <main class="container rs-page">
+        <div class="rs-head">
+            <h1>Réassureurs</h1>
+            <button class="btn-primary" id="btnNew" type="button">+ Nouveau réassureur</button>
+        </div>
+        <div class="card">
+            <table>
+                <thead><tr><th>Nom</th><th>Code</th><th>Pays</th><th>Contact</th><th>Cession défaut</th><th>Comm. cession défaut</th><th>Statut</th><th>Actions</th></tr></thead>
+                <tbody id="rows"><tr><td colspan="8" style="color:#8a8fa3">Chargement…</td></tr></tbody>
+            </table>
+        </div>
+    </main>
+
+    <div class="modal-backdrop" id="editModal">
+        <div class="modal">
+            <h3 id="modalTitle">Nouveau réassureur</h3>
+            <div class="fgrid">
+                <div><label>Nom *</label><input id="fNom"></div>
+                <div><label>Code</label><input id="fCode"></div>
+                <div><label>Pays</label><input id="fPays"></div>
+                <div><label>Ville</label><input id="fVille"></div>
+                <div style="grid-column:span 2"><label>Adresse</label><input id="fAdresse"></div>
+                <div><label>Téléphone</label><input id="fTel"></div>
+                <div><label>Email</label><input id="fEmail"></div>
+                <div><label>Contact</label><input id="fContact"></div>
+                <div><label>Cession par défaut (%)</label><input id="fCession" type="number" step="0.01"></div>
+                <div><label>Commission cession défaut (%)</label><input id="fCommCession" type="number" step="0.01"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-outline" type="button" id="btnCancel">Annuler</button>
+                <button class="btn-primary" type="button" id="btnSave">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/permissions.js"></script>
+    <script src="js/backoffice-nav.js"></script>
+    <script>
+        let editingId = null;
+        const $ = id => document.getElementById(id);
+        const esc = v => { const d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; };
+        function toast(m, err) { const t = $('toast'); t.textContent = m; t.className = 'toast show' + (err ? ' error' : ''); setTimeout(() => t.className = 'toast', 3000); }
+
+        async function load() {
+            const rows = await apiCall('/admin/reassureurs/');
+            $('rows').innerHTML = (rows || []).map(r => `
+                <tr>
+                    <td><strong>${esc(r.nom)}</strong></td>
+                    <td>${esc(r.code || '—')}</td>
+                    <td>${esc(r.pays || '—')}</td>
+                    <td>${esc(r.contact_nom || r.email || r.telephone || '—')}</td>
+                    <td>${r.cession_defaut_pct != null ? r.cession_defaut_pct + ' %' : '—'}</td>
+                    <td>${r.commission_cession_defaut_pct != null ? r.commission_cession_defaut_pct + ' %' : '—'}</td>
+                    <td><span class="badge ${r.est_actif ? 'on' : 'off'}">${r.est_actif ? 'Actif' : 'Inactif'}</span></td>
+                    <td>
+                        <button class="act" data-edit='${JSON.stringify(r).replace(/'/g, '&#39;')}'>Modifier</button>
+                        <button class="act del" data-del="${r.id}">${r.est_actif ? 'Désactiver' : 'Supprimer'}</button>
+                    </td>
+                </tr>`).join('') || '<tr><td colspan="8" style="color:#8a8fa3">Aucun réassureur</td></tr>';
+            $('rows').querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openEdit(JSON.parse(b.dataset.edit))));
+            $('rows').querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => remove(+b.dataset.del)));
+        }
+
+        function openEdit(r) {
+            editingId = r ? r.id : null;
+            $('modalTitle').textContent = r ? 'Modifier le réassureur' : 'Nouveau réassureur';
+            r = r || {};
+            $('fNom').value = r.nom || ''; $('fCode').value = r.code || '';
+            $('fPays').value = r.pays || ''; $('fVille').value = r.ville || '';
+            $('fAdresse').value = r.adresse || ''; $('fTel').value = r.telephone || '';
+            $('fEmail').value = r.email || ''; $('fContact').value = r.contact_nom || '';
+            $('fCession').value = r.cession_defaut_pct ?? ''; $('fCommCession').value = r.commission_cession_defaut_pct ?? '';
+            $('editModal').classList.add('open');
+        }
+
+        async function save() {
+            const nom = $('fNom').value.trim();
+            if (!nom) { toast('Nom requis', true); return; }
+            const body = {
+                nom, code: $('fCode').value || null, pays: $('fPays').value || null,
+                ville: $('fVille').value || null, adresse: $('fAdresse').value || null,
+                telephone: $('fTel').value || null, email: $('fEmail').value || null,
+                contact_nom: $('fContact').value || null,
+                cession_defaut_pct: $('fCession').value === '' ? null : +$('fCession').value,
+                commission_cession_defaut_pct: $('fCommCession').value === '' ? null : +$('fCommCession').value,
+            };
+            try {
+                if (editingId) await apiCall(`/admin/reassureurs/${editingId}`, { method: 'PUT', body: JSON.stringify(body) });
+                else await apiCall('/admin/reassureurs/', { method: 'POST', body: JSON.stringify(body) });
+                $('editModal').classList.remove('open');
+                toast('Enregistré');
+                load();
+            } catch (e) { toast(e.message || 'Erreur', true); }
+        }
+
+        async function remove(id) {
+            if (!confirm('Confirmer la désactivation/suppression ?')) return;
+            try { await apiCall(`/admin/reassureurs/${id}`, { method: 'DELETE' }); toast('Fait'); load(); }
+            catch (e) { toast(e.message || 'Erreur', true); }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!(await requireAuth())) return;
+            $('btnNew').addEventListener('click', () => openEdit(null));
+            $('btnCancel').addEventListener('click', () => $('editModal').classList.remove('open'));
+            $('btnSave').addEventListener('click', save);
+            load();
+        });
+    </script>
+</body>
+</html>
