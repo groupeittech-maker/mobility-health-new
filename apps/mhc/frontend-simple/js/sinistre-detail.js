@@ -2,8 +2,8 @@
 (function () {
     'use strict';
 
-    const API = window.API_URL || 'https://srv1324425.hstgr.cloud/api/v1';
-    const token = () => localStorage.getItem('auth_token');
+    const API = window.API_BASE_URL || 'https://srv1324425.hstgr.cloud/api/v1';
+    const token = () => localStorage.getItem('access_token');
     const id = new URLSearchParams(location.search).get('id');
 
     let detail = null;

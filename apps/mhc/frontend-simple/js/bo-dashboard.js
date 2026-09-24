@@ -2,7 +2,7 @@
 (function () {
     'use strict';
 
-    const API = window.API_URL || 'https://srv1324425.hstgr.cloud/api/v1';
+    const API = window.API_BASE_URL || 'https://srv1324425.hstgr.cloud/api/v1';
     const role = localStorage.getItem('user_role') || 'user';
     const name = localStorage.getItem('user_name') || '';
 
@@ -90,7 +90,7 @@
         document.getElementById('greeting').textContent = 'Bonjour ' + (name.split(' ')[0] || '') + ',';
         document.getElementById('todayLabel').textContent = "Aujourd'hui : " + fmtDate();
 
-        const token = localStorage.getItem('auth_token');
+        const token = localStorage.getItem('access_token');
         const res = await fetch(API + '/admin/dashboard/summary', {
             headers: { Authorization: 'Bearer ' + token },
         });
