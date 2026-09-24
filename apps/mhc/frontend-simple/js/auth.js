@@ -123,7 +123,7 @@ async function requireAuth() {
 }
 
 // Fonction pour exiger un rôle spécifique (redirige si le rôle ne correspond pas)
-async function requireRole(requiredRole, redirectUrl = 'index.html') {
+async function requireRole(requiredRole, redirectUrl = 'login.html') {
     const isValid = await requireAuth();
     if (!isValid) {
         return false;
@@ -138,7 +138,7 @@ async function requireRole(requiredRole, redirectUrl = 'index.html') {
 }
 
 // Fonction pour exiger un des rôles spécifiés
-async function requireAnyRole(allowedRoles, redirectUrl = 'index.html') {
+async function requireAnyRole(allowedRoles, redirectUrl = 'login.html') {
     const isValid = await requireAuth();
     if (!isValid) {
         return false;
