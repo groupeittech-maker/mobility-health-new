@@ -458,6 +458,18 @@ async def execute_action(alerte_id: int, payload: ActionRequest, db: Session = D
         _log_event(db, alerte_id, "hotel", "Demande d'hébergement enregistrée", current_user, {"notes": payload.notes})
         label = "Demande d'hôtel enregistrée"
 
+    elif payload.action == "refuser":
+        # Bon de refus de prise en charge (BRPCU) + alerte marquée refusée.
+        if sinistre:
+            from app.services.mhc_care_document_service import issue_care_document, CareDocumentPermissionError
+            try:
+                issue_care_document(db, sinistre, "BRPCU", current_user, notes=payload.notes, alerte=alerte)
+            except (CareDocumentPermissionError, ValueError):
+                pass
+        alerte.statut = "annulee"
+        _log_event(db, alerte_id, "refus", "Prise en charge refusée", current_user, {"notes": payload.notes})
+        label = "Alerte refusée"
+
     else:
         raise HTTPException(status_code=400, detail="Action inconnue")
 

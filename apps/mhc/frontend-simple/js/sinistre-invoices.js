@@ -173,8 +173,8 @@ function renderInvoiceDetail() {
     const hospitalName = invoice.hospital?.nom || `Hôpital #${invoice.hospital_id}`;
     const sinistreLabel =
         invoice.sinistre?.numero_sinistre || `Sinistre #${invoice.sinistre?.id || '—'}`;
-    const dossierLink = invoice.sinistre?.alerte_id
-        ? `<a href="hospital-alert-details.html?alert_id=${invoice.sinistre.alerte_id}">Ouvrir le dossier</a>`
+    const dossierLink = invoice.sinistre?.id
+        ? `<a href="sinistre-detail.html?id=${invoice.sinistre.id}">Ouvrir le dossier</a>`
         : '';
 
     panel.innerHTML = `

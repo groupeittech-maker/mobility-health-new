@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Détail du sinistre — Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/backoffice.css">
+    <style>
+        .sd-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 1rem; }
+        @media (max-width: 1100px) { .sd-grid { grid-template-columns: 1fr; } }
+        .sd-field label { font-size: 0.68rem; color: #8a8fa3; display: block; margin-bottom: 0.15rem; }
+        .sd-field .fv { font-size: 0.82rem; font-weight: 600; color: #1e1650; }
+        .sd-field select, .sd-field textarea, .sd-field input {
+            width: 100%; border: 1px solid #e2e4f0; border-radius: 0.5rem;
+            padding: 0.45rem 0.6rem; font-size: 0.8rem; background: #fff;
+        }
+        .sd-3col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; }
+        @media (max-width: 800px) { .sd-3col { grid-template-columns: 1fr; } }
+        .sd-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+        .sd-photos { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .sd-photos .ph {
+            width: 72px; height: 72px; border-radius: 0.55rem; object-fit: cover;
+            border: 1px solid #eceef6; background: #f5f6fb;
+        }
+        .sd-photos .add {
+            width: 72px; height: 72px; border-radius: 0.55rem; border: 1.5px dashed #d9dce8;
+            display: grid; place-items: center; color: #8a8fa3; font-size: 0.65rem;
+            text-align: center; cursor: pointer; background: #fafbff;
+        }
+    </style>
+</head>
+<body data-backoffice>
+    <main>
+        <div class="bo-breadcrumb">Sinistre <span class="sep">›</span> Détail sinistre</div>
+        <div class="bo-page-head">
+            <div>
+                <h1>Détail du sinistre <span class="bo-badge en_cours" id="sinStatut"></span></h1>
+                <p class="sub" id="sinMaj"></p>
+            </div>
+            <div class="actions">
+                <button class="btn" onclick="window.print()">⎙ Imprimer</button>
+                <button class="btn primary" onclick="alert('Nouveau sinistre : démarrez depuis une alerte urgente.')">+ Nouveau sinistre</button>
+            </div>
+        </div>
+
+        <!-- Informations générales -->
+        <div class="bo-card">
+            <div class="bo-card-h"><span class="bo-card-title">📋 Informations générales</span></div>
+            <div class="bo-card-b">
+                <div class="sd-grid">
+                    <div class="sd-3col">
+                        <div class="sd-field"><label>N° de sinistre</label><div class="fv" id="fNumero"></div></div>
+                        <div class="sd-field"><label>N° de police</label><div class="fv" id="fPolice"></div></div>
+                        <div class="sd-field"><label>Assuré principal</label>
+                            <div class="fv" id="fAssure"></div>
+                            <div class="muted" id="fAssureMeta" style="font-size:0.7rem;color:#8a8fa3"></div>
+                        </div>
+                        <div class="sd-field"><label>Date et heure du sinistre</label><div class="fv" id="fDate"></div></div>
+                        <div class="sd-field"><label>Pays de survenance</label><div class="fv" id="fPays"></div></div>
+                        <div class="sd-field"><label>Ville de survenance</label><div class="fv" id="fVille"></div></div>
+                        <div class="sd-field"><label>Lieu précis</label><div class="fv" id="fLieu"></div></div>
+                    </div>
+                    <div class="sd-field">
+                        <label>Photos / documents initiaux</label>
+                        <div class="sd-photos" id="photos"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Informations médicales + statut -->
+        <div class="sd-grid">
+            <div class="bo-card">
+                <div class="bo-card-h"><span class="bo-card-title">🏥 Informations médicales</span></div>
+                <div class="bo-card-b">
+                    <div class="sd-3col">
+                        <div class="sd-field"><label>Type de sinistre</label>
+                            <select id="mType"><option>Maladie</option><option>Accident</option><option>Évacuation sanitaire</option><option>Décès</option></select>
+                        </div>
+                        <div class="sd-field"><label>Urgence acceptée ?</label>
+                            <select id="mUrgence"><option value="oui">Oui</option><option value="non">Non</option></select>
+                        </div>
+                        <div class="sd-field"><label>Nom du médecin-conseil</label><div class="fv" id="mMedecin">—</div></div>
+                    </div>
+                    <div class="sd-2col" style="margin-top:0.7rem">
+                        <div class="sd-field"><label>Diagnostic / motif</label><textarea id="mDiagnostic" rows="3" placeholder="Ex. Gastro-entérite aiguë avec déshydratation"></textarea></div>
+                        <div class="sd-field"><label>Commentaires médicaux</label><textarea id="mCommentaires" rows="3" placeholder=""></textarea></div>
+                    </div>
+                    <div style="text-align:right;margin-top:0.5rem">
+                        <button class="btn primary" style="padding:0.5rem 1rem" id="saveMedical">Enregistrer</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bo-card">
+                <div class="bo-card-h"><span class="bo-card-title">📊 Statut et actions</span></div>
+                <div class="bo-card-b">
+                    <div class="bo-timeline" id="statusTimeline"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Parcours de prise en charge -->
+        <div class="bo-card">
+            <div class="bo-card-h"><span class="bo-card-title">🔀 Parcours de prise en charge</span></div>
+            <div class="bo-card-b">
+                <div class="bo-matrix-hint">Sélectionnez pour chaque étape si la prise en charge est Acceptée (A) ou Refusée (R).</div>
+                <div style="overflow-x:auto">
+                    <table class="bo-matrix" id="parcours"></table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Onglets bas -->
+        <div class="bo-tabs" id="bottomTabs"></div>
+        <div class="bo-card" id="tabContent"><div class="bo-card-b" id="tabBody"></div></div>
+    </main>
+
+    <script src="js/auth.js"></script>
+    <script src="js/permissions.js"></script>
+    <script src="js/backoffice-nav.js"></script>
+    <script src="js/sinistre-detail.js"></script>
+</body>
+</html>

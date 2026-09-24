@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centre d'alerte des urgences — Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/backoffice.css">
+</head>
+<body data-backoffice>
+    <main>
+        <div class="bo-page-head">
+            <div>
+                <div class="bo-breadcrumb">Centre d'alerte des urgences</div>
+                <h1>Centre d'alerte des urgences</h1>
+                <p class="sub">Suivi en temps réel des alertes médicales et coordination de la prise en charge.</p>
+            </div>
+            <div class="actions">
+                <span class="bo-page-head-slogan" style="font-size:0.75rem;color:#6c5ce7;font-style:italic;align-self:center">Réactivité aujourd'hui,<br>des vies demain.</span>
+            </div>
+        </div>
+
+        <div class="bo-kpis" id="kpis"></div>
+
+        <div class="bo-card">
+            <div class="bo-card-h">
+                <span class="bo-card-title" id="filterTabs"></span>
+                <button class="export" id="exportBtn">⤓ Exporter</button>
+            </div>
+            <div class="bo-card-b">
+                <div class="bo-filters">
+                    <input type="search" id="fSearch" class="grow" placeholder="Rechercher (assuré, n° dossier, établissement...)">
+                    <select id="fType"><option value="">Type d'urgence : Tous</option><option value="accident">Accident</option><option value="maladie">Maladie</option><option value="evacuation">Évacuation sanitaire</option><option value="deces">Décès</option></select>
+                    <select id="fStatut"><option value="">Statut : Tous</option><option value="en_attente">Urgente</option><option value="en_cours">En traitement</option><option value="resolue">Validée</option><option value="annulee">Refusée</option><option value="cloturee">Clôturée</option></select>
+                    <input type="date" id="fFrom"><input type="date" id="fTo">
+                </div>
+                <table class="bo-table">
+                    <thead><tr>
+                        <th>N° alerte</th><th>Date et heure</th><th>Assuré</th><th>Type d'urgence</th><th>Établissement</th><th>Pays</th><th>Statut</th><th>Actions</th>
+                    </tr></thead>
+                    <tbody id="alertRows"></tbody>
+                </table>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding-top:0.8rem;font-size:0.74rem;color:#8a8fa3;">
+                    <span id="countLabel"></span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="bo-detail-panel" id="detailPanel">
+        <button class="dp-close" onclick="closePanel()">✕</button>
+        <h3>Détails de l'alerte</h3>
+        <span class="dp-tag" id="dpTag">Urgente</span>
+        <div class="dp-section" id="dpAssure"></div>
+        <div class="dp-section" id="dpMedical"></div>
+        <div class="dp-section" id="dpDocs"></div>
+        <div class="dp-actions" id="dpActions"></div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/permissions.js"></script>
+    <script src="js/backoffice-nav.js"></script>
+    <script src="js/alert-center.js"></script>
+</body>
+</html>

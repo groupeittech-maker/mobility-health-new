@@ -104,7 +104,11 @@
         $('kvGps').textContent = `${a.latitude}, ${a.longitude}`;
         $('kvMotif').textContent = a.description ? a.description.slice(0, 80) : '—';
         $('kvDescription').textContent = a.description || '—';
-        $('kvSinistre').textContent = d.numero_sinistre || 'Non créé';
+        if (d.sinistre_id) {
+            $('kvSinistre').innerHTML = `<a href="sinistre-detail.html?id=${d.sinistre_id}" style="color:#4e267c;font-weight:700">${esc(d.numero_sinistre || 'SIN-' + d.sinistre_id)} →</a>`;
+        } else {
+            $('kvSinistre').textContent = 'Non créé';
+        }
 
         const docs = d.documents || [];
         $('docCount').textContent = docs.length;

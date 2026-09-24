@@ -43,6 +43,8 @@ from app.api.v1 import (
     finance_outbound,
     reassureur_portal,
     ops_modules,
+    sinistre_detail,
+    bo_dashboard,
 )
 
 from app.api.v1.notifications import _get_notifications_handler, NotificationResponse
@@ -190,3 +192,5 @@ api_router.include_router(medical_workflow.router, prefix="/medical", tags=["med
 api_router.include_router(finance_outbound.router, prefix="/finance", tags=["finance-outbound"])
 api_router.include_router(reassureur_portal.router, prefix="/reassureur", tags=["reassureur-portal"])
 api_router.include_router(ops_modules.router, prefix="/ops", tags=["ops-modules"])
+api_router.include_router(sinistre_detail.router, prefix="/sinistre-detail", tags=["sinistre-detail"])
+api_router.include_router(bo_dashboard.router, prefix="/admin", tags=["bo-dashboard"])

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de bord — Mobility Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/backoffice.css">
+</head>
+<body data-backoffice>
+    <main>
+        <div class="bo-page-head">
+            <div>
+                <div class="bo-breadcrumb">Tableau de bord</div>
+                <h1 id="greeting">Bonjour,</h1>
+                <p class="sub">Bienvenue sur l'espace de gestion MHC — suivi en temps réel des opérations.</p>
+            </div>
+            <div style="text-align:right">
+                <div style="font-size:0.85rem;font-weight:700;color:#1e1650;">Des soins sans frontières</div>
+                <div style="font-size:0.75rem;color:#8a8fa3;">pour un monde en mouvement</div>
+                <div class="bo-badge en_analyse" id="todayLabel" style="margin-top:0.3rem;"></div>
+            </div>
+        </div>
+
+        <div class="bo-kpis" id="kpis"></div>
+
+        <div class="bo-2col">
+            <div>
+                <div class="bo-card">
+                    <div class="bo-card-h">
+                        <span class="bo-card-title">📋 Demandes récentes</span>
+                        <a class="bo-link-all" href="admin-subscriptions.html">Voir tout</a>
+                    </div>
+                    <div class="bo-card-b" style="padding:0;">
+                        <table class="bo-table">
+                            <thead><tr>
+                                <th>N° demande</th><th>Date et heure</th><th>Assuré</th><th>Type de demande</th><th>Statut</th><th>Actions</th>
+                            </tr></thead>
+                            <tbody id="recentRows"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bo-card">
+                    <div class="bo-card-h">
+                        <span class="bo-card-title">🚨 Alertes urgences</span>
+                        <a class="bo-link-all" href="alert-center.html">Voir tout</a>
+                    </div>
+                    <div class="bo-card-b" style="padding:0;">
+                        <table class="bo-table">
+                            <thead><tr>
+                                <th>N° alerte</th><th>Date et heure</th><th>Assuré</th><th>Motif</th><th>Priorité</th><th>Actions</th>
+                            </tr></thead>
+                            <tbody id="alertRows"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="bo-card">
+                    <div class="bo-card-h"><span class="bo-card-title">📊 Répartition des demandes</span></div>
+                    <div class="bo-card-b">
+                        <div class="bo-donut-wrap">
+                            <div class="bo-donut" id="donut"><div class="bo-donut-center" id="donutCenter">—</div></div>
+                            <ul class="bo-legend" id="donutLegend"></ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bo-card">
+                    <div class="bo-card-h"><span class="bo-card-title">📈 Statut global</span></div>
+                    <div class="bo-card-b">
+                        <ul class="bo-legend" id="globalStatus"></ul>
+                    </div>
+                </div>
+
+                <div class="bo-card">
+                    <div class="bo-card-h"><span class="bo-card-title">⚡ Actions rapides</span></div>
+                    <div class="bo-card-b">
+                        <div class="bo-quick" id="quickActions"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/auth.js"></script>
+    <script src="js/permissions.js"></script>
+    <script src="js/backoffice-nav.js"></script>
+    <script src="js/bo-dashboard.js"></script>
+</body>
+</html>
