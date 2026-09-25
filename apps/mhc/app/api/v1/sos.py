@@ -953,8 +953,12 @@ async def get_alertes(
     if not alertes:
         return alertes
 
-    if _hydrate_alertes_for_response(db, alertes):
-        db.commit()
+    try:
+        if _hydrate_alertes_for_response(db, alertes):
+            db.commit()
+    except Exception:
+        logger.exception("Hydratation des alertes échouée — retour des données brutes")
+        db.rollback()
 
     return alertes
 

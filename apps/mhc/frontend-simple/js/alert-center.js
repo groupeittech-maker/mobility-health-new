@@ -114,7 +114,7 @@
 
     async function load() {
         const res = await fetch(API + '/sos/?limit=200', { headers: { Authorization: 'Bearer ' + token() } });
-        if (!res.ok) { document.getElementById('alertRows').innerHTML = '<tr><td colspan="8">Erreur de chargement</td></tr>'; return; }
+        if (!res.ok) { document.getElementById('alertRows').innerHTML = '<tr><td colspan="8">Erreur de chargement (HTTP ' + res.status + ')</td></tr>'; return; }
         allAlertes = await res.json();
         render();
     }
