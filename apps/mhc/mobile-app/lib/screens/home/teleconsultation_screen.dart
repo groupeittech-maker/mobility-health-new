@@ -8,6 +8,7 @@ import '../../core/widgets/mh_surface_card.dart';
 import '../../core/widgets/mh_text_highlight.dart';
 import '../../models/medecin_conseil.dart';
 import '../../services/medecin_conseil_service.dart';
+import '../../core/utils/api_error_helper.dart';
 
 /// Onglet « Téléconsultation » du kit MyMHC : médecins conseils groupés par
 /// ville/destination, « Voir les informations » et « Lancer une téléconsultation ».
@@ -49,7 +50,7 @@ class _TeleconsultationScreenState extends State<TeleconsultationScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = apiErrorToUserMessage(e);
           _loading = false;
         });
       }

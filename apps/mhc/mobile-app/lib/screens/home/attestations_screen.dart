@@ -8,6 +8,7 @@ import '../../core/constants/mh_layout.dart';
 import '../../core/widgets/mh_surface_card.dart';
 import '../../core/widgets/mh_text_highlight.dart';
 import '../../services/api_services.dart';
+import '../../core/utils/api_error_helper.dart';
 
 /// Mes attestations – liste et téléchargement PDF / e-carte.
 class AttestationsScreen extends StatefulWidget {
@@ -63,7 +64,7 @@ class _AttestationsScreenState extends State<AttestationsScreen> {
       if (mounted && _attestations.isEmpty) {
         setState(() {
           _loading = false;
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = apiErrorToUserMessage(e);
         });
       }
     }
@@ -91,7 +92,7 @@ class _AttestationsScreenState extends State<AttestationsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur : ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text('Erreur : ${apiErrorToUserMessage(e)}'),
             backgroundColor: AppColors.danger,
           ),
         );
@@ -123,7 +124,7 @@ class _AttestationsScreenState extends State<AttestationsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur : ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text('Erreur : ${apiErrorToUserMessage(e)}'),
             backgroundColor: AppColors.danger,
           ),
         );

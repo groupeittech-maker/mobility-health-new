@@ -9,6 +9,7 @@ import '../../core/widgets/mh_surface_card.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/auth_service.dart';
+import '../../core/utils/api_error_helper.dart';
 
 /// « Mon profil » (kit) : coordonnées modifiables, personne à contacter,
 /// sécurité, déconnexion.
@@ -42,7 +43,7 @@ class _MonProfilScreenState extends State<MonProfilScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = apiErrorToUserMessage(e);
           _loading = false;
         });
       }

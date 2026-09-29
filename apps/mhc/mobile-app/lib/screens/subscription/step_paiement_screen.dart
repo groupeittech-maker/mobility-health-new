@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
+import '../../core/utils/api_error_helper.dart';
 import '../../core/widgets/mh_text_highlight.dart';
 import '../../services/api_services.dart';
 
@@ -153,7 +154,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = e is Exception ? e.toString().replaceFirst('Exception: ', '') : e.toString();
+        _error = apiErrorToUserMessage(e);
       });
     }
   }
@@ -192,7 +193,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
       }
     } catch (e) {
       if (mounted) {
-        String message = e is Exception ? e.toString().replaceFirst('Exception: ', '') : e.toString();
+        String message = apiErrorToUserMessage(e);
         if (e is DioException) {
           final detail = e.response?.data is Map<String, dynamic>
               ? (e.response?.data as Map<String, dynamic>)['detail']

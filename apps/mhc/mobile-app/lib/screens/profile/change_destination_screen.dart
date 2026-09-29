@@ -9,6 +9,7 @@ import '../../core/widgets/mh_surface_card.dart';
 import '../../models/destination.dart';
 import '../../models/subscription.dart';
 import '../../services/api_services.dart';
+import '../../core/utils/api_error_helper.dart';
 
 /// « Modifier ma destination » (kit) : changement possible uniquement dans la
 /// zone souscrite ; billet et motif joints. Hors zone → nouvelle police.
@@ -80,7 +81,7 @@ class _ChangeDestinationScreenState extends State<ChangeDestinationScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = apiErrorToUserMessage(e);
           _loading = false;
         });
       }
@@ -142,7 +143,7 @@ class _ChangeDestinationScreenState extends State<ChangeDestinationScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = apiErrorToUserMessage(e);
           _sending = false;
         });
       }

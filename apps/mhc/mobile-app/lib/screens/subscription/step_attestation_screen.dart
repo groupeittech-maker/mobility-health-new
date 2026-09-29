@@ -5,6 +5,7 @@ import '../../core/constants/mh_layout.dart';
 import '../../core/widgets/mh_text_highlight.dart';
 import '../../services/api_services.dart';
 import '../pdf_viewer_screen.dart';
+import '../../core/utils/api_error_helper.dart';
 
 /// Étape 5 : Attestation – liste des attestations de la souscription, téléchargement PDF dans l'app.
 class StepAttestationScreen extends StatefulWidget {
@@ -50,7 +51,7 @@ class _StepAttestationScreenState extends State<StepAttestationScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = apiErrorToUserMessage(e);
           _loading = false;
         });
       }
@@ -172,7 +173,7 @@ class _StepAttestationScreenState extends State<StepAttestationScreen> {
                                           ScaffoldMessenger.of(context).showSnackBar(
                                             SnackBar(
                                               content: Text(
-                                                'Erreur : ${e.toString().replaceFirst('Exception: ', '')}',
+                                                'Erreur : ${apiErrorToUserMessage(e)}',
                                               ),
                                               backgroundColor: AppColors.danger,
                                             ),

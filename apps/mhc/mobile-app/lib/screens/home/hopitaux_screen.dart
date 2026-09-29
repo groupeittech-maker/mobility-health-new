@@ -6,6 +6,7 @@ import '../../core/constants/mh_layout.dart';
 import '../../core/widgets/mh_surface_card.dart';
 import '../../core/widgets/mh_text_highlight.dart';
 import '../../services/api_services.dart';
+import '../../core/utils/api_error_helper.dart';
 
 /// Onglet « Hôpitaux » du kit MyMHC : établissements partenaires groupés par
 /// ville, adresse, téléphone avec bouton d'appel.
@@ -45,7 +46,7 @@ class _HopitauxScreenState extends State<HopitauxScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = apiErrorToUserMessage(e);
           _loading = false;
         });
       }

@@ -12,6 +12,7 @@ import '../../services/avenant_service.dart';
 import '../../services/medecin_conseil_service.dart';
 import '../../widgets/medecin_conseil_card.dart';
 import '../pdf_viewer_screen.dart';
+import '../../core/utils/api_error_helper.dart';
 
 /// Détail d'une souscription : identité, récap souscription, attestations, e-carte (si généré).
 class SubscriptionDetailScreen extends StatefulWidget {
@@ -94,7 +95,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = apiErrorToUserMessage(e);
           _loading = false;
         });
       }
@@ -132,7 +133,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur : ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text('Erreur : ${apiErrorToUserMessage(e)}'),
             backgroundColor: AppColors.danger,
           ),
         );
@@ -152,7 +153,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur : ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text('Erreur : ${apiErrorToUserMessage(e)}'),
             backgroundColor: AppColors.danger,
           ),
         );
@@ -187,7 +188,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
         setState(() => _resiliationLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur : ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text('Erreur : ${apiErrorToUserMessage(e)}'),
             backgroundColor: AppColors.danger,
           ),
         );
@@ -312,7 +313,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                               setSheetState(() => submitting = false);
                               if (!ctx.mounted) return;
                               ScaffoldMessenger.of(ctx).showSnackBar(
-                                SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')), backgroundColor: Colors.red),
+                                SnackBar(content: Text(apiErrorToUserMessage(e)), backgroundColor: Colors.red),
                               );
                             }
                           },

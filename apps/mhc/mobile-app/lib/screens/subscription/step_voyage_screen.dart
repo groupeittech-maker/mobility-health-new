@@ -912,12 +912,15 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                   ),
                 ),
               ),
-              TextButton.icon(
-                onPressed: _pickEcartePhoto,
-                icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-                label: Text(hasPhoto ? 'Changer' : 'Prendre une photo'),
-              ),
             ],
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _pickEcartePhoto,
+              icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+              label: Text(hasPhoto ? 'Changer' : 'Prendre une photo'),
+            ),
           ),
           const SizedBox(height: 4),
           Text(

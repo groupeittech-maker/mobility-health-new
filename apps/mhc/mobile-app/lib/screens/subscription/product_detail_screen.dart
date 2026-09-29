@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/api_error_helper.dart';
 import '../../models/product.dart';
 import '../../models/subscription_quote.dart';
 import '../../services/api_services.dart';
@@ -66,7 +67,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = apiErrorToUserMessage(e);
           _loading = false;
         });
       }

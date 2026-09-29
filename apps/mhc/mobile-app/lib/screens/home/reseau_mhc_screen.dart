@@ -6,6 +6,7 @@ import '../../core/widgets/mh_states.dart';
 import '../../core/widgets/mh_surface_card.dart';
 import '../../models/destination.dart';
 import '../../services/api_services.dart';
+import '../../core/utils/api_error_helper.dart';
 
 /// « Notre réseau » (kit) : pays du réseau MHC avec rappel explicite que la
 /// couverture de la police dépend de sa zone et de ses conditions.
@@ -58,7 +59,7 @@ class _ReseauMhcScreenState extends State<ReseauMhcScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = apiErrorToUserMessage(e);
           _loading = false;
         });
       }

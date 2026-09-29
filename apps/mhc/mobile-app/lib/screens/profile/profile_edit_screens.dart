@@ -7,6 +7,7 @@ import '../../core/widgets/mh_app_bar.dart';
 import '../../core/widgets/mh_surface_card.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
+import '../../core/utils/api_error_helper.dart';
 
 /// Écrans de modification du profil (kit « Compte et états ») :
 /// adresse e-mail, téléphone, personne à contacter.
@@ -130,7 +131,7 @@ class _EditEmailScreenState extends State<EditEmailScreen> {
       } catch (e) {
         if (mounted) {
           setState(() {
-            _error = e.toString().replaceFirst('Exception: ', '');
+            _error = apiErrorToUserMessage(e);
             _loading = false;
           });
         }
@@ -160,7 +161,7 @@ class _EditEmailScreenState extends State<EditEmailScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = apiErrorToUserMessage(e);
           _loading = false;
         });
       }
@@ -307,7 +308,7 @@ class _EditPhoneScreenState extends State<EditPhoneScreen> {
       } catch (e) {
         if (mounted) {
           setState(() {
-            _error = e.toString().replaceFirst('Exception: ', '');
+            _error = apiErrorToUserMessage(e);
             _loading = false;
           });
         }
@@ -337,7 +338,7 @@ class _EditPhoneScreenState extends State<EditPhoneScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = apiErrorToUserMessage(e);
           _loading = false;
         });
       }
@@ -523,7 +524,7 @@ class _EditContactScreenState extends State<EditContactScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = apiErrorToUserMessage(e);
           _loading = false;
         });
       }

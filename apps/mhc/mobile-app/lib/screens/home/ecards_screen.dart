@@ -11,6 +11,7 @@ import '../../core/widgets/mh_states.dart';
 import '../../core/widgets/mh_surface_card.dart';
 import '../../models/subscription.dart';
 import '../../services/api_services.dart';
+import '../../core/utils/api_error_helper.dart';
 
 /// « Ma carte d'assurance » (kit) : une e-carte par assuré — adulte en violet,
 /// chaque mineur rattaché en turquoise — avec identité et téléchargement.
@@ -88,7 +89,7 @@ class _EcardsScreenState extends State<EcardsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = apiErrorToUserMessage(e);
           _loading = false;
         });
       }
@@ -148,7 +149,7 @@ class _EcardsScreenState extends State<EcardsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            content: Text(apiErrorToUserMessage(e)),
             backgroundColor: AppColors.danger,
           ),
         );

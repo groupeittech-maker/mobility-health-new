@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/subscription.dart';
 import '../services/api_services.dart';
+import '../core/utils/api_error_helper.dart';
 
 class SubscriptionsScreen extends StatefulWidget {
   const SubscriptionsScreen({super.key});
@@ -40,7 +41,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = apiErrorToUserMessage(e);
         _loading = false;
       });
     }

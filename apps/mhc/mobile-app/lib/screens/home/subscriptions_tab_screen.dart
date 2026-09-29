@@ -9,6 +9,7 @@ import '../../core/widgets/mh_text_highlight.dart';
 import '../../models/subscription.dart';
 import '../../services/api_services.dart';
 import 'subscription_detail_screen.dart';
+import '../../core/utils/api_error_helper.dart';
 
 /// Onglet « Souscription » (kit) : CTA nouvelle souscription + liste des
 /// contrats groupée par statut (actives, en attente, expirées).
@@ -55,7 +56,7 @@ class _SubscriptionsTabScreenState extends State<SubscriptionsTabScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = apiErrorToUserMessage(e);
           _loading = false;
         });
       }
