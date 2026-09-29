@@ -1,3 +1,7 @@
+import json
+import logging
+import random
+import string
 from typing import List, Union, Optional
 from datetime import datetime, date
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -5,15 +9,19 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, text
 from app.core.database import get_db
 from app.core.enums import Role
+from app.core.redis_client import get_redis
 from app.core.security import get_password_hash
 from app.api.v1.auth import get_current_user
 from app.models.user import User
 from app.models.notification import Notification
+from app.services.email_delivery import dispatch_email, EmailDeliveryError
 from app.services.user_service import UserService
 from app.models.attestation import Attestation
 from app.models.souscription import Souscription
 from app.schemas.attestation import AttestationResponse
 from pydantic import BaseModel, EmailStr, field_serializer
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -39,6 +47,15 @@ class UserUpdate(BaseModel):
     role: Role | None = None
     hospital_id: int | None = None
     reassureur_id: int | None = None
+    # Coordonnées modifiables depuis MyMHC (téléphone / contact d'urgence)
+    telephone: str | None = None
+    numero_whatsapp: str | None = None
+    nom_contact_urgence: str | None = None
+    contact_urgence: str | None = None
+    date_naissance: str | None = None
+    nationalite: str | None = None
+    numero_passeport: str | None = None
+    validite_passeport: str | None = None
 
 
 class UserPasswordReset(BaseModel):
@@ -60,6 +77,7 @@ class UserResponse(BaseModel):
     # Informations civiles (pour consultation par le médecin MH avant validation)
     date_naissance: Union[date, str, None] = None
     telephone: str | None = None
+    numero_whatsapp: str | None = None
     sexe: str | None = None
     nationalite: str | None = None
     numero_passeport: str | None = None
@@ -342,6 +360,224 @@ async def validate_inscription(
     return user
 
 
+# ---------------------------------------------------------------------------
+# Changement des coordonnées avec vérification (kit MyMHC — Mon profil)
+# ---------------------------------------------------------------------------
+
+_CONTACT_CHANGE_CHANNELS = ("email", "sms", "whatsapp")
+
+
+class ChangeEmailRequest(BaseModel):
+    new_email: EmailStr
+    channel: str | None = "email"
+
+
+class ChangePhoneRequest(BaseModel):
+    new_phone: str
+    channel: str | None = "sms"  # sms | whatsapp | email
+
+
+class ContactChangeConfirm(BaseModel):
+    code: str
+
+
+def _issue_contact_change_code(user_id: int, kind: str, value: str) -> str:
+    """Stocke {kind, value, code} dans Redis (15 min) et retourne le code."""
+    redis = get_redis()
+    if redis is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service de vérification temporairement indisponible.",
+        )
+    code = "".join(random.choices(string.digits, k=6))
+    redis.setex(
+        f"contact_change:{user_id}",
+        900,
+        json.dumps({"kind": kind, "value": value, "code": code}),
+    )
+    return code
+
+
+def _deliver_contact_change_code(
+    channel: str,
+    *,
+    user: User,
+    code: str,
+    email: str | None = None,
+    phone: str | None = None,
+) -> None:
+    """Envoie le code sur le canal demandé."""
+    channel = (channel or "email").strip().lower()
+    if channel not in _CONTACT_CHANGE_CHANNELS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Canal de vérification inconnu : {channel}",
+        )
+    if channel == "email":
+        to_email = email or user.email
+        subject = "Code de vérification - Mobility Health"
+        body_text = (
+            f"Votre code de vérification MyMHC est : {code}\n"
+            "Il est valable 15 minutes."
+        )
+        dispatch_email(
+            to_email=to_email,
+            subject=subject,
+            body_html=(
+                f"<p>Bonjour {user.full_name or user.username},</p>"
+                f"<p>Votre code de vérification MyMHC est :</p>"
+                f"<p style='font-size:28px;font-weight:bold;letter-spacing:6px;'>{code}</p>"
+                "<p>Il est valable 15 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.</p>"
+            ),
+            body_text=body_text,
+            user_id=user.id,
+            synchronous=True,
+        )
+        return
+    destination = phone or user.numero_whatsapp or user.telephone
+    if not destination:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Aucun numéro de téléphone disponible pour ce canal.",
+        )
+    from app.integrations.messaging import get_messaging_client
+    from app.integrations.messaging.schemas import MessageSendRequest
+
+    get_messaging_client().send(
+        MessageSendRequest(
+            channel=channel,
+            to=destination,
+            message=f"MyMHC : votre code de vérification est {code} (valide 15 min).",
+            reference=f"contact_change:{user.id}",
+        )
+    )
+
+
+def _consume_contact_change_code(user_id: int, kind: str, code: str) -> str:
+    """Vérifie le code et retourne la valeur en attente ; lève 400 sinon."""
+    redis = get_redis()
+    if redis is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service de vérification temporairement indisponible.",
+        )
+    raw = redis.get(f"contact_change:{user_id}")
+    if not raw:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Aucun code en attente. Recommencez la demande.",
+        )
+    data = json.loads(raw)
+    if data.get("kind") != kind or data.get("code") != code.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Code de vérification incorrect.",
+        )
+    redis.delete(f"contact_change:{user_id}")
+    return data["value"]
+
+
+@router.post("/me/change-email/request")
+async def request_change_email(
+    body: ChangeEmailRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Demande de changement d'adresse e-mail : code envoyé à la NOUVELLE adresse
+    (ou par SMS/WhatsApp si demandé)."""
+    new_email = str(body.new_email).strip().lower()
+    if new_email == current_user.email.lower():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cette adresse e-mail est déjà la vôtre.",
+        )
+    existing = db.query(User).filter(
+        or_(User.email == new_email, User.username == new_email)
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cette adresse e-mail est déjà utilisée.",
+        )
+    code = _issue_contact_change_code(current_user.id, "email", new_email)
+    db_user = db.query(User).filter(User.id == current_user.id).first()
+    _deliver_contact_change_code(
+        body.channel or "email",
+        user=db_user,
+        code=code,
+        email=new_email,
+    )
+    return {"message": "Code de vérification envoyé", "channel": body.channel or "email"}
+
+
+@router.post("/me/change-email/confirm", response_model=UserResponse)
+async def confirm_change_email(
+    body: ContactChangeConfirm,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Applique le changement d'e-mail après vérification du code."""
+    new_email = _consume_contact_change_code(current_user.id, "email", body.code)
+    existing = db.query(User).filter(
+        User.id != current_user.id,
+        or_(User.email == new_email, User.username == new_email),
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cette adresse e-mail est déjà utilisée.",
+        )
+    user = db.query(User).filter(User.id == current_user.id).first()
+    user.email = new_email
+    # L'identifiant de connexion est l'adresse e-mail pour les comptes auto-inscrits
+    if user.username == current_user.email:
+        user.username = new_email
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/me/change-phone/request")
+async def request_change_phone(
+    body: ChangePhoneRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Demande de changement de numéro : code envoyé sur le nouveau numéro
+    (SMS/WhatsApp) ou par e-mail."""
+    new_phone = body.new_phone.strip()
+    if len(new_phone) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Numéro de téléphone invalide.",
+        )
+    code = _issue_contact_change_code(current_user.id, "phone", new_phone)
+    db_user = db.query(User).filter(User.id == current_user.id).first()
+    channel = (body.channel or "sms").strip().lower()
+    _deliver_contact_change_code(
+        channel,
+        user=db_user,
+        code=code,
+        phone=new_phone if channel in ("sms", "whatsapp") else None,
+    )
+    return {"message": "Code de vérification envoyé", "channel": channel}
+
+
+@router.post("/me/change-phone/confirm", response_model=UserResponse)
+async def confirm_change_phone(
+    body: ContactChangeConfirm,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Applique le changement de numéro après vérification du code."""
+    new_phone = _consume_contact_change_code(current_user.id, "phone", body.code)
+    user = db.query(User).filter(User.id == current_user.id).first()
+    user.telephone = new_phone
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_user(
     user_id: int,
@@ -366,11 +602,23 @@ async def update_user(
     # Update fields
     update_data = user_update.dict(exclude_unset=True)
     for field, value in update_data.items():
+        if field in ("date_naissance", "validite_passeport"):
+            # Colonnes Date : accepter le format ISO YYYY-MM-DD envoyé par l'app
+            if value is None or value == "":
+                setattr(user, field, None)
+                continue
+            try:
+                value = datetime.strptime(str(value), "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Format de {field} invalide. Utilisez YYYY-MM-DD",
+                )
         setattr(user, field, value)
-    
+
     db.commit()
     db.refresh(user)
-    
+
     return user
 
 

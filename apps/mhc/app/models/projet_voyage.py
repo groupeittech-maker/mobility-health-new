@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Numeric
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Numeric, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import TypeDecorator
 from app.core.database import Base
@@ -74,6 +74,9 @@ class ProjetVoyage(Base, TimestampMixin):
         nullable=False,
     )
     notes = Column(Text, nullable=True)
+    # Enfants mineurs assurés (remplace l'encodage ad hoc dans `notes`)
+    # Liste de dicts : {nom, date_naissance, numero_passeport, validite_passeport}
+    mineurs = Column(JSON, nullable=True)
     budget_estime = Column(Numeric(10, 2), nullable=True)
     questionnaire_type = Column(
         QuestionnaireTypeColumn,

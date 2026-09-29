@@ -45,6 +45,7 @@ from app.api.v1 import (
     ops_modules,
     sinistre_detail,
     bo_dashboard,
+    destination_changes,
 )
 
 from app.api.v1.notifications import _get_notifications_handler, NotificationResponse
@@ -184,6 +185,7 @@ api_router.include_router(courtiers.router, prefix="/courtiers", tags=["courtier
 api_router.include_router(ia.router, tags=["ia"])  # Module IA - Analyse documents
 api_router.include_router(mhc_care_documents.router, prefix="/mhc", tags=["mhc-prise-en-charge"])
 api_router.include_router(avenants.router, tags=["avenants"])
+api_router.include_router(destination_changes.router, tags=["destination-changes"])
 api_router.include_router(ekyc.router)
 api_router.include_router(admin_statistics.router, prefix="/admin/statistics", tags=["admin-statistics"])
 api_router.include_router(alerte_ops.router, prefix="/alertes", tags=["alertes-ops"])

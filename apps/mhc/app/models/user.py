@@ -38,6 +38,7 @@ class User(Base, TimestampMixin):
     full_name = Column(String, nullable=True)
     date_naissance = Column(Date, nullable=True)
     telephone = Column(String(20), nullable=True)
+    numero_whatsapp = Column(String(20), nullable=True)  # WhatsApp si différent du téléphone
     sexe = Column(String(10), nullable=True)  # 'M', 'F', 'Autre'
     pays_residence = Column(String, nullable=True)
     nationalite = Column(String, nullable=True)

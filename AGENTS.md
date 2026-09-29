@@ -26,6 +26,7 @@ Couche `app/integrations/` — modes `stub` (défaut) ou `live` via `.env` :
 - `PAYMENT_SERVICE_MODE` — phase 4
 - `OCR_SERVICE_MODE` — phase 2
 - `TRUST_SERVICE_MODE` — phase 3
+- `MESSAGING_SERVICE_MODE` — SMS/WhatsApp (codes de vérification MyMHC)
 
 MHC ne doit pas appeler directement Tesseract ou un PSP : passer par `get_*_client()`.
 

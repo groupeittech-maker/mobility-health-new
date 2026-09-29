@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 
-/// Stepper 5 étapes (aligné frontend) : Voyage, Produit, Médical, Paiement, Attestation.
+/// Stepper 4 étapes (kit MyMHC) : Voyage, Questionnaire, Assurance, Paiement.
 class SubscriptionStepper extends StatelessWidget {
   const SubscriptionStepper({
     super.key,
@@ -10,7 +10,7 @@ class SubscriptionStepper extends StatelessWidget {
 
   final int currentStep;
 
-  static const steps = ['Voyage', 'Produit', 'Médical', 'Paiement', 'Attestation'];
+  static const steps = ['Voyage', 'Questionnaire', 'Assurance', 'Paiement'];
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +24,7 @@ class SubscriptionStepper extends StatelessWidget {
                 height: 2,
                 margin: const EdgeInsets.only(bottom: 20),
                 color: (i ~/ 2) + 1 <= currentStep
-                    ? AppColors.primary
+                    ? AppColors.brandPurple
                     : const Color(0xFFE2E8F0),
               ),
             );
@@ -41,10 +41,10 @@ class SubscriptionStepper extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isCompleted
-                      ? AppColors.primary
+                      ? AppColors.brandPurple
                       : isActive
-                          ? AppColors.primary
-                          : const Color(0xFFE2E8F0),
+                          ? AppColors.brandPurple
+                          : const Color(0xFFEEEAF5),
                 ),
                 child: isCompleted
                     ? const Icon(Icons.check, color: Colors.white, size: 18)
@@ -52,7 +52,7 @@ class SubscriptionStepper extends StatelessWidget {
                         child: Text(
                           '${stepIndex + 1}',
                           style: TextStyle(
-                            color: isActive ? Colors.white : const Color(0xFF64748B),
+                            color: isActive ? Colors.white : AppColors.brandPurple,
                             fontWeight: FontWeight.w600,
                             fontSize: 12,
                           ),
@@ -65,7 +65,7 @@ class SubscriptionStepper extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 10,
                   color: isActive || isCompleted
-                      ? AppColors.primary
+                      ? AppColors.brandPurple
                       : const Color(0xFF64748B),
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                 ),

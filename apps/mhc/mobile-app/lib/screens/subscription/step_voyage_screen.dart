@@ -52,6 +52,7 @@ class VoyageFormData {
     this.mineurs,
     this.documents,
     this.isChildOnly = false,
+    this.ecartePhotoPath,
   });
   final String titre;
   final String destination;
@@ -66,6 +67,8 @@ class VoyageFormData {
   final List<MineurEntry>? mineurs;
   final List<VoyageDocEntry>? documents;
   final bool isChildOnly;
+  /// Photo portrait pour l'e-carte (kit : distincte du document de voyage).
+  final String? ecartePhotoPath;
 }
 
 /// Étape 1 : Informations sur le voyage (destination, dates, transport, mineurs).
@@ -93,6 +96,8 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
   MineurEntry? _enfantVoyageur;
   final List<MineurEntry> _mineurs = [];
   final List<VoyageDocEntry> _documents = [];
+  /// Photo portrait dédiée à l'e-carte (kit « Pièces justificatives »).
+  String? _ecartePhotoPath;
   List<DestinationCountryModel> _destinationCountries = const [];
   List<String> _countryOptionsFiltered = const [];
   List<DestinationCityModel> _destinationCities = const [];
@@ -722,6 +727,8 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                 style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
               ),
               const SizedBox(height: 12),
+              _buildEcartePhotoField(theme),
+              const SizedBox(height: 12),
               _buildDocButtons(theme),
               if (_documents.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -816,6 +823,18 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       );
                       return;
                     }
+                    if (!_voyagePourEnfant &&
+                        (_ecartePhotoPath == null || _ecartePhotoPath!.isEmpty)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Ajoutez une photo portrait pour l\'e-carte (caméra ou galerie).',
+                          ),
+                          backgroundColor: AppColors.danger,
+                        ),
+                      );
+                      return;
+                    }
                     final titre = 'Voyage vers $_ville, $_pays';
                     if (titre.isEmpty) return;
                     final List<MineurEntry>? mineurs = _voyagePourEnfant
@@ -835,6 +854,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       mineurs: mineurs,
                       documents: _documents.isNotEmpty ? List.from(_documents) : null,
                       isChildOnly: _voyagePourEnfant,
+                      ecartePhotoPath: _voyagePourEnfant
+                          ? (_ecartePhotoPath ?? _enfantVoyageur?.photoPasseportPath)
+                          : _ecartePhotoPath,
                     ));
                   },
                   style: ElevatedButton.styleFrom(
@@ -844,7 +866,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text('Continuer vers le choix du produit'),
+                  child: const Text('Continuer vers le questionnaire'),
                 ),
               ),
                   ],
@@ -855,6 +877,93 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
         ),
       ),
     );
+  }
+
+  /// Champ « Photo pour l'e-carte » (kit) : photo portrait distincte du
+  /// document de voyage — caméra ou galerie.
+  Widget _buildEcartePhotoField(ThemeData theme) {
+    final hasPhoto = _ecartePhotoPath != null && _ecartePhotoPath!.isNotEmpty;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: hasPhoto
+              ? const Color(0xFFE2E8F0)
+              : AppColors.brandTeal.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.account_circle_outlined,
+                  color: AppColors.primary, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Photo pour l’e-carte *',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.secondary,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _pickEcartePhoto,
+                icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                label: Text(hasPhoto ? 'Changer' : 'Prendre une photo'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hasPhoto
+                ? _ecartePhotoPath!.split(RegExp(r'[/\\]')).last
+                : 'Photo portrait (visage visible) — distincte du document de voyage.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF64748B),
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickEcartePhoto() async {
+    final source = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: AppColors.primary),
+              title: const Text('Prendre une photo'),
+              onTap: () => Navigator.of(ctx).pop('camera'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: AppColors.primary),
+              title: const Text('Choisir une photo'),
+              onTap: () => Navigator.of(ctx).pop('gallery'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+    final picker = ImagePicker();
+    final xfile = await picker.pickImage(
+      source: source == 'camera' ? ImageSource.camera : ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (xfile != null && mounted) {
+      setState(() => _ecartePhotoPath = xfile.path);
+    }
   }
 
   Widget _buildDocButtons(ThemeData theme) {

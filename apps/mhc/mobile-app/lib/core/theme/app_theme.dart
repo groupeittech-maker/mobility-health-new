@@ -58,7 +58,7 @@ class AppTheme {
         centerTitle: true,
         backgroundColor: AppColors.cardBg,
         foregroundColor: const Color(0xFF0f172a),
-        titleTextStyle: GoogleFonts.inter(
+        titleTextStyle: GoogleFonts.poppins(
           fontSize: 18,
           fontWeight: FontWeight.w700,
           color: const Color(0xFF0f172a),
@@ -78,7 +78,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
-      textTheme: GoogleFonts.interTextTheme(),
+      textTheme: GoogleFonts.poppinsTextTheme(),
     );
   }
 }

@@ -115,6 +115,11 @@ class Settings(BaseSettings):
     TRUST_SERVICE_API_KEY: str = ""
     TRUST_SERVICE_MODE: str = "stub"
 
+    # Messagerie IT-Tech — SMS / WhatsApp (codes de vérification, notifications)
+    MESSAGING_SERVICE_URL: str = ""
+    MESSAGING_SERVICE_API_KEY: str = ""
+    MESSAGING_SERVICE_MODE: str = "stub"
+
     # eKYC (IT-TECH) — session + webhooks
     EKYC_SERVICE_URL: str = ""
     EKYC_SERVICE_CLIENT_ID: str = ""

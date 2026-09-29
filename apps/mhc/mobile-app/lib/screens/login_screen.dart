@@ -205,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextButton(
-                  onPressed: _launchWebsite,
+                  onPressed: () => context.go('/welcome'),
                   child: Text(
                     'Retour à l\'accueil',
                     style: GoogleFonts.poppins(

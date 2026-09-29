@@ -293,6 +293,7 @@ class VoyagesService {
     int nombreParticipants = 1,
     String? notes,
     int? destinationCountryId,
+    List<Map<String, dynamic>>? mineurs,
   }) async {
     final body = <String, dynamic>{
       'titre': titre,
@@ -303,9 +304,31 @@ class VoyagesService {
       if (dateRetour != null) 'date_retour': dateRetour.toIso8601String(),
       if (notes != null) 'notes': notes,
       if (destinationCountryId != null) 'destination_country_id': destinationCountryId,
+      if (mineurs != null && mineurs.isNotEmpty) 'mineurs': mineurs,
     };
     final data = await _api.post<Map<String, dynamic>>(
       '/voyages/',
+      body: body,
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+    return ProjetVoyageModel.fromJson(data);
+  }
+
+  /// Met à jour un projet de voyage (PUT /voyages/:id) — utilisé par la
+  /// demande de changement de destination en cours de voyage.
+  Future<ProjetVoyageModel> updateVoyage({
+    required int projetId,
+    String? destination,
+    int? destinationCountryId,
+    String? notes,
+  }) async {
+    final body = <String, dynamic>{
+      if (destination != null) 'destination': destination,
+      if (destinationCountryId != null) 'destination_country_id': destinationCountryId,
+      if (notes != null) 'notes': notes,
+    };
+    final data = await _api.put<Map<String, dynamic>>(
+      '/voyages/$projetId',
       body: body,
       fromJson: (d) => d as Map<String, dynamic>,
     );
@@ -750,6 +773,167 @@ class AssureursService {
       fromJson: (d) => d as List<dynamic>,
     );
     return list.map((e) => e as Map<String, dynamic>).toList();
+  }
+}
+
+/// E-carte numérique d'une souscription (GET /subscriptions/:id/ecard).
+class EcardsService {
+  final ApiClient _api = ApiClient();
+
+  Future<Map<String, dynamic>> getEcard(int subscriptionId) async {
+    return _api.get<Map<String, dynamic>>(
+      '/subscriptions/$subscriptionId/ecard',
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+  }
+
+  /// Photo portrait de l'assuré (GET /subscriptions/:id/user-photo) — octets image.
+  Future<List<int>?> getUserPhoto(int subscriptionId) async {
+    try {
+      final response = await _api.dio.get<List<int>>(
+        '/subscriptions/$subscriptionId/user-photo',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final bytes = response.data;
+      if (bytes == null || bytes.isEmpty || !_isImageBytes(bytes)) return null;
+      return bytes;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// Vérifie la signature d'un vrai fichier image — l'endpoint peut renvoyer
+  /// une erreur JSON/texte en 200, ce qui cassait `Image.memory`.
+  bool _isImageBytes(List<int> b) {
+    if (b.length < 4) return false;
+    if (b[0] == 0xFF && b[1] == 0xD8) return true; // JPEG
+    if (b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) {
+      return true; // PNG
+    }
+    if (b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46) return true; // GIF
+    if (b.length >= 12 &&
+        b[0] == 0x52 &&
+        b[8] == 0x57 &&
+        b[9] == 0x45 &&
+        b[10] == 0x42 &&
+        b[11] == 0x50) {
+      return true; // RIFF WEBP
+    }
+    return false;
+  }
+}
+
+/// Hôpitaux partenaires (GET /hospitals/) — annuaire de l'onglet « Hôpitaux ».
+class HospitalsService {
+  final ApiClient _api = ApiClient();
+
+  Future<List<Map<String, dynamic>>> getHospitals({
+    String? ville,
+    String? pays,
+  }) async {
+    final qp = <String, dynamic>{'limit': 500};
+    if (ville != null && ville.trim().isNotEmpty) qp['ville'] = ville.trim();
+    if (pays != null && pays.trim().isNotEmpty) qp['pays'] = pays.trim();
+    final list = await _api.get<List<dynamic>>(
+      '/hospitals/',
+      queryParameters: qp,
+      fromJson: (d) => d as List<dynamic>,
+    );
+    return list.map((e) => e as Map<String, dynamic>).toList();
+  }
+}
+
+/// Profil utilisateur (PUT /users/:id — e-mail, téléphone, contact urgence…).
+class UsersService {
+  final ApiClient _api = ApiClient();
+
+  Future<Map<String, dynamic>> updateUser(
+    int userId,
+    Map<String, dynamic> body,
+  ) async {
+    return _api.put<Map<String, dynamic>>(
+      '/users/$userId',
+      body: body,
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+  }
+
+  /// Changement d'e-mail vérifié : le code est envoyé à la nouvelle adresse.
+  Future<Map<String, dynamic>> requestEmailChange(
+    String newEmail, {
+    String channel = 'email',
+  }) async {
+    return _api.post<Map<String, dynamic>>(
+      '/users/me/change-email/request',
+      body: {'new_email': newEmail.trim(), 'channel': channel},
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+  }
+
+  Future<Map<String, dynamic>> confirmEmailChange(String code) async {
+    return _api.post<Map<String, dynamic>>(
+      '/users/me/change-email/confirm',
+      body: {'code': code.trim()},
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+  }
+
+  /// Changement de téléphone vérifié : code envoyé au nouveau numéro
+  /// (sms | whatsapp) ou par e-mail.
+  Future<Map<String, dynamic>> requestPhoneChange(
+    String newPhone, {
+    String channel = 'sms',
+  }) async {
+    return _api.post<Map<String, dynamic>>(
+      '/users/me/change-phone/request',
+      body: {'new_phone': newPhone.trim(), 'channel': channel},
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+  }
+
+  Future<Map<String, dynamic>> confirmPhoneChange(String code) async {
+    return _api.post<Map<String, dynamic>>(
+      '/users/me/change-phone/confirm',
+      body: {'code': code.trim()},
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+  }
+}
+
+/// Demandes de changement de destination en cours de voyage (kit MyMHC).
+/// POST /subscriptions/:id/destination-change, GET list, décision assureur.
+class DestinationChangesService {
+  final ApiClient _api = ApiClient();
+
+  Future<Map<String, dynamic>> requestDestinationChange({
+    required int subscriptionId,
+    required int destinationCountryId,
+    String? motif,
+    int? billetDocumentId,
+  }) async {
+    return _api.post<Map<String, dynamic>>(
+      '/subscriptions/$subscriptionId/destination-change',
+      body: {
+        'destination_country_id': destinationCountryId,
+        if (motif != null && motif.isNotEmpty) 'motif': motif,
+        if (billetDocumentId != null) 'billet_document_id': billetDocumentId,
+      },
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getDestinationChanges(
+    int subscriptionId,
+  ) async {
+    final data = await _api.get<dynamic>(
+      '/subscriptions/$subscriptionId/destination-changes',
+      fromJson: (d) => d,
+    );
+    if (data is List) {
+      return data.whereType<Map<String, dynamic>>().toList();
+    }
+    return const [];
   }
 }
 

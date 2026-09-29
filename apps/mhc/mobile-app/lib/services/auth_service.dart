@@ -139,11 +139,17 @@ class AuthService {
     }
   }
 
-  Future<Map<String, dynamic>> resendVerificationCode(String email) async {
+  Future<Map<String, dynamic>> resendVerificationCode(
+    String email, {
+    String? channel,
+  }) async {
     try {
       return await _api.post<Map<String, dynamic>>(
         '/auth/resend-verification-code',
-        body: {'email': email.trim()},
+        body: {
+          'email': email.trim(),
+          if (channel != null) 'channel': channel,
+        },
         fromJson: (d) => d as Map<String, dynamic>,
       );
     } on DioException catch (e) {

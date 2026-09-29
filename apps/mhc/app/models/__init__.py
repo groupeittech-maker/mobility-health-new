@@ -9,6 +9,7 @@ from app.models.produit_prime_tarif import ProduitPrimeTarif
 from app.models.historique_prix import HistoriquePrix
 from app.models.projet_voyage import ProjetVoyage
 from app.models.projet_voyage_document import ProjetVoyageDocument
+from app.models.destination_change import DestinationChangeRequest
 from app.models.souscription import Souscription
 from app.models.paiement import Paiement
 from app.models.audit import AuditLog

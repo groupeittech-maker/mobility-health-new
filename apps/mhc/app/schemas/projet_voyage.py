@@ -5,6 +5,14 @@ from pydantic import BaseModel, ConfigDict
 from app.core.enums import StatutProjetVoyage, QuestionnaireType
 
 
+class MineurEntry(BaseModel):
+    """Enfant mineur assuré rattaché au voyage (kit MyMHC)."""
+    nom: str
+    date_naissance: Optional[str] = None  # Format ISO: YYYY-MM-DD
+    numero_passeport: Optional[str] = None
+    validite_passeport: Optional[str] = None  # Format ISO: YYYY-MM-DD
+
+
 class ProjetVoyageBase(BaseModel):
     titre: str
     description: Optional[str] = None
@@ -15,6 +23,7 @@ class ProjetVoyageBase(BaseModel):
     nombre_participants: int = 1
     statut: StatutProjetVoyage = StatutProjetVoyage.EN_PLANIFICATION
     notes: Optional[str] = None
+    mineurs: Optional[List[MineurEntry]] = None
     budget_estime: Optional[Decimal] = None
     questionnaire_type: QuestionnaireType = QuestionnaireType.LONG
 
@@ -33,6 +42,7 @@ class ProjetVoyageUpdate(BaseModel):
     nombre_participants: Optional[int] = None
     statut: Optional[StatutProjetVoyage] = None
     notes: Optional[str] = None
+    mineurs: Optional[List[MineurEntry]] = None
     budget_estime: Optional[Decimal] = None
     questionnaire_type: Optional[QuestionnaireType] = None
 

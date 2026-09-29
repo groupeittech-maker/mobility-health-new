@@ -252,15 +252,28 @@ class AttestationService:
                 "Complétez le questionnaire médical avec une photo ou vérifiez le stockage (MinIO / documents projet)."
             )
 
-        # Extraire les enfants mineurs à charge depuis les notes (souscription ou projet)
-        minors_info = AttestationService._extract_minors_from_notes(souscription.notes or "")
-        if not minors_info and souscription.projet_voyage_id:
+        # Enfants mineurs à charge : d'abord le champ structuré `projet.mineurs`,
+        # puis rétro-compatibilité avec l'encodage dans les notes.
+        minors_info: List[Dict[str, str]] = []
+        if souscription.projet_voyage_id:
             from app.models.projet_voyage import ProjetVoyage
             projet = db.query(ProjetVoyage).filter(
                 ProjetVoyage.id == souscription.projet_voyage_id
             ).first()
-            if projet and projet.notes:
+            if projet and projet.mineurs:
+                for m in projet.mineurs:
+                    if not isinstance(m, dict):
+                        continue
+                    nom = (m.get("nom") or m.get("nom_complet") or "").strip()
+                    if nom:
+                        minors_info.append({
+                            "nom_complet": nom,
+                            "date_naissance": (m.get("date_naissance") or "").strip(),
+                        })
+            if not minors_info and projet and projet.notes:
                 minors_info = AttestationService._extract_minors_from_notes(projet.notes)
+        if not minors_info:
+            minors_info = AttestationService._extract_minors_from_notes(souscription.notes or "")
         if minors_info:
             logger.info(
                 "Attestation définitive: %d enfant(s) mineur(s) à charge déclaré(s)",

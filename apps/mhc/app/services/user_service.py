@@ -85,6 +85,7 @@ class UserService:
         full_name: Optional[str] = None,
         date_naissance: Optional[str] = None,  # Format ISO: YYYY-MM-DD
         telephone: Optional[str] = None,
+        numero_whatsapp: Optional[str] = None,
         sexe: Optional[str] = None,  # 'M', 'F', 'Autre'
         pays_residence: Optional[str] = None,
         nationalite: Optional[str] = None,
@@ -194,6 +195,7 @@ class UserService:
             full_name=full_name,
             date_naissance=date_naissance_obj,
             telephone=telephone,
+            numero_whatsapp=numero_whatsapp,
             sexe=sexe,
             pays_residence=pays_residence,
             nationalite=nationalite,
@@ -672,6 +674,61 @@ class UserService:
         )
         
         logger.info(f"Email de vérification envoyé à {user.email}")
+
+    @staticmethod
+    def send_verification_code(user: User, verification_code: str, channel: str = "email"):
+        """
+        Envoie le code de vérification sur le canal choisi (kit MyMHC) :
+        e-mail (par défaut), SMS ou WhatsApp via le client de messagerie
+        IT-Tech (`get_messaging_client` — stub | live).
+        """
+        channel = (channel or "email").strip().lower()
+        if channel == "email":
+            UserService.send_verification_email(user, verification_code)
+            return
+
+        if channel not in ("sms", "whatsapp"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Canal de vérification inconnu : {channel}",
+            )
+
+        destination = (
+            getattr(user, "numero_whatsapp", None) or user.telephone
+            if channel == "whatsapp"
+            else user.telephone
+        )
+        if not destination:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Un numéro WhatsApp est requis pour ce canal de vérification."
+                    if channel == "whatsapp"
+                    else "Un numéro de téléphone est requis pour la vérification par SMS."
+                ),
+            )
+
+        from app.integrations.messaging import get_messaging_client
+        from app.integrations.messaging.schemas import MessageSendRequest
+
+        label = "SMS" if channel == "sms" else "WhatsApp"
+        response = get_messaging_client().send(
+            MessageSendRequest(
+                channel=channel,
+                to=destination,
+                message=(
+                    f"MyMHC : votre code de vérification est {verification_code}. "
+                    "Il est valide 15 minutes."
+                ),
+                reference=f"verification:{user.id}",
+            )
+        )
+        if response.status == "failed":
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Impossible d'envoyer le code par {label} pour le moment.",
+            )
+        logger.info("Code de vérification %s envoyé à %s (%s)", channel, destination, user.email)
 
     @staticmethod
     def send_inscription_approval_email(user: User):

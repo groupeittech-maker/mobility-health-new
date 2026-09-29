@@ -123,6 +123,8 @@ class ProjetVoyageModel {
   final int nombreParticipants;
   final String statut;
   final String? notes;
+  /// Mineurs assurés structurés (champ `mineurs` du projet, kit MyMHC).
+  final List<ProjetMineurModel> mineurs;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -140,6 +142,7 @@ class ProjetVoyageModel {
     this.nombreParticipants = 1,
     required this.statut,
     this.notes,
+    this.mineurs = const [],
     required this.createdAt,
     required this.updatedAt,
   });
@@ -159,8 +162,38 @@ class ProjetVoyageModel {
       nombreParticipants: json['nombre_participants'] as int? ?? 1,
       statut: json['statut'] as String? ?? 'en_planification',
       notes: json['notes'] as String?,
+      mineurs: (json['mineurs'] is List)
+          ? (json['mineurs'] as List)
+              .whereType<Map<String, dynamic>>()
+              .map(ProjetMineurModel.fromJson)
+              .toList()
+          : const [],
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updated_at']?.toString() ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
+/// Enfant mineur assuré rattaché à un voyage (champ `mineurs` du projet).
+class ProjetMineurModel {
+  final String nom;
+  final String? dateNaissance;
+  final String? numeroPasseport;
+  final String? validitePasseport;
+
+  const ProjetMineurModel({
+    required this.nom,
+    this.dateNaissance,
+    this.numeroPasseport,
+    this.validitePasseport,
+  });
+
+  factory ProjetMineurModel.fromJson(Map<String, dynamic> json) {
+    return ProjetMineurModel(
+      nom: json['nom']?.toString() ?? '',
+      dateNaissance: json['date_naissance']?.toString(),
+      numeroPasseport: json['numero_passeport']?.toString(),
+      validitePasseport: json['validite_passeport']?.toString(),
     );
   }
 }

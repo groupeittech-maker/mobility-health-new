@@ -63,11 +63,11 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<String> _resolveDestination() async {
     final isLoggedIn = await AuthService.instance.isLoggedIn;
-    if (!isLoggedIn) return '/login';
-    if (!mounted) return '/login';
+    if (!isLoggedIn) return '/welcome';
+    if (!mounted) return '/welcome';
     final auth = context.read<AuthProvider>();
     await auth.checkAuth();
-    if (!auth.isAuthenticated || auth.currentUser == null) return '/login';
+    if (!auth.isAuthenticated || auth.currentUser == null) return '/welcome';
     if (auth.currentUser!.isMedecinReferentMh) return '/referent';
     return '/home';
   }
@@ -89,7 +89,22 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               );
             },
-            child: const MHLogoHeader(height: 72, compact: true),
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                MHLogoHeader(height: 72, compact: true),
+                SizedBox(height: 10),
+                Text(
+                  'MyMHC',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF4E267C),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -32,7 +32,11 @@ class MedecinConseilCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (assignments.isEmpty) {
+    // N'afficher que les destinations avec un médecin-conseil réellement
+    // renseigné — les tuiles « non renseigné » empilées paraissaient cassées.
+    final withContact =
+        assignments.where((a) => a.hasContact).toList(growable: false);
+    if (withContact.isEmpty) {
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -70,7 +74,7 @@ class MedecinConseilCard extends StatelessWidget {
           style: theme.textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
         ),
         const SizedBox(height: 12),
-        ...assignments.map((assignment) => _AssignmentTile(
+        ...withContact.map((assignment) => _AssignmentTile(
               assignment: assignment,
               onCall: onCall ?? launchPhone,
               onEmail: onEmail ?? launchEmail,

@@ -6,6 +6,7 @@ class UserModel {
   final String? fullName;
   final String? dateNaissance;
   final String? telephone;
+  final String? numeroWhatsapp;
   final String? sexe;
   final String? paysResidence;
   final String? nationalite;
@@ -25,6 +26,7 @@ class UserModel {
     this.fullName,
     this.dateNaissance,
     this.telephone,
+    this.numeroWhatsapp,
     this.sexe,
     this.paysResidence,
     this.nationalite,
@@ -51,6 +53,7 @@ class UserModel {
       fullName: json['full_name'] as String?,
       dateNaissance: json['date_naissance']?.toString(),
       telephone: json['telephone'] as String?,
+      numeroWhatsapp: json['numero_whatsapp'] as String?,
       sexe: json['sexe'] as String?,
       paysResidence: json['pays_residence'] as String?,
       nationalite: json['nationalite'] as String?,

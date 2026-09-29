@@ -20,6 +20,12 @@ class StepPaiementScreen extends StatefulWidget {
     this.taxesTotal,
     this.taxes,
     this.age,
+    this.recapAssureur,
+    this.recapProduit,
+    this.recapDestination,
+    this.recapDates,
+    this.recapAssure,
+    this.recapLogoUrl,
     this.onDossierStateChanged,
     required this.onContinue,
   });
@@ -32,6 +38,14 @@ class StepPaiementScreen extends StatefulWidget {
   final double? taxesTotal;
   final List<Map<String, dynamic>>? taxes;
   final int? age;
+  /// Récapitulatif de souscription (kit) : assureur et logo, destination,
+  /// dates, assuré — affiché avant le décompte et le paiement.
+  final String? recapAssureur;
+  final String? recapProduit;
+  final String? recapDestination;
+  final String? recapDates;
+  final String? recapAssure;
+  final String? recapLogoUrl;
   /// Notifie le parent quand le dossier passe en revue/approuvé/refusé —
   /// les étapes précédentes du formulaire sont alors verrouillées.
   final void Function(String? dossierState)? onDossierStateChanged;
@@ -55,6 +69,10 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
   bool _loading = false;
   String? _error;
   String _selectedMethod = 'carte_bancaire';
+  /// Acceptation explicite des conditions (kit) : conditionne le passage
+  /// au paiement (« Soumettre le dossier » reste bloqué tant qu'elle
+  /// n'est pas cochée).
+  bool _acceptConditions = false;
 
   /// État du dossier : to_submit | approved | in_review | refused
   String _dossierState = 'to_submit';
@@ -204,10 +222,11 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const MHSectionTitle(
-              title: 'Paiement sécurisé',
-              subtitle: 'Vérifiez le récapitulatif puis choisissez le mode de paiement.',
+              title: 'Récapitulatif de souscription',
+              subtitle: 'Vérifiez votre sélection avant de payer.',
             ),
             const SizedBox(height: 16),
+            _buildRecapCard(),
             // Résumé + Montant (comme web)
             Container(
               padding: const EdgeInsets.all(20),
@@ -269,6 +288,28 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
             const SizedBox(height: 16),
             if (_dossierState == 'in_review') _buildReviewNotice(),
             if (_dossierState == 'refused') _buildRefusedNotice(),
+            if (_dossierState == 'to_submit')
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceCard,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: CheckboxListTile(
+                  value: _acceptConditions,
+                  onChanged: (v) =>
+                      setState(() => _acceptConditions = v ?? false),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  activeColor: AppColors.primary,
+                  title: const Text(
+                    "J'ai lu et j'accepte les conditions générales et les exclusions.",
+                    style: TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+                  ),
+                ),
+              ),
             if (_dossierState == 'approved')
               // Mode de paiement (identique au web) — visible uniquement après approbation
               Container(
@@ -326,7 +367,8 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
               child: ElevatedButton(
                 onPressed: _loading
                     ? null
-                    : (_dossierState == 'to_submit' ? _submitDossier
+                    : (_dossierState == 'to_submit'
+                        ? (_acceptConditions ? _submitDossier : null)
                         : _dossierState == 'approved' ? _payNow
                         : null),
                 style: ElevatedButton.styleFrom(
@@ -347,6 +389,122 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// « Récapitulatif de souscription » (kit) : assureur/logo, destination,
+  /// dates, assuré, montant.
+  Widget _buildRecapCard() {
+    final logo = widget.recapLogoUrl;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceCard,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (logo != null && logo.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    logo,
+                    width: 52,
+                    height: 52,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => _logoFallback(),
+                  ),
+                )
+              else
+                _logoFallback(),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.recapAssureur ?? 'Assureur MHC',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF352A42),
+                      ),
+                    ),
+                    if (widget.recapProduit != null)
+                      Text(
+                        widget.recapProduit!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          _recapRow('Destination', widget.recapDestination),
+          _recapRow('Dates', widget.recapDates),
+          _recapRow('Assuré', widget.recapAssure),
+          _recapRow(
+            'Montant',
+            '${widget.montant.toStringAsFixed(0)} XAF',
+            valueBold: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _logoFallback() {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: const Color(0xFFEDE9FE),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Icon(Icons.shield_outlined, color: Color(0xFF4E267C)),
+    );
+  }
+
+  Widget _recapRow(String label, String? value, {bool valueBold = false}) {
+    if (value == null || value.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 12,
+                color: const Color(0xFF1E293B),
+                fontWeight: valueBold ? FontWeight.bold : FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,6 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/config/api_config.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
 import '../../models/product.dart';
@@ -21,7 +26,8 @@ int? _optInt(dynamic value) {
   return int.tryParse(value.toString().trim());
 }
 
-/// Flux "Nouvelle souscription" : 5 étapes (Voyage, Produit, Médical, Paiement, Attestation) – connecté API.
+/// Flux « Nouvelle souscription » (kit MyMHC) : Voyage → Questionnaire →
+/// Assurance → Paiement, puis attestation/e-carte hors stepper. Connecté API.
 class NouvelleSouscriptionScreen extends StatefulWidget {
   const NouvelleSouscriptionScreen({super.key, this.resumeSubscriptionId});
 
@@ -43,7 +49,11 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
   double? _fraisPourPaiement;
   double? _taxesTotal;
   List<Map<String, dynamic>>? _taxes;
+  /// Photo portrait pour l'e-carte, capturée à l'étape Voyage (kit).
   String? _medicalPhotoPath;
+  /// Réponses du questionnaire médical (étape 2), soumises après la création
+  /// de la souscription à l'étape Assurance.
+  MedicalFormData? _medicalData;
   List<ProductModel>? _products;
   VoyageFormData? _voyageData;
   bool _loadingProducts = false;
@@ -52,8 +62,14 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
   List<SurprimeAgeRow> _surprimesAge = [];
   double _fraisSurPrimePct = 15;
   int? _subscriberAge;
+  String? _subscriberFullName;
+  /// Produit choisi à l'étape Assurance (récapitulatif paiement).
+  int? _selectedProductId;
   bool _loadingDevis = false;
   int _attestationReloadTick = 0;
+  /// Après paiement : l'attestation est affichée hors du stepper (kit :
+  /// les documents vivent dans « Documents et services », pas dans le flux).
+  bool _showAttestation = false;
 
   final VoyagesService _voyagesService = VoyagesService();
   final SubscriptionsService _subscriptionsService = SubscriptionsService();
@@ -76,15 +92,18 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
   @override
   void initState() {
     super.initState();
+    AuthService.instance.getMe().then((u) {
+      if (mounted) setState(() => _subscriberFullName = u.fullName);
+    }).catchError((_) {});
     final resumeId = widget.resumeSubscriptionId;
     if (resumeId != null) {
       _resumeSubscription(resumeId);
     }
   }
 
-  /// Reprend un dossier existant là où il s'est arrêté :
-  /// - en_attente (jamais soumis) -> étape 3 (médical)
-  /// - en_attente_validation / en_attente_paiement -> étape 4 (paiement)
+  /// Reprend un dossier existant : la souscription et le questionnaire ont
+  /// déjà été transmis, on repart directement à l'étape Paiement (qui gère
+  /// l'état du dossier : à soumettre, en revue, approuvé, refusé).
   Future<void> _resumeSubscription(int subscriptionId) async {
     try {
       final sub = await _subscriptionsService.getSubscription(subscriptionId);
@@ -103,7 +122,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
         _fraisPourPaiement = sub.fraisServices;
         _taxesTotal = sub.taxesTotal;
         _taxes = sub.taxes;
-        _currentStep = sub.statut == 'en_attente' ? 3 : 4;
+        _currentStep = 4;
         _dossierLocked = sub.statut != 'en_attente';
       });
     } catch (e) {
@@ -332,11 +351,26 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
         nombreParticipants: data.nombreParticipants,
         notes: notesLines.join('\n'),
         destinationCountryId: data.destinationCountryId,
+        mineurs: (!data.isChildOnly && data.mineurs != null)
+            ? data.mineurs!
+                .map(
+                  (m) => {
+                    'nom': m.nom,
+                    'date_naissance':
+                        m.dateNaissance.toIso8601String().substring(0, 10),
+                    'numero_passeport': m.numeroPasseport,
+                    'validite_passeport':
+                        m.validitePasseport.toIso8601String().substring(0, 10),
+                  },
+                )
+                .toList()
+            : null,
       );
       if (mounted) {
         setState(() {
           _projetId = projet.id;
           _voyageData = data;
+          _medicalPhotoPath = data.ecartePhotoPath;
         });
       }
       // Envoyer les pièces justificatives (passeport, billet, etc.)
@@ -365,7 +399,81 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
     }
   }
 
-  Future<void> _onProduitContinue(int productId, String? medicalPhotoPath) async {
+  /// Étape Questionnaire (kit) : on conserve les réponses puis on passe
+  /// à l'étape Assurance — la soumission API a lieu après la création
+  /// de la souscription (elle exige un `subscriptionId`).
+  void _onMedicalContinue(MedicalFormData data) {
+    setState(() {
+      _medicalData = data;
+      _currentStep = 3;
+    });
+  }
+
+  static String _dataUrlFromBytes(Uint8List bytes) {
+    if (bytes.length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xD8) {
+      return 'data:image/jpeg;base64,${base64Encode(bytes)}';
+    }
+    if (bytes.length >= 8 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47 &&
+        bytes[4] == 0x0D &&
+        bytes[5] == 0x0A &&
+        bytes[6] == 0x1A &&
+        bytes[7] == 0x0A) {
+      return 'data:image/png;base64,${base64Encode(bytes)}';
+    }
+    return 'data:image/jpeg;base64,${base64Encode(bytes)}';
+  }
+
+  /// Soumet le questionnaire médical + la photo e-carte du voyage.
+  Future<void> _submitMedicalAnswers(int subscriptionId) async {
+    final data = _medicalData;
+    if (data == null) return;
+    final reponses = Map<String, dynamic>.from(data.reponses);
+
+    final photoPath = _medicalPhotoPath?.trim();
+    if (photoPath != null && photoPath.isNotEmpty) {
+      final file = File(photoPath);
+      if (await file.exists()) {
+        final bytes = await file.readAsBytes();
+        if (bytes.isNotEmpty && bytes.length <= 5 * 1024 * 1024) {
+          final dataUrl = _dataUrlFromBytes(bytes);
+          reponses['photo_medicale'] = dataUrl;
+          reponses['photoMedicale'] = dataUrl;
+          reponses['photo_identity'] = dataUrl;
+        }
+      }
+    }
+    await QuestionnaireService().submitMedical(subscriptionId, reponses);
+  }
+
+  String? _productLogoUrl(ProductModel? p) {
+    if (p == null) return null;
+    final img = p.imageUrl;
+    if (img != null && img.trim().isNotEmpty) {
+      if (img.startsWith('http')) return img;
+      return '${ApiConfig.baseUrl}$img';
+    }
+    final assureurId = p.assureurId;
+    if (assureurId != null) {
+      return '${ApiConfig.baseUrl}/assureurs/$assureurId/logo';
+    }
+    return null;
+  }
+
+  String? _formatVoyageDates(VoyageFormData? d) {
+    if (d == null) return null;
+    String fmt(DateTime dt) =>
+        '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    final depart = fmt(d.dateDepart);
+    final retour = d.dateRetour;
+    if (retour == null) return 'Dès le $depart';
+    return '$depart → ${fmt(retour)}';
+  }
+
+  Future<void> _onProduitContinue(int productId) async {
     if (_projetId == null) return;
     try {
       final age = await _voyageurAge();
@@ -410,17 +518,20 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
         dureeJours: _voyageData?.dureeJours,
         age: age,
       );
+      // La souscription existe : on transmet maintenant le questionnaire
+      // médical (avec la photo e-carte du voyage) avant l'étape Paiement.
+      await _submitMedicalAnswers(sub.id);
       if (mounted) {
         setState(() {
           _subscriptionId = sub.id;
+          _selectedProductId = productId;
           _montant = sub.prixApplique;
           _primePourPaiement = sub.primeAssurance;
           _coutPolice = sub.coutPolice;
           _fraisPourPaiement = sub.fraisServices;
           _taxesTotal = sub.taxesTotal;
           _taxes = sub.taxes;
-          _medicalPhotoPath = medicalPhotoPath;
-          _currentStep = 3;
+          _currentStep = 4;
         });
       }
     } catch (e) {
@@ -469,7 +580,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
     // qui déborde dès que l’espace utile < hauteur du stepper). Le scroll des étapes gère
     // viewInsets via padding (ex. StepVoyageScreen).
     return PopScope(
-      canPop: _currentStep == 1 || _dossierLocked,
+      canPop: _currentStep == 1 || _dossierLocked || _showAttestation,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         _goToPreviousStep();
@@ -497,7 +608,8 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SubscriptionStepper(currentStep: _currentStep),
+            if (!_showAttestation)
+              SubscriptionStepper(currentStep: _currentStep),
             if (_currentStep > 1 && !_dossierLocked)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -516,70 +628,8 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
                 ),
               ),
             Expanded(
-              child: IndexedStack(
-                index: _currentStep - 1,
-                children: [
-                  StepVoyageScreen(onContinue: _onVoyageContinue),
-                  StepProduitScreen(
-                    products: _products,
-                    canalDistribution: _canalDistribution,
-                    selectedCourtierId: _selectedCourtierId,
-                    courtiers: _courtiers,
-                    onCanalChanged: (v) async {
-                      setState(() {
-                        _canalDistribution = v;
-                      });
-                      final data = _voyageData;
-                      if (data != null) {
-                        await _loadProductsForVoyage(data);
-                        await _fetchDevisPrices();
-                      }
-                    },
-                    onCourtierChanged: (id) async {
-                      setState(() => _selectedCourtierId = id);
-                      final data = _voyageData;
-                      if (data != null && _canalDistribution == 'courtier') {
-                        await _loadProductsForVoyage(data);
-                        await _fetchDevisPrices();
-                      }
-                    },
-                    initialMedicalPhotoPath: _medicalPhotoPath,
-                    onBackToVoyage: () => setState(() => _currentStep = 1),
-                    onContinue: _onProduitContinue,
-                    devisParProduit: _devisParProduit,
-                    loadingDevis: _loadingDevis,
-                    residenceCountryName: _voyageData?.residenceCountryName,
-                    destinationCountryName: _voyageData?.destinationCountryName,
-                    voyageDureeJours: _voyageData?.dureeJours,
-                    subscriberAge: _subscriberAge,
-                    surprimesAge: _surprimesAge,
-                    fraisSurPrimePct: _fraisSurPrimePct,
-                  ),
-                  _subscriptionId != null
-                      ? StepMedicalScreen(
-                          subscriptionId: _subscriptionId!,
-                          medicalPhotoPath: _medicalPhotoPath,
-                          onContinue: () => setState(() => _currentStep = 4),
-                        )
-                      : _buildLoadingOrPlaceholder(),
-                  _subscriptionId != null
-                      ? StepPaiementScreen(
-                          subscriptionId: _subscriptionId!,
-                          montant: _montant,
-                          primeAssurance: _primePourPaiement,
-                          coutPolice: _coutPolice,
-                          fraisServices: _fraisPourPaiement,
-                          taxesTotal: _taxesTotal,
-                          taxes: _taxes,
-                          age: _subscriberAge,
-                          onDossierStateChanged: _onDossierStateChanged,
-                          onContinue: () => setState(() {
-                            _attestationReloadTick += 1;
-                            _currentStep = 5;
-                          }),
-                        )
-                      : _buildLoadingOrPlaceholder(),
-                  _subscriptionId != null
+              child: _showAttestation
+                  ? (_subscriptionId != null
                       ? StepAttestationScreen(
                           key: ValueKey(
                             'attestation-${_subscriptionId!}-$_attestationReloadTick',
@@ -587,9 +637,85 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
                           subscriptionId: _subscriptionId!,
                           onDone: () => Navigator.of(context).pop(),
                         )
-                      : _buildLoadingOrPlaceholder(),
-                ],
-              ),
+                      : _buildLoadingOrPlaceholder())
+                  : IndexedStack(
+                      index: _currentStep - 1,
+                      children: [
+                        StepVoyageScreen(onContinue: _onVoyageContinue),
+                        StepMedicalScreen(onContinue: _onMedicalContinue),
+                        StepProduitScreen(
+                          products: _products,
+                          canalDistribution: _canalDistribution,
+                          selectedCourtierId: _selectedCourtierId,
+                          courtiers: _courtiers,
+                          onCanalChanged: (v) async {
+                            setState(() {
+                              _canalDistribution = v;
+                            });
+                            final data = _voyageData;
+                            if (data != null) {
+                              await _loadProductsForVoyage(data);
+                              await _fetchDevisPrices();
+                            }
+                          },
+                          onCourtierChanged: (id) async {
+                            setState(() => _selectedCourtierId = id);
+                            final data = _voyageData;
+                            if (data != null &&
+                                _canalDistribution == 'courtier') {
+                              await _loadProductsForVoyage(data);
+                              await _fetchDevisPrices();
+                            }
+                          },
+                          onBackToVoyage: () =>
+                              setState(() => _currentStep = 1),
+                          onContinue: _onProduitContinue,
+                          devisParProduit: _devisParProduit,
+                          loadingDevis: _loadingDevis,
+                          residenceCountryName:
+                              _voyageData?.residenceCountryName,
+                          destinationCountryName:
+                              _voyageData?.destinationCountryName,
+                          voyageDureeJours: _voyageData?.dureeJours,
+                          subscriberAge: _subscriberAge,
+                          surprimesAge: _surprimesAge,
+                          fraisSurPrimePct: _fraisSurPrimePct,
+                        ),
+                        _subscriptionId != null
+                            ? Builder(builder: (context) {
+                                ProductModel? p;
+                                for (final e in _products ?? const []) {
+                                  if (e.id == _selectedProductId) p = e;
+                                }
+                                final d = _voyageData;
+                                return StepPaiementScreen(
+                                  subscriptionId: _subscriptionId!,
+                                  montant: _montant,
+                                  primeAssurance: _primePourPaiement,
+                                  coutPolice: _coutPolice,
+                                  fraisServices: _fraisPourPaiement,
+                                  taxesTotal: _taxesTotal,
+                                  taxes: _taxes,
+                                  age: _subscriberAge,
+                                  recapAssureur: p?.assureur,
+                                  recapProduit: p?.nom,
+                                  recapLogoUrl: _productLogoUrl(p),
+                                  recapDestination: d == null
+                                      ? null
+                                      : '${d.destinationCityName}, ${d.destinationCountryName}',
+                                  recapDates: _formatVoyageDates(d),
+                                  recapAssure: _subscriberFullName,
+                                  onDossierStateChanged:
+                                      _onDossierStateChanged,
+                                  onContinue: () => setState(() {
+                                    _attestationReloadTick += 1;
+                                    _showAttestation = true;
+                                  }),
+                                );
+                              })
+                            : _buildLoadingOrPlaceholder(),
+                      ],
+                    ),
             ),
           ],
         ),
@@ -598,12 +724,12 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
   }
 
   Widget _buildLoadingOrPlaceholder() {
-    if (_currentStep == 2 && _loadingProducts) {
+    if (_currentStep == 3 && _loadingProducts) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primary),
       );
     }
-    final labels = {3: 'Médical', 4: 'Paiement', 5: 'Attestation'};
+    final labels = {2: 'Questionnaire', 3: 'Assurance', 4: 'Paiement'};
     return Container(
       color: kMhContentBackground,
       padding: const EdgeInsets.all(20),

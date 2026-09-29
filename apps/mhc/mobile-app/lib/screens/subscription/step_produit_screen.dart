@@ -1,8 +1,4 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/constants/app_colors.dart';
@@ -110,7 +106,9 @@ Widget _priceBlock(
   );
 }
 
-/// Étape 2 : Sélection du produit – liste de cartes, "Voir les détails", photo (optionnelle), déclarations, bouton Continuer.
+/// Étape « Assurance » (kit) : question intermédiaire, comparaison des offres
+/// par assureur avec prix et accès garanties/capitaux/exclusions, déclarations,
+/// bouton Continuer.
 class StepProduitScreen extends StatefulWidget {
   const StepProduitScreen({
     super.key,
@@ -121,7 +119,6 @@ class StepProduitScreen extends StatefulWidget {
     required this.onCanalChanged,
     required this.onCourtierChanged,
     this.onBackToVoyage,
-    this.initialMedicalPhotoPath,
     this.products,
     this.devisParProduit,
     this.loadingDevis = false,
@@ -133,8 +130,8 @@ class StepProduitScreen extends StatefulWidget {
     this.fraisSurPrimePct = 15,
   });
 
-  /// Appelé avec (productId, medicalPhotoPath). productId vient de la carte sélectionnée.
-  final void Function(int productId, String? medicalPhotoPath) onContinue;
+  /// Appelé avec le productId de la carte sélectionnée.
+  final void Function(int productId) onContinue;
   final String canalDistribution;
   final int? selectedCourtierId;
   final List<Map<String, dynamic>> courtiers;
@@ -142,7 +139,6 @@ class StepProduitScreen extends StatefulWidget {
   final Future<void> Function(int? courtierId) onCourtierChanged;
   /// Retour à l’étape voyage si aucune offre ne correspond au parcours.
   final VoidCallback? onBackToVoyage;
-  final String? initialMedicalPhotoPath;
   /// Produits renvoyés par l’API (liste vide = aucune offre pour ce voyage, pas de fallback).
   final List<ProductModel>? products;
   /// Devis par produit (POST /subscriptions/quote-prices).
@@ -164,7 +160,6 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
   bool _acceptCgu = false;
   bool _acceptExclusions = false;
   int? _exclusionsReadProductId;
-  String? _medicalPhotoPath;
 
   int? get _selectedProductId =>
       _selectedProductIndex != null && _selectedProductIndex! < _productList.length
@@ -197,7 +192,12 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const MHSectionTitle(title: 'Sélection du produit'),
+            const MHSectionTitle(title: 'Choisissez votre assurance'),
+            const SizedBox(height: 8),
+            Text(
+              'Comparez les offres pour la zone choisie. Les montants sont des exemples de présentation.',
+              style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
+            ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(14),
@@ -210,59 +210,95 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Canal de souscription',
+                    'Intermédiaire',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF1E293B),
                     ),
                   ),
                   const SizedBox(height: 8),
+                  const Text(
+                    'Passez-vous par un intermédiaire ?',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF352A42)),
+                  ),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
-                      Expanded(
-                        child: RadioListTile<String>(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          value: 'assureur',
-                          groupValue: widget.canalDistribution,
-                          title: const Text('Compagnie directe', style: TextStyle(fontSize: 13)),
-                          onChanged: (v) {
-                            if (v != null) widget.onCanalChanged(v);
-                          },
+                      ChoiceChip(
+                        label: const Text('Oui'),
+                        selected: widget.canalDistribution == 'courtier',
+                        onSelected: (_) => widget.onCanalChanged('courtier'),
+                        selectedColor: const Color(0xFFE9F9F6),
+                        labelStyle: TextStyle(
+                          color: widget.canalDistribution == 'courtier'
+                              ? const Color(0xFF087F72)
+                              : AppColors.secondary,
                         ),
                       ),
-                      Expanded(
-                        child: RadioListTile<String>(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          value: 'courtier',
-                          groupValue: widget.canalDistribution,
-                          title: const Text('Via courtier', style: TextStyle(fontSize: 13)),
-                          onChanged: (v) {
-                            if (v != null) widget.onCanalChanged(v);
-                          },
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: const Text('Non'),
+                        selected: widget.canalDistribution != 'courtier',
+                        onSelected: (_) => widget.onCanalChanged('assureur'),
+                        selectedColor: const Color(0xFFE9F9F6),
+                        labelStyle: TextStyle(
+                          color: widget.canalDistribution != 'courtier'
+                              ? const Color(0xFF087F72)
+                              : AppColors.secondary,
                         ),
                       ),
                     ],
                   ),
                   if (widget.canalDistribution == 'courtier') ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 10),
                     if (widget.courtiers.isEmpty)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Text(
-                          'Aucun courtier disponible pour ce contexte. Vous pouvez choisir "Compagnie directe".',
+                          'Aucun intermédiaire disponible pour ce contexte. Vous pouvez répondre « Non ».',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: const Color(0xFF64748B),
                           ),
                         ),
                       ),
                     if (widget.courtiers.isNotEmpty)
-                      Text(
-                        'Courtiers éligibles : ${widget.courtiers.map((c) => c['nom']?.toString() ?? '').where((s) => s.trim().isNotEmpty).join(', ')}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: const Color(0xFF64748B),
+                      DropdownButtonFormField<int>(
+                        initialValue: widget.selectedCourtierId,
+                        decoration: InputDecoration(
+                          labelText: 'Sélectionnez votre intermédiaire *',
+                          labelStyle: const TextStyle(
+                            color: AppColors.secondary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFDFD8E9)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFDFD8E9)),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
                         ),
+                        items: widget.courtiers
+                            .map(
+                              (c) => DropdownMenuItem<int>(
+                                value: _optInt(c['id']),
+                                child: Text(
+                                  c['nom']?.toString() ?? 'Intermédiaire',
+                                  style: const TextStyle(fontSize: 13),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) => widget.onCourtierChanged(v),
                       ),
                   ],
                 ],
@@ -354,7 +390,6 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
                 final isCourtierMode = linkedCourtier != null;
                 final partnerName =
                     isCourtierMode ? (linkedCourtier['nom']?.toString() ?? assureur) : assureur;
-                final courtierId = _optInt(linkedCourtier?['id']);
                 final duree = _voyageDureeSubtitle(p, widget.voyageDureeJours);
                 final priceBlock = _priceBlock(
                   context,
@@ -416,11 +451,6 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
               }),
             if (_selectedProductIndex != null) ...[
               const SizedBox(height: 20),
-              _PhotoMedicaleCard(
-                imagePath: _medicalPhotoPath ?? widget.initialMedicalPhotoPath,
-                onPhotoPicked: (path) => setState(() => _medicalPhotoPath = path),
-              ),
-              const SizedBox(height: 16),
               _DeclarationsCard(
                 acceptCgu: _acceptCgu,
                 acceptExclusions: _acceptExclusions && _exclusionsValidated,
@@ -446,20 +476,8 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
                 child: ElevatedButton(
                   onPressed: (_selectedProductIndex != null && _acceptCgu && _exclusionsValidated)
                       ? () {
-                          final photo = _medicalPhotoPath ?? widget.initialMedicalPhotoPath;
-                          if (photo == null || photo.trim().isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Ajoutez une photo portrait pour l’e-carte (caméra ou galerie) avant de continuer.',
-                                ),
-                                backgroundColor: AppColors.danger,
-                              ),
-                            );
-                            return;
-                          }
                           final p = _productList[_selectedProductIndex!];
-                          widget.onContinue(p.id, photo.trim());
+                          widget.onContinue(p.id);
                         }
                       : null,
                   style: ElevatedButton.styleFrom(
@@ -472,7 +490,7 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text('Continuer vers les formulaires'),
+                  child: const Text('Continuer vers le récapitulatif'),
                 ),
               ),
             ],
@@ -632,7 +650,7 @@ class _ProductCard extends StatelessWidget {
               GestureDetector(
                 onTap: onViewDetails,
                 child: const Text(
-                  'Voir les détails',
+                  'Garanties · Capitaux · Exclusions',
                   style: TextStyle(
                     fontSize: 14,
                     color: AppColors.primary,
@@ -676,153 +694,6 @@ class _ProductCard extends StatelessWidget {
           fontWeight: FontWeight.bold,
           color: Color(0xFF64748B),
         ),
-      ),
-    );
-  }
-}
-
-class _PhotoMedicaleCard extends StatelessWidget {
-  const _PhotoMedicaleCard({
-    this.imagePath,
-    required this.onPhotoPicked,
-  });
-
-  final String? imagePath;
-  final ValueChanged<String?> onPhotoPicked;
-
-  Future<void> _pickImage(BuildContext context, ImageSource source) async {
-    final isCamera = source == ImageSource.camera;
-    if (isCamera) {
-      final status = await Permission.camera.request();
-      if (!status.isGranted) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Autorisation caméra requise pour prendre une photo.')),
-          );
-        }
-        return;
-      }
-    } else {
-      final status = await Permission.photos.request();
-      if (!status.isGranted) {
-        final storage = await Permission.storage.request();
-        if (!storage.isGranted && !(await Permission.photos.isGranted)) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Autorisation galerie requise pour choisir une photo.')),
-            );
-          }
-          return;
-        }
-      }
-    }
-    try {
-      final picker = ImagePicker();
-      final XFile? file = await picker.pickImage(
-        source: source,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 82,
-      );
-      if (file != null) onPhotoPicked(file.path);
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Photo pour l’e-carte ( obligatoire )',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1E293B),
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Prenez une photo. Cette image sera utilisée pour votre carte numérique sur le web et dans l’application.',
-            style: TextStyle(
-              fontSize: 13,
-              color: Color(0xFF64748B),
-            ),
-          ),
-          if (imagePath != null && imagePath!.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.file(
-                File(imagePath!),
-                height: 120,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: () => onPhotoPicked(null),
-              icon: const Icon(Icons.delete_outline, size: 18),
-              label: const Text('Supprimer la photo'),
-              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            ),
-            const SizedBox(height: 8),
-          ],
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _pickImage(context, ImageSource.camera),
-                  icon: const Icon(Icons.camera_alt, size: 20),
-                  label: const Text('Caméra'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF1E293B),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _pickImage(context, ImageSource.gallery),
-                  icon: const Icon(Icons.photo_library, size: 20),
-                  label: const Text('Galerie'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF1E293B),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }

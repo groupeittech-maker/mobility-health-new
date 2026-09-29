@@ -119,6 +119,8 @@ def _apply_registration_payload(user: User, user_data: "UserCreate") -> None:
         user.full_name = user_data.full_name
     if user_data.telephone is not None:
         user.telephone = user_data.telephone
+    if user_data.numero_whatsapp is not None:
+        user.numero_whatsapp = user_data.numero_whatsapp
     if user_data.sexe is not None:
         user.sexe = user_data.sexe
     if user_data.pays_residence is not None:
@@ -159,8 +161,29 @@ def _apply_registration_payload(user: User, user_data: "UserCreate") -> None:
             )
 
 
-def _issue_email_verification_code(user: User) -> None:
-    """Génère un code à 6 chiffres, le stocke dans Redis (15 min) et envoie l'e-mail."""
+_VERIFICATION_CHANNELS = ("email", "sms", "whatsapp")
+
+
+def _issue_verification_code(user: User, channel: str = "email") -> None:
+    """Génère un code à 6 chiffres, le stocke dans Redis (15 min) et l'envoie
+    sur le canal choisi : e-mail, SMS ou WhatsApp (kit MyMHC)."""
+    channel = (channel or "email").strip().lower()
+    if channel not in _VERIFICATION_CHANNELS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Canal de vérification inconnu : {channel}",
+        )
+    if channel == "whatsapp" and not (getattr(user, "numero_whatsapp", None) or user.telephone):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Un numéro WhatsApp est requis pour ce canal de vérification.",
+        )
+    if channel == "sms" and not user.telephone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Un numéro de téléphone est requis pour la vérification par SMS.",
+        )
+
     verification_code = "".join(random.choices(string.digits, k=6))
     try:
         redis = get_redis()
@@ -179,11 +202,13 @@ def _issue_email_verification_code(user: User) -> None:
             except Exception as e:
                 logger.error("Erreur stockage code vérification Redis: %s", e)
         else:
-            logger.warning("Redis indisponible — code de vérification e-mail non persisté")
+            logger.warning("Redis indisponible — code de vérification non persisté")
     except Exception as e:
         logger.warning("Redis indisponible (init): %s", e)
     try:
-        UserService.send_verification_email(user, verification_code)
+        UserService.send_verification_code(user, verification_code, channel)
+    except HTTPException:
+        raise
     except EmailDeliveryError as e:
         logger.error("Envoi e-mail de vérification impossible: %s", e)
         raise HTTPException(
@@ -194,11 +219,16 @@ def _issue_email_verification_code(user: User) -> None:
             ),
         ) from e
     except Exception as e:
-        logger.error("Erreur envoi e-mail de vérification: %s", e)
+        logger.error("Erreur envoi code de vérification (%s): %s", channel, e)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Erreur lors de l'envoi du code de vérification.",
         ) from e
+
+
+def _issue_email_verification_code(user: User) -> None:
+    """Alias historique : envoie le code de vérification par e-mail."""
+    _issue_verification_code(user, "email")
 
 
 def _sql_bool(val) -> bool:
@@ -245,6 +275,7 @@ class UserCreate(BaseModel):
     full_name: str | None = None
     date_naissance: str | None = None  # Format ISO: YYYY-MM-DD
     telephone: str | None = None
+    numero_whatsapp: str | None = None  # WhatsApp si différent du téléphone
     sexe: str | None = None  # 'M', 'F', 'Autre'
     pays_residence: str | None = None
     nationalite: str | None = None
@@ -256,6 +287,8 @@ class UserCreate(BaseModel):
     traitements_en_cours: str | None = None
     antecedents_recents: str | None = None
     grossesse: bool | None = None
+    # Canal de vérification du kit MyMHC : email | sms | whatsapp
+    canal_verification: str | None = None
 
     @model_validator(mode="after")
     def set_username_from_email(self):
@@ -299,6 +332,7 @@ class UserResponse(BaseModel):
     full_name: str | None
     date_naissance: str | None = None  # Format ISO: YYYY-MM-DD
     telephone: str | None = None
+    numero_whatsapp: str | None = None
     sexe: str | None = None
     pays_residence: str | None = None
     nationalite: str | None = None
@@ -354,6 +388,7 @@ class VerifyEmailRequest(BaseModel):
 
 class ResendVerificationCodeRequest(BaseModel):
     email: EmailStr
+    channel: str | None = None  # email | sms | whatsapp
 
 
 class GetMaskedEmailRequest(BaseModel):
@@ -378,7 +413,7 @@ def get_current_user(
         raise credentials_exception
     q = text("""
         SELECT id, username, email, full_name, is_active, hospital_id,
-               date_naissance, telephone, sexe, validite_passeport,
+               date_naissance, telephone, numero_whatsapp, sexe, validite_passeport,
                COALESCE(CAST(role AS TEXT), 'user') AS role_str,
                pays_residence, nationalite, numero_passeport,
                nom_contact_urgence, contact_urgence
@@ -410,6 +445,7 @@ def get_current_user(
         numero_passeport=getattr(row, "numero_passeport", None),
         nom_contact_urgence=getattr(row, "nom_contact_urgence", None),
         contact_urgence=getattr(row, "contact_urgence", None),
+        numero_whatsapp=getattr(row, "numero_whatsapp", None),
     )
 
 
@@ -433,7 +469,7 @@ def get_current_user_optional(
         return None
     q = text("""
         SELECT id, username, email, full_name, is_active, hospital_id,
-               date_naissance, telephone, sexe, validite_passeport,
+               date_naissance, telephone, numero_whatsapp, sexe, validite_passeport,
                COALESCE(CAST(role AS TEXT), 'user') AS role_str,
                pays_residence, nationalite, numero_passeport,
                nom_contact_urgence, contact_urgence
@@ -460,6 +496,7 @@ def get_current_user_optional(
         numero_passeport=getattr(row, "numero_passeport", None),
         nom_contact_urgence=getattr(row, "nom_contact_urgence", None),
         contact_urgence=getattr(row, "contact_urgence", None),
+        numero_whatsapp=getattr(row, "numero_whatsapp", None),
     )
 
 
@@ -524,6 +561,7 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
                 full_name=user_data.full_name,
                 date_naissance=user_data.date_naissance,
                 telephone=user_data.telephone,
+                numero_whatsapp=user_data.numero_whatsapp,
                 sexe=user_data.sexe,
                 pays_residence=user_data.pays_residence,
                 nationalite=user_data.nationalite,
@@ -541,7 +579,8 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
                 grossesse=user_data.grossesse,
             )
 
-        _issue_email_verification_code(user)
+        canal = (user_data.canal_verification or "email").strip().lower()
+        _issue_verification_code(user, canal)
         db.commit()
         db.refresh(user)
 
@@ -1390,9 +1429,14 @@ async def resend_verification_code(
     if user.email_verified and not user.is_active:
         # Ancien flux (e-mail déjà marqué vérifié avant activation) : ne pas envoyer de code piège
         return {"message": "Si cet email existe, un code de vérification a été envoyé"}
-    
-    _issue_email_verification_code(user)
-    
+
+    canal = (request.channel or "email").strip().lower()
+    try:
+        _issue_verification_code(user, canal)
+    except HTTPException:
+        # Canal sans destination (SMS/WhatsApp sans numéro) : message neutre
+        return {"message": "Si cet email existe, un code de vérification a été envoyé"}
+
     return {"message": "Si cet email existe, un code de vérification a été envoyé"}
 
 

@@ -12,9 +12,12 @@ import '../services/auth_service.dart';
 
 /// Vérification du code OTP e-mail après inscription (aligné sur verify-email.html).
 class VerifyEmailScreen extends StatefulWidget {
-  const VerifyEmailScreen({super.key, required this.email});
+  const VerifyEmailScreen({super.key, required this.email, this.channel});
 
   final String email;
+
+  /// Canal de réception du code : email | sms | whatsapp (kit MyMHC).
+  final String? channel;
 
   @override
   State<VerifyEmailScreen> createState() => _VerifyEmailScreenState();
@@ -27,6 +30,17 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   String? _errorMessage;
   int _resendCooldown = 60;
   Timer? _cooldownTimer;
+
+  String get _channelHint {
+    switch (widget.channel) {
+      case 'sms':
+        return 'Saisissez le code à 6 chiffres reçu par SMS pour le compte :';
+      case 'whatsapp':
+        return 'Saisissez le code à 6 chiffres reçu par WhatsApp pour le compte :';
+      default:
+        return 'Saisissez le code à 6 chiffres envoyé à :';
+    }
+  }
 
   @override
   void initState() {
@@ -94,7 +108,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       _loading = true;
     });
     try {
-      await _auth.resendVerificationCode(widget.email);
+      await _auth.resendVerificationCode(widget.email, channel: widget.channel);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -151,7 +165,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Saisissez le code à 6 chiffres envoyé à :',
+                      _channelHint,
                       style: GoogleFonts.poppins(fontSize: 14, color: AppColors.mutedText),
                     ),
                     const SizedBox(height: 4),
