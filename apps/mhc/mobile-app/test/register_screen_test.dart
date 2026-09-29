@@ -15,6 +15,7 @@ void main() {
     expect(source.contains('consentCgu'), isTrue);
     expect(source.contains('verify-email'), isTrue);
     expect(source.contains('apiErrorToUserMessage'), isTrue);
-    expect(source.contains('kAppVersionLabel'), isTrue);
+    expect(source.contains('consentConfidentialite'), isTrue);
+    expect(source.contains('_canalVerification'), isTrue);
   });
 }
