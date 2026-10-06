@@ -685,3 +685,121 @@ body[data-backoffice].sos-alerts-map-page > main.sos-alerts-map-main {
 @media (max-width: 900px) {
     body[data-backoffice].sos-alerts-map-page > main.sos-alerts-map-main { margin-left: 1rem; }
 }
+
+/* =====================================================================
+   Uniformisation du contenu des pages back-office
+   Palette violet MHC + composants normalisés (tableaux, formulaires,
+   boutons, cartes) — s'applique à toute page <body data-backoffice>.
+   ===================================================================== */
+
+/* ---------- Palette : violet MHC au lieu du teal ---------- */
+body[data-backoffice] {
+    --primary-color: #4e267c;
+    --primary-dark: #3d1e62;
+    --primary-light: #8a7bb8;
+    --accent-color: #6c5ce7;
+    --accent-gradient: linear-gradient(135deg, #4e267c 0%, #352a7d 100%);
+    --soft-gradient: linear-gradient(135deg, #4e267c 0%, #6c5ce7 100%);
+}
+
+/* ---------- Tableaux ---------- */
+body[data-backoffice] main .data-table,
+body[data-backoffice] main table.data-table {
+    border-radius: 12px;
+    border: 1px solid #e6e8f2;
+    box-shadow: 0 1px 3px rgba(30, 22, 80, 0.07);
+}
+body[data-backoffice] main .data-table thead {
+    background: var(--accent-gradient);
+}
+body[data-backoffice] main .data-table thead th {
+    padding: 0.8rem 1.1rem;
+    font-size: 0.75rem;
+}
+body[data-backoffice] main .data-table th,
+body[data-backoffice] main .data-table td {
+    padding: 0.8rem 1.1rem;
+}
+body[data-backoffice] main .data-table tbody tr:hover {
+    background: #f7f6fc;
+}
+
+/* ---------- Formulaires ---------- */
+body[data-backoffice] main input[type="text"],
+body[data-backoffice] main input[type="email"],
+body[data-backoffice] main input[type="password"],
+body[data-backoffice] main input[type="number"],
+body[data-backoffice] main input[type="tel"],
+body[data-backoffice] main input[type="url"],
+body[data-backoffice] main input[type="search"],
+body[data-backoffice] main input[type="date"],
+body[data-backoffice] main input[type="datetime-local"],
+body[data-backoffice] main input[type="time"],
+body[data-backoffice] main select,
+body[data-backoffice] main textarea {
+    border: 1px solid #e2e4f0;
+    border-radius: 0.55rem;
+    padding: 0.55rem 0.75rem;
+    font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+    font-size: 0.85rem;
+    background: #fff;
+    color: #1e1650;
+}
+body[data-backoffice] main input:focus,
+body[data-backoffice] main select:focus,
+body[data-backoffice] main textarea:focus {
+    border-color: #6c5ce7;
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.12);
+    outline: none;
+}
+body[data-backoffice] main label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #4a4472;
+}
+
+/* ---------- Boutons ---------- */
+body[data-backoffice] main .btn {
+    border-radius: 0.55rem;
+    padding: 0.6rem 1.1rem;
+    font-size: 0.8rem;
+    box-shadow: none;
+}
+body[data-backoffice] main .btn:hover {
+    transform: none;
+    box-shadow: none;
+    filter: brightness(1.07);
+}
+body[data-backoffice] main .btn-primary {
+    background: var(--accent-gradient);
+    box-shadow: none;
+}
+body[data-backoffice] main .btn-outline {
+    border-width: 1px;
+    border-color: #d9dbef;
+    color: #4e267c;
+    background: #fff;
+}
+body[data-backoffice] main .btn-outline:hover {
+    border-color: #6c5ce7;
+    background: #f7f6fc;
+}
+
+/* ---------- Cartes et panneaux ---------- */
+body[data-backoffice] main .card,
+body[data-backoffice] main .panel,
+body[data-backoffice] main .dashboard-section,
+body[data-backoffice] main .assureur-summary-card {
+    border-radius: 12px;
+    border: 1px solid #e6e8f2;
+    box-shadow: 0 1px 3px rgba(30, 22, 80, 0.06);
+}
+
+/* ---------- Titres de section ---------- */
+body[data-backoffice] main .dashboard-section h3,
+body[data-backoffice] main .section-heading h4 {
+    color: #4e267c;
+}
+body[data-backoffice] main .dashboard-header h2 {
+    color: #1e1650;
+}
