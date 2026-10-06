@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../core/config/api_hosts.dart';
 import '../core/constants/app_colors.dart';
 import '../core/network/api_client.dart' as net;
 import '../core/utils/api_error_helper.dart';
@@ -272,6 +273,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 onPressed: _next,
               ),
             ),
+            Center(
+              child: Text(
+                'v$kAppVersionLabel',
+                style: GoogleFonts.poppins(
+                    fontSize: 11, color: AppColors.mutedText),
+              ),
+            ),
+            const SizedBox(height: 4),
             const MhStripe(),
           ],
         ),
