@@ -671,3 +671,17 @@ body[data-backoffice] > main {
 .bo-page-head .actions { display: flex; gap: 0.55rem; }
 .bo-page-head .btn { border-radius: 0.55rem; padding: 0.55rem 1rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid #e2e4f0; background: #fff; color: #444; }
 .bo-page-head .btn.primary { background: #4e267c; color: #fff; border-color: #4e267c; }
+
+/* ---------- Pages carte SOS (layout plein écran) ---------- */
+body[data-backoffice].sos-alerts-map-page { display: block; }
+body[data-backoffice].sos-alerts-map-page > main.sos-alerts-map-main {
+    max-width: none;
+    margin-left: var(--bo-sidebar-w);
+    margin-top: var(--bo-topbar-h);
+    margin-right: 1.4rem;
+    margin-bottom: 1.4rem;
+    height: calc(100vh - var(--bo-topbar-h) - 2rem);
+}
+@media (max-width: 900px) {
+    body[data-backoffice].sos-alerts-map-page > main.sos-alerts-map-main { margin-left: 1rem; }
+}

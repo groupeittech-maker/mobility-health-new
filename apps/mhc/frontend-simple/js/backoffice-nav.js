@@ -98,6 +98,10 @@
         { id: 'courtier_production', label: 'Portail production', icon: 'production', href: 'courtier-production.html', roles: ['agent_production_courtier', 'assistant_souscription'] },
         { id: 'courtier_sinistres', label: 'Portail sinistres', icon: 'claim', href: 'courtier-sinistres.html', roles: ['agent_sinistre_courtier'] },
         { id: 'courtier_comptable', label: 'Portail comptable', icon: 'money', href: 'accounting-portal.html', roles: ['agent_comptable_courtier'] },
+        { id: 'assureur_production', label: 'Portail production', icon: 'production', href: 'assureur-production.html', roles: ['agent_production_assureur', 'agent_medical_assureur'] },
+        { id: 'assureur_sinistres', label: 'Portail sinistres', icon: 'claim', href: 'assureur-sinistres.html', roles: ['agent_sinistre_assureur'] },
+        { id: 'assureur_comptable', label: 'Portail comptable', icon: 'money', href: 'assureur-accounting.html', roles: ['agent_comptable_assureur'] },
+        { id: 'hopital_portail', label: 'Portail hôpital', icon: 'medical', href: 'hospital-dashboard.html', roles: ['hospital_admin', 'medecin_hopital', 'agent_reception_hopital', 'agent_comptable_hopital'] },
         { id: 'partenaire_sante', label: 'Partenaire santé', icon: 'medical', href: 'admin-hospitals.html', feature: 'comptes_partenaires_sante' },
         { id: 'assures', label: 'Assurés', icon: 'users', href: 'admin-users.html', feature: 'comptes_utilisateurs' },
         {
