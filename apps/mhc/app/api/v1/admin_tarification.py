@@ -9,6 +9,12 @@ from sqlalchemy.orm import Session, joinedload
 from app.api.v1.auth import get_current_user
 from app.core.database import get_db
 from app.core.enums import Role
+from app.core.permissions import (
+    F_COMPTES_PRODUITS,
+    LEVEL_CONSULTATION,
+    LEVEL_EDITION,
+    require_bo_permission,
+)
 from app.models.user import User
 from app.models.destination import DestinationCountry
 from app.models.parametre_pays_assureur import ParametrePaysAssureur, TaxePaysAssureur
@@ -65,15 +71,6 @@ _FORM_ALIGNMENT_HINT = (
 )
 
 
-def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != Role.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions. Admin role required.",
-        )
-    return current_user
-
-
 def _grille_finale_row_to_response(cell: TarificationGrilleFinale) -> TarificationGrilleFinaleRowResponse:
     z = cell.zone
     f = cell.fenetre
@@ -119,7 +116,7 @@ def _zone_to_detail(db: Session, z: TarificationZone) -> TarificationZoneDetailR
     summary="Zones canoniques grille voyage (alignement pays)",
 )
 def get_canonical_voyage_zones(
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     """
     Liste les codes de zone attendus par le moteur `voyage_grille_json` (grille JSON).
@@ -142,7 +139,7 @@ def get_canonical_voyage_zones(
     "/voyage-reference",
     summary="Grille nationale primes + surprimes (référence devis)",
 )
-def get_voyage_reference_tarifs(_: User = Depends(require_admin)):
+def get_voyage_reference_tarifs(_: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION))):
     """
     Données affichées en admin : primes FCFA communes à tous les produits (grille JSON moteur)
     et % de surprime âge par défaut (si champs produit non renseignés).
@@ -227,7 +224,7 @@ def get_voyage_reference_tarifs(_: User = Depends(require_admin)):
 @router.get("/zones", response_model=List[TarificationZoneDetailResponse])
 def list_zones(
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_CONSULTATION)),
 ):
     zones = (
         db.query(TarificationZone)
@@ -241,7 +238,7 @@ def list_zones(
 def create_zone(
     data: TarificationZoneCreate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     code = (data.code or "").strip().upper()
     if db.query(TarificationZone).filter(TarificationZone.code == code).first():
@@ -268,7 +265,7 @@ def update_zone(
     zone_id: int,
     data: TarificationZoneUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     z = db.query(TarificationZone).filter(TarificationZone.id == zone_id).first()
     if not z:
@@ -298,7 +295,7 @@ def update_zone(
 def delete_zone(
     zone_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     z = db.query(TarificationZone).filter(TarificationZone.id == zone_id).first()
     if not z:
@@ -324,7 +321,7 @@ def set_zone_countries(
     zone_id: int,
     body: TarificationZonePaysUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     z = db.query(TarificationZone).filter(TarificationZone.id == zone_id).first()
     if not z:
@@ -357,7 +354,7 @@ def set_zone_countries(
 @router.get("/fenetres-duree", response_model=List[TarificationFenetreDureeResponse])
 def list_fenetres_duree(
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_CONSULTATION)),
 ):
     rows = (
         db.query(TarificationFenetreDuree)
@@ -378,7 +375,7 @@ def list_fenetres_duree(
 def create_fenetre_duree(
     data: TarificationFenetreDureeCreate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_CONSULTATION)),
 ):
     if data.duree_min_jours > data.duree_max_jours:
         raise HTTPException(status_code=400, detail="duree_min_jours > duree_max_jours")
@@ -404,7 +401,7 @@ def update_fenetre_duree(
     fenetre_id: int,
     data: TarificationFenetreDureeUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     row = (
         db.query(TarificationFenetreDuree)
@@ -430,7 +427,7 @@ def update_fenetre_duree(
 def delete_fenetre_duree(
     fenetre_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     row = (
         db.query(TarificationFenetreDuree)
@@ -455,7 +452,7 @@ def delete_fenetre_duree(
 @router.get("/tranches-age", response_model=List[TarificationTrancheAgeResponse])
 def list_tranches_age(
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_CONSULTATION)),
 ):
     rows = (
         db.query(TarificationTrancheAge)
@@ -476,7 +473,7 @@ def list_tranches_age(
 def create_tranche_age(
     data: TarificationTrancheAgeCreate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_CONSULTATION)),
 ):
     amin, amax = data.age_min, data.age_max
     if amin is not None and amax is not None and amin > amax:
@@ -503,7 +500,7 @@ def update_tranche_age(
     tranche_id: int,
     data: TarificationTrancheAgeUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     row = (
         db.query(TarificationTrancheAge)
@@ -529,7 +526,7 @@ def update_tranche_age(
 def delete_tranche_age(
     tranche_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     row = (
         db.query(TarificationTrancheAge)
@@ -547,7 +544,7 @@ def delete_tranche_age(
 @router.get("/grille", response_model=TarificationGrilleMatrixResponse)
 def get_grille_matrix(
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_CONSULTATION)),
 ):
     zones = (
         db.query(TarificationZone)
@@ -576,7 +573,7 @@ def get_grille_matrix(
 def upsert_grille_cell(
     body: TarificationGrillePrixUpsert,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     z = db.query(TarificationZone).filter(TarificationZone.id == body.zone_id).first()
     if not z:
@@ -619,7 +616,7 @@ def delete_grille_cell(
     zone_id: int = Query(..., ge=1),
     fenetre_duree_id: int = Query(..., ge=1),
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     row = (
         db.query(TarificationGrillePrix)
@@ -639,7 +636,7 @@ def delete_grille_cell(
 @router.get("/grille-finale", response_model=TarificationGrilleFinaleListResponse)
 def list_grille_finale(
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_CONSULTATION)),
 ):
     """Grille globale uniquement (repli). Les grilles par produit : admin / produits / {id} / grille-finale."""
     cells = (
@@ -671,7 +668,7 @@ def list_grille_finale(
 def upsert_grille_finale_cell(
     body: TarificationGrilleFinaleUpsert,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     z = db.query(TarificationZone).filter(TarificationZone.id == body.zone_id).first()
     if not z:
@@ -739,7 +736,7 @@ def delete_grille_finale_cell(
     fenetre_duree_id: int = Query(..., ge=1),
     tranche_age_id: int = Query(..., ge=1),
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     row = (
         db.query(TarificationGrilleFinale)
@@ -764,7 +761,7 @@ def delete_grille_finale_cell(
 def create_parametre_pays(
     body: ParametrePaysAssureurCreate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     existing = (
         db.query(ParametrePaysAssureur)
@@ -805,7 +802,7 @@ def create_parametre_pays(
 def list_parametres_pays(
     actif: Optional[bool] = None,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_CONSULTATION)),
 ):
     query = db.query(ParametrePaysAssureur)
     if actif is not None:
@@ -835,7 +832,7 @@ def list_parametres_pays(
 def get_parametre_pays(
     pays_assureur: str,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_CONSULTATION)),
 ):
     param = (
         db.query(ParametrePaysAssureur)
@@ -855,7 +852,7 @@ def update_parametre_pays(
     pays_assureur: str,
     body: ParametrePaysAssureurUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     param = (
         db.query(ParametrePaysAssureur)
@@ -905,7 +902,7 @@ def update_parametre_pays(
 def delete_parametre_pays(
     pays_assureur: str,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     param = (
         db.query(ParametrePaysAssureur)
@@ -930,7 +927,7 @@ def add_taxe_pays(
     pays_assureur: str,
     body: TaxePaysAssureurCreate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     param = (
         db.query(ParametrePaysAssureur)
@@ -963,7 +960,7 @@ def update_taxe_pays(
     taxe_id: int,
     body: TaxePaysAssureurUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     taxe = db.query(TaxePaysAssureur).filter(TaxePaysAssureur.id == taxe_id).first()
     if not taxe:
@@ -991,7 +988,7 @@ def update_taxe_pays(
 def delete_taxe_pays(
     taxe_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     taxe = db.query(TaxePaysAssureur).filter(TaxePaysAssureur.id == taxe_id).first()
     if not taxe:

@@ -10,6 +10,12 @@ from app.services.minio_service import MinioService
 from app.api.v1.auth import get_current_user
 from app.core.database import get_db
 from app.core.enums import Role
+from app.core.permissions import (
+    F_COMPTES_ASSUREURS,
+    LEVEL_CONSULTATION,
+    LEVEL_EDITION,
+    require_bo_permission,
+)
 from app.models.assureur import Assureur
 from app.models.assureur_agent import AssureurAgent
 from app.models.audit import AuditLog
@@ -19,15 +25,6 @@ from app.models.user import User
 from app.schemas.assureur import AssureurCreate, AssureurUpdate, AssureurResponse
 
 router = APIRouter()
-
-
-def require_admin(current_user=Depends(get_current_user)):
-    if getattr(current_user, "role", None) != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions. Admin role required.",
-        )
-    return current_user
 
 
 def _get_assureur_or_404(db: Session, assureur_id: int) -> Assureur:
@@ -256,7 +253,7 @@ def _manage_assureur_agents(
 async def list_assureurs(
     search: Optional[str] = Query(None, description="Filtrer par nom ou pays"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_bo_permission(F_COMPTES_ASSUREURS, LEVEL_CONSULTATION)),
 ):
     import logging
     logger = logging.getLogger(__name__)
@@ -425,7 +422,7 @@ async def list_assureurs(
 async def create_assureur(
     payload: AssureurCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_bo_permission(F_COMPTES_ASSUREURS, LEVEL_EDITION)),
 ):
     nom_normalized = payload.nom.strip()
     existing = (
@@ -489,7 +486,7 @@ async def create_assureur(
 async def get_assureur(
     assureur_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_bo_permission(F_COMPTES_ASSUREURS, LEVEL_CONSULTATION)),
 ):
     # Essayer de charger avec les agents, mais gérer le cas où la table n'existe pas
     try:
@@ -511,7 +508,7 @@ async def update_assureur(
     assureur_id: int,
     payload: AssureurUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_bo_permission(F_COMPTES_ASSUREURS, LEVEL_EDITION)),
 ):
     assureur = _get_assureur_or_404(db, assureur_id)
 
@@ -604,7 +601,7 @@ async def update_assureur(
 async def delete_assureur(
     assureur_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_bo_permission(F_COMPTES_ASSUREURS, LEVEL_EDITION)),
 ):
     assureur = _get_assureur_or_404(db, assureur_id)
 
@@ -665,7 +662,7 @@ async def upload_assureur_logo(
     assureur_id: int,
     file: UploadFile = File(..., description="Fichier image du logo (PNG, JPG, GIF, WebP)"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_bo_permission(F_COMPTES_ASSUREURS, LEVEL_EDITION)),
 ):
     """Upload le logo d'un assureur (fichier image). Remplace l'URL par la référence au fichier stocké."""
     assureur = _get_assureur_or_404(db, assureur_id)
@@ -708,7 +705,7 @@ async def get_available_agents(
     role: str = Query(..., description="Rôle de l'agent à récupérer (peut être un string ou un enum)"),
     exclude_assureur_id: Optional[int] = Query(None, description="ID de l'assureur à exclure (pour permettre la modification)"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_bo_permission(F_COMPTES_ASSUREURS, LEVEL_CONSULTATION)),
 ):
     """
     Récupère les agents disponibles pour un rôle donné.

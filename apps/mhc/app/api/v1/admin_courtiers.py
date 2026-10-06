@@ -7,6 +7,12 @@ from sqlalchemy.orm import Session
 from app.api.v1.auth import get_current_user
 from app.core.database import get_db
 from app.core.enums import Role
+from app.core.permissions import (
+    F_COMPTES_INTERMEDIAIRES,
+    LEVEL_CONSULTATION,
+    LEVEL_EDITION,
+    require_bo_permission,
+)
 from app.models.assureur import Assureur
 from app.models.courtier import Courtier
 from app.models.user import User
@@ -14,15 +20,6 @@ from app.schemas.courtier import CourtierCreate, CourtierResponse, CourtierUpdat
 from app.services.minio_service import MinioService
 
 router = APIRouter()
-
-
-def require_admin(current_user=Depends(get_current_user)):
-    if getattr(current_user, "role", None) != Role.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions. Admin role required.",
-        )
-    return current_user
 
 
 ALLOWED_LOGO_CONTENT_TYPES = {"image/jpeg", "image/png"}
@@ -63,7 +60,7 @@ async def list_courtiers(
     search: Optional[str] = Query(None),
     assureur_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin),
+    _: object = Depends(require_bo_permission(F_COMPTES_INTERMEDIAIRES, LEVEL_CONSULTATION)),
 ):
     query = db.query(Courtier)
     if search:
@@ -78,7 +75,7 @@ async def list_courtiers(
 async def create_courtier(
     payload: CourtierCreate,
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin),
+    _: object = Depends(require_bo_permission(F_COMPTES_INTERMEDIAIRES, LEVEL_EDITION)),
 ):
     existing = (
         db.query(Courtier)
@@ -113,7 +110,7 @@ async def update_courtier(
     courtier_id: int,
     payload: CourtierUpdate,
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin),
+    _: object = Depends(require_bo_permission(F_COMPTES_INTERMEDIAIRES, LEVEL_EDITION)),
 ):
     row = db.query(Courtier).filter(Courtier.id == courtier_id).first()
     if not row:
@@ -149,7 +146,7 @@ async def update_courtier(
 async def delete_courtier(
     courtier_id: int,
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin),
+    _: object = Depends(require_bo_permission(F_COMPTES_INTERMEDIAIRES, LEVEL_EDITION)),
 ):
     row = db.query(Courtier).filter(Courtier.id == courtier_id).first()
     if not row:
@@ -175,7 +172,7 @@ async def upload_courtier_logo(
     courtier_id: int,
     file: UploadFile = File(..., description="Fichier image du logo (PNG, JPG, JPEG)"),
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_bo_permission(F_COMPTES_INTERMEDIAIRES, LEVEL_EDITION)),
 ):
     row = db.query(Courtier).filter(Courtier.id == courtier_id).first()
     if not row:

@@ -338,10 +338,43 @@ ROLE_LABELS: Dict[str, str] = {
 }
 
 
+# Profils MHC internes : ils accèdent aux vues globales du back-office.
+# Les profils partenaires (assureur, intermédiaire, réassureur, partenaire
+# santé/TPA) ont des droits « consultation » dans la matrice, mais uniquement
+# sur le périmètre de leur organisation — ils passent par leurs portails
+# scopés (assureur_production, assureur_sinistres, reassureur_portal,
+# hospital_*) et jamais par les listes globales des routers admin_*.
+INTERNAL_BACKOFFICE_ROLES = {
+    "superviseur_technique",
+    "production_agent",
+    "agent_conformite_production",
+    "agent_sinistre_mh",
+    "agent_conformite_sinistre",
+    "superviseur_affaires_medicales",
+    "agent_medical_mhc",
+    "agent_conformite_medical",
+    "superviseur_comptable",
+    "agent_comptable_mh",
+    "agent_conformite_comptable",
+    "medecin_referent_mh",
+    # Rôles historiques rapprochés
+    "sos_operator",
+    "medical_reviewer",
+    "technical_reviewer",
+    "finance_manager",
+}
+
+
 def _normalize_level(level: Optional[str]) -> str:
     if not level:
         return LEVEL_NONE
     return level if level in _LEVEL_ORDER else LEVEL_NONE
+
+
+def is_internal_backoffice_role(role: Optional[str]) -> bool:
+    """Profil MHC interne (ou admin) — autorisé sur les vues globales du BO."""
+    role_key = (role or "user").strip().lower()
+    return role_key == "admin" or role_key in INTERNAL_BACKOFFICE_ROLES
 
 
 def permissions_for_role(role: Optional[str]) -> Dict[str, str]:
@@ -374,6 +407,57 @@ def require_permission(feature: str, min_level: str = LEVEL_CONSULTATION):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Permission insuffisante : {feature} ({min_level}) requis.",
+            )
+        return current_user
+
+    return _check
+
+
+def require_bo_permission(feature: str, min_level: str = LEVEL_CONSULTATION):
+    """Dependency FastAPI pour les vues GLOBALES du back-office (routers admin_*).
+
+    Exige un profil MHC interne (ou admin) disposant de `feature` au niveau
+    `min_level` dans la matrice. Les profils partenaires sont refusés même
+    s'ils ont un droit en consultation : leur périmètre est leur organisation,
+    servi par les portails scopés — pas par les listes globales.
+    """
+    from fastapi import Depends, HTTPException, status
+    from app.api.v1.auth import get_current_user
+
+    def _check(current_user=Depends(get_current_user)):
+        role = getattr(current_user, "role", "user")
+        if hasattr(role, "value"):
+            role = role.value
+        role = str(role or "user")
+        if not is_internal_backoffice_role(role):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Accès réservé aux profils MHC internes.",
+            )
+        if not has_permission(role, feature, min_level):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission insuffisante : {feature} ({min_level}) requis.",
+            )
+        return current_user
+
+    return _check
+
+
+def require_backoffice():
+    """Dependency FastAPI : tout profil MHC interne (ou admin), sans exigence de
+    fonctionnalité particulière — pour les écrans transverses (reporting)."""
+    from fastapi import Depends, HTTPException, status
+    from app.api.v1.auth import get_current_user
+
+    def _check(current_user=Depends(get_current_user)):
+        role = getattr(current_user, "role", "user")
+        if hasattr(role, "value"):
+            role = role.value
+        if not is_internal_backoffice_role(str(role or "user")):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Accès réservé aux profils MHC internes.",
             )
         return current_user
 

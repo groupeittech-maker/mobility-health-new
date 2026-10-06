@@ -6,6 +6,12 @@ from sqlalchemy.sql import or_, and_
 from app.core.database import get_db
 from app.core.config import settings
 from app.core.enums import Role, StatutSouscription, StatutPaiement
+from app.core.permissions import (
+    F_PRODUCTION,
+    LEVEL_CONSULTATION,
+    has_permission,
+    is_internal_backoffice_role,
+)
 from app.api.v1.auth import get_current_user
 from app.models.user import User
 from app.models.souscription import Souscription
@@ -36,6 +42,26 @@ def require_role(allowed_roles: List[Role]):
                 detail=f"Not enough permissions. Required roles: {allowed_role_values}"
             )
         return current_user
+    return role_checker
+
+
+def require_production_consult(allowed_roles: List[Role]):
+    """Lecture production : rôles du pipeline OU tout profil MHC interne ayant
+    la fonctionnalité 'production' au niveau Consultation (matrice)."""
+    base = require_role(allowed_roles)
+
+    def role_checker(current_user: User = Depends(get_current_user)) -> User:
+        try:
+            return base(current_user)
+        except HTTPException:
+            role = getattr(current_user.role, "value", current_user.role)
+            role = str(role or "user")
+            if is_internal_backoffice_role(role) and has_permission(
+                role, F_PRODUCTION, LEVEL_CONSULTATION
+            ):
+                return current_user
+            raise
+
     return role_checker
 
 
@@ -121,7 +147,7 @@ async def get_pending_subscriptions(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([
+    current_user: User = Depends(require_production_consult([
         Role.DOCTOR,
         Role.FINANCE_MANAGER,
         Role.MEDICAL_REVIEWER,
@@ -426,7 +452,7 @@ async def get_all_subscriptions(
     limit: int = 100,
     statut: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([
+    current_user: User = Depends(require_production_consult([
         Role.DOCTOR,
         Role.FINANCE_MANAGER,
         Role.MEDICAL_REVIEWER,
@@ -467,7 +493,7 @@ async def get_all_subscriptions(
 async def get_subscription(
     subscription_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([
+    current_user: User = Depends(require_production_consult([
         Role.DOCTOR,
         Role.FINANCE_MANAGER,
         Role.MEDICAL_REVIEWER,
@@ -723,7 +749,7 @@ async def get_subscription_dossier(
 async def get_subscription_questionnaires(
     subscription_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([
+    current_user: User = Depends(require_production_consult([
         Role.DOCTOR,
         Role.FINANCE_MANAGER,
         Role.MEDICAL_REVIEWER,
@@ -753,7 +779,7 @@ async def get_subscription_questionnaires(
 async def get_subscription_payments(
     subscription_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([
+    current_user: User = Depends(require_production_consult([
         Role.DOCTOR,
         Role.FINANCE_MANAGER,
         Role.MEDICAL_REVIEWER,

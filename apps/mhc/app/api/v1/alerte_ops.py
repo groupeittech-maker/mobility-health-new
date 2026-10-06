@@ -35,7 +35,7 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-ALERTE_STATUTS = {"en_attente", "en_cours", "resolue", "annulee"}
+ALERTE_STATUTS = {"en_attente", "en_cours", "resolue", "annulee", "cloturee"}
 
 
 def _role_str(current_user) -> str:

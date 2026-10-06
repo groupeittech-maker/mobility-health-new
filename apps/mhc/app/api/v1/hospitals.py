@@ -6,6 +6,12 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, text
 from app.core.database import get_db
 from app.core.enums import Role
+from app.core.permissions import (
+    F_COMPTES_PARTENAIRES_SANTE,
+    LEVEL_CONSULTATION,
+    LEVEL_EDITION,
+    require_bo_permission,
+)
 from app.core.security import get_password_hash
 from app.api.v1.auth import get_current_user
 from app.models.user import User
@@ -53,15 +59,6 @@ from app.core.constants import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def require_admin_user(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != Role.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions. Admin role required."
-        )
-    return current_user
 
 
 def _get_hospital_or_404(db: Session, hospital_id: int) -> Hospital:
@@ -340,7 +337,7 @@ async def get_hospital_details(
 async def create_hospital(
     hospital_data: HospitalCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_user)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PARTENAIRES_SANTE, LEVEL_EDITION))
 ):
     """Créer un nouvel hôpital affilié à Mobility Health."""
     existing = db.query(Hospital).filter(
@@ -377,7 +374,7 @@ async def update_hospital(
     hospital_id: int,
     hospital_update: HospitalUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_user)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PARTENAIRES_SANTE, LEVEL_EDITION))
 ):
     """Mettre à jour les informations d'un hôpital."""
     hospital = db.query(Hospital).filter(Hospital.id == hospital_id).first()
@@ -413,7 +410,7 @@ async def update_hospital(
 async def list_hospital_receptionists(
     hospital_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_user)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PARTENAIRES_SANTE, LEVEL_CONSULTATION))
 ):
     """Lister les réceptionnistes assignés à un hôpital."""
     hospital = db.query(Hospital).filter(Hospital.id == hospital_id).first()
@@ -434,7 +431,7 @@ async def create_hospital_receptionist(
     hospital_id: int,
     receptionist_data: HospitalReceptionistCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_user)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PARTENAIRES_SANTE, LEVEL_EDITION))
 ):
     """Créer un agent de réception rattaché à un hôpital."""
     hospital = db.query(Hospital).filter(Hospital.id == hospital_id).first()
