@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 jobs:
   merge-if-green:
@@ -45,3 +46,7 @@ jobs:
         run: |
           gh pr merge "${{ steps.pr.outputs.number }}" --repo "${{ github.repository }}" --merge --delete-branch
           echo "✅ PR #${{ steps.pr.outputs.number }} fusionnée dans main"
+          # Les merges via GITHUB_TOKEN ne déclenchent pas les workflows (push CI):
+          # on lance le déploiement explicitement. La PR a déjà passé la CI verte.
+          gh workflow run deploy.yml --repo "${{ github.repository }}" --ref main
+          echo "🚀 Déploiement Hostinger déclenché"
