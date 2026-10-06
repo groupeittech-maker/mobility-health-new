@@ -71,11 +71,11 @@
             feature: 'production',
             internalOnly: true,
             children: [
-                { label: 'Création compte utilisateur', href: 'admin-users.html' },
-                { label: 'Coordination de production', href: 'admin-subscriptions.html' },
-                { label: 'Coordination des avenants', href: 'admin-subscriptions.html#avenants' },
-                { label: 'Encaissements des primes', href: 'finance-outbound.html#encaissements' },
-                { label: 'Remboursement annulation', href: 'finance-outbound.html#remboursements' },
+                { label: 'Création compte utilisateur', href: 'admin-users.html', feature: 'comptes_utilisateurs', minLevel: 'edition' },
+                { label: 'Coordination de production', href: 'admin-subscriptions.html', feature: 'production' },
+                { label: 'Coordination des avenants', href: 'admin-subscriptions.html#avenants', feature: 'production' },
+                { label: 'Encaissements des primes', href: 'finance-outbound.html#encaissements', feature: 'encaissement_prime' },
+                { label: 'Remboursement annulation', href: 'finance-outbound.html#remboursements', feature: 'remboursement' },
             ],
         },
         {
@@ -85,10 +85,10 @@
             feature: 'sinistres',
             internalOnly: true,
             children: [
-                { label: 'Suivi des sinistres', href: 'sinistre-invoices.html' },
-                { label: 'Encaissement primes', href: 'finance-outbound.html' },
-                { label: 'Remboursement', href: 'finance-outbound.html' },
-                { label: 'Paiement sinistre', href: 'finance-outbound.html' },
+                { label: 'Suivi des sinistres', href: 'sinistre-invoices.html', feature: 'sinistres' },
+                { label: 'Encaissement primes', href: 'finance-outbound.html', feature: 'encaissement_quote_part_sinistre' },
+                { label: 'Remboursement', href: 'finance-outbound.html', feature: 'remboursement' },
+                { label: 'Paiement sinistre', href: 'finance-outbound.html', feature: 'paiement_sinistre' },
             ],
         },
         { id: 'assureur', label: 'Assureur', icon: 'shield', href: 'admin-assureurs.html', feature: 'comptes_assureurs' },
@@ -111,18 +111,18 @@
             feature: 'prise_en_charge',
             internalOnly: true,
             children: [
-                { label: 'Création compte utilisateur', href: 'admin-users.html' },
-                { label: "Centre d'alerte des urgences", href: 'alert-center.html' },
-                { label: 'Émission bon de prise en charge', href: 'alert-center.html' },
-                { label: 'Émission bon de refus de prise en charge', href: 'alert-center.html' },
-                { label: 'Réception bulletin de sortie', href: 'medical-validations.html' },
-                { label: "Émission bon d'hospitalisation", href: 'alert-center.html' },
-                { label: "Émission bon de prolongation d'hospitalisation", href: 'alert-center.html' },
-                { label: 'Émission bon de rapatriement sanitaire', href: 'alert-center.html' },
-                { label: 'Émission bon de rapatriement funéraire', href: 'alert-center.html' },
-                { label: 'Réception rapport médical', href: 'medical-validations.html' },
-                { label: 'Validation facture hospitalière', href: 'sinistre-invoices.html' },
-                { label: 'Reporting', href: 'statistics-portal.html' },
+                { label: 'Création compte utilisateur', href: 'admin-users.html', feature: 'comptes_utilisateurs', minLevel: 'edition' },
+                { label: "Centre d'alerte des urgences", href: 'alert-center.html', feature: 'alerte_sos' },
+                { label: 'Émission bon de prise en charge', href: 'alert-center.html', feature: 'prise_en_charge' },
+                { label: 'Émission bon de refus de prise en charge', href: 'alert-center.html', feature: 'prise_en_charge' },
+                { label: 'Réception bulletin de sortie', href: 'medical-validations.html', feature: 'bulletin_sortie' },
+                { label: "Émission bon d'hospitalisation", href: 'alert-center.html', feature: 'hospitalisation' },
+                { label: "Émission bon de prolongation d'hospitalisation", href: 'alert-center.html', feature: 'hospitalisation' },
+                { label: 'Émission bon de rapatriement sanitaire', href: 'alert-center.html', feature: 'rapatriement' },
+                { label: 'Émission bon de rapatriement funéraire', href: 'alert-center.html', feature: 'rapatriement' },
+                { label: 'Réception rapport médical', href: 'medical-validations.html', feature: 'rapport_medical' },
+                { label: 'Validation facture hospitalière', href: 'sinistre-invoices.html', feature: 'facturation_medicale' },
+                { label: 'Reporting', href: 'statistics-portal.html', feature: 'rapport_medical' },
             ],
         },
         {
@@ -132,10 +132,10 @@
             feature: 'prise_en_charge',
             internalOnly: true,
             children: [
-                { label: 'Validations médicales', href: 'medical-validations.html' },
-                { label: 'Alertes SOS', href: 'alert-center.html' },
-                { label: 'Carte des alertes', href: 'sos-alerts-map.html' },
-                { label: 'Factures médicales', href: 'sinistre-invoices.html' },
+                { label: 'Validations médicales', href: 'medical-validations.html', feature: 'prise_en_charge' },
+                { label: 'Alertes SOS', href: 'alert-center.html', feature: 'alerte_sos' },
+                { label: 'Carte des alertes', href: 'sos-alerts-map.html', feature: 'alerte_sos' },
+                { label: 'Factures médicales', href: 'sinistre-invoices.html', feature: 'facturation_medicale' },
             ],
         },
         { id: 'hotels', label: 'Hôtels', icon: 'partners', href: 'admin-ops.html', feature: 'alerte_sos', internalOnly: true },
@@ -147,11 +147,11 @@
             feature: 'encaissement_prime',
             internalOnly: true,
             children: [
-                { label: 'Tableau financier', href: 'finance-dashboard.html' },
-                { label: 'Paiements sortants', href: 'finance-outbound.html' },
-                { label: 'Portail comptable', href: 'accounting-portal.html' },
-                { label: 'Grand livre', href: 'accounting-ledger.html' },
-                { label: 'Factures', href: 'mh-invoices.html' },
+                { label: 'Tableau financier', href: 'finance-dashboard.html', feature: 'encaissement_prime' },
+                { label: 'Paiements sortants', href: 'finance-outbound.html', feature: 'paiement_sinistre' },
+                { label: 'Portail comptable', href: 'accounting-portal.html', feature: 'encaissement_prime' },
+                { label: 'Grand livre', href: 'accounting-ledger.html', feature: 'retrocession_mhc' },
+                { label: 'Factures', href: 'mh-invoices.html', feature: 'facturation_medicale' },
             ],
         },
         { id: 'reporting', label: 'Reporting', icon: 'chart', href: 'statistics-portal.html', feature: 'encaissement_prime', internalOnly: true },
@@ -161,12 +161,12 @@
             icon: 'gear',
             roles: ['admin', 'superviseur_technique'],
             children: [
-                { label: 'Utilisateurs', href: 'admin-users.html' },
-                { label: 'Produits', href: 'admin-products.html' },
-                { label: 'Tarification', href: 'admin-tarification.html' },
-                { label: 'Frais et taxes', href: 'admin-tarification-frais.html' },
-                { label: 'Destinations', href: 'admin-destinations.html' },
-                { label: 'Attestations', href: 'admin-attestations.html' },
+                { label: 'Utilisateurs', href: 'admin-users.html', feature: 'comptes_utilisateurs', minLevel: 'edition' },
+                { label: 'Produits', href: 'admin-products.html', feature: 'comptes_produits', minLevel: 'edition' },
+                { label: 'Tarification', href: 'admin-tarification.html', feature: 'comptes_produits', minLevel: 'edition' },
+                { label: 'Frais et taxes', href: 'admin-tarification-frais.html', feature: 'comptes_produits', minLevel: 'edition' },
+                { label: 'Destinations', href: 'admin-destinations.html', feature: 'comptes_produits', minLevel: 'edition' },
+                { label: 'Attestations', href: 'admin-attestations.html', feature: 'comptes_produits', minLevel: 'edition' },
             ],
         },
     ];
@@ -214,7 +214,9 @@
                 : item.href;
 
             if (item.children && item.children.length) {
-                const anyChildActive = item.children.some(c => linkIsActive(c.href));
+                const visibleChildren = item.children.filter(canSee);
+                if (!visibleChildren.length) return;
+                const anyChildActive = visibleChildren.some(c => linkIsActive(c.href));
                 li.className = 'bo-group' + (anyChildActive ? ' open' : '');
                 const btn = document.createElement('button');
                 btn.type = 'button';
@@ -225,7 +227,7 @@
                 li.appendChild(btn);
                 const sub = document.createElement('ul');
                 sub.className = 'bo-sub';
-                item.children.forEach(child => {
+                visibleChildren.forEach(child => {
                     const cli = document.createElement('li');
                     const a = document.createElement('a');
                     a.className = 'bo-link' + (linkIsActive(child.href) ? ' active' : '');
