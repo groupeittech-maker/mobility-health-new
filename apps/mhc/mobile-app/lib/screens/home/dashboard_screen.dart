@@ -16,7 +16,9 @@ import '../../services/auth_service.dart';
 import 'historique_screen.dart';
 
 /// « Accueil » du kit MyMHC : carte d'assurance (adulte violet, mineurs
-/// turquoise), état « Demande en attente », accès rapides et partenaires.
+/// turquoise), état « Demande en attente », bandeau police, tuiles compteurs
+/// (En attente / Expirées / Attestations), couverture ou voyage, accès rapides
+/// et partenaires.
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -195,7 +197,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Votre assurance voyage, où que vous soyez.',
+            'Votre santé vous accompagne partout.',
             style: TextStyle(fontSize: 13, color: AppColors.mutedText),
           ),
           if (_error != null) ...[
@@ -276,6 +278,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
+          const SizedBox(height: 16),
+          _PolicyStatusStrip(
+            hasActive: _subs.any((s) => s.isActive),
+            onTap: () => context.push('/subscription/new'),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _CounterTile(
+                icon: Icons.schedule,
+                label: 'En attente',
+                count: pendingSubs.length,
+                tint: const Color(0xFFF1EBFA),
+                iconColor: AppColors.secondary,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const Scaffold(
+                      backgroundColor: Colors.transparent,
+                      appBar: MhAppBar(title: 'Historique'),
+                      body: ColoredBox(
+                        color: kMhContentBackground,
+                        child: HistoriqueScreen(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              _CounterTile(
+                icon: Icons.cancel_outlined,
+                label: 'Expirées',
+                count: _subs.where((s) => s.isExpired).length,
+                tint: const Color(0xFFFDECEE),
+                iconColor: AppColors.danger,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const Scaffold(
+                      backgroundColor: Colors.transparent,
+                      appBar: MhAppBar(title: 'Historique'),
+                      body: ColoredBox(
+                        color: kMhContentBackground,
+                        child: HistoriqueScreen(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              _CounterTile(
+                icon: Icons.description_outlined,
+                label: 'Attestations',
+                count: _attestationsCount,
+                tint: const Color(0xFFEAF4FB),
+                iconColor: const Color(0xFF2E86C8),
+                onTap: () => context.push('/attestations'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          _CoverageOrTrip(subs: _subs),
           const SizedBox(height: 22),
           Row(
             children: [
@@ -483,4 +543,419 @@ class _PartnerChip extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// Bandeau statut police du kit : vert « Police d'assurance active » ou
+/// rouge « Aucune police d'assurance active ».
+class _PolicyStatusStrip extends StatelessWidget {
+  const _PolicyStatusStrip({required this.hasActive, this.onTap});
+
+  final bool hasActive;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = hasActive ? const Color(0xFF0E9F7E) : AppColors.danger;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: hasActive ? const Color(0xFFEAFAF4) : const Color(0xFFFDF0F1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              hasActive ? Icons.check_circle : Icons.cancel,
+              color: color,
+              size: 26,
+            ),
+            const SizedBox(width: 10),
+            Container(width: 1, height: 30, color: const Color(0xFFDCD4E9)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasActive
+                        ? 'Police d\u2019assurance active'
+                        : 'Aucune police d\u2019assurance active',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.secondary,
+                    ),
+                  ),
+                  Text(
+                    hasActive
+                        ? 'Vos couvertures sont en cours de validité.'
+                        : 'Souscrivez dès maintenant pour bénéficier de nos services.',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.mutedText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.secondary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Tuile compteur du kit (icône colorée + libellé + compteur + chevron).
+class _CounterTile extends StatelessWidget {
+  const _CounterTile({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.tint,
+    required this.iconColor,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final int count;
+  final Color tint;
+  final Color iconColor;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+            decoration: BoxDecoration(
+              color: tint,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: iconColor, size: 24),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: iconColor,
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '$count',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.secondary,
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right,
+                        size: 18, color: AppColors.secondary),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// « Votre couverture » (aucune police) ou « Votre voyage » (police active)
+/// selon l'état des souscriptions — sections du kit Accueil.
+class _CoverageOrTrip extends StatelessWidget {
+  const _CoverageOrTrip({required this.subs});
+
+  final List<SubscriptionModel> subs;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = subs.where((s) => s.isActive).toList();
+    if (active.isEmpty) return const _CoverageEmpty();
+    return _TripCard(sub: active.first);
+  }
+}
+
+class _CoverageEmpty extends StatelessWidget {
+  const _CoverageEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Votre couverture',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppColors.secondary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        MHSurfaceCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEDE9FE),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.add_moderator,
+                      color: AppColors.secondary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Vous n\u2019avez pas encore de couverture active.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.secondary,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Souscrivez à une assurance adaptée à vos besoins '
+                          'et profitez de nos services partout dans le monde.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.mutedText,
+                            height: 1.45,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                height: 50,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.brandPurple, AppColors.brandTeal],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => context.push('/subscription/new'),
+                    borderRadius: BorderRadius.circular(10),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Découvrir nos assurances',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Icon(Icons.arrow_forward,
+                            color: Colors.white, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Carte « Votre voyage » du kit : destination, dates, durée, voyageurs.
+class _TripCard extends StatelessWidget {
+  const _TripCard({required this.sub});
+
+  final SubscriptionModel sub;
+
+  String _fmt(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final v = sub.projetVoyage;
+    final dest = v?.destinationDisplay ??
+        [v?.destination, v?.destinationCountryName]
+            .where((s) => s != null && s.isNotEmpty)
+            .join(', ');
+    final days = (v?.dateDepart != null && v?.dateRetour != null)
+        ? v!.dateRetour!.difference(v.dateDepart).inDays + 1
+        : null;
+    final minors = v?.mineurs.length ?? 0;
+    final adults = (v?.nombreParticipants ?? 1) - minors;
+    final personsLabel = StringBuffer()
+      ..write(adults > 0 ? '$adults adulte${adults > 1 ? 's' : ''}' : '')
+      ..write(minors > 0
+          ? '${adults > 0 ? ' + ' : ''}$minors mineur${minors > 1 ? 's' : ''}'
+          : '');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Votre voyage',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppColors.secondary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        MHSurfaceCard(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Stack(
+                  children: [
+                    SizedBox(
+                      width: 92,
+                      height: 110,
+                      child: Image.asset(
+                        'assets/images/welcome_hero.png',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    if (dest.isNotEmpty)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 3),
+                          child: Text(
+                            '📍 $dest',
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.secondary,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Text(
+                          '✈  ',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        Expanded(
+                          child: Text(
+                            'Voyage en cours',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.chevron_right,
+                            color: AppColors.secondary),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      v != null
+                          ? 'Du ${_fmt(v.dateDepart)}'
+                              '${v.dateRetour != null ? ' au ${_fmt(v.dateRetour!)}' : ''}'
+                          : '',
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.mutedText),
+                    ),
+                    Text(
+                      '${days != null ? '$days jours • ' : ''}'
+                      '${v?.nombreParticipants ?? 1} personne${(v?.nombreParticipants ?? 1) > 1 ? 's' : ''}'
+                      '${personsLabel.isNotEmpty ? '\n($personsLabel)' : ''}',
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.mutedText),
+                    ),
+                    const Divider(height: 18),
+                    const Row(
+                      children: [
+                        Icon(Icons.health_and_safety_outlined,
+                            color: AppColors.brandTeal, size: 18),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Assurance',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.secondary,
+                                ),
+                              ),
+                              Text(
+                                'Prise en charge de vos frais médicaux à l\u2019étranger.',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.mutedText),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
