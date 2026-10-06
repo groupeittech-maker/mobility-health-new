@@ -65,6 +65,37 @@ def require_production_consult(allowed_roles: List[Role]):
     return role_checker
 
 
+# Profils habilités à voir le contenu médical (dossier médical = personnel habilité).
+# Les autres profils du pipeline (production, technique, finance, hôpital)
+# voient la partie administrative mais PAS les questionnaires/données de santé.
+_MEDICAL_READER_ROLES = {
+    "medecin_referent_mh",
+    "medical_reviewer",
+    "doctor",               # médecin-conseil
+    "agent_medical_mhc",
+    "superviseur_affaires_medicales",
+    "agent_conformite_medical",
+}
+
+
+def _can_read_medical_data(user: User) -> bool:
+    role = getattr(user.role, "value", user.role)
+    role = str(role or "user")
+    return role == "admin" or role in _MEDICAL_READER_ROLES
+
+
+def require_medical_reader():
+    """Accès aux données médicales : uniquement les personnels habilités."""
+    def checker(current_user: User = Depends(get_current_user)) -> User:
+        if not _can_read_medical_data(current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Dossier médical réservé au personnel médical habilité.",
+            )
+        return current_user
+    return checker
+
+
 class ValidationRequest(BaseModel):
     """Schéma pour les validations"""
     approved: bool
@@ -547,12 +578,14 @@ async def get_subscription_dossier(
     request: Request,
     subscription_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([
+    current_user: User = Depends(require_production_consult([
         Role.PRODUCTION_AGENT,
-        Role.ADMIN,
         Role.MEDICAL_REVIEWER,
         Role.DOCTOR,
         Role.MEDECIN_REFERENT_MH,
+        Role.AGENT_MEDICAL_MHC,
+        Role.SUPERVISEUR_AFFAIRES_MEDICALES,
+        Role.AGENT_CONFORMITE_MEDICAL,
         Role.TECHNICAL_REVIEWER,
         Role.FINANCE_MANAGER,
         Role.HOSPITAL_ADMIN,
@@ -604,8 +637,10 @@ async def get_subscription_dossier(
         attestation_token = create_download_access_token("attestation_pdf", attestation.id)
         attestation_download_url = f"/api/v1/attestations/{attestation.id}/download?token={attestation_token}"
 
-    questionnaires_map = _collect_latest_questionnaires(db, [subscription_id])
-    questionnaires_payload = _serialize_questionnaires(subscription_id, questionnaires_map)
+    questionnaires_payload = []
+    if _can_read_medical_data(current_user):
+        questionnaires_map = _collect_latest_questionnaires(db, [subscription_id])
+        questionnaires_payload = _serialize_questionnaires(subscription_id, questionnaires_map)
     validation_states = {
         "medecin": ValidationState(
             status=getattr(souscription, "validation_medicale", None) or "pending",
@@ -749,15 +784,9 @@ async def get_subscription_dossier(
 async def get_subscription_questionnaires(
     subscription_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_production_consult([
-        Role.DOCTOR,
-        Role.FINANCE_MANAGER,
-        Role.MEDICAL_REVIEWER,
-        Role.TECHNICAL_REVIEWER,
-        Role.PRODUCTION_AGENT
-    ]))
+    current_user: User = Depends(require_medical_reader()),
 ):
-    """Obtenir tous les questionnaires d'une souscription"""
+    """Obtenir tous les questionnaires (médicaux) d'une souscription — personnel habilité."""
     # Vérifier que la souscription existe
     souscription = db.query(Souscription).filter(Souscription.id == subscription_id).first()
     

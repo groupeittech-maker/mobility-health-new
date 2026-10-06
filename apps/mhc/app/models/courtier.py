@@ -27,4 +27,5 @@ class Courtier(Base, TimestampMixin):
 
     assureur = relationship("Assureur")
     agent_comptable = relationship("User", foreign_keys=[agent_comptable_id])
+    agents = relationship("CourtierAgent", back_populates="courtier", cascade="all, delete-orphan", lazy="select")
 

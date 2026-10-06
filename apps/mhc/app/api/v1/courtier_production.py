@@ -1,95 +1,77 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session, selectinload, joinedload
+from sqlalchemy.orm import Session, selectinload
 from app.core.database import get_db
-from app.core.enums import Role, StatutSouscription
+from app.core.enums import Role
 from app.api.v1.auth import get_current_user
 from app.models.user import User
 from app.models.souscription import Souscription
-from app.models.produit_assurance import ProduitAssurance
-from app.models.assureur import Assureur
-from app.models.assureur_agent import AssureurAgent
+from app.models.courtier_agent import CourtierAgent
 from app.models.projet_voyage import ProjetVoyage
-from app.models.questionnaire import Questionnaire
-from app.models.paiement import Paiement
-from app.models.attestation import Attestation
 from app.schemas.souscription import SouscriptionResponse
 
 router = APIRouter()
 
+# Rôles du portail intermédiaire ayant accès à la production du courtier.
+COURTIER_PRODUCTION_ROLES = (Role.AGENT_PRODUCTION_COURTIER, Role.ASSISTANT_SOUSCRIPTION)
 
-def _get_assureur_id_for_agent(db: Session, current_user: User, agent_type: str) -> Optional[int]:
-    """Récupère l'ID de l'assureur associé à un agent (sinistre ou production)"""
+
+def _get_courtier_id_for_agent(db: Session, current_user: User, agent_types) -> Optional[int]:
+    """Récupère l'ID du courtier associé à un agent (production, souscription ou sinistre)."""
     try:
-        assureur_agent = db.query(AssureurAgent).filter(
-            AssureurAgent.user_id == current_user.id,
-            AssureurAgent.type_agent == agent_type
+        courtier_agent = db.query(CourtierAgent).filter(
+            CourtierAgent.user_id == current_user.id,
+            CourtierAgent.type_agent.in_(agent_types),
         ).first()
-        if assureur_agent:
-            return assureur_agent.assureur_id
+        if courtier_agent:
+            return courtier_agent.courtier_id
     except Exception:
         pass
     return None
 
 
-def require_agent_production_assureur(
+def require_agent_production_courtier(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> User:
-    """Dependency pour vérifier que l'utilisateur est agent production assureur"""
-    if current_user.role not in (Role.AGENT_PRODUCTION_ASSUREUR, Role.PRODUCTION_AGENT):
+    """Vérifie que l'utilisateur est agent production (ou souscription) d'un courtier."""
+    if current_user.role not in COURTIER_PRODUCTION_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions. Production agent assureur access required."
+            detail="Not enough permissions. Courtier production agent access required.",
         )
-    # Vérifier que l'agent est bien lié à un assureur via AssureurAgent
-    assureur_id = _get_assureur_id_for_agent(db, current_user, 'production')
-    if not assureur_id:
+    courtier_id = _get_courtier_id_for_agent(db, current_user, ('production', 'souscription'))
+    if not courtier_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Aucun assureur associé à votre compte. Contactez l'administrateur."
+            detail="Aucun courtier associé à votre compte. Contactez l'administrateur.",
         )
     return current_user
 
 
 @router.get("/subscriptions", response_model=List[SouscriptionResponse])
-async def get_subscriptions_for_assureur(
+async def get_subscriptions_for_courtier(
     skip: int = 0,
     limit: int = 100,
     statut: Optional[str] = Query(None, description="Filtrer par statut"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_agent_production_assureur)
+    current_user: User = Depends(require_agent_production_courtier),
 ):
     """
-    Obtenir les souscriptions pour les produits de l'assureur de l'agent.
-    Accès en lecture seule pour voir les demandeurs de souscription et la finalisation de leur demande.
+    Obtenir les souscriptions distribuées par le courtier de l'agent.
+    Accès en lecture seule pour suivre les demandeurs de souscription.
     """
-    assureur_id = _get_assureur_id_for_agent(db, current_user, 'production')
-    
-    if not assureur_id:
+    courtier_id = _get_courtier_id_for_agent(db, current_user, ('production', 'souscription'))
+    if not courtier_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Aucun assureur associé à votre compte. Contactez l'administrateur."
+            detail="Aucun courtier associé à votre compte. Contactez l'administrateur.",
         )
-    
-    # Récupérer les IDs des produits de cet assureur
-    produits_ids = [
-        p.id for p in db.query(ProduitAssurance).filter(
-            ProduitAssurance.assureur_id == assureur_id
-        ).all()
-    ]
-    
-    if not produits_ids:
-        return []
-    
-    # Récupérer les souscriptions pour ces produits
-    query = db.query(Souscription).filter(
-        Souscription.produit_assurance_id.in_(produits_ids)
-    )
-    
+
+    query = db.query(Souscription).filter(Souscription.courtier_id == courtier_id)
     if statut:
         query = query.filter(Souscription.statut == statut)
-    
+
     souscriptions = (
         query
         .options(
@@ -98,35 +80,33 @@ async def get_subscriptions_for_assureur(
             selectinload(Souscription.user),
             selectinload(Souscription.questionnaires),
             selectinload(Souscription.paiements),
-            selectinload(Souscription.attestations)
+            selectinload(Souscription.attestations),
         )
         .order_by(Souscription.created_at.desc())
         .offset(skip)
         .limit(limit)
         .all()
     )
-    
     return souscriptions
 
 
 @router.get("/subscriptions/{subscription_id}", response_model=SouscriptionResponse)
-async def get_subscription_for_assureur(
+async def get_subscription_for_courtier(
     subscription_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_agent_production_assureur)
+    current_user: User = Depends(require_agent_production_courtier),
 ):
     """
-    Obtenir une souscription par ID (uniquement si liée à un produit de l'assureur de l'agent).
-    Accès en lecture seule pour voir tous les détails du workflow de souscription.
+    Obtenir une souscription par ID (uniquement si distribuée par le courtier de l'agent).
+    Accès en lecture seule.
     """
-    assureur_id = _get_assureur_id_for_agent(db, current_user, 'production')
-    
-    if not assureur_id:
+    courtier_id = _get_courtier_id_for_agent(db, current_user, ('production', 'souscription'))
+    if not courtier_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Aucun assureur associé à votre compte."
+            detail="Aucun courtier associé à votre compte.",
         )
-    
+
     souscription = (
         db.query(Souscription)
         .options(
@@ -135,50 +115,42 @@ async def get_subscription_for_assureur(
             selectinload(Souscription.user),
             selectinload(Souscription.questionnaires),
             selectinload(Souscription.paiements),
-            selectinload(Souscription.attestations)
+            selectinload(Souscription.attestations),
         )
         .filter(Souscription.id == subscription_id)
         .first()
     )
-    
     if not souscription:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Souscription non trouvée"
+            detail="Souscription non trouvée",
         )
-    
-    # Vérifier que la souscription est liée à un produit de l'assureur
-    produit = db.query(ProduitAssurance).filter(
-        ProduitAssurance.id == souscription.produit_assurance_id
-    ).first()
-    
-    if not produit or produit.assureur_id != assureur_id:
+    if souscription.courtier_id != courtier_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cette souscription n'est pas liée à un produit de votre assureur."
+            detail="Cette souscription n'est pas distribuée par votre courtier.",
         )
-    
     return souscription
 
 
 @router.get("/subscriptions/{subscription_id}/workflow")
-async def get_subscription_workflow_for_assureur(
+async def get_subscription_workflow_for_courtier(
     subscription_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_agent_production_assureur)
+    current_user: User = Depends(require_agent_production_courtier),
 ):
     """
-    Obtenir le workflow complet d'une souscription (création, questionnaires, paiement, validations, attestations).
+    Obtenir le workflow complet d'une souscription du courtier
+    (création, questionnaires, paiement, validations, attestations).
     Accès en lecture seule.
     """
-    assureur_id = _get_assureur_id_for_agent(db, current_user, 'production')
-    
-    if not assureur_id:
+    courtier_id = _get_courtier_id_for_agent(db, current_user, ('production', 'souscription'))
+    if not courtier_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Aucun assureur associé à votre compte."
+            detail="Aucun courtier associé à votre compte.",
         )
-    
+
     souscription = (
         db.query(Souscription)
         .options(
@@ -187,30 +159,22 @@ async def get_subscription_workflow_for_assureur(
             selectinload(Souscription.user),
             selectinload(Souscription.questionnaires),
             selectinload(Souscription.paiements),
-            selectinload(Souscription.attestations)
+            selectinload(Souscription.attestations),
         )
         .filter(Souscription.id == subscription_id)
         .first()
     )
-    
     if not souscription:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Souscription non trouvée"
+            detail="Souscription non trouvée",
         )
-    
-    # Vérifier que la souscription est liée à un produit de l'assureur
-    produit = db.query(ProduitAssurance).filter(
-        ProduitAssurance.id == souscription.produit_assurance_id
-    ).first()
-    
-    if not produit or produit.assureur_id != assureur_id:
+    if souscription.courtier_id != courtier_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cette souscription n'est pas liée à un produit de votre assureur."
+            detail="Cette souscription n'est pas distribuée par votre courtier.",
         )
-    
-    # Pièces justificatives du projet de voyage (consultables par l'agent de production)
+
     from app.api.v1.voyages import _serialize_document, _is_internal_minio_url, _build_document_proxy_url
     from app.core.config import settings
     documents_projet = []
@@ -226,9 +190,9 @@ async def get_subscription_workflow_for_assureur(
                 if base:
                     item["download_url"] = _build_document_proxy_url(item["id"])
             documents_projet.append(item)
-    
-    # Construire le workflow complet
-    workflow = {
+
+    produit = souscription.produit_assurance
+    return {
         "souscription": {
             "id": souscription.id,
             "numero_souscription": souscription.numero_souscription,
@@ -248,9 +212,9 @@ async def get_subscription_workflow_for_assureur(
             "telephone": souscription.user.telephone if souscription.user else None,
         },
         "produit": {
-            "id": produit.id,
-            "nom": produit.nom,
-            "description": produit.description,
+            "id": produit.id if produit else None,
+            "nom": produit.nom if produit else None,
+            "description": produit.description if produit else None,
         },
         "projet_voyage": {
             "id": souscription.projet_voyage.id if souscription.projet_voyage else None,
@@ -261,11 +225,7 @@ async def get_subscription_workflow_for_assureur(
         },
         "documents_projet_voyage": documents_projet,
         "questionnaires": [
-            {
-                "id": q.id,
-                "type": q.type,
-                "created_at": q.created_at,
-            }
+            {"id": q.id, "type": q.type, "created_at": q.created_at}
             for q in (souscription.questionnaires or [])
         ],
         "paiements": [
@@ -290,6 +250,3 @@ async def get_subscription_workflow_for_assureur(
             for a in (souscription.attestations or [])
         ],
     }
-    
-    return workflow
-

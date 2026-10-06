@@ -3,6 +3,7 @@ from app.models.role import RoleModel
 from app.models.contact_proche import ContactProche
 from app.models.assureur import Assureur
 from app.models.courtier import Courtier
+from app.models.courtier_agent import CourtierAgent
 from app.models.assureur_agent import AssureurAgent
 from app.models.produit_assurance import ProduitAssurance
 from app.models.produit_prime_tarif import ProduitPrimeTarif
@@ -62,6 +63,7 @@ __all__ = [
     "Assureur",
     "Courtier",
     "AssureurAgent",
+    "CourtierAgent",
     "ProduitAssurance",
     "ProduitPrimeTarif",
     "HistoriquePrix",

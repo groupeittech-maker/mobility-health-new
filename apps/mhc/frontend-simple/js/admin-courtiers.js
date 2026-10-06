@@ -1,5 +1,5 @@
 (async function () {
-    const ok = await requireRole('admin', 'index.html');
+    const ok = await requirePermission('comptes_intermediaires', 'consultation', 'index.html');
     if (!ok) {
         throw new Error('Acces refuse');
     }
@@ -28,6 +28,55 @@ const assureursApi = {
 const usersApi = {
     listCourtierAccountants: () => apiCall('/users/?role=agent_comptable_courtier&limit=500'),
 };
+const agentsApi = {
+    available: (role, excludeCourtierId) =>
+        apiCall(`/admin/courtiers/agents/available?role=${role}${excludeCourtierId ? `&exclude_courtier_id=${excludeCourtierId}` : ''}`),
+    forCourtier: (courtierId) => apiCall(`/admin/courtiers/${courtierId}/agents`),
+};
+
+// Rôle -> select du formulaire (liaisons CourtierAgent).
+const AGENT_SELECTS = {
+    production: { role: 'agent_production_courtier', el: 'agentsProductionIds' },
+    souscription: { role: 'assistant_souscription', el: 'agentsSouscriptionIds' },
+    sinistre: { role: 'agent_sinistre_courtier', el: 'agentsSinistreIds' },
+};
+
+function _userLabel(u) {
+    return escapeHtml(
+        (u.full_name && String(u.full_name).trim())
+        || (u.username && String(u.username).trim())
+        || (u.email && String(u.email).trim())
+        || `Utilisateur #${u.id}`,
+    );
+}
+
+function _setMultiValues(elId, values) {
+    const el = $(elId);
+    if (!el) return;
+    const wanted = new Set((values || []).map(String));
+    Array.from(el.options).forEach((o) => { o.selected = wanted.has(o.value); });
+}
+
+function _getMultiValues(elId) {
+    const el = $(elId);
+    if (!el) return [];
+    return Array.from(el.selectedOptions).map((o) => Number(o.value)).filter((v) => !Number.isNaN(v));
+}
+
+async function loadAgentSelects(excludeCourtierId) {
+    for (const cfg of Object.values(AGENT_SELECTS)) {
+        const el = $(cfg.el);
+        if (!el) continue;
+        const keep = new Set(Array.from(el.selectedOptions).map((o) => o.value));
+        try {
+            const rows = asArray(await agentsApi.available(cfg.role, excludeCourtierId || null));
+            el.innerHTML = rows.map((u) => `<option value="${u.id}">${_userLabel(u)}</option>`).join('');
+            _setMultiValues(cfg.el, Array.from(keep));
+        } catch (_) {
+            el.innerHTML = '';
+        }
+    }
+}
 
 let courtiers = [];
 let assureurs = [];
@@ -56,8 +105,17 @@ const asArray = (payload) => {
     return [];
 };
 
-function fillFormForEdit(c) {
+async function fillFormForEdit(c) {
     if (!c) return;
+    await loadAgentSelects(c.id);
+    try {
+        const linked = await agentsApi.forCourtier(c.id);
+        _setMultiValues(AGENT_SELECTS.production.el, linked.production);
+        _setMultiValues(AGENT_SELECTS.souscription.el, linked.souscription);
+        _setMultiValues(AGENT_SELECTS.sinistre.el, linked.sinistre);
+    } catch (_) {
+        // Liaisons indisponibles : on laisse les sélecteurs vides.
+    }
     if ($('courtierId')) $('courtierId').value = c.id;
     if ($('nom')) $('nom').value = c.nom || '';
     if ($('pays')) $('pays').value = c.pays || '';
@@ -95,6 +153,7 @@ async function loadExistingByName(nom) {
 }
 
 function resetForm() {
+    Object.values(AGENT_SELECTS).forEach((cfg) => _setMultiValues(cfg.el, []));
     if ($('courtierId')) $('courtierId').value = '';
     if ($('nom')) $('nom').value = '';
     if ($('pays')) $('pays').value = '';
@@ -141,6 +200,9 @@ function selectedBody() {
         assureur_id: Number(assureurRaw || 0),
         commission_pct: Number(commissionRaw || 0),
         agent_comptable_id: agentRaw ? Number(agentRaw) : null,
+        agents_production_ids: _getMultiValues(AGENT_SELECTS.production.el),
+        agents_souscription_ids: _getMultiValues(AGENT_SELECTS.souscription.el),
+        agents_sinistre_ids: _getMultiValues(AGENT_SELECTS.sinistre.el),
         telephone: fieldValue('telephone').trim() || null,
         adresse: fieldValue('adresse').trim() || null,
     };
@@ -337,6 +399,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     try {
+        await loadAgentSelects();
         await refresh();
     } catch (err) {
         $('listMount').textContent = err.message || 'Erreur chargement';

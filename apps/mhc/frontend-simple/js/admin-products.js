@@ -1,6 +1,6 @@
 // Vérifier l'authentification et le rôle admin
 (async function () {
-    const isValid = await requireRole('admin', 'index.html');
+    const isValid = await requirePermission('comptes_produits', 'consultation', 'index.html');
     if (!isValid) {
         return;
     }

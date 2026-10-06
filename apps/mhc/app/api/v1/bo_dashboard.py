@@ -130,18 +130,38 @@ async def dashboard_summary(
     }
 
     # ---- Listes ----
-    recent_subs: List[Souscription] = (
-        db.query(Souscription).order_by(Souscription.created_at.desc()).limit(6).all()
+    # « Demandes récentes » = dernières demandes médicales (bons MED-*), comme la maquette.
+    from app.core.mhc_nomenclature import DOCUMENT_TITLES, MhcCareDocumentType
+
+    recent_docs: List[MhcCareDocument] = (
+        db.query(MhcCareDocument)
+        .order_by(MhcCareDocument.issued_at.desc())
+        .limit(6)
+        .all()
     )
+
+    def _doc_assure(doc: MhcCareDocument) -> str:
+        payload = doc.payload or {}
+        voyageur = payload.get("voyageur") or {}
+        nom = voyageur.get("nom") or payload.get("assure") or payload.get("beneficiaire")
+        if nom:
+            return str(nom)
+        sinistre = doc.sinistre
+        if sinistre and sinistre.souscription and sinistre.souscription.user:
+            u = sinistre.souscription.user
+            return u.full_name or u.username or "—"
+        return "—"
+
     stats["demandes_recentes"] = [
         {
-            "numero": s.numero_souscription,
-            "date": s.created_at.strftime("%d/%m/%Y %H:%M") if s.created_at else "",
-            "assure": (s.user.full_name or s.user.username) if s.user else "—",
-            "type": s.produit_assurance.nom if s.produit_assurance else "Souscription",
-            "statut": str(getattr(s.statut, "value", s.statut)),
+            "numero": doc.numero,
+            "date": doc.issued_at.strftime("%d/%m/%Y %H:%M") if doc.issued_at else "",
+            "assure": _doc_assure(doc),
+            "type": DOCUMENT_TITLES.get(MhcCareDocumentType(doc.document_type), doc.document_type)
+            if doc.document_type in {t.value for t in MhcCareDocumentType} else doc.document_type,
+            "statut": doc.validation_status or doc.statut,
         }
-        for s in recent_subs
+        for doc in recent_docs
     ]
 
     urgentes = (

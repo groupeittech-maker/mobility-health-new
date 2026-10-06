@@ -718,6 +718,7 @@ async def get_available_agents(
         # Mapper les rôles string aux enums
         role_mapping = {
             "agent_comptable_assureur": Role.AGENT_COMPTABLE_ASSUREUR,
+            "agent_production_assureur": Role.AGENT_PRODUCTION_ASSUREUR,
             "production_agent": Role.PRODUCTION_AGENT,
             "agent_sinistre_assureur": Role.AGENT_SINISTRE_ASSUREUR,
         }
@@ -728,7 +729,7 @@ async def get_available_agents(
             role_value = role_value.value
         else:
             role_value = str(role).lower() if role else None
-        allowed_roles = ["agent_comptable_assureur", "production_agent", "agent_sinistre_assureur"]
+        allowed_roles = ["agent_comptable_assureur", "agent_production_assureur", "production_agent", "agent_sinistre_assureur"]
         if not role_value or role_value not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

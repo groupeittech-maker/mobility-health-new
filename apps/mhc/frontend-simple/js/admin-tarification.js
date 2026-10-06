@@ -1,5 +1,5 @@
 (async function () {
-    const ok = await requireRole('admin', 'index.html');
+    const ok = await requirePermission('comptes_produits', 'consultation', 'index.html');
     if (!ok) return;
 })();
 

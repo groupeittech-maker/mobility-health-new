@@ -1,6 +1,6 @@
 // Garantir l'accès admin
 (async function () {
-    const allowed = await requireRole('admin', 'index.html');
+    const allowed = await requirePermission('comptes_assureurs', 'consultation', 'index.html');
     if (!allowed) {
         throw new Error('Accès refusé');
     }
@@ -113,7 +113,7 @@ async function initAdminAssureursPage() {
         await Promise.all([
             refreshAssureurs(),
             loadAgents('agent_comptable_assureur', 'comptables'),
-            loadAgents('production_agent', 'production'),
+            loadAgents('agent_production_assureur', 'production'),
             loadAgents('agent_sinistre_assureur', 'sinistre')
         ]);
     } catch (error) {
@@ -270,7 +270,7 @@ async function selectAssureur(assureurId) {
     // Charger les agents disponibles pour cet assureur (pour permettre la modification)
     await Promise.all([
         loadAgents('agent_comptable_assureur', 'comptables'),
-        loadAgents('production_agent', 'production'),
+        loadAgents('agent_production_assureur', 'production'),
         loadAgents('agent_sinistre_assureur', 'sinistre')
     ]);
     
@@ -317,7 +317,7 @@ async function resetAssureurForm() {
     // Recharger les agents disponibles (sans exclusion)
     await Promise.all([
         loadAgents('agent_comptable_assureur', 'comptables'),
-        loadAgents('production_agent', 'production'),
+        loadAgents('agent_production_assureur', 'production'),
         loadAgents('agent_sinistre_assureur', 'sinistre')
     ]);
     
