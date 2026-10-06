@@ -2,7 +2,13 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
-from app.api.v1.auth import get_current_user, get_current_user_optional, require_admin_user
+from app.api.v1.auth import get_current_user, get_current_user_optional
+from app.core.permissions import (
+    F_COMPTES_PRODUITS,
+    LEVEL_CONSULTATION,
+    LEVEL_EDITION,
+    require_bo_permission,
+)
 from app.models.user import User
 from app.models.destination import DestinationCountry, DestinationCity
 from app.services.country_reference import get_reference_countries
@@ -159,7 +165,7 @@ async def list_destination_cities(
 async def create_destination_country(
     country_data: DestinationCountryCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_user)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION))
 ):
     """Créer un nouveau pays de destination"""
     # Vérifier que le code n'existe pas déjà
@@ -188,7 +194,7 @@ async def create_destination_country(
 async def list_all_destination_countries(
     actif_seulement: Optional[bool] = Query(None, description="Filtrer par statut actif"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_user)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_CONSULTATION))
 ):
     """Liste tous les pays de destination (admin)"""
     query = db.query(DestinationCountry).options(joinedload(DestinationCountry.medecin_conseil))
@@ -218,7 +224,7 @@ async def sync_destination_reference(
         description="Nombre maximal de villes a conserver par pays",
     ),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_user),
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     """Synchroniser tous les pays et principales villes de reference vers la base."""
     stats = sync_destination_reference_to_db(
@@ -236,7 +242,7 @@ async def sync_destination_reference(
 async def get_destination_country(
     country_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_user)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_CONSULTATION))
 ):
     """Récupérer un pays de destination par ID"""
     pays = (
@@ -262,7 +268,7 @@ async def update_destination_country(
     country_id: int,
     country_data: DestinationCountryUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_user)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION))
 ):
     """Mettre à jour un pays de destination"""
     pays = db.query(DestinationCountry).filter(DestinationCountry.id == country_id).first()
@@ -301,7 +307,7 @@ async def update_destination_country(
 async def delete_destination_country(
     country_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_user)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION))
 ):
     """Supprimer un pays de destination (supprime aussi les villes associées)"""
     pays = db.query(DestinationCountry).filter(DestinationCountry.id == country_id).first()
@@ -322,7 +328,7 @@ async def delete_destination_country(
 async def create_destination_city(
     city_data: DestinationCityCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_user)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION))
 ):
     """Créer une nouvelle ville de destination"""
     # Vérifier que le pays existe
@@ -345,7 +351,7 @@ async def update_destination_city(
     city_id: int,
     city_data: DestinationCityUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_user)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION))
 ):
     """Mettre à jour une ville de destination"""
     ville = db.query(DestinationCity).filter(DestinationCity.id == city_id).first()
@@ -368,7 +374,7 @@ async def update_destination_city(
 async def delete_destination_city(
     city_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_user)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION))
 ):
     """Supprimer une ville de destination"""
     ville = db.query(DestinationCity).filter(DestinationCity.id == city_id).first()

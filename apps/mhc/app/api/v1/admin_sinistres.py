@@ -4,6 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.enums import Role, StatutWorkflowSinistre
+from app.core.permissions import (
+    F_ALERTE_SOS,
+    F_SINISTRES,
+    LEVEL_CONSULTATION,
+    LEVEL_EDITION,
+    require_bo_permission,
+)
 from app.api.v1.auth import get_current_user
 from app.models.user import User
 from app.models.sinistre import Sinistre
@@ -20,16 +27,6 @@ from app.api.v1.sos import notify_hospital_reception, get_latest_questionnaire
 router = APIRouter()
 
 
-def require_admin_or_sos_operator(current_user: User = Depends(get_current_user)) -> User:
-    """Dependency pour vérifier que l'utilisateur est admin ou SOS operator"""
-    if current_user.role not in [Role.ADMIN, Role.SOS_OPERATOR]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions. Admin or SOS operator access required."
-        )
-    return current_user
-
-
 class AssignHospitalRequest(BaseModel):
     hospital_id: int
 
@@ -44,7 +41,7 @@ async def get_all_alertes(
     limit: int = 100,
     statut: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_or_sos_operator)
+    current_user: User = Depends(require_bo_permission(F_ALERTE_SOS, LEVEL_CONSULTATION))
 ):
     """Obtenir toutes les alertes (pour les admins et SOS operators)"""
     query = db.query(Alerte)
@@ -62,7 +59,7 @@ async def get_all_sinistres(
     limit: int = 100,
     statut: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_or_sos_operator)
+    current_user: User = Depends(require_bo_permission(F_SINISTRES, LEVEL_CONSULTATION))
 ):
     """Obtenir tous les sinistres"""
     query = db.query(Sinistre)
@@ -78,7 +75,7 @@ async def get_all_sinistres(
 async def get_sinistre(
     sinistre_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_or_sos_operator)
+    current_user: User = Depends(require_bo_permission(F_SINISTRES, LEVEL_CONSULTATION))
 ):
     """Obtenir un sinistre par ID"""
     sinistre = db.query(Sinistre).filter(Sinistre.id == sinistre_id).first()
@@ -97,7 +94,7 @@ async def assign_hospital(
     sinistre_id: int,
     request: AssignHospitalRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_or_sos_operator)
+    current_user: User = Depends(require_bo_permission(F_SINISTRES, LEVEL_EDITION))
 ):
     """Attribuer un hôpital à un sinistre"""
     sinistre = db.query(Sinistre).filter(Sinistre.id == sinistre_id).first()
@@ -148,7 +145,7 @@ async def close_sinistre(
     sinistre_id: int,
     request: CloseSinistreRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_or_sos_operator)
+    current_user: User = Depends(require_bo_permission(F_SINISTRES, LEVEL_EDITION))
 ):
     """Clôturer un sinistre"""
     sinistre = db.query(Sinistre).filter(Sinistre.id == sinistre_id).first()
@@ -190,7 +187,7 @@ async def update_sinistre_notes(
     sinistre_id: int,
     request: UpdateNotesRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_or_sos_operator)
+    current_user: User = Depends(require_bo_permission(F_SINISTRES, LEVEL_EDITION))
 ):
     """Mettre à jour les notes d'un sinistre"""
     sinistre = db.query(Sinistre).filter(Sinistre.id == sinistre_id).first()
@@ -217,7 +214,7 @@ async def update_workflow_step_status(
     step_key: str,
     request: UpdateWorkflowStepRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_or_sos_operator),
+    current_user: User = Depends(require_bo_permission(F_SINISTRES, LEVEL_EDITION)),
 ):
     """Mettre à jour le statut d'une étape du processus sinistre"""
     sinistre = db.query(Sinistre).filter(Sinistre.id == sinistre_id).first()

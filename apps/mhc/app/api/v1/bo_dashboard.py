@@ -10,8 +10,12 @@ from sqlalchemy.orm import Session
 from app.api.v1.auth import get_current_user
 from app.core.database import get_db
 from app.models.alerte import Alerte
+from app.models.avenant import Avenant
+from app.models.finance_refund import Refund
+from app.models.invoice import Invoice
 from app.models.mhc_care_document import MhcCareDocument
 from app.models.paiement import Paiement
+from app.models.rapport import Rapport
 from app.models.sinistre import Sinistre
 from app.models.souscription import Souscription
 from app.models.user import User
@@ -90,7 +94,7 @@ async def dashboard_summary(
         "souscriptions_total": _count(db, Souscription),
         "primes_encaissees": float(primes or 0),
         "remboursements": _count(db, Paiement, Paiement.statut == "rembourse", Paiement.created_at >= month_start),
-        "avenants": 0,
+        "avenants": _count(db, Avenant, Avenant.created_at >= month_start),
     }
 
     # ---- Sinistres ----
@@ -108,8 +112,8 @@ async def dashboard_summary(
         {"label": "Prolongation", "value": doc_counts.get("bph", 0), "color": "#2d5bd7"},
         {"label": "Rapatriement sanitaire", "value": doc_counts.get("brs", 0), "color": "#e8a13a"},
         {"label": "Rapatriement funéraire", "value": doc_counts.get("brf", 0), "color": "#8a5cf6"},
-        {"label": "Rapport médical", "value": 0, "color": "#e23d3d"},
-        {"label": "Facture hospitalière", "value": 0, "color": "#64748b"},
+        {"label": "Rapport médical", "value": _count(db, Rapport, Rapport.created_at >= month_start), "color": "#e23d3d"},
+        {"label": "Facture hospitalière", "value": _count(db, Invoice, Invoice.created_at >= month_start), "color": "#64748b"},
     ]
     total_docs = max(sum(doc_counts.values()), 1)
 
@@ -164,8 +168,8 @@ async def dashboard_summary(
     stats["taches"] = {
         "comptes_en_attente": _count(db, User, User.validation_inscription == "pending"),
         "souscriptions_en_cours": _count(db, Souscription, Souscription.statut.in_(["en_attente", "en_attente_validation"])),
-        "avenants": 0,
-        "remboursements_a_valider": 0,
+        "avenants": _count(db, Avenant, Avenant.statut == "demande"),
+        "remboursements_a_valider": _count(db, Refund, Refund.statut == "pending"),
     }
 
     stats["role"] = role

@@ -82,6 +82,38 @@ const ROLE_OPTIONS = [
     { value: 'agent_verificateur_reassureur', label: 'Agent vérificateur (réassureur)' },
 ];
 
+// Rôle cible → fonctionnalité « Gestion des comptes » exigée (niveau Édition)
+// chez le créateur — miroir de _CREATION_COMPTE_FEATURE dans app/api/v1/users.py.
+// La création reste centralisée MHC : superviseur technique (assureur/réassureur/
+// intermédiaire), superviseur affaires médicales (médecin-conseil/partenaire
+// santé/TPA), super admin (tout).
+const ROLE_CREATION_FEATURES = {
+    medecin_referent_mh: 'comptes_medecins_conseil',
+    doctor: 'comptes_medecins_conseil',
+    medecin_hopital: 'comptes_partenaires_sante',
+    agent_reception_hopital: 'comptes_partenaires_sante',
+    agent_comptable_hopital: 'comptes_partenaires_sante',
+    hospital_admin: 'comptes_partenaires_sante',
+    agent_production_assureur: 'comptes_assureurs',
+    agent_sinistre_assureur: 'comptes_assureurs',
+    agent_comptable_assureur: 'comptes_assureurs',
+    agent_medical_assureur: 'comptes_assureurs',
+    agent_production_courtier: 'comptes_intermediaires',
+    agent_sinistre_courtier: 'comptes_intermediaires',
+    agent_comptable_courtier: 'comptes_intermediaires',
+    assistant_souscription: 'comptes_intermediaires',
+    agent_verificateur_reassureur: 'comptes_reassureurs',
+};
+
+function canCreateRole(roleValue) {
+    const perms = window.MhPermissions;
+    if (!perms || !perms.can) {
+        return true;
+    }
+    const feature = ROLE_CREATION_FEATURES[roleValue] || 'comptes_utilisateurs';
+    return perms.can(feature, 'edition');
+}
+
 const resetPasswordContext = {
     userId: null,
     label: '',
@@ -112,8 +144,21 @@ function populateRoleSelect(selectElement, selectedValue = 'user') {
         return;
     }
     
+    if (selectedValue && !canCreateRole(selectedValue)) {
+        // Défaut : premier rôle que le profil connecté peut créer.
+        const firstAllowed = ROLE_OPTIONS.find(o => canCreateRole(o.value));
+        if (firstAllowed) {
+            selectedValue = firstAllowed.value;
+        }
+    }
+
     selectElement.innerHTML = '';
     ROLE_OPTIONS.forEach(option => {
+        // Ne proposer que les rôles que le profil connecté peut créer/attribuer
+        // (matrice). On conserve le rôle actuel en édition pour l'affichage.
+        if (option.value !== selectedValue && !canCreateRole(option.value)) {
+            return;
+        }
         const opt = document.createElement('option');
         opt.value = option.value;
         opt.textContent = option.label;

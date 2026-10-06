@@ -14,6 +14,7 @@ from app.core.permissions import (
     LEVEL_CONSULTATION,
     LEVEL_EDITION,
     has_permission,
+    require_bo_permission,
 )
 from app.models.user import User
 from app.models.produit_assurance import ProduitAssurance
@@ -49,19 +50,6 @@ from app.schemas.historique_prix import HistoriquePrixResponse
 router = APIRouter()
 
 
-def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    """Gestion des produits : niveau 'edition' sur la fonctionnalité comptes_produits."""
-    role = getattr(current_user, "role", None)
-    if hasattr(role, "value"):
-        role = role.value
-    if not has_permission(str(role or "user"), F_COMPTES_PRODUITS, LEVEL_EDITION):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions. Product management required."
-        )
-    return current_user
-
-
 def require_products_consult(current_user: User = Depends(get_current_user)) -> User:
     """Consultation des produits : niveau 'consultation' sur comptes_produits."""
     role = getattr(current_user, "role", None)
@@ -91,7 +79,7 @@ def _ensure_assureur(db: Session, assureur_id: Optional[int]) -> Optional[Assure
 async def create_product(
     product_data: ProduitAssuranceCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION))
 ):
     """Create a new product (admin only)"""
     # Check if code already exists
@@ -243,7 +231,7 @@ async def update_product(
     product_id: int,
     product_update: ProduitAssuranceUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION))
 ):
     """Update product (admin only)"""
     product = db.query(ProduitAssurance).filter(ProduitAssurance.id == product_id).first()
@@ -321,7 +309,7 @@ async def update_product(
 async def delete_product(
     product_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION))
 ):
     """Delete product (admin only)"""
     product = db.query(ProduitAssurance).filter(ProduitAssurance.id == product_id).first()
@@ -403,7 +391,7 @@ async def create_product_tarif(
     product_id: int,
     data: ProduitPrimeTarifBase,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     """Créer un tarif de prime pour un produit (admin)."""
     product = db.query(ProduitAssurance).filter(ProduitAssurance.id == product_id).first()
@@ -427,7 +415,7 @@ async def update_product_tarif(
     tarif_id: int,
     data: ProduitPrimeTarifUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     """Modifier un tarif de prime (admin)."""
     tarif = (
@@ -460,7 +448,7 @@ async def delete_product_tarif(
     product_id: int,
     tarif_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     """Supprimer un tarif de prime (admin)."""
     tarif = (
@@ -523,7 +511,7 @@ async def upsert_product_grille_finale_cell(
     product_id: int,
     body: TarificationGrilleFinaleUpsert,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_CONSULTATION)),
 ):
     product = db.query(ProduitAssurance).filter(ProduitAssurance.id == product_id).first()
     if not product:
@@ -595,7 +583,7 @@ async def delete_product_grille_finale_cell(
     fenetre_duree_id: int = Query(..., ge=1),
     tranche_age_id: int = Query(..., ge=1),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     product = db.query(ProduitAssurance).filter(ProduitAssurance.id == product_id).first()
     if not product:
@@ -657,7 +645,7 @@ async def replace_product_surprimes(
     product_id: int,
     payload: List[ProduitSurprimePayload],
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_bo_permission(F_COMPTES_PRODUITS, LEVEL_EDITION)),
 ):
     product = db.query(ProduitAssurance).filter(ProduitAssurance.id == product_id).first()
     if not product:

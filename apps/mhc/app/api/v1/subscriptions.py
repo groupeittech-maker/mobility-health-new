@@ -8,7 +8,7 @@ from io import BytesIO
 from sqlalchemy.orm import Session, selectinload
 from app.core.database import get_db
 from app.core.enums import StatutSouscription, Role, StatutPaiement
-from app.api.v1.auth import get_current_user, require_admin_user
+from app.api.v1.auth import get_current_user
 from app.models.user import User
 from app.models.souscription import Souscription
 from app.models.produit_assurance import ProduitAssurance

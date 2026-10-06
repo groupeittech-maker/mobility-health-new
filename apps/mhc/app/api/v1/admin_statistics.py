@@ -7,20 +7,11 @@ from sqlalchemy.orm import Session
 from app.api.v1.auth import get_current_user
 from app.core.database import get_db
 from app.core.enums import Role
+from app.core.permissions import require_backoffice
 from app.models.user import User
 from app.services.statistics_service import StatisticsService
 
 router = APIRouter()
-
-
-def _require_admin(current_user: User = Depends(get_current_user)) -> User:
-    role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
-    if role not in (Role.ADMIN.value, Role.FINANCE_MANAGER.value, Role.AGENT_COMPTABLE_MH.value):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès réservé aux administrateurs et agents comptables.",
-        )
-    return current_user
 
 
 def _resolve_period(period: Optional[str]) -> Tuple[Optional[date], Optional[date]]:
@@ -84,7 +75,7 @@ def _common_params(
 async def full_statistics(
     params: dict = Depends(_common_params),
     db: Session = Depends(get_db),
-    current_user: User = Depends(_require_admin),
+    current_user: User = Depends(require_backoffice()),
 ):
     """Retourne l'ensemble des statistiques dans un seul endpoint."""
     return StatisticsService.full_report(db, **params)
@@ -94,7 +85,7 @@ async def full_statistics(
 async def overview_statistics(
     params: dict = Depends(_common_params),
     db: Session = Depends(get_db),
-    current_user: User = Depends(_require_admin),
+    current_user: User = Depends(require_backoffice()),
 ):
     return StatisticsService.overview(db, **params)
 
@@ -103,7 +94,7 @@ async def overview_statistics(
 async def subscriptions_statistics(
     params: dict = Depends(_common_params),
     db: Session = Depends(get_db),
-    current_user: User = Depends(_require_admin),
+    current_user: User = Depends(require_backoffice()),
 ):
     return StatisticsService.subscriptions(db, **params)
 
@@ -112,7 +103,7 @@ async def subscriptions_statistics(
 async def payments_statistics(
     params: dict = Depends(_common_params),
     db: Session = Depends(get_db),
-    current_user: User = Depends(_require_admin),
+    current_user: User = Depends(require_backoffice()),
 ):
     return StatisticsService.payments(db, **params)
 
@@ -121,7 +112,7 @@ async def payments_statistics(
 async def claims_statistics(
     params: dict = Depends(_common_params),
     db: Session = Depends(get_db),
-    current_user: User = Depends(_require_admin),
+    current_user: User = Depends(require_backoffice()),
 ):
     return StatisticsService.claims(db, **params)
 
@@ -130,7 +121,7 @@ async def claims_statistics(
 async def reviews_statistics(
     params: dict = Depends(_common_params),
     db: Session = Depends(get_db),
-    current_user: User = Depends(_require_admin),
+    current_user: User = Depends(require_backoffice()),
 ):
     return StatisticsService.reviews(db, **params)
 
@@ -139,7 +130,7 @@ async def reviews_statistics(
 async def finance_statistics(
     params: dict = Depends(_common_params),
     db: Session = Depends(get_db),
-    current_user: User = Depends(_require_admin),
+    current_user: User = Depends(require_backoffice()),
 ):
     return StatisticsService.finance(db, **params)
 
@@ -152,7 +143,7 @@ async def users_statistics(
     pays: Optional[str] = Query(None, description="Pays"),
     group_by: Optional[str] = Query(None, description="Groupe temporel"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(_require_admin),
+    current_user: User = Depends(require_backoffice()),
 ):
     if period and period != "custom":
         start_date, end_date = _resolve_period(period)
@@ -163,7 +154,7 @@ async def users_statistics(
 async def products_statistics(
     params: dict = Depends(_common_params),
     db: Session = Depends(get_db),
-    current_user: User = Depends(_require_admin),
+    current_user: User = Depends(require_backoffice()),
 ):
     return StatisticsService.products(db, **params)
 
@@ -174,7 +165,7 @@ async def ekyc_statistics(
     end_date: Optional[date] = Query(None, description="Date de fin (YYYY-MM-DD)"),
     period: Optional[str] = Query(None, description="Période prédéfinie"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(_require_admin),
+    current_user: User = Depends(require_backoffice()),
 ):
     if period and period != "custom":
         start_date, end_date = _resolve_period(period)

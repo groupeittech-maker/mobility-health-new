@@ -9,6 +9,17 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, text
 from app.core.database import get_db
 from app.core.enums import Role
+from app.core.permissions import (
+    F_COMPTES_ASSUREURS,
+    F_COMPTES_INTERMEDIAIRES,
+    F_COMPTES_MEDECINS_CONSEIL,
+    F_COMPTES_PARTENAIRES_SANTE,
+    F_COMPTES_REASSUREURS,
+    F_COMPTES_UTILISATEURS,
+    LEVEL_EDITION,
+    has_permission,
+    is_internal_backoffice_role,
+)
 from app.core.redis_client import get_redis
 from app.core.security import get_password_hash
 from app.api.v1.auth import get_current_user
@@ -24,6 +35,54 @@ from pydantic import BaseModel, EmailStr, field_serializer
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# Rôle cible du compte → fonctionnalité « Gestion des comptes » exigée chez le
+# créateur (niveau Édition). Correspond aux lignes « Création de compte … » de
+# la matrice : la création reste centralisée côté MHC — superviseur technique
+# pour assureur/réassureur/intermédiaire, superviseur affaires médicales pour
+# médecin-conseil/partenaire santé/TPA, super admin pour tout.
+_CREATION_COMPTE_FEATURE = {
+    Role.MEDECIN_REFERENT_MH: F_COMPTES_MEDECINS_CONSEIL,
+    Role.DOCTOR: F_COMPTES_MEDECINS_CONSEIL,
+    Role.MEDECIN_HOPITAL: F_COMPTES_PARTENAIRES_SANTE,
+    Role.AGENT_RECEPTION_HOPITAL: F_COMPTES_PARTENAIRES_SANTE,
+    Role.AGENT_COMPTABLE_HOPITAL: F_COMPTES_PARTENAIRES_SANTE,
+    Role.HOSPITAL_ADMIN: F_COMPTES_PARTENAIRES_SANTE,
+    Role.AGENT_PRODUCTION_ASSUREUR: F_COMPTES_ASSUREURS,
+    Role.AGENT_SINISTRE_ASSUREUR: F_COMPTES_ASSUREURS,
+    Role.AGENT_COMPTABLE_ASSUREUR: F_COMPTES_ASSUREURS,
+    Role.AGENT_MEDICAL_ASSUREUR: F_COMPTES_ASSUREURS,
+    Role.AGENT_PRODUCTION_COURTIER: F_COMPTES_INTERMEDIAIRES,
+    Role.AGENT_SINISTRE_COURTIER: F_COMPTES_INTERMEDIAIRES,
+    Role.AGENT_COMPTABLE_COURTIER: F_COMPTES_INTERMEDIAIRES,
+    Role.ASSISTANT_SOUSCRIPTION: F_COMPTES_INTERMEDIAIRES,
+    Role.AGENT_VERIFICATEUR_REASSUREUR: F_COMPTES_REASSUREURS,
+}
+
+
+def _role_value(role) -> str:
+    if hasattr(role, "value"):
+        role = role.value
+    return str(role or "user").lower()
+
+
+def _feature_gestion_compte(role_value: str) -> str:
+    try:
+        role_enum = Role(role_value)
+    except ValueError:
+        return F_COMPTES_UTILISATEURS
+    return _CREATION_COMPTE_FEATURE.get(role_enum, F_COMPTES_UTILISATEURS)
+
+
+def _can_manage_account(actor: User, target_role_value: str) -> bool:
+    """L'acteur peut-il gérer un compte du rôle `target_role_value` ?
+    Admin : tout. Sinon : niveau Édition sur la fonctionnalité « Gestion des
+    comptes » correspondant au rôle cible (matrice MHC)."""
+    actor_role = _role_value(getattr(actor, "role", None))
+    if actor_role == "admin":
+        return True
+    return has_permission(actor_role, _feature_gestion_compte(target_role_value), LEVEL_EDITION)
 
 
 class UserCreate(BaseModel):
@@ -129,8 +188,8 @@ async def get_users(
         role_str = role_str.value
     role_str = str(role_str or "").lower()
     is_admin = role_str == "admin"
-    is_medical_reviewer = role_str == "medical_reviewer"
-    if not is_admin and not is_medical_reviewer:
+    is_medical_reviewer = role_str in ("medical_reviewer", "medecin_referent_mh")
+    if not is_admin and not is_internal_backoffice_role(role_str):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
@@ -201,11 +260,14 @@ async def create_user(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Créer un nouvel utilisateur (admin uniquement).
+    Créer un nouvel utilisateur — création centralisée MHC : admin, ou profil
+    interne avec le niveau Édition sur la fonctionnalité « Gestion des comptes »
+    correspondant au rôle cible (matrice).
     
     Utilise le service UserService pour une validation complète et l'envoi d'email de bienvenue.
     """
-    if current_user.role != Role.ADMIN:
+    target_role = _role_value(getattr(user_data.role, "value", user_data.role))
+    if not _can_manage_account(current_user, target_role):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
@@ -263,8 +325,8 @@ async def search_user_by_username(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Rechercher un utilisateur par nom d'utilisateur (admin only)"""
-    if current_user.role != Role.ADMIN:
+    """Rechercher un utilisateur par nom d'utilisateur (profils MHC internes)"""
+    if not is_internal_backoffice_role(_role_value(getattr(current_user, "role", None))):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
@@ -293,16 +355,15 @@ async def get_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    is_admin = current_user.role == Role.ADMIN
-    is_medical_reviewer = (current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)) == "medical_reviewer"
-    if current_user.id != user_id and not is_admin:
-        if is_medical_reviewer and getattr(user, "validation_inscription", None) == "pending":
-            pass  # Médecin MH peut voir une inscription en attente
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not enough permissions"
-            )
+    current_role = _role_value(getattr(current_user, "role", None))
+    is_admin = current_role == "admin"
+    is_medical_reviewer = current_role == "medical_reviewer"
+    is_internal = is_internal_backoffice_role(current_role)
+    if current_user.id != user_id and not is_admin and not is_internal:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
     return user
 
 
@@ -318,7 +379,7 @@ async def validate_inscription(
     Si approuvée : un email d'activation finale est envoyé à l'utilisateur.
     """
     is_admin = current_user.role == Role.ADMIN
-    is_medical_reviewer = (current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)) == "medical_reviewer"
+    is_medical_reviewer = _role_value(getattr(current_user, "role", None)) in ("medical_reviewer", "medecin_referent_mh")
     if not is_admin and not is_medical_reviewer:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -586,18 +647,20 @@ async def update_user(
     current_user: User = Depends(get_current_user)
 ):
     """Update user"""
-    if current_user.id != user_id and current_user.role != Role.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
-        )
-    
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+    if current_user.id != user_id:
+        target_role = _role_value(getattr(user, "role", None))
+        new_role = _role_value(getattr(user_update.role, "value", user_update.role)) if getattr(user_update, "role", None) is not None else target_role
+        if not (_can_manage_account(current_user, target_role) and _can_manage_account(current_user, new_role)):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions"
+            )
     
     # Update fields
     update_data = user_update.dict(exclude_unset=True)
@@ -629,13 +692,7 @@ async def reset_user_password(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Reset a user's password (admin only)"""
-    if current_user.role != Role.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
-        )
-
+    """Reset a user's password (créateur MHC habilité sur le rôle cible)"""
     # Validate password using service
     is_valid, error_message = UserService.validate_password(password_reset.new_password)
     if not is_valid:
@@ -649,6 +706,11 @@ async def reset_user_password(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
+        )
+    if not _can_manage_account(current_user, _role_value(getattr(user, "role", None))):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
         )
 
     user.hashed_password = get_password_hash(password_reset.new_password)
@@ -672,6 +734,11 @@ async def delete_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
+        )
+    if current_user.id == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Impossible de supprimer son propre compte"
         )
 
     UserService.delete_user_cascade(db, user_id=user_id, acting_user_id=current_user.id)
