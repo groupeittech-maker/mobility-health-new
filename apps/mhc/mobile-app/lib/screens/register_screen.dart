@@ -6,9 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../core/constants/app_colors.dart';
 import '../core/network/api_client.dart' as net;
-import '../core/theme/app_theme.dart';
 import '../core/utils/api_error_helper.dart';
 import '../core/widgets/mh_app_bar.dart';
+import '../core/widgets/mh_kit_widgets.dart';
 import '../core/widgets/mh_stripe.dart';
 import '../core/widgets/mh_surface_card.dart';
 import '../models/destination.dart';
@@ -266,7 +266,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-              child: MHGradientButton(
+              child: MhSolidButton(
                 label: _step == 2 ? 'Créer mon compte' : 'Suivant',
                 loading: _isLoading,
                 onPressed: _next,
@@ -336,12 +336,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
               'Pays de résidence',
               _paysResidence,
               (v) => setState(() => _paysResidence = v),
+              hint: 'Sélectionnez votre pays',
             ),
             const SizedBox(height: 12),
             _buildSearchableCountryPicker(
               'Nationalité',
               _nationalite,
               (v) => setState(() => _nationalite = v),
+              hint: 'Sélectionnez votre nationalité',
             ),
             const SizedBox(height: 16),
           ],
@@ -383,56 +385,66 @@ class _RegisterScreenState extends State<RegisterScreen> {
               },
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _passwordController,
-              obscureText: _obscurePassword,
-              validator: (v) {
-                if (v == null || v.isEmpty) return 'Requis';
-                if (v.length < 8) return 'Minimum 8 caractères';
-                return null;
-              },
-              decoration: MHSurfaceCard.input(
-                labelText: 'Mot de passe',
-                hintText: 'Votre mot de passe',
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_off
-                        : Icons.visibility,
-                    color: AppColors.mutedText,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const MhFieldLabel('Mot de passe'),
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Requis';
+                    if (v.length < 8) return 'Minimum 8 caractères';
+                    return null;
+                  },
+                  decoration: MHSurfaceCard.input(
+                    hintText: 'Votre mot de passe',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        color: AppColors.mutedText,
+                      ),
+                      onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword),
+                    ),
                   ),
-                  onPressed: () =>
-                      setState(() => _obscurePassword = !_obscurePassword),
+                  enabled: !_isLoading,
                 ),
-              ),
-              enabled: !_isLoading,
+              ],
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _confirmPasswordController,
-              obscureText: _obscureConfirmPassword,
-              validator: (v) {
-                if (v == null || v.isEmpty) return 'Requis';
-                if (v != _passwordController.text) {
-                  return 'Les mots de passe ne correspondent pas';
-                }
-                return null;
-              },
-              decoration: MHSurfaceCard.input(
-                labelText: 'Confirmer le mot de passe',
-                hintText: 'Votre mot de passe',
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscureConfirmPassword
-                        ? Icons.visibility_off
-                        : Icons.visibility,
-                    color: AppColors.mutedText,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const MhFieldLabel('Confirmer le mot de passe'),
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: _obscureConfirmPassword,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Requis';
+                    if (v != _passwordController.text) {
+                      return 'Les mots de passe ne correspondent pas';
+                    }
+                    return null;
+                  },
+                  decoration: MHSurfaceCard.input(
+                    hintText: 'Votre mot de passe',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        color: AppColors.mutedText,
+                      ),
+                      onPressed: () => setState(() =>
+                          _obscureConfirmPassword = !_obscureConfirmPassword),
+                    ),
                   ),
-                  onPressed: () => setState(
-                      () => _obscureConfirmPassword = !_obscureConfirmPassword),
+                  enabled: !_isLoading,
                 ),
-              ),
-              enabled: !_isLoading,
+              ],
             ),
             const SizedBox(height: 12),
             _buildTextField(
@@ -645,6 +657,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // -----------------------------------------------------------------------
   // Champs communs
   // -----------------------------------------------------------------------
+  /// Libellé au-dessus de la boîte + placeholder dans le champ (style kit).
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -652,90 +665,117 @@ class _RegisterScreenState extends State<RegisterScreen> {
     TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      validator: validator,
-      decoration: MHSurfaceCard.input(labelText: label, hintText: hint),
-      enabled: !_isLoading,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MhFieldLabel(label),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          validator: validator,
+          decoration: MHSurfaceCard.input(hintText: hint),
+          enabled: !_isLoading,
+        ),
+      ],
     );
   }
 
   Widget _buildDateField(
       String label, DateTime? value, void Function(DateTime?) onChanged) {
-    return InkWell(
-      onTap: _isLoading
-          ? null
-          : () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: value ?? DateTime(2000),
-                firstDate: DateTime(1900),
-                lastDate: DateTime(2100),
-              );
-              if (date != null) onChanged(date);
-            },
-      borderRadius: BorderRadius.circular(8),
-      child: InputDecorator(
-        decoration: MHSurfaceCard.input(
-          labelText: label,
-          suffixIcon: const Icon(Icons.calendar_today),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MhFieldLabel(label),
+        InkWell(
+          onTap: _isLoading
+              ? null
+              : () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: value ?? DateTime(2000),
+                    firstDate: DateTime(1900),
+                    lastDate: DateTime(2100),
+                  );
+                  if (date != null) onChanged(date);
+                },
+          borderRadius: BorderRadius.circular(8),
+          child: InputDecorator(
+            decoration: MHSurfaceCard.input(
+              suffixIcon: const Icon(Icons.calendar_today),
+            ),
+            child: Text(
+              value != null
+                  ? '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}'
+                  : 'JJ / MM / AAAA',
+              style: TextStyle(
+                  color:
+                      value != null ? Colors.black87 : AppColors.mutedText),
+            ),
+          ),
         ),
-        child: Text(
-          value != null
-              ? '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}'
-              : 'JJ / MM / AAAA',
-          style: TextStyle(
-              color: value != null ? Colors.black87 : AppColors.mutedText),
-        ),
-      ),
+      ],
     );
   }
 
   Widget _buildSexeField() {
-    return DropdownButtonFormField<String>(
-      initialValue: _sexe.isEmpty ? null : _sexe,
-      decoration: MHSurfaceCard.input(labelText: 'Genre'),
-      hint: const Text('Sélectionnez votre genre'),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const MhFieldLabel('Genre'),
+        DropdownButtonFormField<String>(
+          initialValue: _sexe.isEmpty ? null : _sexe,
+          decoration: MHSurfaceCard.input(),
+          hint: const Text('Sélectionnez votre genre'),
       items: const [
         DropdownMenuItem(value: 'M', child: Text('Homme')),
         DropdownMenuItem(value: 'F', child: Text('Femme')),
         DropdownMenuItem(value: 'Autre', child: Text('Autre')),
       ],
-      onChanged: _isLoading ? null : (v) => setState(() => _sexe = v ?? ''),
-      validator: (_) => _sexe.isEmpty ? 'Requis' : null,
+          onChanged:
+              _isLoading ? null : (v) => setState(() => _sexe = v ?? ''),
+          validator: (_) => _sexe.isEmpty ? 'Requis' : null,
+        ),
+      ],
     );
   }
 
   Widget _buildSearchableCountryPicker(
-      String label, String? value, void Function(String?) onChanged) {
+      String label, String? value, void Function(String?) onChanged,
+      {String hint = 'Sélectionnez votre pays'}) {
     final displayValue = _countryLabelFromCode(value);
-    return InkWell(
-      onTap: (_isLoading || _loadingReferenceCountries)
-          ? null
-          : () async {
-              final selected = await _showCountrySearchDialog(label, value);
-              if (selected != null && mounted) onChanged(selected);
-            },
-      borderRadius: BorderRadius.circular(8),
-      child: InputDecorator(
-        decoration: MHSurfaceCard.input(
-          labelText: label,
-          suffixIcon: const Icon(Icons.keyboard_arrow_down,
-              color: AppColors.mutedText),
-        ),
-        child: Text(
-          _loadingReferenceCountries
-              ? 'Chargement...'
-              : (displayValue ?? 'Sélectionnez votre pays'),
-          style: TextStyle(
-            color:
-                displayValue != null ? Colors.black87 : AppColors.mutedText,
-            fontSize: 15,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MhFieldLabel(label),
+        InkWell(
+          onTap: (_isLoading || _loadingReferenceCountries)
+              ? null
+              : () async {
+                  final selected =
+                      await _showCountrySearchDialog(label, value);
+                  if (selected != null && mounted) onChanged(selected);
+                },
+          borderRadius: BorderRadius.circular(8),
+          child: InputDecorator(
+            decoration: MHSurfaceCard.input(
+              suffixIcon: const Icon(Icons.keyboard_arrow_down,
+                  color: AppColors.mutedText),
+            ),
+            child: Text(
+              _loadingReferenceCountries
+                  ? 'Chargement...'
+                  : (displayValue ?? hint),
+              style: TextStyle(
+                color: displayValue != null
+                    ? Colors.black87
+                    : AppColors.mutedText,
+                fontSize: 15,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          overflow: TextOverflow.ellipsis,
         ),
-      ),
+      ],
     );
   }
 
@@ -752,6 +792,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  /// Téléphone : une seule boîte « drapeau +242 | Votre numéro » comme le kit.
   Widget _buildPhoneField({
     required TextEditingController controller,
     required CountryCode countryCode,
@@ -759,40 +800,58 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required String label,
     required bool isRequired,
   }) {
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CountryCodePicker(
-          padding: EdgeInsets.zero,
-          onChanged: onCountryChanged,
-          initialSelection: countryCode.code ?? 'CG',
-          favorite: const ['+242', 'CG', '+33', 'FR', '+221', 'SN'],
-          showCountryOnly: false,
-          showOnlyCountryWhenClosed: false,
-          alignLeft: false,
-          textStyle: const TextStyle(fontSize: 15),
-          dialogTextStyle: const TextStyle(fontSize: 15),
-          searchDecoration: const InputDecoration(
-              hintText: 'Rechercher un pays',
-              border: OutlineInputBorder()),
-          boxDecoration: BoxDecoration(
+        MhFieldLabel(label),
+        Container(
+          decoration: BoxDecoration(
             color: AppColors.surfaceFieldFill,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: AppColors.surfaceFieldBorder),
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: TextFormField(
-            controller: controller,
-            keyboardType: TextInputType.phone,
-            validator: isRequired
-                ? (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Requis' : null
-                : null,
-            decoration: MHSurfaceCard.input(
-                labelText: label, hintText: 'Votre numéro'),
-            enabled: !_isLoading,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              CountryCodePicker(
+                padding: EdgeInsets.zero,
+                onChanged: onCountryChanged,
+                initialSelection: countryCode.code ?? 'CG',
+                favorite: const ['+242', 'CG', '+33', 'FR', '+221', 'SN'],
+                showCountryOnly: false,
+                showOnlyCountryWhenClosed: false,
+                alignLeft: false,
+                textStyle: const TextStyle(fontSize: 15),
+                dialogTextStyle: const TextStyle(fontSize: 15),
+                searchDecoration: const InputDecoration(
+                    hintText: 'Rechercher un pays',
+                    border: OutlineInputBorder()),
+              ),
+              Container(
+                width: 1,
+                height: 24,
+                color: AppColors.surfaceFieldBorder,
+              ),
+              Expanded(
+                child: TextFormField(
+                  controller: controller,
+                  keyboardType: TextInputType.phone,
+                  validator: isRequired
+                      ? (v) => (v == null || v.trim().isEmpty)
+                          ? 'Requis'
+                          : null
+                      : null,
+                  decoration: const InputDecoration(
+                    hintText: 'Votre numéro',
+                    hintStyle: TextStyle(color: AppColors.mutedText),
+                    border: InputBorder.none,
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  ),
+                  enabled: !_isLoading,
+                ),
+              ),
+            ],
           ),
         ),
       ],

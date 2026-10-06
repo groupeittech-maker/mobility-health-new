@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/constants/app_colors.dart';
-import '../core/theme/app_theme.dart';
+import '../core/widgets/mh_kit_widgets.dart';
 import '../core/widgets/mh_logo_header.dart';
 import '../core/widgets/mh_stripe.dart';
 
 /// Écran d'accueil du kit MyMHC : « Votre santé sans frontières »,
-/// Créer un compte / Se connecter, mention « Your Health Has No Borders ».
+/// photo héro, Créer un compte / Se connecter, connexion sociale,
+/// mention « Your Health Has No Borders ».
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
@@ -50,12 +51,12 @@ class WelcomeScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 10),
-            const MHLogoHeader(height: 56, compact: true, showSlogan: true),
-            const SizedBox(height: 26),
+            const SizedBox(height: 6),
+            const MHLogoHeader(height: 52, compact: true),
+            const SizedBox(height: 14),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   children: [
                     RichText(
@@ -65,7 +66,7 @@ class WelcomeScreen extends StatelessWidget {
                           TextSpan(
                             text: 'Votre santé\n',
                             style: TextStyle(
-                              fontSize: 32,
+                              fontSize: 28,
                               fontWeight: FontWeight.w800,
                               color: AppColors.secondary,
                               height: 1.15,
@@ -74,7 +75,7 @@ class WelcomeScreen extends StatelessWidget {
                           TextSpan(
                             text: 'sans frontières',
                             style: TextStyle(
-                              fontSize: 32,
+                              fontSize: 28,
                               fontWeight: FontWeight.w800,
                               color: AppColors.brandTeal,
                               height: 1.15,
@@ -83,64 +84,65 @@ class WelcomeScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     const Text(
                       'Des solutions d’assurance\net d’assistance médicale\noù que vous soyez.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         color: AppColors.mutedText,
                         height: 1.5,
                       ),
                     ),
-                    const SizedBox(height: 26),
-                    Container(
-                      height: 190,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF4E267C), Color(0xFF14AE98)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.travel_explore,
-                          size: 84,
-                          color: Colors.white70,
+                    const SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: AspectRatio(
+                        aspectRatio: 4 / 3,
+                        child: Image.asset(
+                          'assets/images/welcome_hero.png',
+                          fit: BoxFit.cover,
+                          alignment: Alignment.topCenter,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 26),
-                    MHGradientButton(
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.brandTeal,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFFC9C9D4),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    MhSolidButton(
                       label: 'Créer un compte',
+                      color: AppColors.brandTeal,
                       onPressed: () => context.go('/register'),
                     ),
                     const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton(
-                        onPressed: () => context.go('/login'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.secondary,
-                          side: const BorderSide(color: Color(0xFFD6CBE2)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Text(
-                          'Se connecter',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
+                    MhOutlineArrowButton(
+                      label: 'Se connecter',
+                      onPressed: () => context.go('/login'),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
+                    const MhSocialLogin(),
+                    const SizedBox(height: 18),
                     const Text(
                       'Your Health Has No Borders.',
                       style: TextStyle(
