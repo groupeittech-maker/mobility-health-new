@@ -137,6 +137,37 @@ async function requireRole(requiredRole, redirectUrl = 'login.html') {
     return true;
 }
 
+
+// Fonction pour exiger une permission de la matrice (fonctionnalité + niveau)
+async function requirePermission(feature, minLevel = 'consultation', redirectUrl = 'index.html') {
+    const isValid = await requireAuth();
+    if (!isValid) {
+        return false;
+    }
+    const ok = window.MhPermissions && window.MhPermissions.can(feature, minLevel);
+    if (!ok) {
+        alert(`Accès refusé. Permission requise : ${feature} (${minLevel}).`);
+        window.location.href = redirectUrl;
+        return false;
+    }
+    return true;
+}
+
+// Fonction pour exiger l'appartenance au back-office interne MHC
+async function requireBackoffice(redirectUrl = 'index.html') {
+    const isValid = await requireAuth();
+    if (!isValid) {
+        return false;
+    }
+    const ok = window.MhPermissions && window.MhPermissions.isInternalBackoffice();
+    if (!ok) {
+        alert('Accès refusé. Ce contenu est réservé aux profils internes MHC.');
+        window.location.href = redirectUrl;
+        return false;
+    }
+    return true;
+}
+
 // Fonction pour exiger un des rôles spécifiés
 async function requireAnyRole(allowedRoles, redirectUrl = 'login.html') {
     const isValid = await requireAuth();

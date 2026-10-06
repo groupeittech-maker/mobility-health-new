@@ -1,6 +1,6 @@
 // Vérifier l'authentification et le rôle admin
 (async function() {
-    const isValid = await requireRole('admin', 'index.html');
+    const isValid = await requireBackoffice('index.html');
     if (!isValid) {
         return; // requireRole() a déjà redirigé
     }
@@ -86,7 +86,7 @@ const ROLE_OPTIONS = [
 // chez le créateur — miroir de _CREATION_COMPTE_FEATURE dans app/api/v1/users.py.
 // La création reste centralisée MHC : superviseur technique (assureur/réassureur/
 // intermédiaire), superviseur affaires médicales (médecin-conseil/partenaire
-// santé/TPA), super admin (tout).
+// santé), super admin (tout).
 const ROLE_CREATION_FEATURES = {
     medecin_referent_mh: 'comptes_medecins_conseil',
     doctor: 'comptes_medecins_conseil',

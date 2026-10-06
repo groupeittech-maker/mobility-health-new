@@ -42,7 +42,6 @@ def test_medecin_conseil_validation_chain():
 
 def test_affaires_medicales_second_validation():
     assert has_permission("superviseur_affaires_medicales", "facturation_medicale", LEVEL_CONTROLE)
-    assert has_permission("superviseur_affaires_medicales", "comptes_tpa", LEVEL_EDITION)
 
 
 def test_reassureur_readonly_except_production():

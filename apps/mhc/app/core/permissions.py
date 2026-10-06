@@ -35,7 +35,6 @@ F_COMPTES_REASSUREURS = "comptes_reassureurs"
 F_COMPTES_INTERMEDIAIRES = "comptes_intermediaires"
 F_COMPTES_MEDECINS_CONSEIL = "comptes_medecins_conseil"
 F_COMPTES_PARTENAIRES_SANTE = "comptes_partenaires_sante"
-F_COMPTES_TPA = "comptes_tpa"
 F_COMPTES_UTILISATEURS = "comptes_utilisateurs"
 F_PRODUCTION = "production"
 F_SINISTRES = "sinistres"
@@ -66,7 +65,6 @@ FEATURES = [
     F_COMPTES_INTERMEDIAIRES,
     F_COMPTES_MEDECINS_CONSEIL,
     F_COMPTES_PARTENAIRES_SANTE,
-    F_COMPTES_TPA,
     F_COMPTES_UTILISATEURS,
     F_PRODUCTION,
     F_SINISTRES,
@@ -115,7 +113,6 @@ _FINANCE_FLOWS = [
 _MEDICAL_ACCOUNTS = [
     F_COMPTES_MEDECINS_CONSEIL,
     F_COMPTES_PARTENAIRES_SANTE,
-    F_COMPTES_TPA,
 ]
 
 # Comptes techniques gérés par le pôle production.
@@ -237,7 +234,7 @@ _AGENT_VERIFICATEUR_REASSUREUR = _perms(
     **{F_PRODUCTION: E},
 )
 
-# Partenaires de santé / TPA (mêmes profils, structure différente).
+# Partenaires de santé.
 _AGENT_MEDICAL_PARTENAIRE = _perms(
     **{f: E for f in (F_PRISE_EN_CHARGE, F_BULLETIN_SORTIE, F_HOSPITALISATION, F_RAPATRIEMENT, F_RAPPORT_MEDICAL)},
     **{F_FACTURATION_MEDICALE: C},
@@ -285,7 +282,7 @@ ROLE_PERMISSIONS: Dict[str, Dict[str, str]] = {
     "agent_comptable_courtier": _AGENT_COMPTABLE_PARTENAIRE,
     "agent_medical_assureur": _AGENT_MEDICAL_ASSUREUR,
     "agent_verificateur_reassureur": _AGENT_VERIFICATEUR_REASSUREUR,
-    # Partenaires de santé / TPA
+    # Partenaires de santé
     "medecin_hopital": _AGENT_MEDICAL_PARTENAIRE,
     "agent_reception_hopital": _AGENT_ACCUEIL_PARTENAIRE,
     "agent_comptable_hopital": _AGENT_COMPTABLE_PARTENAIRE_SANTE,
@@ -326,8 +323,8 @@ ROLE_LABELS: Dict[str, str] = {
     "agent_medical_assureur": "Agent médical (assureur)",
     "agent_verificateur_reassureur": "Agent vérificateur (réassureur)",
     "hospital_admin": "Administrateur partenaire santé",
-    "medecin_hopital": "Agent médical (partenaire santé / TPA)",
-    "agent_reception_hopital": "Agent d'accueil (partenaire santé / TPA)",
+    "medecin_hopital": "Agent médical (partenaire santé)",
+    "agent_reception_hopital": "Agent d'accueil (partenaire santé)",
     "medecin_referent_mh": "Médecin-conseil",
     "sos_operator": "Opérateur SOS",
     "medical_reviewer": "Validateur médical",
@@ -340,7 +337,7 @@ ROLE_LABELS: Dict[str, str] = {
 
 # Profils MHC internes : ils accèdent aux vues globales du back-office.
 # Les profils partenaires (assureur, intermédiaire, réassureur, partenaire
-# santé/TPA) ont des droits « consultation » dans la matrice, mais uniquement
+# santé) ont des droits « consultation » dans la matrice, mais uniquement
 # sur le périmètre de leur organisation — ils passent par leurs portails
 # scopés (assureur_production, assureur_sinistres, reassureur_portal,
 # hospital_*) et jamais par les listes globales des routers admin_*.

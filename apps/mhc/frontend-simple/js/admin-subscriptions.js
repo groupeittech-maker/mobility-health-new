@@ -1,7 +1,7 @@
 // Vérifier l'authentification et le rôle admin
 (async function() {
     // Les souscriptions peuvent être gérées par admin ou finance_manager
-    const isValid = await requireAnyRole(['admin', 'finance_manager'], 'index.html');
+    const isValid = await requireBackoffice('index.html');
     if (!isValid) {
         return; // requireAnyRole() a déjà redirigé
     }

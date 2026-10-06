@@ -47,7 +47,21 @@
         });
     }
 
-    window.MhPermissions = { can, level, applyDom, getPermissions };
+    // Profils internes MHC (matrice FONCTIONNALITES_INTERNES) + rôles historiques équivalents.
+    const INTERNAL_BACKOFFICE_ROLES = new Set([
+        'superviseur_technique', 'production_agent', 'agent_conformite_production',
+        'agent_sinistre_mh', 'agent_conformite_sinistre', 'superviseur_affaires_medicales',
+        'agent_medical_mhc', 'agent_conformite_medical', 'superviseur_comptable',
+        'agent_comptable_mh', 'agent_conformite_comptable', 'medecin_referent_mh',
+        'sos_operator', 'medical_reviewer', 'technical_reviewer', 'finance_manager',
+    ]);
+
+    function isInternalBackoffice() {
+        const role = getRole();
+        return role === 'admin' || INTERNAL_BACKOFFICE_ROLES.has(role);
+    }
+
+    window.MhPermissions = { can, level, applyDom, getPermissions, isInternalBackoffice, INTERNAL_BACKOFFICE_ROLES };
 
     document.addEventListener('DOMContentLoaded', function () {
         applyDom(document);

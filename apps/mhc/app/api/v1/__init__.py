@@ -32,6 +32,8 @@ from app.api.v1 import (
     courtiers,
     assureur_sinistres,
     assureur_production,
+    courtier_sinistres,
+    courtier_production,
     ia,  # Module IA
     mhc_care_documents,
     avenants,
@@ -180,6 +182,8 @@ api_router.include_router(admin_assureurs.router, prefix="/admin/assureurs", tag
 api_router.include_router(admin_courtiers.router, prefix="/admin/courtiers", tags=["admin-courtiers"])
 api_router.include_router(assureur_sinistres.router, prefix="/assureur/sinistres", tags=["assureur-sinistres"])
 api_router.include_router(assureur_production.router, prefix="/assureur/production", tags=["assureur-production"])
+api_router.include_router(courtier_sinistres.router, prefix="/courtier/sinistres", tags=["courtier-sinistres"])
+api_router.include_router(courtier_production.router, prefix="/courtier/production", tags=["courtier-production"])
 api_router.include_router(destinations.router, prefix="/destinations", tags=["destinations"])
 api_router.include_router(courtiers.router, prefix="/courtiers", tags=["courtiers"])
 api_router.include_router(ia.router, tags=["ia"])  # Module IA - Analyse documents

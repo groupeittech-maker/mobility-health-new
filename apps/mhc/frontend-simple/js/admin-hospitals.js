@@ -33,7 +33,7 @@ let currentPageHospitals = 0;
 document.addEventListener('DOMContentLoaded', initAdminHospitals);
 
 async function initAdminHospitals() {
-    const allowed = await requireRole('admin', 'login.html');
+    const allowed = await requirePermission('comptes_partenaires_sante', 'consultation', 'login.html');
     if (!allowed) {
         return;
     }

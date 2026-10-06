@@ -112,6 +112,7 @@ class User(Base, TimestampMixin):
         foreign_keys="Assureur.agent_comptable_id"
     )
     assureur_agents = relationship("AssureurAgent", back_populates="user", cascade="all, delete-orphan")
+    courtier_agents = relationship("CourtierAgent", back_populates="user", cascade="all, delete-orphan")
     ekyc_sessions = relationship("EkycSession", back_populates="user")
     # Dernier jeton FCM enregistré par l’app mobile (un appareil ; remplacé à chaque enregistrement)
     fcm_registration_token = Column(Text, nullable=True)

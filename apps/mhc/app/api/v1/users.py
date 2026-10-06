@@ -41,7 +41,7 @@ router = APIRouter()
 # créateur (niveau Édition). Correspond aux lignes « Création de compte … » de
 # la matrice : la création reste centralisée côté MHC — superviseur technique
 # pour assureur/réassureur/intermédiaire, superviseur affaires médicales pour
-# médecin-conseil/partenaire santé/TPA, super admin pour tout.
+# médecin-conseil/partenaire santé, super admin pour tout.
 _CREATION_COMPTE_FEATURE = {
     Role.MEDECIN_REFERENT_MH: F_COMPTES_MEDECINS_CONSEIL,
     Role.DOCTOR: F_COMPTES_MEDECINS_CONSEIL,

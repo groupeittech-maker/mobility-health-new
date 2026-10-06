@@ -54,21 +54,22 @@
         agent_sinistre_assureur: 'assureur-sinistres.html',
         agent_comptable_assureur: 'assureur-accounting.html',
         agent_medical_assureur: 'assureur-production.html',
-        agent_production_courtier: 'assureur-production.html',
-        agent_sinistre_courtier: 'assureur-sinistres.html',
+        agent_production_courtier: 'courtier-production.html',
+        agent_sinistre_courtier: 'courtier-sinistres.html',
         agent_comptable_courtier: 'accounting-portal.html',
-        assistant_souscription: 'bo-dashboard.html',
+        assistant_souscription: 'courtier-production.html',
         agent_verificateur_reassureur: 'reassureur-portal.html',
     };
 
     const MENU = [
         { id: 'dashboard', label: 'Tableau de bord', icon: 'dashboard', href: 'bo-dashboard.html' },
-        { id: 'alertes', label: "Centre d'alerte des urgences", icon: 'alert', href: 'alert-center.html', feature: 'alerte_sos' },
+        { id: 'alertes', label: "Centre d'alerte des urgences", icon: 'alert', href: 'alert-center.html', feature: 'alerte_sos', internalOnly: true },
         {
             id: 'production',
             label: 'Production',
             icon: 'production',
             feature: 'production',
+            internalOnly: true,
             children: [
                 { label: 'Création compte utilisateur', href: 'admin-users.html' },
                 { label: 'Coordination de production', href: 'admin-subscriptions.html' },
@@ -82,6 +83,7 @@
             label: 'Sinistre',
             icon: 'claim',
             feature: 'sinistres',
+            internalOnly: true,
             children: [
                 { label: 'Suivi des sinistres', href: 'sinistre-invoices.html' },
                 { label: 'Encaissement primes', href: 'finance-outbound.html' },
@@ -93,14 +95,17 @@
         { id: 'reassureur', label: 'Réassureur', icon: 'shield', href: 'admin-reassureurs.html', feature: 'comptes_reassureurs' },
         { id: 'reassureur_portal', label: 'Portail réassureur', icon: 'shield', href: 'reassureur-portal.html', roles: ['agent_verificateur_reassureur'] },
         { id: 'intermediaire', label: 'Intermédiaire', icon: 'partners', href: 'admin-courtiers.html', feature: 'comptes_intermediaires' },
+        { id: 'courtier_production', label: 'Portail production', icon: 'production', href: 'courtier-production.html', roles: ['agent_production_courtier', 'assistant_souscription'] },
+        { id: 'courtier_sinistres', label: 'Portail sinistres', icon: 'claim', href: 'courtier-sinistres.html', roles: ['agent_sinistre_courtier'] },
+        { id: 'courtier_comptable', label: 'Portail comptable', icon: 'money', href: 'accounting-portal.html', roles: ['agent_comptable_courtier'] },
         { id: 'partenaire_sante', label: 'Partenaire santé', icon: 'medical', href: 'admin-hospitals.html', feature: 'comptes_partenaires_sante' },
-        { id: 'tpa', label: 'TPA', icon: 'partners', href: 'admin-users.html?role=tpa', feature: 'comptes_tpa' },
         { id: 'assures', label: 'Assurés', icon: 'users', href: 'admin-users.html', feature: 'comptes_utilisateurs' },
         {
             id: 'medecin_conseil',
             label: 'Médecin conseil',
             icon: 'stetho',
             feature: 'prise_en_charge',
+            internalOnly: true,
             children: [
                 { label: 'Création compte utilisateur', href: 'admin-users.html' },
                 { label: "Centre d'alerte des urgences", href: 'alert-center.html' },
@@ -121,6 +126,7 @@
             label: 'Affaires médicales',
             icon: 'medical',
             feature: 'prise_en_charge',
+            internalOnly: true,
             children: [
                 { label: 'Validations médicales', href: 'medical-validations.html' },
                 { label: 'Alertes SOS', href: 'alert-center.html' },
@@ -128,13 +134,14 @@
                 { label: 'Factures médicales', href: 'sinistre-invoices.html' },
             ],
         },
-        { id: 'hotels', label: 'Hôtels', icon: 'partners', href: 'admin-ops.html', feature: 'alerte_sos' },
-        { id: 'transport', label: 'Transport médical', icon: 'globe', href: 'admin-ops.html?tab=providers', feature: 'alerte_sos' },
+        { id: 'hotels', label: 'Hôtels', icon: 'partners', href: 'admin-ops.html', feature: 'alerte_sos', internalOnly: true },
+        { id: 'transport', label: 'Transport médical', icon: 'globe', href: 'admin-ops.html?tab=providers', feature: 'alerte_sos', internalOnly: true },
         {
             id: 'finance',
             label: 'Finance et comptabilité',
             icon: 'money',
             feature: 'encaissement_prime',
+            internalOnly: true,
             children: [
                 { label: 'Tableau financier', href: 'finance-dashboard.html' },
                 { label: 'Paiements sortants', href: 'finance-outbound.html' },
@@ -143,7 +150,7 @@
                 { label: 'Factures', href: 'mh-invoices.html' },
             ],
         },
-        { id: 'reporting', label: 'Reporting', icon: 'chart', href: 'statistics-portal.html', feature: 'encaissement_prime' },
+        { id: 'reporting', label: 'Reporting', icon: 'chart', href: 'statistics-portal.html', feature: 'encaissement_prime', internalOnly: true },
         {
             id: 'parametres',
             label: 'Paramètres',
@@ -170,6 +177,7 @@
 
     function canSee(item) {
         if (item.roles && !item.roles.includes(currentRole())) return false;
+        if (item.internalOnly && !(window.MhPermissions && window.MhPermissions.isInternalBackoffice())) return false;
         if (!item.feature) return true;
         const perms = window.MhPermissions;
         if (!perms || !perms.can) return currentRole() === 'admin';

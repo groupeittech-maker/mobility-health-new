@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -17,7 +17,9 @@ class CourtierBase(BaseModel):
 
 
 class CourtierCreate(CourtierBase):
-    pass
+    agents_production_ids: Optional[List[int]] = None
+    agents_souscription_ids: Optional[List[int]] = None
+    agents_sinistre_ids: Optional[List[int]] = None
 
 
 class CourtierUpdate(BaseModel):
@@ -29,6 +31,9 @@ class CourtierUpdate(BaseModel):
     assureur_id: Optional[int] = None
     commission_pct: Optional[Decimal] = Field(default=None, ge=0, le=100)
     agent_comptable_id: Optional[int] = None
+    agents_production_ids: Optional[List[int]] = None
+    agents_souscription_ids: Optional[List[int]] = None
+    agents_sinistre_ids: Optional[List[int]] = None
 
 
 class CourtierResponse(CourtierBase):
