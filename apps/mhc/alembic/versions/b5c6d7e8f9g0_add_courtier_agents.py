@@ -1,7 +1,7 @@
 """Ajouter la table courtier_agents (portail agents intermédiaire).
 
-Revision ID: a4b5c6d7e8f9
-Revises: z3a4b5c6d7e8
+Revision ID: b5c6d7e8f9g0
+Revises: a4b5c6d7e8f9
 """
 from typing import Sequence, Union
 
@@ -9,8 +9,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = "a4b5c6d7e8f9"
-down_revision: Union[str, Sequence[str], None] = "z3a4b5c6d7e8"
+revision: str = "b5c6d7e8f9g0"
+down_revision: Union[str, Sequence[str], None] = "a4b5c6d7e8f9"
 branch_labels = None
 depends_on = None
 
