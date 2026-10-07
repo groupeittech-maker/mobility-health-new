@@ -46,26 +46,26 @@
 
     const QUICK_BY_ROLE = {
         medical: [
-            { href: 'alert-center.html', ico: '🚨', label: "Traiter les alertes" },
-            { href: 'medical-validations.html', ico: '✔️', label: 'Validations en attente' },
-            { href: 'sinistre-invoices.html', ico: '📄', label: 'Factures à valider' },
-            { href: 'admin-ops.html', ico: '🏨', label: 'Hôtels & transport' },
+            { href: 'alert-center.html', ico: '🚨', label: "Traiter les alertes", feature: 'alerte_sos' },
+            { href: 'medical-validations.html', ico: '✔️', label: 'Validations en attente', feature: 'prise_en_charge' },
+            { href: 'sinistre-invoices.html', ico: '📄', label: 'Factures à valider', feature: 'facturation_medicale' },
+            { href: 'admin-ops.html', ico: '🏨', label: 'Hôtels & transport', feature: 'alerte_sos' },
         ],
         production: [
-            { href: 'admin-users.html', ico: '👤', label: 'Créer un compte utilisateur' },
-            { href: 'admin-subscriptions.html', ico: '📋', label: 'Coordonner une souscription' },
-            { href: 'admin-attestations.html', ico: '📄', label: 'Attestations' },
-            { href: 'admin-products.html', ico: '💠', label: 'Produits' },
+            { href: 'admin-users.html', ico: '👤', label: 'Créer un compte utilisateur', feature: 'comptes_utilisateurs', minLevel: 'edition' },
+            { href: 'admin-subscriptions.html', ico: '📋', label: 'Coordonner une souscription', feature: 'production' },
+            { href: 'admin-attestations.html', ico: '📄', label: 'Attestations', feature: 'comptes_produits' },
+            { href: 'admin-products.html', ico: '💠', label: 'Produits', feature: 'comptes_produits' },
         ],
         sinistre: [
-            { href: 'sinistre-invoices.html', ico: '📁', label: 'Suivi des sinistres' },
-            { href: 'alert-center.html', ico: '🚨', label: "Alertes" },
-            { href: 'finance-outbound.html', ico: '💰', label: 'Paiements' },
+            { href: 'sinistre-invoices.html', ico: '📁', label: 'Suivi des sinistres', feature: 'sinistres' },
+            { href: 'alert-center.html', ico: '🚨', label: "Alertes", feature: 'alerte_sos' },
+            { href: 'finance-outbound.html', ico: '💰', label: 'Paiements', feature: 'paiement_sinistre' },
         ],
         default: [
-            { href: 'alert-center.html', ico: '🚨', label: 'Centre d\'alertes' },
-            { href: 'admin-users.html', ico: '👤', label: 'Utilisateurs' },
-            { href: 'statistics-portal.html', ico: '📊', label: 'Reporting' },
+            { href: 'alert-center.html', ico: '🚨', label: 'Centre d\'alertes', feature: 'alerte_sos' },
+            { href: 'admin-users.html', ico: '👤', label: 'Utilisateurs', feature: 'comptes_utilisateurs' },
+            { href: 'statistics-portal.html', ico: '📊', label: 'Reporting', feature: 'encaissement_prime' },
         ],
     };
 
@@ -155,7 +155,11 @@
 
         // Actions rapides
         const grpKey = KPIS_BY_ROLE[roleGroup(role)] ? roleGroup(role) : 'default';
-        const qa = QUICK_BY_ROLE[grpKey] || QUICK_BY_ROLE.default;
+        const qa = (QUICK_BY_ROLE[grpKey] || QUICK_BY_ROLE.default).filter(q => {
+            if (!q.feature) return true;
+            const perms = window.MhPermissions;
+            return perms && perms.can && perms.can(q.feature, q.minLevel || 'consultation');
+        });
         document.getElementById('quickActions').innerHTML = qa.map(q =>
             '<a href="' + q.href + '"><span class="qi" style="background:#efeaf9">' + q.ico + '</span>' + q.label + '</a>'
         ).join('');
