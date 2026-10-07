@@ -315,15 +315,33 @@
         return bar;
     }
 
+    let renderedPermissions = null;
+
+    function refreshSidebar() {
+        const perms = localStorage.getItem('user_permissions');
+        if (perms === renderedPermissions) return;
+        renderedPermissions = perms;
+        const old = document.querySelector('.bo-sidebar');
+        if (old) old.replaceWith(buildSidebar());
+    }
+
     function injectShell() {
         if (!document.body.hasAttribute('data-backoffice')) return;
         if (document.querySelector('.bo-sidebar')) return;
+        renderedPermissions = localStorage.getItem('user_permissions');
         document.body.prepend(buildTopbar());
         document.body.prepend(buildSidebar());
         if (window.MhPermissions && window.MhPermissions.applyDom) {
             window.MhPermissions.applyDom(document);
         }
     }
+
+    document.addEventListener('mhc:permissions', () => {
+        refreshSidebar();
+        if (window.MhPermissions && window.MhPermissions.applyDom) {
+            window.MhPermissions.applyDom(document);
+        }
+    });
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', injectShell);

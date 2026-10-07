@@ -53,6 +53,7 @@ let assureursCache = [];
 let agentsComptablesCache = [];
 let agentsProductionCache = [];
 let agentsSinistreCache = [];
+let agentsMedicauxCache = [];
 let selectedAssureurId = null;
 
 const elements = {};
@@ -72,6 +73,7 @@ function cacheDom() {
     elements.agentsComptablesSelect = document.getElementById('agentsComptablesSelect');
     elements.agentsProductionSelect = document.getElementById('agentsProductionSelect');
     elements.agentsSinistreSelect = document.getElementById('agentsSinistreSelect');
+    elements.agentsMedicauxSelect = document.getElementById('agentsMedicauxSelect');
     elements.assureurPreview = document.getElementById('assureurPreview');
     elements.saveAssureurBtn = document.getElementById('saveAssureurBtn');
     elements.refreshBtn = document.getElementById('refreshAssureursBtn');
@@ -103,6 +105,7 @@ function attachEvents() {
     elements.agentsComptablesSelect?.addEventListener('change', () => updatePreviewCard());
     elements.agentsProductionSelect?.addEventListener('change', () => updatePreviewCard());
     elements.agentsSinistreSelect?.addEventListener('change', () => updatePreviewCard());
+    elements.agentsMedicauxSelect?.addEventListener('change', () => updatePreviewCard());
 }
 
 async function initAdminAssureursPage() {
@@ -114,7 +117,8 @@ async function initAdminAssureursPage() {
             refreshAssureurs(),
             loadAgents('agent_comptable_assureur', 'comptables'),
             loadAgents('agent_production_assureur', 'production'),
-            loadAgents('agent_sinistre_assureur', 'sinistre')
+            loadAgents('agent_sinistre_assureur', 'sinistre'),
+            loadAgents('agent_medical_assureur', 'medicaux')
         ]);
     } catch (error) {
         console.error('Erreur initialisation assureurs:', error);
@@ -160,6 +164,9 @@ async function loadAgents(role, type) {
         } else if (type === 'sinistre') {
             agentsSinistreCache = agents;
             populateAgentsSelect(elements.agentsSinistreSelect, agents, 'sinistre');
+        } else if (type === 'medicaux') {
+            agentsMedicauxCache = agents;
+            populateAgentsSelect(elements.agentsMedicauxSelect, agents, 'medicaux');
         }
     } catch (error) {
         console.error(`Erreur chargement agents ${type}:`, error);
@@ -271,7 +278,8 @@ async function selectAssureur(assureurId) {
     await Promise.all([
         loadAgents('agent_comptable_assureur', 'comptables'),
         loadAgents('agent_production_assureur', 'production'),
-        loadAgents('agent_sinistre_assureur', 'sinistre')
+        loadAgents('agent_sinistre_assureur', 'sinistre'),
+        loadAgents('agent_medical_assureur', 'medicaux')
     ]);
     
     // Sélectionner les agents existants
@@ -279,6 +287,7 @@ async function selectAssureur(assureurId) {
         const agentsComptables = assureur.agents.filter(a => a.type_agent === 'comptable').map(a => String(a.id));
         const agentsProduction = assureur.agents.filter(a => a.type_agent === 'production').map(a => String(a.id));
         const agentsSinistre = assureur.agents.filter(a => a.type_agent === 'sinistre').map(a => String(a.id));
+        const agentsMedicaux = assureur.agents.filter(a => a.type_agent === 'medical').map(a => String(a.id));
         
         Array.from(elements.agentsComptablesSelect.options).forEach(opt => {
             opt.selected = agentsComptables.includes(opt.value);
@@ -288,6 +297,9 @@ async function selectAssureur(assureurId) {
         });
         Array.from(elements.agentsSinistreSelect.options).forEach(opt => {
             opt.selected = agentsSinistre.includes(opt.value);
+        });
+        Array.from(elements.agentsMedicauxSelect.options).forEach(opt => {
+            opt.selected = agentsMedicaux.includes(opt.value);
         });
     } else if (assureur.agent_comptable_id) {
         // Rétrocompatibilité avec l'ancien champ
@@ -313,12 +325,14 @@ async function resetAssureurForm() {
     Array.from(elements.agentsComptablesSelect.options).forEach(opt => opt.selected = false);
     Array.from(elements.agentsProductionSelect.options).forEach(opt => opt.selected = false);
     Array.from(elements.agentsSinistreSelect.options).forEach(opt => opt.selected = false);
+    Array.from(elements.agentsMedicauxSelect.options).forEach(opt => opt.selected = false);
     
     // Recharger les agents disponibles (sans exclusion)
     await Promise.all([
         loadAgents('agent_comptable_assureur', 'comptables'),
         loadAgents('agent_production_assureur', 'production'),
-        loadAgents('agent_sinistre_assureur', 'sinistre')
+        loadAgents('agent_sinistre_assureur', 'sinistre'),
+        loadAgents('agent_medical_assureur', 'medicaux')
     ]);
     
     elements.formTitle.textContent = 'Nouvel assureur';
@@ -387,6 +401,10 @@ function updatePreviewCard() {
         .map(opt => opt.value)
         .filter(v => v)
         .map(id => getAgentLabel(id, agentsSinistreCache));
+    const agentsMedicaux = Array.from(elements.agentsMedicauxSelect.selectedOptions)
+        .map(opt => opt.value)
+        .filter(v => v)
+        .map(id => getAgentLabel(id, agentsMedicauxCache));
 
     elements.assureurPreview.innerHTML = `
         ${logoImg}
@@ -398,6 +416,7 @@ function updatePreviewCard() {
             ${agentsComptables.length > 0 ? `<p>👤 Agents comptables: ${agentsComptables.join(', ')}</p>` : ''}
             ${agentsProduction.length > 0 ? `<p>🏭 Agents production: ${agentsProduction.join(', ')}</p>` : ''}
             ${agentsSinistre.length > 0 ? `<p>🚨 Agents sinistre: ${agentsSinistre.join(', ')}</p>` : ''}
+            ${agentsMedicaux.length > 0 ? `<p>🩺 Agents médicaux: ${agentsMedicaux.join(', ')}</p>` : ''}
         </div>
     `;
 }
@@ -483,6 +502,10 @@ function collectAssureurPayload() {
         .map(opt => opt.value)
         .filter(v => v)
         .map(id => Number(id));
+    const agentsMedicauxIds = Array.from(elements.agentsMedicauxSelect.selectedOptions)
+        .map(opt => opt.value)
+        .filter(v => v)
+        .map(id => Number(id));
 
     return {
         nom,
@@ -492,6 +515,7 @@ function collectAssureurPayload() {
         agents_comptables_ids: agentsComptablesIds.length > 0 ? agentsComptablesIds : null,
         agents_production_ids: agentsProductionIds.length > 0 ? agentsProductionIds : null,
         agents_sinistre_ids: agentsSinistreIds.length > 0 ? agentsSinistreIds : null,
+        agents_medicaux_ids: agentsMedicauxIds.length > 0 ? agentsMedicauxIds : null,
     };
 }
 

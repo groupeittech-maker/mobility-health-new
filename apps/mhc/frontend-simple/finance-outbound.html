@@ -133,7 +133,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            if (!(await requireAuth())) return;
+            if (!(await requireBackoffice('index.html'))) return;
             $('fType').innerHTML = '<option value="">Tous les flux</option>' +
                 Object.entries(TYPE_LABELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
             ['fType', 'fStatut', 'fPeriode'].forEach(id => $(id).addEventListener('change', load));

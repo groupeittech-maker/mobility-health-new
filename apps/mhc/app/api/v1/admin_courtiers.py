@@ -223,7 +223,7 @@ async def get_available_courtier_agents(
     q = text("""
         SELECT id, email, username, full_name, is_active
         FROM users
-        WHERE LOWER(role::text) = LOWER(:role_val) AND is_active = true
+        WHERE LOWER(CAST(role AS TEXT)) = LOWER(:role_val) AND is_active = true
     """)
     rows = db.execute(q, {"role_val": role_value}).fetchall()
 

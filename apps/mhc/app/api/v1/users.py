@@ -204,12 +204,12 @@ async def get_users(
     query = db.query(User)
     if role:
         role_val = role.value if hasattr(role, "value") else str(role)
-        query = query.filter(text("LOWER(users.role::text) = LOWER(:role_val)").bindparams(role_val=role_val))
+        query = query.filter(text("LOWER(CAST(users.role AS TEXT)) = LOWER(:role_val)").bindparams(role_val=role_val))
     if validation_inscription:
         query = query.filter(User.validation_inscription == validation_inscription)
         if validation_inscription == "pending":
             query = query.filter(User.email_verified == True)
-            query = query.filter(text("LOWER(users.role::text) = 'user'"))
+            query = query.filter(text("LOWER(CAST(users.role AS TEXT)) = 'user'"))
     if hospital_id is not None:
         query = query.filter(User.hospital_id == hospital_id)
     if search:

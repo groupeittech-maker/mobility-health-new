@@ -39,6 +39,7 @@ class AssureurBase(BaseModel):
     agents_comptables_ids: Optional[List[int]] = None
     agents_production_ids: Optional[List[int]] = None
     agents_sinistre_ids: Optional[List[int]] = None
+    agents_medicaux_ids: Optional[List[int]] = None
 
 
 class AssureurCreate(AssureurBase):
@@ -56,6 +57,7 @@ class AssureurUpdate(BaseModel):
     agents_comptables_ids: Optional[List[int]] = None
     agents_production_ids: Optional[List[int]] = None
     agents_sinistre_ids: Optional[List[int]] = None
+    agents_medicaux_ids: Optional[List[int]] = None
 
 
 class AssureurResponse(AssureurBase):

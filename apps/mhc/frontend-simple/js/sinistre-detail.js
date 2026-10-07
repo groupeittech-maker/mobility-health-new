@@ -206,6 +206,9 @@
         alert('Informations médicales enregistrées.');
     });
 
-    document.addEventListener('DOMContentLoaded', load);
+    document.addEventListener('DOMContentLoaded', async () => {
+        if (!(await requireBackoffice('index.html'))) return;
+        load();
+    });
     if (document.readyState !== 'loading') load();
 })();

@@ -113,7 +113,7 @@
                         <select id="agentsProductionSelect" multiple size="5">
                             <option value="">Aucun agent sélectionné</option>
                         </select>
-                        <p class="text-muted small">Les comptes disponibles proviennent du rôle <code>production_agent</code>. Un agent ne peut être affecté qu'à un seul assureur.</p>
+                        <p class="text-muted small">Les comptes disponibles proviennent du rôle <code>agent_production_assureur</code>. Un agent ne peut être affecté qu'à un seul assureur.</p>
                     </div>
 
                     <div class="form-group">
@@ -122,6 +122,14 @@
                             <option value="">Aucun agent sélectionné</option>
                         </select>
                         <p class="text-muted small">Les comptes disponibles proviennent du rôle <code>agent_sinistre_assureur</code>. Un agent ne peut être affecté qu'à un seul assureur.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="agentsMedicauxSelect">Agents médicaux (plusieurs possibles)</label>
+                        <select id="agentsMedicauxSelect" multiple size="5">
+                            <option value="">Aucun agent sélectionné</option>
+                        </select>
+                        <p class="text-muted small">Les comptes disponibles proviennent du rôle <code>agent_medical_assureur</code>. Un agent ne peut être affecté qu'à un seul assureur.</p>
                     </div>
 
                     <div class="assureur-summary-card" id="assureurPreview">

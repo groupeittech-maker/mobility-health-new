@@ -206,6 +206,9 @@
     ['fSearch', 'fStatut', 'fType', 'fFrom', 'fTo'].forEach(id =>
         document.getElementById(id).addEventListener('input', render));
 
-    document.addEventListener('DOMContentLoaded', load);
+    document.addEventListener('DOMContentLoaded', async () => {
+        if (!(await requireBackoffice('index.html'))) return;
+        load();
+    });
     if (document.readyState !== 'loading') load();
 })();

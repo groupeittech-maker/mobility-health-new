@@ -145,6 +145,7 @@ def _manage_assureur_agents(
     agents_comptables_ids: Optional[List[int]] = None,
     agents_production_ids: Optional[List[int]] = None,
     agents_sinistre_ids: Optional[List[int]] = None,
+    agents_medicaux_ids: Optional[List[int]] = None,
 ) -> None:
     """Gère les agents d'un assureur (supprime les anciens et ajoute les nouveaux)"""
     # Vérifier si la table existe, sinon on ne fait rien (migration pas encore appliquée)
@@ -173,6 +174,8 @@ def _manage_assureur_agents(
         all_new_agent_ids.update(agents_production_ids)
     if agents_sinistre_ids:
         all_new_agent_ids.update(agents_sinistre_ids)
+    if agents_medicaux_ids:
+        all_new_agent_ids.update(agents_medicaux_ids)
     
     # Vérifier tous les nouveaux agents AVANT de supprimer
     all_agent_ids_to_check = list(all_new_agent_ids)
@@ -194,13 +197,19 @@ def _manage_assureur_agents(
         for agent_id in agents_production_ids:
             agent = db.query(User).filter(User.id == agent_id).first()
             if agent:
-                _validate_agent_role(agent, Role.PRODUCTION_AGENT)
+                _validate_agent_role(agent, Role.AGENT_PRODUCTION_ASSUREUR)
     
     if agents_sinistre_ids:
         for agent_id in agents_sinistre_ids:
             agent = db.query(User).filter(User.id == agent_id).first()
             if agent:
                 _validate_agent_role(agent, Role.AGENT_SINISTRE_ASSUREUR)
+    
+    if agents_medicaux_ids:
+        for agent_id in agents_medicaux_ids:
+            agent = db.query(User).filter(User.id == agent_id).first()
+            if agent:
+                _validate_agent_role(agent, Role.AGENT_MEDICAL_ASSUREUR)
     
     # Maintenant, supprimer tous les agents existants pour cet assureur
     try:
@@ -245,6 +254,19 @@ def _manage_assureur_agents(
                 assureur_id=assureur_id,
                 user_id=agent_id,
                 type_agent='sinistre'
+            )
+            db.add(assureur_agent)
+    
+    # Ajouter les nouveaux agents médicaux
+    if agents_medicaux_ids:
+        for agent_id in agents_medicaux_ids:
+            agent = db.query(User).filter(User.id == agent_id).first()
+            if not agent:
+                continue
+            assureur_agent = AssureurAgent(
+                assureur_id=assureur_id,
+                user_id=agent_id,
+                type_agent='medical'
             )
             db.add(assureur_agent)
 
@@ -458,6 +480,7 @@ async def create_assureur(
         agents_comptables_ids=payload.agents_comptables_ids,
         agents_production_ids=payload.agents_production_ids,
         agents_sinistre_ids=payload.agents_sinistre_ids,
+        agents_medicaux_ids=payload.agents_medicaux_ids,
     )
     db.commit()
     db.refresh(assureur)
@@ -543,10 +566,12 @@ async def update_assureur(
     agents_comptables_provided = "agents_comptables_ids" in update_data
     agents_production_provided = "agents_production_ids" in update_data
     agents_sinistre_provided = "agents_sinistre_ids" in update_data
+    agents_medicaux_provided = "agents_medicaux_ids" in update_data
     
     agents_comptables_ids = update_data.pop("agents_comptables_ids", None) if agents_comptables_provided else None
     agents_production_ids = update_data.pop("agents_production_ids", None) if agents_production_provided else None
     agents_sinistre_ids = update_data.pop("agents_sinistre_ids", None) if agents_sinistre_provided else None
+    agents_medicaux_ids = update_data.pop("agents_medicaux_ids", None) if agents_medicaux_provided else None
     
     # Mettre à jour les autres champs
     for field, value in update_data.items():
@@ -563,7 +588,7 @@ async def update_assureur(
     # Gérer les nouveaux agents (comptables, production, sinistre)
     # Si au moins une liste est fournie (même None ou vide), on met à jour tous les agents
     # None signifie "supprimer tous les agents de ce type", [] signifie "aucun agent"
-    agents_provided = agents_comptables_provided or agents_production_provided or agents_sinistre_provided
+    agents_provided = agents_comptables_provided or agents_production_provided or agents_sinistre_provided or agents_medicaux_provided
     if agents_provided:
         # Convertir None en liste vide pour supprimer tous les agents
         _manage_assureur_agents(
@@ -572,6 +597,7 @@ async def update_assureur(
             agents_comptables_ids=agents_comptables_ids if agents_comptables_ids is not None else [],
             agents_production_ids=agents_production_ids if agents_production_ids is not None else [],
             agents_sinistre_ids=agents_sinistre_ids if agents_sinistre_ids is not None else [],
+            agents_medicaux_ids=agents_medicaux_ids if agents_medicaux_ids is not None else [],
         )
 
     db.commit()
@@ -721,6 +747,7 @@ async def get_available_agents(
             "agent_production_assureur": Role.AGENT_PRODUCTION_ASSUREUR,
             "production_agent": Role.PRODUCTION_AGENT,
             "agent_sinistre_assureur": Role.AGENT_SINISTRE_ASSUREUR,
+            "agent_medical_assureur": Role.AGENT_MEDICAL_ASSUREUR,
         }
         
         # Rôle attendu (valeur en minuscules, cohérent avec la base)
@@ -729,18 +756,18 @@ async def get_available_agents(
             role_value = role_value.value
         else:
             role_value = str(role).lower() if role else None
-        allowed_roles = ["agent_comptable_assureur", "agent_production_assureur", "production_agent", "agent_sinistre_assureur"]
+        allowed_roles = ["agent_comptable_assureur", "agent_production_assureur", "production_agent", "agent_sinistre_assureur", "agent_medical_assureur"]
         if not role_value or role_value not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Rôle invalide: {role}. Rôles valides: {list(role_mapping.keys())}"
             )
         
-        # Requête SQL brute : role::text évite l'erreur enum, LOWER pour casse (DB peut être majuscules)
+        # Requête SQL brute : CAST(role AS TEXT) évite l'erreur enum, LOWER pour casse (DB peut être majuscules)
         q = text("""
             SELECT id, email, username, full_name, is_active
             FROM users
-            WHERE LOWER(role::text) = LOWER(:role_val) AND is_active = true
+            WHERE LOWER(CAST(role AS TEXT)) = LOWER(:role_val) AND is_active = true
         """)
         rows = db.execute(q, {"role_val": role_value}).fetchall()
         
