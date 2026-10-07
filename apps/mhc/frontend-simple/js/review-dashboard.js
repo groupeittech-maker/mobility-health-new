@@ -3,8 +3,9 @@ const SUBSCRIPTION_MEDICAL_VALIDATION_ROLES = ['doctor'];
 
 const REVIEW_CONFIG = {
     medecin: {
-        // Accès page : doctor (validation souscription optionnelle), medical_reviewer (alertes), medecin_referent_mh (alertes SOS uniquement)
+        // Accès page : medical_reviewer (alertes), medecin_referent_mh (alertes SOS uniquement) + droit matriciel prise_en_charge
         allowedRoles: ['doctor', 'medical_reviewer', 'medecin_referent_mh'],
+        feature: 'prise_en_charge',
         title: 'Validation médicale',
         description: 'Analysez les questionnaires médicaux associés aux souscriptions et émettez votre avis.',
         emptyState: 'Aucune attestation n\'est actuellement en attente de validation médicale.',
@@ -13,6 +14,7 @@ const REVIEW_CONFIG = {
     },
     technique: {
         allowedRoles: ['technical_reviewer', 'finance_manager', 'hospital_admin', 'admin'],
+        feature: 'facturation_medicale',
         title: 'Validation technique',
         description: 'Vérifiez la complétude administrative et technique avant de valider la souscription.',
         emptyState: 'Aucune attestation n’attend de validation technique.',
@@ -21,6 +23,7 @@ const REVIEW_CONFIG = {
     },
     production: {
         allowedRoles: ['production_agent', 'admin'],
+        feature: 'production',
         title: 'Demandes de souscription en attente',
         description: 'Souscriptions en attente de validation définitive. Après approbation, l\'attestation définitive et la carte santé seront générées.',
         emptyState: 'Aucune demande de souscription en attente pour le moment.',
@@ -317,6 +320,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const hasAccess = await requireAnyRole(reviewContext.config.allowedRoles, 'index.html');
         if (!hasAccess) {
+            return;
+        }
+
+        // Garde matricielle : le rôle doit aussi détenir la fonctionnalité requise.
+        const feature = reviewContext.config.feature;
+        if (feature && (!window.MhPermissions || !window.MhPermissions.can(feature, 'consultation'))) {
+            alert('Accès refusé. Votre profil ne détient pas la fonctionnalité requise (' + feature + ').');
+            window.location.href = 'index.html';
             return;
         }
     } catch (error) {
