@@ -72,7 +72,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            if (!(await requireAuth())) return;
+            if (!(await requireBackoffice('index.html'))) return;
             const wanted = new URLSearchParams(location.search).get('tab');
             if (wanted === 'providers') {
                 tab = 'providers';

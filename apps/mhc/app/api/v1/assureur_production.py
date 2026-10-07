@@ -32,18 +32,23 @@ def _get_assureur_id_for_agent(db: Session, current_user: User, agent_type: str)
     return None
 
 
+def _agent_type_for_role(current_user: User) -> str:
+    """Type de lien assureur_attendu selon le rôle de l'agent."""
+    return 'medical' if current_user.role == Role.AGENT_MEDICAL_ASSUREUR else 'production'
+
+
 def require_agent_production_assureur(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> User:
     """Dependency pour vérifier que l'utilisateur est agent production assureur"""
-    if current_user.role not in (Role.AGENT_PRODUCTION_ASSUREUR, Role.PRODUCTION_AGENT):
+    if current_user.role not in (Role.AGENT_PRODUCTION_ASSUREUR, Role.PRODUCTION_AGENT, Role.AGENT_MEDICAL_ASSUREUR):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions. Production agent assureur access required."
         )
     # Vérifier que l'agent est bien lié à un assureur via AssureurAgent
-    assureur_id = _get_assureur_id_for_agent(db, current_user, 'production')
+    assureur_id = _get_assureur_id_for_agent(db, current_user, _agent_type_for_role(current_user))
     if not assureur_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -64,7 +69,7 @@ async def get_subscriptions_for_assureur(
     Obtenir les souscriptions pour les produits de l'assureur de l'agent.
     Accès en lecture seule pour voir les demandeurs de souscription et la finalisation de leur demande.
     """
-    assureur_id = _get_assureur_id_for_agent(db, current_user, 'production')
+    assureur_id = _get_assureur_id_for_agent(db, current_user, _agent_type_for_role(current_user))
     
     if not assureur_id:
         raise HTTPException(
@@ -119,7 +124,7 @@ async def get_subscription_for_assureur(
     Obtenir une souscription par ID (uniquement si liée à un produit de l'assureur de l'agent).
     Accès en lecture seule pour voir tous les détails du workflow de souscription.
     """
-    assureur_id = _get_assureur_id_for_agent(db, current_user, 'production')
+    assureur_id = _get_assureur_id_for_agent(db, current_user, _agent_type_for_role(current_user))
     
     if not assureur_id:
         raise HTTPException(
@@ -171,7 +176,7 @@ async def get_subscription_workflow_for_assureur(
     Obtenir le workflow complet d'une souscription (création, questionnaires, paiement, validations, attestations).
     Accès en lecture seule.
     """
-    assureur_id = _get_assureur_id_for_agent(db, current_user, 'production')
+    assureur_id = _get_assureur_id_for_agent(db, current_user, _agent_type_for_role(current_user))
     
     if not assureur_id:
         raise HTTPException(

@@ -139,7 +139,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            if (!(await requireAuth())) return;
+            if (!(await requireBackoffice('index.html'))) return;
             $('btnNew').addEventListener('click', () => openEdit(null));
             $('btnCancel').addEventListener('click', () => $('editModal').classList.remove('open'));
             $('btnSave').addEventListener('click', save);

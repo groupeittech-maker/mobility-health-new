@@ -75,7 +75,7 @@
         const toast = (m, e) => { const t = $('toast'); t.textContent = m; t.className = 'toast show' + (e ? ' error' : ''); setTimeout(() => t.className = 'toast', 3000); };
 
         document.addEventListener('DOMContentLoaded', async () => {
-            if (!(await requireAuth())) return;
+            if (!(await requireAnyRole(['agent_verificateur_reassureur', 'admin'], 'index.html'))) return;
             try {
                 const d = await apiCall('/reassureur/overview');
                 $('rsName').textContent = d.reassureur?.nom || '—';

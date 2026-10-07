@@ -45,6 +45,8 @@ async function validateAuth() {
         } else {
             localStorage.removeItem('user_permissions');
         }
+        // Le menu BO peut avoir été rendu avant cette réponse : le reconstruire.
+        document.dispatchEvent(new CustomEvent('mhc:permissions'));
         if (user.pays_residence) {
             localStorage.setItem('user_pays_residence', user.pays_residence);
         } else {

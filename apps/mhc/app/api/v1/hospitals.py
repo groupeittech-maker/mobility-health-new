@@ -161,7 +161,7 @@ def _assign_doctors(db: Session, hospital: Hospital, doctor_ids: Optional[List[i
 
     current_doctors = db.query(User).filter(
         User.hospital_id == hospital.id,
-        text("LOWER(users.role::text) = 'medecin_hopital'")
+        text("LOWER(CAST(users.role AS TEXT)) = 'medecin_hopital'")
     ).all()
     for doctor in current_doctors:
         if doctor.id not in ids_set:
@@ -188,7 +188,7 @@ def _assign_accountants(db: Session, hospital: Hospital, accountant_ids: Optiona
 
     current_accountants = db.query(User).filter(
         User.hospital_id == hospital.id,
-        text("LOWER(users.role::text) = 'agent_comptable_hopital'")
+        text("LOWER(CAST(users.role AS TEXT)) = 'agent_comptable_hopital'")
     ).all()
     for accountant in current_accountants:
         if accountant.id not in ids_set:
@@ -303,12 +303,12 @@ async def get_hospital_details(
     ]
     doctors = db.query(User).filter(
         User.hospital_id == hospital_id,
-        text("LOWER(users.role::text) = 'medecin_hopital'")
+        text("LOWER(CAST(users.role AS TEXT)) = 'medecin_hopital'")
     ).order_by(User.full_name.asc().nullslast()).all()
 
     accountants = db.query(User).filter(
         User.hospital_id == hospital_id,
-        text("LOWER(users.role::text) = 'agent_comptable_hopital'")
+        text("LOWER(CAST(users.role AS TEXT)) = 'agent_comptable_hopital'")
     ).order_by(User.full_name.asc().nullslast()).all()
 
     detail = HospitalDetailResponse.model_validate(hospital)
@@ -421,7 +421,7 @@ async def list_hospital_receptionists(
         )
     users = db.query(User).filter(
         User.hospital_id == hospital_id,
-        text("LOWER(users.role::text) = 'agent_reception_hopital'")
+        text("LOWER(CAST(users.role AS TEXT)) = 'agent_reception_hopital'")
     ).order_by(User.full_name.asc()).all()
     return users
 

@@ -14,7 +14,7 @@ function getDashboardUrlForRole(role) {
         'agent_medical_mhc': 'bo-dashboard.html',
         'agent_sinistre_mh': 'bo-dashboard.html',
         'agent_comptable_mh': 'bo-dashboard.html',
-        'assistant_souscription': 'bo-dashboard.html',
+        'assistant_souscription': 'courtier-production.html',
         'medical_reviewer': 'bo-dashboard.html',
         'technical_reviewer': 'bo-dashboard.html',
         'finance_manager': 'bo-dashboard.html',
@@ -169,6 +169,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                     localStorage.setItem('user_role', userRole);
                     localStorage.setItem('user_id', user.id);
                     localStorage.setItem('user_name', user.full_name || user.username);
+                    if (user.permissions && typeof user.permissions === 'object') {
+                        localStorage.setItem('user_permissions', JSON.stringify(user.permissions));
+                    } else {
+                        localStorage.removeItem('user_permissions');
+                    }
                     if (Object.prototype.hasOwnProperty.call(user, 'hospital_id')) {
                         if (user.hospital_id !== null && user.hospital_id !== undefined) {
                             localStorage.setItem('hospital_id', user.hospital_id);
@@ -324,6 +329,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                 localStorage.setItem('user_role', user.role);
                 localStorage.setItem('user_id', user.id);
                 localStorage.setItem('user_name', user.full_name || user.username);
+                if (user.permissions && typeof user.permissions === 'object') {
+                    localStorage.setItem('user_permissions', JSON.stringify(user.permissions));
+                } else {
+                    localStorage.removeItem('user_permissions');
+                }
                 if (Object.prototype.hasOwnProperty.call(user, 'hospital_id')) {
                     if (user.hospital_id !== null && user.hospital_id !== undefined) {
                         localStorage.setItem('hospital_id', user.hospital_id);

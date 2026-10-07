@@ -328,5 +328,8 @@
         await loadStatistics();
     }
 
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', async () => {
+        if (!(await requireBackoffice('index.html'))) return;
+        init();
+    });
 })();
