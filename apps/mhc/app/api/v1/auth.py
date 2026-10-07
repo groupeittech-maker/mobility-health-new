@@ -412,7 +412,7 @@ def get_current_user(
     if username is None:
         raise credentials_exception
     q = text("""
-        SELECT id, username, email, full_name, is_active, hospital_id,
+        SELECT id, username, email, full_name, is_active, hospital_id, reassureur_id,
                date_naissance, telephone, numero_whatsapp, sexe, validite_passeport,
                COALESCE(CAST(role AS TEXT), 'user') AS role_str,
                pays_residence, nationalite, numero_passeport,
@@ -435,6 +435,7 @@ def get_current_user(
         full_name=row.full_name,
         is_active=row.is_active,
         hospital_id=row.hospital_id,
+        reassureur_id=row.reassureur_id,
         date_naissance=row.date_naissance,
         telephone=row.telephone,
         sexe=row.sexe,
@@ -468,7 +469,7 @@ def get_current_user_optional(
     if username is None:
         return None
     q = text("""
-        SELECT id, username, email, full_name, is_active, hospital_id,
+        SELECT id, username, email, full_name, is_active, hospital_id, reassureur_id,
                date_naissance, telephone, numero_whatsapp, sexe, validite_passeport,
                COALESCE(CAST(role AS TEXT), 'user') AS role_str,
                pays_residence, nationalite, numero_passeport,
@@ -486,6 +487,7 @@ def get_current_user_optional(
         full_name=row.full_name,
         is_active=row.is_active,
         hospital_id=row.hospital_id,
+        reassureur_id=row.reassureur_id,
         date_naissance=row.date_naissance,
         telephone=row.telephone,
         sexe=row.sexe,
