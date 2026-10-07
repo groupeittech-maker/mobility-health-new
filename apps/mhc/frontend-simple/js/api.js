@@ -206,14 +206,21 @@ async function refreshAccessToken() {
     return refreshPromise;
 }
 
+// En production HTTPS on force l'API en https pour éviter le Mixed Content,
+// mais en local (backend uvicorn en http pur) la réécriture doit être ignorée.
+function _upgradeInsecureUrl(url) {
+    if (url.startsWith('http://') && !/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(url)) {
+        return url.replace('http://', 'https://');
+    }
+    return url;
+}
+
 // Fonction utilitaire pour les appels API
 async function apiCall(endpoint, options = {}) {
     // S'assurer que l'URL commence par / si ce n'est pas déjà le cas
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     let url = `${API_BASE_URL}${cleanEndpoint}`;
-    if (url.startsWith('http://')) {
-        url = url.replace('http://', 'https://');
-    }
+    url = _upgradeInsecureUrl(url);
     const tokenInfo = window.MobilityAuth?.getAccessTokenMeta
         ? window.MobilityAuth.getAccessTokenMeta()
         : { token: localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY), raw: localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY), mutated: false };
@@ -249,9 +256,7 @@ async function apiCall(endpoint, options = {}) {
     };
 
     try {
-        if (url.startsWith('http://')) {
-            url = url.replace('http://', 'https://');
-        }
+        url = _upgradeInsecureUrl(url);
         // Log de la requête pour le débogage
         const authHeaderValue = config.headers?.Authorization;
         const authHeaderPreview = authHeaderValue
