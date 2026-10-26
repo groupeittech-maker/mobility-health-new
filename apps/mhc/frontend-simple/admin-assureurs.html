@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/admin.css">
     <link rel="stylesheet" href="css/admin-assureurs.css">
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
 </head>
 <body data-backoffice>
     <nav class="navbar">
@@ -35,128 +35,113 @@
         <div class="dashboard-header">
             <div>
                 <h2>Assureurs partenaires</h2>
-                <p>Créez les assureurs (nom, pays, logo, coordonnées) et assignez leur agent comptable pour les produits.</p>
+                <p>Assureurs liés aux produits : nom, pays, logo, coordonnées et agents affectés.</p>
             </div>
             <div class="header-actions">
                 <button type="button" class="btn btn-secondary" id="refreshAssureursBtn">↻ Rafraîchir</button>
-                <button type="button" class="btn btn-primary" id="newAssureurBtn">+ Nouvel assureur</button>
+                <button type="button" class="btn btn-primary" id="newAssureurBtn" data-requires-permission="comptes_assureurs:edition">+ Nouvel assureur</button>
             </div>
         </div>
 
-        <section class="panel-grid assureurs-panels">
-            <div class="panel" id="assureursListPanel">
-                <div class="panel-header">
-                    <div>
-                        <h3>Catalogue</h3>
-                        <p class="text-muted">Sélectionnez un assureur pour afficher/modifier ses informations.</p>
-                    </div>
-                    <div class="search-box">
-                        <input type="search" id="assureurSearchInput" placeholder="Rechercher (nom ou pays)">
-                    </div>
-                </div>
-                <div id="assureursList" class="card-list">
-                    <div class="empty-state">Chargement des assureurs...</div>
-                </div>
+        <div class="bo-list-card">
+            <div class="bo-list-toolbar">
+                <input type="search" id="assureurSearchInput" placeholder="Rechercher (nom ou pays)" class="grow">
             </div>
-
-            <div class="detail-panel" id="assureurFormPanel">
-                <div class="detail-header">
-                    <div>
-                        <p class="section-index text-muted" id="formModeLabel">Création</p>
-                        <h3 id="formTitle">Nouvel assureur</h3>
-                    </div>
-                    <div>
-                        <button type="button" class="btn btn-outline" id="resetAssureurFormBtn">Réinitialiser</button>
-                    </div>
-                </div>
-
-                <form id="assureurForm" class="assureur-form">
-                    <input type="hidden" id="assureurId">
-                    <div class="form-grid two-col">
-                        <div class="form-group">
-                            <label for="assureurNom">Nom de l'assureur *</label>
-                            <input type="text" id="assureurNom" required placeholder="Ex: AXA Afrique">
-                        </div>
-                        <div class="form-group">
-                            <label for="assureurPays">Pays *</label>
-                            <input type="text" id="assureurPays" required placeholder="Ex: Côte d'Ivoire">
-                        </div>
-                    </div>
-
-                    <div class="form-grid two-col">
-                        <div class="form-group">
-                            <label for="assureurTelephone">Numéro de téléphone</label>
-                            <input type="text" id="assureurTelephone" placeholder="+225 ...">
-                        </div>
-                        <div class="form-group">
-                            <label for="assureurLogoFile">Logo (fichier image)</label>
-                            <input type="file" id="assureurLogoFile" accept="image/jpeg,image/png,image/gif,image/webp" aria-describedby="assureurLogoHelp">
-                            <p class="text-muted small" id="assureurLogoHelp">PNG, JPG, GIF ou WebP. Le fichier est stocké et affiché à la place d’une URL.</p>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="assureurAdresse">Adresse postale</label>
-                        <textarea id="assureurAdresse" rows="2" placeholder="Adresse complète du siège"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="agentsComptablesSelect">Agents comptables assurance (plusieurs possibles)</label>
-                        <select id="agentsComptablesSelect" multiple size="5">
-                            <option value="">Aucun agent sélectionné</option>
-                        </select>
-                        <p class="text-muted small">Les comptes disponibles proviennent du rôle <code>agent_comptable_assureur</code>. Un agent ne peut être affecté qu'à un seul assureur.</p>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="agentsProductionSelect">Agents de production (plusieurs possibles)</label>
-                        <select id="agentsProductionSelect" multiple size="5">
-                            <option value="">Aucun agent sélectionné</option>
-                        </select>
-                        <p class="text-muted small">Les comptes disponibles proviennent du rôle <code>agent_production_assureur</code>. Un agent ne peut être affecté qu'à un seul assureur.</p>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="agentsSinistreSelect">Agents sinistre (plusieurs possibles)</label>
-                        <select id="agentsSinistreSelect" multiple size="5">
-                            <option value="">Aucun agent sélectionné</option>
-                        </select>
-                        <p class="text-muted small">Les comptes disponibles proviennent du rôle <code>agent_sinistre_assureur</code>. Un agent ne peut être affecté qu'à un seul assureur.</p>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="agentsMedicauxSelect">Agents médicaux (plusieurs possibles)</label>
-                        <select id="agentsMedicauxSelect" multiple size="5">
-                            <option value="">Aucun agent sélectionné</option>
-                        </select>
-                        <p class="text-muted small">Les comptes disponibles proviennent du rôle <code>agent_medical_assureur</code>. Un agent ne peut être affecté qu'à un seul assureur.</p>
-                    </div>
-
-                    <div class="assureur-summary-card" id="assureurPreview">
-                        <span class="text-muted">Aucun logo sélectionné.</span>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary" id="saveAssureurBtn">Enregistrer</button>
-                    </div>
-                </form>
+            <div id="assureursList" class="card-list">
+                <div class="empty-state">Chargement des assureurs...</div>
             </div>
-        </section>
+        </div>
     </main>
 
-    <footer>
-        <div class="container">
-            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
-        </div>
-    </footer>
+    <div class="bo-modal-backdrop" id="assureurModal">
+        <div class="bo-modal wide">
+            <div class="bo-modal-head">
+                <div>
+                    <p class="section-index text-muted" id="formModeLabel" style="margin:0;font-size:.72rem;">Création</p>
+                    <h3 id="formTitle">Nouvel assureur</h3>
+                </div>
+                <button type="button" class="bo-modal-close" id="assureurModalClose">&times;</button>
+            </div>
 
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js?v=2"></script>
+            <form id="assureurForm" class="assureur-form">
+                <input type="hidden" id="assureurId">
+                <div class="form-grid two-col">
+                    <div class="form-group">
+                        <label for="assureurNom">Nom de l'assureur *</label>
+                        <input type="text" id="assureurNom" required placeholder="Ex: AXA Afrique">
+                    </div>
+                    <div class="form-group">
+                        <label for="assureurPays">Pays *</label>
+                        <input type="text" id="assureurPays" required placeholder="Ex: Côte d'Ivoire">
+                    </div>
+                </div>
+
+                <div class="form-grid two-col">
+                    <div class="form-group">
+                        <label for="assureurTelephone">Numéro de téléphone</label>
+                        <input type="text" id="assureurTelephone" placeholder="+225 ...">
+                    </div>
+                    <div class="form-group">
+                        <label for="assureurLogoFile">Logo (fichier image)</label>
+                        <input type="file" id="assureurLogoFile" accept="image/jpeg,image/png,image/gif,image/webp" aria-describedby="assureurLogoHelp">
+                        <p class="text-muted small" id="assureurLogoHelp">PNG, JPG, GIF ou WebP. Le fichier est stocké et affiché à la place d’une URL.</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="assureurAdresse">Adresse postale</label>
+                    <textarea id="assureurAdresse" rows="2" placeholder="Adresse complète du siège"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="agentsComptablesSelect">Agents comptables assurance (plusieurs possibles)</label>
+                    <select id="agentsComptablesSelect" multiple size="5">
+                        <option value="">Aucun agent sélectionné</option>
+                    </select>
+                    <p class="text-muted small">Les comptes disponibles proviennent du rôle <code>agent_comptable_assureur</code>. Un agent ne peut être affecté qu'à un seul assureur.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="agentsProductionSelect">Agents de production (plusieurs possibles)</label>
+                    <select id="agentsProductionSelect" multiple size="5">
+                        <option value="">Aucun agent sélectionné</option>
+                    </select>
+                    <p class="text-muted small">Les comptes disponibles proviennent du rôle <code>agent_production_assureur</code>. Un agent ne peut être affecté qu'à un seul assureur.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="agentsSinistreSelect">Agents sinistre (plusieurs possibles)</label>
+                    <select id="agentsSinistreSelect" multiple size="5">
+                        <option value="">Aucun agent sélectionné</option>
+                    </select>
+                    <p class="text-muted small">Les comptes disponibles proviennent du rôle <code>agent_sinistre_assureur</code>. Un agent ne peut être affecté qu'à un seul assureur.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="agentsMedicauxSelect">Agents médicaux (plusieurs possibles)</label>
+                    <select id="agentsMedicauxSelect" multiple size="5">
+                        <option value="">Aucun agent sélectionné</option>
+                    </select>
+                    <p class="text-muted small">Les comptes disponibles proviennent du rôle <code>agent_medical_assureur</code>. Un agent ne peut être affecté qu'à un seul assureur.</p>
+                </div>
+
+                <div class="assureur-summary-card" id="assureurPreview">
+                    <span class="text-muted">Aucun logo sélectionné.</span>
+                </div>
+
+                <div class="bo-modal-actions">
+                    <button type="button" class="btn-outline" id="resetAssureurFormBtn">Annuler</button>
+                    <button type="submit" class="btn-primary" id="saveAssureurBtn">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
     <script src="js/health-check.js?v=2"></script>
-    <script src="js/admin-assureurs.js?v=2"></script>
-    <script src="js/permissions.js?v=2"></script>
-    <script src="js/backoffice-nav.js?v=2"></script>
+    <script src="js/admin-assureurs.js?v=5"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
 </body>
 </html>
-
-

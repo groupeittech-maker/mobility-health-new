@@ -46,7 +46,7 @@ class ReferentPushService {
         ?.createNotificationChannel(
           const AndroidNotificationChannel(
             'mh_referent',
-            'Mobility Health — Médecin référent',
+            'Mobility Health Care — Médecin référent',
             description:
                 'Alertes SOS, rapports médicaux et factures à valider',
             importance: Importance.max,
@@ -74,7 +74,7 @@ class ReferentPushService {
 
     final title = message.notification?.title ??
         message.data['title'] ??
-        'Mobility Health';
+        'Mobility Health Care';
     final body = message.notification?.body ?? message.data['body'] ?? '';
     final badgeRaw = message.data['mh_badge'];
     final number = int.tryParse(badgeRaw?.toString() ?? '') ?? 0;
@@ -88,7 +88,7 @@ class ReferentPushService {
     if (defaultTargetPlatform == TargetPlatform.android) {
       final androidDetails = AndroidNotificationDetails(
         'mh_referent',
-        'Mobility Health — Médecin référent',
+        'Mobility Health Care — Médecin référent',
         channelDescription:
             'Alertes SOS, rapports médicaux et factures à valider',
         importance: Importance.max,

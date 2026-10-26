@@ -6,7 +6,7 @@
     <title>Tarification voyage - Back Office</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/admin.css">
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
 </head>
 <body data-backoffice>
     <nav class="navbar">
@@ -47,6 +47,17 @@
             <div id="voyageReferencePanel"></div>
         </section>
 
+        <div class="bo-tabs-panel">
+            <div class="bo-tabs" id="tarifTabs">
+                <button type="button" class="bo-tab active" data-tab="zones">Zones et pays</button>
+                <button type="button" class="bo-tab" data-tab="fenetres">Fenêtres de durée</button>
+                <button type="button" class="bo-tab" data-tab="tranches">Tranches d'âge</button>
+                <button type="button" class="bo-tab" data-tab="grille">Grille de référence</button>
+                <button type="button" class="bo-tab" data-tab="grilleFinale">Grille finale</button>
+            </div>
+        </div>
+
+        <div class="bo-tab-panel active" id="tab-zones">
         <section class="product-form-section" style="margin-bottom: 1.5rem;">
             <div class="section-heading">
                 <div class="section-index">1</div>
@@ -89,12 +100,10 @@
                 </table>
             </div>
         </section>
+        </div>
 
-        <details id="tarifAdvanced" class="product-form-section" style="margin-bottom: 2rem; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0 1rem 1rem; background: #fff;">
-            <summary style="cursor: pointer; font-weight: 600; padding: 1rem 0; user-select: none;">Réglages avancés (fenêtres durée, tranches âge, grilles SQL de repli)</summary>
-            <p class="text-muted small" style="margin: 0 0 1rem;">À utiliser pour l’alignement base de données, tests ou cas exceptionnels. Le tarif voyageur repose sur le tableau <strong>PRIMES</strong> (grille JSON moteur) en routine.</p>
-
-        <section style="margin-bottom: 2rem;">
+        <div class="bo-tab-panel" id="tab-fenetres">
+        <section class="product-form-section" style="margin-bottom: 2rem;">
             <div class="section-heading">
                 <div class="section-index">2</div>
                 <div>
@@ -137,7 +146,9 @@
                 </table>
             </div>
         </section>
+        </div>
 
+        <div class="bo-tab-panel" id="tab-tranches">
         <section class="product-form-section">
             <div class="section-heading">
                 <div class="section-index">3</div>
@@ -186,7 +197,9 @@
                 </table>
             </div>
         </section>
+        </div>
 
+        <div class="bo-tab-panel" id="tab-grille">
         <section class="product-form-section" style="margin-bottom: 2rem;">
             <div class="section-heading">
                 <div class="section-index">4</div>
@@ -203,7 +216,9 @@
                 </table>
             </div>
         </section>
+        </div>
 
+        <div class="bo-tab-panel" id="tab-grilleFinale">
         <section class="product-form-section" style="margin-bottom: 2rem;">
             <div class="section-heading">
                 <div class="section-index">5</div>
@@ -252,7 +267,7 @@
                 </table>
             </div>
         </section>
-        </details>
+        </div>
     </main>
 
     <div id="zonePaysModal" class="modal" style="display:none;">
@@ -267,11 +282,21 @@
         </div>
     </div>
 
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js?v=2"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('#tarifTabs .bo-tab').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('#tarifTabs .bo-tab').forEach(b => b.classList.toggle('active', b === btn));
+                    document.querySelectorAll('.bo-tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + btn.dataset.tab));
+                });
+            });
+        });
+    </script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
     <script src="js/voyage-tariff-reference-ui.js?v=1"></script>
     <script src="js/admin-tarification.js?v=20260403-2"></script>
-    <script src="js/permissions.js?v=2"></script>
-    <script src="js/backoffice-nav.js?v=2"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
 </body>
 </html>

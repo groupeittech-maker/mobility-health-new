@@ -36,7 +36,7 @@
                 (assureurs || []).map(a => `<option value="${a.id}" data-pays="${esc(a.pays || '')}">${esc(a.nom || a.name)}</option>`).join('');
         } catch (_) { /* liste vide */ }
         try {
-            const reassureurs = await apiCall('/admin/reassureurs/');
+            const reassureurs = await apiCall('/admin/reassureurs');
             $('fReassureur').innerHTML = '<option value="">— Sélectionner —</option>' +
                 (reassureurs || []).filter(r => r.est_actif !== false)
                     .map(r => `<option value="${r.id}" data-cession="${r.cession_defaut_pct ?? ''}" data-comm="${r.commission_cession_defaut_pct ?? ''}">${esc(r.nom)}</option>`).join('');

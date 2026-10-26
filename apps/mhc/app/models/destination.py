@@ -33,9 +33,14 @@ class DestinationCity(Base, TimestampMixin):
     pays_id = Column(Integer, ForeignKey("destination_countries.id", ondelete="CASCADE"), nullable=False, index=True)
     nom = Column(String(200), nullable=False, index=True)
     est_actif = Column(Boolean, default=True, nullable=False)
+    medecin_conseil_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     ordre_affichage = Column(Integer, default=0, nullable=False)
     notes = Column(String(500), nullable=True)
     
     # Relations
     pays = relationship("DestinationCountry", back_populates="villes")
+    medecin_conseil = relationship(
+        "User",
+        foreign_keys=[medecin_conseil_id],
+    )
 

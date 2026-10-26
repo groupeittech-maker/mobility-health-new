@@ -435,7 +435,7 @@ class UserService:
         Args:
             user: Utilisateur à qui envoyer l'email
         """
-        subject = "Bienvenue sur Mobility Health"
+        subject = "Bienvenue sur Mobility Health Care"
         
         # Contenu HTML de l'email
         body_html = f"""
@@ -455,7 +455,7 @@ class UserService:
                     padding: 20px;
                 }}
                 .header {{
-                    background-color: #4CAF50;
+                    background-color: #4E267C;
                     color: white;
                     padding: 20px;
                     text-align: center;
@@ -469,7 +469,7 @@ class UserService:
                 .button {{
                     display: inline-block;
                     padding: 12px 30px;
-                    background-color: #4CAF50;
+                    background-color: #4E267C;
                     color: white;
                     text-decoration: none;
                     border-radius: 5px;
@@ -480,12 +480,12 @@ class UserService:
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>Bienvenue sur Mobility Health</h1>
+                    <h1>Bienvenue sur Mobility Health Care</h1>
                 </div>
                 <div class="content">
                     <p>Bonjour {user.full_name or user.username},</p>
                     
-                    <p>Votre compte a été créé avec succès sur la plateforme Mobility Health.</p>
+                    <p>Votre compte a été créé avec succès sur la plateforme Mobility Health Care.</p>
                     
                     <p><strong>Informations de connexion :</strong></p>
                     <ul>
@@ -497,7 +497,7 @@ class UserService:
                     
                     <p>Si vous avez des questions ou besoin d'aide, n'hésitez pas à nous contacter.</p>
                     
-                    <p>Cordialement,<br>L'équipe Mobility Health</p>
+                    <p>Cordialement,<br>L'équipe Mobility Health Care</p>
                 </div>
             </div>
         </body>
@@ -506,11 +506,11 @@ class UserService:
         
         # Contenu texte simple
         body_text = f"""
-        Bienvenue sur Mobility Health
+        Bienvenue sur Mobility Health Care
         
         Bonjour {user.full_name or user.username},
         
-        Votre compte a été créé avec succès sur la plateforme Mobility Health.
+        Votre compte a été créé avec succès sur la plateforme Mobility Health Care.
         
         Informations de connexion :
         - Nom d'utilisateur : {user.username}
@@ -521,7 +521,7 @@ class UserService:
         Si vous avez des questions ou besoin d'aide, n'hésitez pas à nous contacter.
         
         Cordialement,
-        L'équipe Mobility Health
+        L'équipe Mobility Health Care
         """
         
         dispatch_email(
@@ -543,7 +543,7 @@ class UserService:
             user: Utilisateur à qui envoyer l'email
             verification_code: Code de vérification à 6 chiffres
         """
-        subject = "Vérifiez votre email - Mobility Health"
+        subject = "Vérifiez votre email - Mobility Health Care"
 
         site_base = (getattr(settings, "ASSURANCE_SITE_WEB", "") or "").strip().rstrip("/")
         link_token = create_email_verification_token(user.id, user.email)
@@ -558,7 +558,7 @@ class UserService:
         if verify_link:
             link_block = f"""
                     <p style="text-align:center;margin:24px 0;">
-                        <a href="{verify_link}" style="display:inline-block;padding:14px 28px;background-color:#4CAF50;color:#ffffff !important;text-decoration:none;border-radius:6px;font-weight:bold;">
+                        <a href="{verify_link}" style="display:inline-block;padding:14px 28px;background-color:#4E267C;color:#ffffff !important;text-decoration:none;border-radius:6px;font-weight:bold;">
                             Activer mon compte
                         </a>
                     </p>
@@ -587,7 +587,7 @@ class UserService:
                     padding: 20px;
                 }}
                 .header {{
-                    background-color: #4CAF50;
+                    background-color: #4E267C;
                     color: white;
                     padding: 20px;
                     text-align: center;
@@ -600,13 +600,13 @@ class UserService:
                 }}
                 .code {{
                     background-color: #fff;
-                    border: 2px solid #4CAF50;
+                    border: 2px solid #4E267C;
                     border-radius: 5px;
                     padding: 20px;
                     text-align: center;
                     font-size: 32px;
                     font-weight: bold;
-                    color: #4CAF50;
+                    color: #4E267C;
                     letter-spacing: 8px;
                     margin: 20px 0;
                 }}
@@ -626,7 +626,7 @@ class UserService:
                 <div class="content">
                     <p>Bonjour {user.full_name or user.username},</p>
                     
-                    <p>Merci de vous être inscrit sur Mobility Health. Pour activer votre compte, vous pouvez cliquer sur le bouton ci-dessous (méthode recommandée) :</p>
+                    <p>Merci de vous être inscrit sur Mobility Health Care. Pour activer votre compte, vous pouvez cliquer sur le bouton ci-dessous (méthode recommandée) :</p>
                     {link_block}
                     
                     <div class="code">{verification_code}</div>
@@ -635,9 +635,9 @@ class UserService:
                         <strong>⚠️ Important :</strong> Ce lien et ce code sont valides pendant 15 minutes uniquement.
                     </div>
                     
-                    <p>Si vous n'avez pas créé de compte sur Mobility Health, vous pouvez ignorer cet email.</p>
+                    <p>Si vous n'avez pas créé de compte sur Mobility Health Care, vous pouvez ignorer cet email.</p>
                     
-                    <p>Cordialement,<br>L'équipe Mobility Health</p>
+                    <p>Cordialement,<br>L'équipe Mobility Health Care</p>
                 </div>
             </div>
         </body>
@@ -647,21 +647,21 @@ class UserService:
         # Contenu texte simple
         link_line = f"\nLien pour activer votre compte (cliquez ou copiez dans le navigateur) :\n{verify_link}\n" if verify_link else ""
         body_text = f"""
-        Vérification de votre email - Mobility Health
+        Vérification de votre email - Mobility Health Care
         
         Bonjour {user.full_name or user.username},
         
-        Merci de vous être inscrit sur Mobility Health.{link_line}
+        Merci de vous être inscrit sur Mobility Health Care.{link_line}
         Vous pouvez aussi utiliser ce code de vérification sur le site :
         
         {verification_code}
         
         ⚠️ Important : Ce lien et ce code sont valides pendant 15 minutes uniquement.
         
-        Si vous n'avez pas créé de compte sur Mobility Health, vous pouvez ignorer cet email.
+        Si vous n'avez pas créé de compte sur Mobility Health Care, vous pouvez ignorer cet email.
         
         Cordialement,
-        L'équipe Mobility Health
+        L'équipe Mobility Health Care
         """
         
         dispatch_email(
@@ -712,6 +712,13 @@ class UserService:
         from app.integrations.messaging.schemas import MessageSendRequest
 
         label = "SMS" if channel == "sms" else "WhatsApp"
+        # WhatsApp Business (Meta) : hors fenêtre 24 h, seul un template
+        # approuvé peut initier la conversation — on l'utilise si configuré.
+        template_name = (
+            settings.WHATSAPP_VERIFICATION_TEMPLATE or None
+            if channel == "whatsapp"
+            else None
+        )
         response = get_messaging_client().send(
             MessageSendRequest(
                 channel=channel,
@@ -721,6 +728,9 @@ class UserService:
                     "Il est valide 15 minutes."
                 ),
                 reference=f"verification:{user.id}",
+                template_name=template_name,
+                template_language=settings.WHATSAPP_TEMPLATE_LANG or "fr",
+                template_params=[verification_code] if template_name else None,
             )
         )
         if response.status == "failed":
@@ -759,7 +769,7 @@ class UserService:
                 </div>
                 <div class="content">
                     <p>Bonjour {user.full_name or user.username},</p>
-                    <p>Votre inscription a été validée par l'équipe médicale Mobility Health.</p>
+                    <p>Votre inscription a été validée par l'équipe médicale Mobility Health Care.</p>
                     <p>Pour activer définitivement votre compte et pouvoir vous connecter sur l'application mobile, cliquez sur le lien ci-dessous :</p>
                     <p><a class="button" href="{activation_link}">Activer mon compte</a></p>
                     <div class="info">
@@ -767,7 +777,7 @@ class UserService:
                     </div>
                     <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
                     <p style="word-break: break-all;">{activation_link}</p>
-                    <p>Cordialement,<br>L'équipe Mobility Health</p>
+                    <p>Cordialement,<br>L'équipe Mobility Health Care</p>
                 </div>
             </div>
         </body>
@@ -776,7 +786,7 @@ class UserService:
         body_text = f"""
         Bonjour {user.full_name or user.username},
 
-        Votre inscription a été validée par l'équipe médicale Mobility Health.
+        Votre inscription a été validée par l'équipe médicale Mobility Health Care.
 
         Pour activer définitivement votre compte et pouvoir vous connecter sur l'application mobile, ouvrez ce lien :
         {activation_link}
@@ -784,7 +794,7 @@ class UserService:
         Une fois l'activation effectuée, vous pourrez vous connecter sur l'application mobile avec vos identifiants.
 
         Cordialement,
-        L'équipe Mobility Health
+        L'équipe Mobility Health Care
         """
         dispatch_email(
             to_email=user.email,
@@ -798,7 +808,7 @@ class UserService:
     @staticmethod
     def send_inscription_rejection_email(user: User, notes: Optional[str] = None):
         """Envoyer l'email de refus d'inscription."""
-        subject = "Votre inscription Mobility Health a été refusée"
+        subject = "Votre inscription Mobility Health Care a été refusée"
         note_block_html = f"<p><strong>Motif / observation :</strong> {notes}</p>" if notes else ""
         note_block_text = f"\nMotif / observation : {notes}\n" if notes else "\n"
         body_html = f"""
@@ -822,8 +832,8 @@ class UserService:
                     <p>Bonjour {user.full_name or user.username},</p>
                     <p>Nous vous informons que votre demande d'inscription a été refusée après étude de votre dossier.</p>
                     {note_block_html}
-                    <p>Si vous souhaitez plus d'informations, merci de contacter le service client Mobility Health.</p>
-                    <p>Cordialement,<br>L'équipe Mobility Health</p>
+                    <p>Si vous souhaitez plus d'informations, merci de contacter le service client Mobility Health Care.</p>
+                    <p>Cordialement,<br>L'équipe Mobility Health Care</p>
                 </div>
             </div>
         </body>
@@ -834,10 +844,10 @@ class UserService:
 
         Nous vous informons que votre demande d'inscription a été refusée après étude de votre dossier.
         {note_block_text}
-        Si vous souhaitez plus d'informations, merci de contacter le service client Mobility Health.
+        Si vous souhaitez plus d'informations, merci de contacter le service client Mobility Health Care.
 
         Cordialement,
-        L'équipe Mobility Health
+        L'équipe Mobility Health Care
         """
         dispatch_email(
             to_email=user.email,
@@ -857,7 +867,7 @@ class UserService:
             user: Utilisateur à qui envoyer l'email
             reset_code: Code de réinitialisation à 6 chiffres
         """
-        subject = "Réinitialisation de votre mot de passe - Mobility Health"
+        subject = "Réinitialisation de votre mot de passe - Mobility Health Care"
         
         # Contenu HTML de l'email
         body_html = f"""
@@ -877,7 +887,7 @@ class UserService:
                     padding: 20px;
                 }}
                 .header {{
-                    background-color: #4CAF50;
+                    background-color: #4E267C;
                     color: white;
                     padding: 20px;
                     text-align: center;
@@ -890,13 +900,13 @@ class UserService:
                 }}
                 .code {{
                     background-color: #fff;
-                    border: 2px solid #4CAF50;
+                    border: 2px solid #4E267C;
                     border-radius: 5px;
                     padding: 20px;
                     text-align: center;
                     font-size: 32px;
                     font-weight: bold;
-                    color: #4CAF50;
+                    color: #4E267C;
                     letter-spacing: 8px;
                     margin: 20px 0;
                 }}
@@ -916,7 +926,7 @@ class UserService:
                 <div class="content">
                     <p>Bonjour {user.full_name or user.username},</p>
                     
-                    <p>Vous avez demandé la réinitialisation de votre mot de passe sur Mobility Health. Veuillez utiliser le code ci-dessous pour continuer :</p>
+                    <p>Vous avez demandé la réinitialisation de votre mot de passe sur Mobility Health Care. Veuillez utiliser le code ci-dessous pour continuer :</p>
                     
                     <div class="code">{reset_code}</div>
                     
@@ -926,7 +936,7 @@ class UserService:
                     
                     <p>Si vous n'avez pas demandé de réinitialisation de mot de passe, ignorez cet email. Votre mot de passe restera inchangé.</p>
                     
-                    <p>Cordialement,<br>L'équipe Mobility Health</p>
+                    <p>Cordialement,<br>L'équipe Mobility Health Care</p>
                 </div>
             </div>
         </body>
@@ -935,11 +945,11 @@ class UserService:
         
         # Contenu texte simple
         body_text = f"""
-        Réinitialisation de votre mot de passe - Mobility Health
+        Réinitialisation de votre mot de passe - Mobility Health Care
         
         Bonjour {user.full_name or user.username},
         
-        Vous avez demandé la réinitialisation de votre mot de passe sur Mobility Health. Veuillez utiliser le code suivant :
+        Vous avez demandé la réinitialisation de votre mot de passe sur Mobility Health Care. Veuillez utiliser le code suivant :
         
         {reset_code}
         
@@ -948,7 +958,7 @@ class UserService:
         Si vous n'avez pas demandé de réinitialisation de mot de passe, ignorez cet email. Votre mot de passe restera inchangé.
         
         Cordialement,
-        L'équipe Mobility Health
+        L'équipe Mobility Health Care
         """
         
         dispatch_email(

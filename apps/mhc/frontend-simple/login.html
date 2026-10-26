@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion - Mobility Health</title>
+    <title>Connexion - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
         #registrationSuccess {
@@ -58,9 +58,6 @@
                 <div class="form-group">
                     <label for="username">Nom d'utilisateur ou e-mail</label>
                     <input type="text" id="username" name="username" required autocomplete="username">
-                    <small style="color: var(--secondary-color); display: block; margin-top: 0.35rem;">
-                        Voyageurs : utilisez votre adresse e-mail. Administrateurs et personnel : votre nom d'utilisateur.
-                    </small>
                 </div>
 
                 <div class="form-group">
@@ -80,6 +77,13 @@
                     <button type="submit" class="btn btn-primary" id="loginBtn" style="width: 100%;">Se connecter</button>
                 </div>
             </form>
+            <div style="display:flex;align-items:center;gap:0.75rem;background:#F3EEF9;border-radius:12px;padding:0.75rem 1rem;margin-top:1.25rem;">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#4E267C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                <div>
+                    <div style="font-size:0.85rem;font-weight:600;color:#4E267C;">Vos données sont protégées</div>
+                    <div style="font-size:0.75rem;color:#666;line-height:1.4;">Nous utilisons un chiffrement de niveau bancaire pour sécuriser vos informations.</div>
+                </div>
+            </div>
             <div class="auth-links">
                 <p>Pas encore de compte ? <a href="register.html" style="color: var(--primary-color); text-decoration: none;">S'inscrire</a></p>
                 <p style="margin-top: 0.5rem;"></p>
@@ -90,7 +94,7 @@
         </div>
     </main>
 
-    <script src="js/api.js?v=20261007"></script>
+    <script src="js/api.js?v=20261013"></script>
     <script src="js/login.js?v=2"></script>
 </body>
 </html>

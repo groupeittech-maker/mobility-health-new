@@ -1,4 +1,9 @@
 import os
+
+# La BDD de test doit être identique pour `get_db` et pour les sessions ouvertes
+# en interne (SessionLocal dans les services / tâches de fond des webhooks).
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -59,6 +64,12 @@ def client(db):
     app.dependency_overrides.clear()
 
 
+@pytest.fixture(autouse=True)
+def _stub_email_delivery(monkeypatch):
+    """Pas de SMTP réel dans les tests (mode stub des autres intégrations)."""
+    monkeypatch.setattr(settings, "EMAIL_DELIVERY_MODE", "stub")
+
+
 @pytest.fixture
 def test_user(db):
     """Create a test user"""
@@ -70,6 +81,7 @@ def test_user(db):
         role=Role.USER,
         is_active=True,
         email_verified=True,
+        pays_residence="Cameroun",
     )
     db.add(user)
     db.commit()

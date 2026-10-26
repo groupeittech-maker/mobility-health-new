@@ -1,7 +1,7 @@
-"""Contrat du service de messagerie IT-Tech (SMS / WhatsApp)."""
+"""Contrat du service de messagerie (SMS / WhatsApp — IT-Tech ou Meta Cloud API)."""
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel
 
@@ -11,6 +11,11 @@ class MessageSendRequest(BaseModel):
     to: str
     message: str
     reference: Optional[str] = None
+    # WhatsApp Business (Meta) : un template approuvé est OBLIGATOIRE pour
+    # initier une conversation hors fenêtre de 24 h.
+    template_name: Optional[str] = None
+    template_language: Optional[str] = None
+    template_params: Optional[List[str]] = None  # valeurs de {{1}}, {{2}}, …
 
 
 class MessageSendResponse(BaseModel):

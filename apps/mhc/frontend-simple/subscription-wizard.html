@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nouvelle souscription - Mobility Health</title>
+    <title>Nouvelle souscription - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/admin.css">
     <style>
@@ -311,14 +311,19 @@
                         <option>Bateau</option>
                     </select>
                 </div>
-                <div class="form-group" style="display:flex; gap:12px; flex-wrap:wrap;">
-                    <div style="flex:1; min-width:160px;">
-                        <label for="voyageDepart">Date de départ</label>
-                        <input type="date" id="voyageDepart">
-                    </div>
-                    <div style="flex:1; min-width:160px;">
-                        <label for="voyageRetour">Date de retour</label>
-                        <input type="date" id="voyageRetour">
+                <!-- « Date de départ & Date de retour » regroupées en une seule case (revue app) -->
+                <div class="form-group">
+                    <label>Date de départ &amp; Date de retour</label>
+                    <div style="border:1px solid var(--border-color); border-radius:8px; padding:10px 12px; display:flex; gap:12px; flex-wrap:wrap; background:#fff;">
+                        <div style="flex:1; min-width:150px;">
+                            <small class="mh-muted" style="display:block;margin-bottom:4px;">Départ</small>
+                            <input type="date" id="voyageDepart" style="width:100%; border:none; outline:none; font:inherit;">
+                        </div>
+                        <div style="align-self:center; color:var(--muted-text);">&rarr;</div>
+                        <div style="flex:1; min-width:150px;">
+                            <small class="mh-muted" style="display:block;margin-bottom:4px;">Retour</small>
+                            <input type="date" id="voyageRetour" style="width:100%; border:none; outline:none; font:inherit;">
+                        </div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -455,7 +460,7 @@
     <div id="minorModal" class="modal" aria-hidden="true">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Informations de l'enfant</h3>
+                <h3 id="minorModalTitle">Informations de l'enfant</h3>
                 <button type="button" class="close" id="closeMinorModal">&times;</button>
             </div>
             <div class="form-group"><label for="minorNom">Nom de l'enfant *</label><input type="text" id="minorNom"></div>
@@ -466,6 +471,24 @@
             <div class="form-actions">
                 <button type="button" class="btn btn-secondary" id="cancelMinorBtn">Annuler</button>
                 <button type="button" class="btn btn-primary" id="saveMinorBtn">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal « dossier redirigé vers le service technique » (réponses Oui médicales) -->
+    <div id="techServiceModal" class="modal" aria-hidden="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Analyse médicale</h3>
+                <button type="button" class="close" id="closeTechServiceModal">&times;</button>
+            </div>
+            <p style="color:var(--secondary-color); line-height:1.5;">
+                Votre dossier sera redirigé vers le service technique de MHC
+                qui prendra contact avec vous dans les brefs délais.
+            </p>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="techServiceBackBtn">Revenir</button>
+                <button type="button" class="btn btn-primary" id="techServiceContinueBtn">Continuer</button>
             </div>
         </div>
     </div>
@@ -486,12 +509,13 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+            <p>&copy; 2024 Mobility Health Care. Tous droits réservés.</p>
         </div>
     </footer>
 
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js"></script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/garanties-officielles.js"></script>
     <script src="js/subscription-wizard.js"></script>
 </body>
 </html>

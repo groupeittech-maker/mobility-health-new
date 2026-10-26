@@ -43,6 +43,7 @@ from app.api.v1 import (
     admin_reassureurs,
     medical_workflow,
     finance_outbound,
+    messaging,
     reassureur_portal,
     ops_modules,
     sinistre_detail,
@@ -118,7 +119,7 @@ async def api_root():
         routes_info["invoices_router_error"] = str(e)
     
     return {
-        "message": "Mobility Health API v1",
+        "message": "Mobility Health Care API v1",
         "version": "1.0.0",
         "server_time_utc": server_time_utc.isoformat(),
         "time_valid": is_time_valid,
@@ -200,3 +201,4 @@ api_router.include_router(reassureur_portal.router, prefix="/reassureur", tags=[
 api_router.include_router(ops_modules.router, prefix="/ops", tags=["ops-modules"])
 api_router.include_router(sinistre_detail.router, prefix="/sinistre-detail", tags=["sinistre-detail"])
 api_router.include_router(bo_dashboard.router, prefix="/admin", tags=["bo-dashboard"])
+api_router.include_router(messaging.router, prefix="/messaging", tags=["messaging"])

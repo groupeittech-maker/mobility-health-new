@@ -22,6 +22,7 @@ from app.schemas.souscription import SouscriptionResponse
 from app.schemas.questionnaire import QuestionnaireResponse
 from app.schemas.paiement import PaiementResponse
 from app.services.attestation_service import AttestationService
+from app.services.medecin_conseil import medecin_can_review
 from app.services.subscription_decision_service import SubscriptionDecisionEngine
 from pydantic import BaseModel
 from app.core.security import create_download_access_token
@@ -103,7 +104,8 @@ class ValidationRequest(BaseModel):
 
 
 _REVIEW_QUEUE_MATRIX = {
-    "medical": [Role.MEDICAL_REVIEWER, Role.DOCTOR, Role.MEDECIN_REFERENT_MH],
+    "medical": [Role.MEDICAL_REVIEWER, Role.DOCTOR, Role.MEDECIN_REFERENT_MH,
+                Role.AGENT_MEDICAL_MHC, Role.SUPERVISEUR_AFFAIRES_MEDICALES],
     "production": [Role.PRODUCTION_AGENT],
 }
 _REVIEW_QUEUE_FIELDS = {
@@ -170,6 +172,14 @@ async def get_review_queue(
         .limit(limit)
         .all()
     )
+
+    # Périmètre géographique : un médecin référent MH avec des villes
+    # assignées ne voit que les dossiers de ces villes.
+    if step == "medical":
+        souscriptions = [
+            s for s in souscriptions
+            if medecin_can_review(db, current_user, s)
+        ]
     return souscriptions
 
 
@@ -192,7 +202,7 @@ async def get_pending_subscriptions(
     L'attestation provisoire est générée à la création du paiement ;
     l'attestation définitive et la e-carte sont créées à la validation production.
     En cas de refus définitif : souscription résiliée et remboursement au client de 90 % du montant
-    payé (10 % de retenue frais Mobility Health), si un paiement valide existe.
+    payé (10 % de retenue frais Mobility Health Care), si un paiement valide existe.
     """
     import logging
 
@@ -298,7 +308,10 @@ async def validate_medical(
     subscription_id: int,
     validation: ValidationRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([Role.DOCTOR, Role.MEDICAL_REVIEWER, Role.MEDECIN_REFERENT_MH]))
+    current_user: User = Depends(require_role([
+        Role.DOCTOR, Role.MEDICAL_REVIEWER, Role.MEDECIN_REFERENT_MH,
+        Role.AGENT_MEDICAL_MHC, Role.SUPERVISEUR_AFFAIRES_MEDICALES,
+    ]))
 ):
     """
     Valider médicalement une souscription (legacy / optionnel).
@@ -312,7 +325,15 @@ async def validate_medical(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Souscription non trouvée"
         )
-    
+
+    # Périmètre géographique : le médecin référent ne tranche que les
+    # dossiers de ses villes assignées.
+    if not medecin_can_review(db, current_user, souscription):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ce dossier n'est pas dans votre périmètre géographique",
+        )
+
     # Enregistrer la revue médicale et avancer le workflow
     result = SubscriptionDecisionEngine.record_review(
         db=db,
@@ -637,28 +658,40 @@ async def get_subscription_dossier(
         attestation_token = create_download_access_token("attestation_pdf", attestation.id)
         attestation_download_url = f"/api/v1/attestations/{attestation.id}/download?token={attestation_token}"
 
-    questionnaires_payload = []
+    questionnaires_payload = {}
     if _can_read_medical_data(current_user):
         questionnaires_map = _collect_latest_questionnaires(db, [subscription_id])
         questionnaires_payload = _serialize_questionnaires(subscription_id, questionnaires_map)
+    # Même sémantique que _build_validation_states (attestations.py) : pour un
+    # dossier du moteur de décision, une étape NULL = « not_required » (pas
+    # routée dessus) — ne pas l'afficher comme « pending ».
+    is_decision_pipeline = souscription.statut == StatutSouscription.EN_ATTENTE_VALIDATION
+
+    def _vstate(status_field: str, notes_field: str, by_field: str, date_field: str) -> "ValidationState":
+        raw = getattr(souscription, status_field, None)
+        if raw is None and is_decision_pipeline:
+            status_value = "not_required"
+        else:
+            status_value = raw or "pending"
+        return ValidationState(
+            status=status_value,
+            notes=getattr(souscription, notes_field, None),
+            reviewer_id=getattr(souscription, by_field, None),
+            decided_at=getattr(souscription, date_field, None),
+        )
+
     validation_states = {
-        "medecin": ValidationState(
-            status=getattr(souscription, "validation_medicale", None) or "pending",
-            notes=getattr(souscription, "validation_medicale_notes", None),
-            reviewer_id=getattr(souscription, "validation_medicale_par", None),
-            decided_at=getattr(souscription, "validation_medicale_date", None),
+        "medecin": _vstate(
+            "validation_medicale", "validation_medicale_notes",
+            "validation_medicale_par", "validation_medicale_date",
         ),
-        "technique": ValidationState(
-            status=getattr(souscription, "validation_technique", None) or "pending",
-            notes=getattr(souscription, "validation_technique_notes", None),
-            reviewer_id=getattr(souscription, "validation_technique_par", None),
-            decided_at=getattr(souscription, "validation_technique_date", None),
+        "technique": _vstate(
+            "validation_technique", "validation_technique_notes",
+            "validation_technique_par", "validation_technique_date",
         ),
-        "production": ValidationState(
-            status=getattr(souscription, "validation_finale", None) or "pending",
-            notes=getattr(souscription, "validation_finale_notes", None),
-            reviewer_id=getattr(souscription, "validation_finale_par", None),
-            decided_at=getattr(souscription, "validation_finale_date", None),
+        "production": _vstate(
+            "validation_finale", "validation_finale_notes",
+            "validation_finale_par", "validation_finale_date",
         ),
     }
     current_state = validation_states.get("production") or validation_states.get("agpmh")

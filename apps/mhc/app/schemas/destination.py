@@ -15,6 +15,7 @@ class DestinationCityBase(BaseModel):
     est_actif: bool = True
     ordre_affichage: int = 0
     notes: Optional[str] = None
+    medecin_conseil_id: Optional[int] = None
 
 
 class DestinationCityCreate(DestinationCityBase):
@@ -26,11 +27,13 @@ class DestinationCityUpdate(BaseModel):
     est_actif: Optional[bool] = None
     ordre_affichage: Optional[int] = None
     notes: Optional[str] = None
+    medecin_conseil_id: Optional[int] = None
 
 
 class DestinationCityResponse(DestinationCityBase):
     id: int
     pays_id: int
+    medecin_conseil: Optional[MedecinConseilContact] = None
     created_at: datetime
     updated_at: datetime
     

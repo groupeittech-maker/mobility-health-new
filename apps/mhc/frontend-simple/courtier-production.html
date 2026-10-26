@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portail production courtier - Mobility Health</title>
+    <title>Portail production courtier - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/admin.css">
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
 </head>
 <body class="protected" data-backoffice>
     <nav class="navbar">
@@ -55,6 +55,7 @@
                     <option value="expiree">Expirée</option>
                 </select>
                 <button class="btn" id="subscriptionRefreshBtn">Actualiser</button>
+                <button class="btn btn-primary" id="newSubscriptionBtn" hidden>+ Nouvelle souscription</button>
             </div>
 
             <div class="table-wrapper">
@@ -105,9 +106,76 @@
         </section>
     </main>
 
+    <div class="bo-modal-backdrop" id="subscriptionModal">
+        <div class="bo-modal">
+            <div class="bo-modal-head">
+                <h3>Nouvelle souscription</h3>
+                <button type="button" class="bo-modal-close" id="subscriptionModalClose">&times;</button>
+            </div>
+            <form id="subscriptionForm">
+                <div class="form-group">
+                    <label for="clientSearchInput">Assuré (email, nom ou téléphone) *</label>
+                    <input id="clientSearchInput" placeholder="Rechercher un assuré (min. 3 caractères)…" autocomplete="off">
+                    <input type="hidden" id="subscriptionClientId" required>
+                    <ul id="clientSearchResults" class="client-search-results"></ul>
+                    <p class="muted" id="clientSelectedLabel"></p>
+                    <p><a href="#" id="toggleNewTraveler">+ Le voyageur n'a pas de compte ? Le créer</a></p>
+                </div>
+                <div id="newTravelerBlock" hidden>
+                    <div class="form-grid two-col">
+                        <div class="form-group">
+                            <label for="newTravelerName">Nom complet *</label>
+                            <input id="newTravelerName" placeholder="Nom et prénom du voyageur">
+                        </div>
+                        <div class="form-group">
+                            <label for="newTravelerEmail">Email *</label>
+                            <input id="newTravelerEmail" type="email" placeholder="voyageur@exemple.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="newTravelerPhone">Téléphone</label>
+                            <input id="newTravelerPhone" placeholder="+225…">
+                        </div>
+                        <div class="form-group">
+                            <label for="newTravelerBirth">Date de naissance</label>
+                            <input id="newTravelerBirth" type="date">
+                        </div>
+                        <div class="form-group">
+                            <label for="newTravelerCountry">Pays de résidence</label>
+                            <input id="newTravelerCountry" placeholder="Côte d'Ivoire">
+                        </div>
+                    </div>
+                    <button type="button" class="btn" id="createTravelerBtn">Créer le compte voyageur</button>
+                    <p class="muted" id="createTravelerMsg"></p>
+                </div>
+                <div class="form-grid two-col">
+                    <div class="form-group">
+                        <label for="subscriptionProductId">Produit *</label>
+                        <select id="subscriptionProductId" required>
+                            <option value="">Sélectionner</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="subscriptionDateDebut">Date de début *</label>
+                        <input type="date" id="subscriptionDateDebut" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="subscriptionNotes">Notes</label>
+                    <textarea id="subscriptionNotes" rows="2" placeholder="Notes internes (optionnel)"></textarea>
+                </div>
+                <p class="muted">La souscription est créée <strong>en attente</strong> au canal courtier, rattachée à votre cabinet.</p>
+                <div class="bo-modal-actions">
+                    <button type="button" class="btn" id="subscriptionCancelBtn">Annuler</button>
+                    <button type="button" class="btn" id="subscriptionWizardBtn" disabled>Parcours voyage complet →</button>
+                    <button type="submit" class="btn btn-primary" id="subscriptionSubmitBtn">Créer la souscription</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <footer>
         <div class="container">
-            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+            <p>&copy; 2024 Mobility Health Care. Tous droits réservés.</p>
         </div>
     </footer>
 
@@ -115,13 +183,13 @@
         window.COURTIER_PRODUCTION_ALLOWED_ROLES = ['agent_production_courtier', 'assistant_souscription', 'admin'];
         window.MH_ALLOWED_ROLES_OVERRIDE = ['agent_production_courtier', 'assistant_souscription', 'admin'];
     </script>
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/permissions.js"></script>
-    <script src="js/backoffice-nav.js"></script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
     <script src="js/currency.js"></script>
     <script src="js/table-pagination.js"></script>
-    <script src="js/courtier-production.js"></script>
+    <script src="js/courtier-production.js?v=3"></script>
 </body>
 </html>
 

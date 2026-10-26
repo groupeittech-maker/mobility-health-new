@@ -21,7 +21,7 @@ from app.core.permissions import (
     is_internal_backoffice_role,
 )
 from app.core.redis_client import get_redis
-from app.core.security import get_password_hash
+from app.core.security import get_password_hash, create_access_token
 from app.api.v1.auth import get_current_user
 from app.models.user import User
 from app.models.notification import Notification
@@ -319,6 +319,60 @@ async def get_my_attestations(
     )
     return attestations
 
+
+class ProfilePhotoUpdate(BaseModel):
+    """Photo de profil : data URL `data:image/jpeg;base64,...`."""
+    data_url: str
+
+
+_MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024
+
+
+@router.get("/me/photo")
+async def get_my_profile_photo(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Photo de profil (octets image) — 404 si aucune photo définie."""
+    import base64
+    from fastapi.responses import Response
+
+    data_url = (
+        db.query(User.photo_profil).filter(User.id == current_user.id).scalar()
+    )
+    if not data_url or not data_url.startswith("data:") or "," not in data_url:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucune photo de profil")
+    header, _, b64 = data_url.partition(",")
+    media_type = header[5:].split(";")[0] or "image/jpeg"
+    return Response(content=base64.b64decode(b64), media_type=media_type)
+
+
+@router.put("/me/photo", status_code=status.HTTP_204_NO_CONTENT)
+async def update_my_profile_photo(
+    payload: ProfilePhotoUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Changer la photo de profil (prise de vue ou galerie depuis MyMHC)."""
+    import base64
+    import binascii
+
+    header, sep, b64 = payload.data_url.partition(",")
+    media_type = header[5:].split(";")[0] if header.startswith("data:") else ""
+    if not sep or media_type not in {"image/jpeg", "image/png", "image/webp"}:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Image invalide (JPEG, PNG ou WebP attendu)")
+    try:
+        raw = base64.b64decode(b64, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Image invalide")
+    if not raw or len(raw) > _MAX_PROFILE_PHOTO_BYTES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Image trop volumineuse (5 Mo maximum)")
+    current_user.photo_profil = payload.data_url
+    db.add(current_user)
+    db.commit()
+    return None
+
+
 @router.get("/search/{username}", response_model=UserResponse)
 async def search_user_by_username(
     username: str,
@@ -476,7 +530,7 @@ def _deliver_contact_change_code(
         )
     if channel == "email":
         to_email = email or user.email
-        subject = "Code de vérification - Mobility Health"
+        subject = "Code de vérification - Mobility Health Care"
         body_text = (
             f"Votre code de vérification MyMHC est : {code}\n"
             "Il est valable 15 minutes."
@@ -501,15 +555,24 @@ def _deliver_contact_change_code(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Aucun numéro de téléphone disponible pour ce canal.",
         )
+    from app.core.config import settings
     from app.integrations.messaging import get_messaging_client
     from app.integrations.messaging.schemas import MessageSendRequest
 
+    template_name = (
+        settings.WHATSAPP_VERIFICATION_TEMPLATE or None
+        if channel == "whatsapp"
+        else None
+    )
     get_messaging_client().send(
         MessageSendRequest(
             channel=channel,
             to=destination,
             message=f"MyMHC : votre code de vérification est {code} (valide 15 min).",
             reference=f"contact_change:{user.id}",
+            template_name=template_name,
+            template_language=settings.WHATSAPP_TEMPLATE_LANG or "fr",
+            template_params=[code] if template_name else None,
         )
     )
 
@@ -571,13 +634,19 @@ async def request_change_email(
     return {"message": "Code de vérification envoyé", "channel": body.channel or "email"}
 
 
-@router.post("/me/change-email/confirm", response_model=UserResponse)
+@router.post("/me/change-email/confirm")
 async def confirm_change_email(
     body: ContactChangeConfirm,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Applique le changement d'e-mail après vérification du code."""
+    """Applique le changement d'e-mail après vérification du code.
+
+    Le JWT embarque ``sub = username`` : si l'adresse e-mail sert aussi de
+    nom d'utilisateur, l'ancien jeton devient invalide et l'app se bloquait
+    (reconnexion forcée). On retourne donc un nouveau jeton quand
+    l'identifiant change.
+    """
     new_email = _consume_contact_change_code(current_user.id, "email", body.code)
     existing = db.query(User).filter(
         User.id != current_user.id,
@@ -589,13 +658,23 @@ async def confirm_change_email(
             detail="Cette adresse e-mail est déjà utilisée.",
         )
     user = db.query(User).filter(User.id == current_user.id).first()
+    username_changed = False
     user.email = new_email
     # L'identifiant de connexion est l'adresse e-mail pour les comptes auto-inscrits
     if user.username == current_user.email:
         user.username = new_email
+        username_changed = True
     db.commit()
     db.refresh(user)
-    return user
+
+    payload: dict = {"user": UserResponse.model_validate(user).model_dump(mode="json")}
+    if username_changed:
+        access_token = create_access_token(
+            data={"sub": user.username, "role": user.role.value if hasattr(user.role, "value") else user.role}
+        )
+        payload["access_token"] = access_token
+        payload["token_type"] = "bearer"
+    return payload
 
 
 @router.post("/me/change-phone/request")
@@ -683,6 +762,45 @@ async def update_user(
     db.refresh(user)
 
     return user
+
+
+class FraudeUpdate(BaseModel):
+    fraude_signalee: bool
+    motif: str | None = None
+
+
+def _admin_target_user(db: Session, user_id: int, current_user: User) -> User:
+    if _role_value(getattr(current_user, "role", None)) != Role.ADMIN.value and not current_user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return user
+
+
+@router.get("/{user_id}/fraude")
+async def get_user_fraude(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    user = _admin_target_user(db, user_id, current_user)
+    return {"id": user.id, "fraude_signalee": bool(user.fraude_signalee), "fraude_motif": user.fraude_motif}
+
+
+@router.put("/{user_id}/fraude")
+async def update_user_fraude(
+    user_id: int,
+    body: FraudeUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Signale (ou lève) une fraude avérée : refus automatique des souscriptions du client."""
+    user = _admin_target_user(db, user_id, current_user)
+    user.fraude_signalee = body.fraude_signalee
+    user.fraude_motif = (body.motif or "").strip() or None if body.fraude_signalee else None
+    db.commit()
+    return {"id": user.id, "fraude_signalee": user.fraude_signalee, "fraude_motif": user.fraude_motif}
 
 
 @router.post("/{user_id}/reset-password")

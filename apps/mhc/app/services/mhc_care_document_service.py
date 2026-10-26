@@ -148,7 +148,12 @@ def _now() -> datetime:
 def _as_type(value: str | MhcCareDocumentType) -> MhcCareDocumentType:
     if isinstance(value, MhcCareDocumentType):
         return value
-    return MhcCareDocumentType(str(value))
+    raw = str(value)
+    try:
+        return MhcCareDocumentType(raw.lower())
+    except ValueError:
+        # Accepte aussi le nom de membre (« BPCU », « brpcu »…)
+        return MhcCareDocumentType[raw.upper()]
 
 
 def _docs(sinistre: Sinistre) -> List[MhcCareDocument]:

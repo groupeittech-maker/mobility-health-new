@@ -6,7 +6,7 @@ import '../config/api_hosts.dart';
 import '../storage/token_storage.dart';
 import '../utils/api_error_helper.dart';
 
-/// Client HTTP pour l'API Mobility Health (équivalent api.js + refresh token).
+/// Client HTTP pour l'API Mobility Health Care (équivalent api.js + refresh token).
 class ApiClient {
   ApiClient._() {
     _dio = Dio(BaseOptions(

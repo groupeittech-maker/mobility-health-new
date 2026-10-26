@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         projectTitle: voyage.titre,
                         productId: produit.id,
                         productName: produit.nom,
-                        assureur: produit.assureur || 'Mobility Health',
+                        assureur: produit.assureur || 'Mobility Health Care',
                         questionnaireType: 'long',
                         subscriptionId: subscription.id
                     };
@@ -149,7 +149,7 @@ function populateSummary(draft) {
     container.innerHTML = `
         <p><strong>Voyage :</strong> ${draft.projectTitle || '—'}</p>
         <p><strong>Produit :</strong> ${draft.productName || '—'}</p>
-        <p><strong>Assureur :</strong> ${draft.assureur || 'Mobility Health'}</p>
+        <p><strong>Assureur :</strong> ${draft.assureur || 'Mobility Health Care'}</p>
         <p><strong>Mode questionnaire :</strong> Questionnaire médical simplifié (5 questions)</p>
     `;
 }

@@ -24,10 +24,28 @@ function showAlert(elId, message, isError) {
         : '';
 }
 
+function openParamModal() {
+    document.getElementById('paramModal')?.classList.add('open');
+}
+
+function closeParamModal() {
+    document.getElementById('paramModal')?.classList.remove('open');
+}
+
 function bindEvents() {
     document.getElementById('btnAddTax')?.addEventListener('click', () => addTaxRow());
     document.getElementById('btnSave')?.addEventListener('click', saveParam);
     document.getElementById('paramsList')?.addEventListener('click', handleListClick);
+    document.getElementById('btnNewParam')?.addEventListener('click', () => {
+        resetForm();
+        document.getElementById('paramModalTitle').textContent = 'Ajouter un pays';
+        openParamModal();
+    });
+    document.getElementById('paramModalClose')?.addEventListener('click', closeParamModal);
+    document.getElementById('paramModalCancel')?.addEventListener('click', closeParamModal);
+    document.getElementById('paramModal')?.addEventListener('click', (e) => {
+        if (e.target === document.getElementById('paramModal')) closeParamModal();
+    });
 }
 
 function addTaxRow(nom = '', taux = '') {
@@ -134,6 +152,8 @@ async function loadCountryDetail(country) {
         editingCountry = p.pays_assureur;
         document.getElementById('taxesContainer').innerHTML = '';
         (p.taxes || []).forEach((t) => addTaxRow(t.nom, t.taux_pct));
+        document.getElementById('paramModalTitle').textContent = 'Modifier les paramètres — ' + p.pays_assureur;
+        openParamModal();
     } catch (error) {
         showAlert('formAlert', error.message || 'Impossible de charger le pays', true);
     }
@@ -191,6 +211,7 @@ async function saveParam() {
         });
         showAlert('formAlert', 'Paramètres enregistrés.', false);
         resetForm();
+        closeParamModal();
         await loadParams();
     } catch (error) {
         showAlert('formAlert', error.message || 'Erreur lors de l’enregistrement', true);

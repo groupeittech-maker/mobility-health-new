@@ -631,6 +631,34 @@ def process_pending_notifications():
     return {"status": "disabled", "processed": 0}
 
 
+@celery_app.task(name="app.workers.tasks.purge_stale_subscriptions")
+def purge_stale_subscriptions():
+    """Supprime les « Brouillon » / « À payer » à la fin du jour de début souhaité,
+    et abandonne les demandes d'avenant non réglées hors délai."""
+    from app.services.avenant_service import expire_stale_pending
+    from app.services.subscription_cleanup import purge_stale_subscriptions as _purge
+
+    db = SessionLocal()
+    try:
+        expired = expire_stale_pending(db)
+        db.commit()
+        return {"deleted": _purge(db), "avenants_abandonnes": expired}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.workers.tasks.send_subscription_deletion_reminders")
+def send_subscription_deletion_reminders():
+    """Rappels J-2 et veille avant la suppression automatique des brouillons / à payer."""
+    from app.services.subscription_cleanup import send_deletion_reminders
+
+    db = SessionLocal()
+    try:
+        return {"sent": send_deletion_reminders(db)}
+    finally:
+        db.close()
+
+
 @celery_app.task(name="app.workers.tasks.process_questionnaire_reminders")
 def process_questionnaire_reminders():
     """

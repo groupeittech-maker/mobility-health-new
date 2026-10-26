@@ -8,26 +8,42 @@ import '../../core/widgets/mh_text_highlight.dart';
 import '../../services/api_services.dart';
 import '../../core/utils/api_error_helper.dart';
 
+/// Normalise un nom de pays pour la comparaison (casse + accents).
+String _normPays(String s) {
+  const map = {
+    'à': 'a', 'â': 'a', 'ä': 'a',
+    'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+    'î': 'i', 'ï': 'i',
+    'ô': 'o', 'ö': 'o',
+    'ù': 'u', 'û': 'u', 'ü': 'u',
+    'ç': 'c',
+  };
+  return s.trim().toLowerCase().split('').map((c) => map[c] ?? c).join();
+}
+
 /// Onglet « Hôpitaux » du kit MyMHC : établissements partenaires groupés par
 /// ville, adresse, téléphone avec bouton d'appel.
 class HopitauxScreen extends StatefulWidget {
   const HopitauxScreen({super.key});
 
   @override
-  State<HopitauxScreen> createState() => _HopitauxScreenState();
+  State<HopitauxScreen> createState() => HopitauxScreenState();
 }
 
-class _HopitauxScreenState extends State<HopitauxScreen> {
+class HopitauxScreenState extends State<HopitauxScreen> {
   final HospitalsService _service = HospitalsService();
   List<Map<String, dynamic>> _hospitals = [];
   bool _loading = true;
   String? _error;
+  List<String> _activeCountries = [];
 
   @override
   void initState() {
     super.initState();
     _load();
   }
+
+  void refresh() => _load();
 
   Future<void> _load() async {
     setState(() {
@@ -36,10 +52,32 @@ class _HopitauxScreenState extends State<HopitauxScreen> {
     });
     try {
       final list = await _service.getHospitals();
+      // Pays des polices actives → établissements des destinations couvertes.
+      var countries = <String>{};
+      var countryLabels = <String>[];
+      try {
+        final subs =
+            await SubscriptionsService().getSubscriptions(limit: 100);
+        for (final s in subs.where((s) => s.isActive)) {
+          final name =
+              (s.projetVoyage?.destinationCountryName ?? '').trim();
+          if (name.isNotEmpty) {
+            countries.add(_normPays(name));
+            countryLabels.add(name);
+          }
+        }
+      } catch (_) {}
       if (mounted) {
+        final actifs =
+            list.where((h) => h['est_actif'] != false).toList();
         setState(() {
-          _hospitals =
-              list.where((h) => h['est_actif'] != false).toList();
+          _activeCountries = countryLabels;
+          _hospitals = countries.isEmpty
+              ? actifs
+              : actifs
+                  .where((h) =>
+                      countries.contains(_normPays(h['pays']?.toString() ?? '')))
+                  .toList();
           _loading = false;
         });
       }
@@ -117,7 +155,9 @@ class _HopitauxScreenState extends State<HopitauxScreen> {
               MHSurfaceCard(
                 padding: const EdgeInsets.all(20),
                 child: Text(
-                  'Aucun établissement partenaire n’est référencé pour le moment.',
+                  _activeCountries.isEmpty
+                      ? 'Aucun établissement partenaire n’est référencé pour le moment.'
+                      : 'Aucun établissement partenaire n’est encore référencé pour ${_activeCountries.join(', ')}.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: AppColors.mutedText,
                     height: 1.5,

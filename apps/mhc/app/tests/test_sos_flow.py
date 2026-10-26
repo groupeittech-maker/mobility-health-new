@@ -11,6 +11,25 @@ PARIS_LAT = float(Decimal("48.8566"))
 PARIS_LON = float(Decimal("2.3522"))
 
 
+def _attach_definitive_attestation(db, subscription):
+    """Le déclenchement SOS exige une attestation définitive valide."""
+    from app.models.attestation import Attestation
+
+    attestation = Attestation(
+        souscription_id=subscription.id,
+        paiement_id=None,
+        type_attestation="definitive",
+        numero_attestation=f"ATT-SOS-{subscription.id}",
+        chemin_fichier_minio="INLINE_PDF",
+        bucket_minio="inline",
+        est_valide=True,
+    )
+    db.add(attestation)
+    db.commit()
+    db.refresh(attestation)
+    return attestation
+
+
 @pytest.mark.sos
 @pytest.mark.e2e
 class TestSOSFlow:
@@ -47,7 +66,8 @@ class TestSOSFlow:
         db.add(subscription)
         db.commit()
         db.refresh(subscription)
-        
+        _attach_definitive_attestation(db, subscription)
+
         # Step 2: Trigger SOS alert
         sos_response = client.post(
             "/api/v1/sos/trigger",
@@ -173,7 +193,8 @@ class TestSOSFlow:
         db.add(subscription)
         db.commit()
         db.refresh(subscription)
-        
+        _attach_definitive_attestation(db, subscription)
+
         response = client.post(
             "/api/v1/sos/trigger",
             json={
@@ -404,7 +425,8 @@ class TestSOSFlow:
         db.add(subscription)
         db.commit()
         db.refresh(subscription)
-        
+        _attach_definitive_attestation(db, subscription)
+
         # Trigger SOS
         sos_response = client.post(
             "/api/v1/sos/trigger",
@@ -463,7 +485,8 @@ class TestSOSFlow:
         db.add(subscription)
         db.commit()
         db.refresh(subscription)
-        
+        _attach_definitive_attestation(db, subscription)
+
         questionnaire = Questionnaire(
             souscription_id=subscription.id,
             type_questionnaire="medical",

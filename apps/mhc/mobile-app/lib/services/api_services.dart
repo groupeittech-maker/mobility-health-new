@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
@@ -146,6 +148,12 @@ class SubscriptionsService {
     );
     clearSubscriptionsCache();
     return data;
+  }
+
+  /// Supprimer un brouillon / une souscription « à payer » (DELETE /subscriptions/:id).
+  Future<void> deleteSubscription(int subscriptionId) async {
+    await _api.delete('/subscriptions/$subscriptionId');
+    clearSubscriptionsCache();
   }
 
   /// Demander la résiliation d'une souscription (POST /subscriptions/:id/request-resiliation).
@@ -848,6 +856,35 @@ class HospitalsService {
 class UsersService {
   final ApiClient _api = ApiClient();
 
+  /// Photo de profil (GET /users/me/photo) — null si aucune photo.
+  Future<Uint8List?> getMyPhoto() async {
+    try {
+      final r = await _api.dio.get<List<int>>(
+        '/users/me/photo',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final b = r.data;
+      return (b == null || b.isEmpty) ? null : Uint8List.fromList(b);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// Changer la photo de profil (PUT /users/me/photo, data URL base64).
+  Future<void> updateMyPhoto(List<int> bytes) async {
+    final isPng = bytes.length > 4 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47;
+    final mime = isPng ? 'image/png' : 'image/jpeg';
+    await _api.put<dynamic>(
+      '/users/me/photo',
+      body: {'data_url': 'data:$mime;base64,${base64Encode(bytes)}'},
+    );
+  }
+
   Future<Map<String, dynamic>> updateUser(
     int userId,
     Map<String, dynamic> body,
@@ -951,6 +988,37 @@ class VoyageDocumentsService {
       fields: {'doc_type': docType},
       fileKey: 'file',
       filePath: filePath,
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+  }
+}
+
+/// Notifications utilisateur (GET /notifications, PATCH /notifications/{id}/read).
+class NotificationsService {
+  final ApiClient _api = ApiClient();
+
+  Future<List<Map<String, dynamic>>> getNotifications({
+    bool? isRead,
+    int limit = 100,
+  }) async {
+    final query = <String, dynamic>{'limit': limit};
+    if (isRead != null) query['is_read'] = isRead;
+    final list = await _api.get<List<dynamic>>(
+      '/notifications/',
+      queryParameters: query,
+      fromJson: (d) => d as List<dynamic>,
+    );
+    return list.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<int> getUnreadCount() async {
+    final list = await getNotifications(isRead: false, limit: 100);
+    return list.length;
+  }
+
+  Future<void> markAsRead(int notificationId) async {
+    await _api.patch<Map<String, dynamic>>(
+      '/notifications/$notificationId/read',
       fromJson: (d) => d as Map<String, dynamic>,
     );
   }

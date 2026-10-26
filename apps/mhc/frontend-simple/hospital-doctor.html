@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Traitement hospitalier - Mobility Health</title>
+    <title>Traitement hospitalier - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/admin.css">
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
 </head>
 <body class="protected hospital-doctor" data-backoffice>
     <nav class="navbar">
@@ -73,12 +73,14 @@
                     <p class="muted">La réception vous affectera un patient dès qu'une urgence sera confirmée.</p>
                 </div>
 
-                <ul
-                    id="doctorCasesCardList"
-                    class="card-list reception-alerts-card-list doctor-cases-card-list"
-                    hidden
-                    aria-label="Dossiers à traiter"
-                ></ul>
+                <div id="doctorCasesTableWrap" hidden>
+                    <table class="bo-table" aria-label="Dossiers à traiter">
+                        <thead><tr>
+                            <th>N° alerte</th><th>Date et heure</th><th>Assuré</th><th>Type d'urgence</th><th>Établissement</th><th>Pays</th><th>Statut</th><th>Actions</th>
+                        </tr></thead>
+                        <tbody id="doctorCasesCardList"></tbody>
+                    </table>
+                </div>
                 <div id="doctorToTreatPagination" class="table-pagination-wrapper" hidden></div>
             </div>
 
@@ -92,12 +94,14 @@
                     <p>Aucun dossier traité pour le moment.</p>
                     <p class="muted">Vos rapports clôturés apparaîtront ici.</p>
                 </div>
-                <ul
-                    id="doctorHistoryCardList"
-                    class="card-list reception-alerts-card-list doctor-cases-card-list"
-                    hidden
-                    aria-label="Dossiers traités"
-                ></ul>
+                <div id="doctorHistoryTableWrap" hidden>
+                    <table class="bo-table" aria-label="Dossiers traités">
+                        <thead><tr>
+                            <th>N° alerte</th><th>Date et heure</th><th>Assuré</th><th>Type d'urgence</th><th>Établissement</th><th>Pays</th><th>Statut</th><th>Actions</th>
+                        </tr></thead>
+                        <tbody id="doctorHistoryCardList"></tbody>
+                    </table>
+                </div>
                 <div id="doctorTreatedPagination" class="table-pagination-wrapper" hidden></div>
             </div>
         </section>
@@ -187,16 +191,21 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+            <p>&copy; 2024 Mobility Health Care. Tous droits réservés.</p>
         </div>
     </footer>
 
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/permissions.js"></script>
-    <script src="js/backoffice-nav.js"></script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
     <script src="js/nav-access.js"></script>
-    <script src="js/hospital-doctor.js"></script>
+    <style>
+        .bo-table tbody tr.selected td { background-color: #eef0fd; }
+        .bo-table tbody tr.selected td:first-child { box-shadow: inset 3px 0 0 #6c5ce7; }
+        .bo-table tbody tr[data-row-alert-id]:hover { cursor: pointer; }
+    </style>
+    <script src="js/hospital-doctor.js?v=2"></script>
 </body>
 </html>
 

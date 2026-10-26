@@ -4,8 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
 
-/// E-carte MyMHC (kit) : violet dégradé pour l'adulte, turquoise pour un mineur.
-/// Hauteur fixe ~150, bande translucide inclinée, portrait en bas à droite.
+/// Fond officiel de l'e-carte et logo blanc MHC (charte V3).
+const String kMhEcardBackground = 'assets/images/fond_carte_mhc.jpg';
+const String kMhLogoWhite = 'assets/images/logo_mhc_blanc.png';
+
+/// E-carte MyMHC : fond de carte officiel MHC pour l'adulte (turquoise
+/// pour un mineur), logo blanc, portrait en bas à droite.
 class MhEcard extends StatelessWidget {
   const MhEcard({
     super.key,
@@ -19,29 +23,43 @@ class MhEcard extends StatelessWidget {
 
   final String holderName;
   final String? policyNumber;
+  /// Période de validité, ex. « Du 02/11/2026 au 16/11/2026 »
+  /// (voir [MhEcard.validityRange]).
   final String? validityLabel;
   final bool isChild;
   final Uint8List? photoBytes;
   final String? photoUrl;
 
+  static String _fmt(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  /// Libellé « Du … au … » identique à l'attestation d'assurance.
+  static String? validityRange(DateTime? from, DateTime? to) {
+    if (from == null && to == null) return null;
+    if (from == null) return 'Jusqu’au ${_fmt(to!)}';
+    if (to == null) return 'Dès le ${_fmt(from)}';
+    return 'Du ${_fmt(from)} au ${_fmt(to)}';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final gradient = isChild
-        ? const LinearGradient(
-            colors: [AppColors.brandTeal, Color(0xFF06767F)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          )
-        : const LinearGradient(
-            colors: [AppColors.brandPurple, Color(0xFF24113E)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          );
-
     return Container(
       height: 170,
       decoration: BoxDecoration(
-        gradient: gradient,
+        gradient: isChild
+            ? const LinearGradient(
+                colors: [AppColors.brandTeal, Color(0xFF06767F)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              )
+            : null,
+        color: isChild ? null : AppColors.brandPurple,
+        image: isChild
+            ? null
+            : const DecorationImage(
+                image: AssetImage(kMhEcardBackground),
+                fit: BoxFit.cover,
+              ),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -55,18 +73,6 @@ class MhEcard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          Positioned(
-            right: -60,
-            top: 30,
-            child: Transform.rotate(
-              angle: 0.42,
-              child: Container(
-                width: 220,
-                height: 170,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -180,10 +186,10 @@ class _MiniLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Opacity(
-      opacity: 0.9,
+      opacity: 0.95,
       child: Image.asset(
-        'assets/images/logo_officiel_mh.png', // version blanche, fond dégradé
-        height: 20,
+        kMhLogoWhite, // logo blanc MHC (charte V3)
+        height: 24,
         fit: BoxFit.contain,
         errorBuilder: (_, __, ___) => const Text(
           'MOBILITY\nHealthCare',

@@ -81,6 +81,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     final auth = context.read<AuthProvider>();
     if (auth.loading) return;
+    if (_usernameController.text.trim().isEmpty ||
+        _passwordController.text.isEmpty) {
+      setState(() => _errorMessage =
+          'Veuillez saisir votre adresse e-mail et votre mot de passe.');
+      return;
+    }
     setState(() => _errorMessage = null);
 
     try {
@@ -185,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
             const SizedBox(height: 4),
-            const MHLogoHeader(height: 56, compact: true),
+            const MHLogoHeader(compact: true),
             const SizedBox(height: 18),
             Expanded(
               child: SingleChildScrollView(
@@ -318,11 +324,6 @@ class _LoginScreenState extends State<LoginScreen> {
           textInputAction: TextInputAction.next,
           enabled: !loading,
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Voyageurs : e-mail. Administrateurs : nom d\'utilisateur.',
-          style: GoogleFonts.poppins(fontSize: 11, color: AppColors.mutedText),
-        ),
       ],
     );
   }
@@ -359,61 +360,20 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildProtectionCard() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3EEF9),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.verified_user_outlined,
-              color: AppColors.secondary, size: 26),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Vos données sont protégées',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.secondary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Nous utilisons un chiffrement de niveau bancaire\n'
-                  'pour sécuriser vos informations.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildProtectionCard() => const MhProtectionCard();
 
   Widget _buildRegisterLink(bool loading) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Flexible(
-          child: Text(
-            'Vous n\'avez pas encore de compte ?',
-            style: GoogleFonts.poppins(
-                color: Colors.black87, fontSize: 11.5),
-          ),
+        Text(
+          'Vous n\'avez pas de compte ?',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(color: Colors.black87, fontSize: 12),
         ),
+        const SizedBox(height: 2),
         TextButton(
-          onPressed: loading ? null : () => context.push('/register'),
+          onPressed: loading ? null : () => context.go('/register'),
           style: TextButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             minimumSize: Size.zero,
@@ -425,14 +385,14 @@ class _LoginScreenState extends State<LoginScreen> {
               Text(
                 'Créer un compte',
                 style: GoogleFonts.poppins(
-                  color: AppColors.brandTeal,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
+                  color: AppColors.secondary,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(width: 3),
               const Icon(Icons.arrow_forward,
-                  size: 13, color: AppColors.brandTeal),
+                  size: 14, color: AppColors.secondary),
             ],
           ),
         ),

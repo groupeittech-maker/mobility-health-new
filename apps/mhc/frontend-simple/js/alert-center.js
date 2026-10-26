@@ -159,10 +159,14 @@
                 '<div class="dp-row"><span class="k">📎</span><span class="v">' + (x.titre || x.filename || x.numero || 'Document') + '</span></div>'
             ).join('') : '<div class="muted" style="font-size:0.74rem">Aucun document</div>');
 
-        document.getElementById('dpActions').innerHTML =
-            '<a class="btn btn-primary" href="alert-detail.html?id=' + id + '" style="text-decoration:none;text-align:center">✓ Traiter l\'alerte</a>' +
+        const canEdit = window.MhPermissions
+            ? window.MhPermissions.can('alerte_sos', 'edition')
+            : true;
+        document.getElementById('dpActions').innerHTML = canEdit
+            ? '<a class="btn btn-primary" href="alert-detail.html?id=' + id + '" style="text-decoration:none;text-align:center">✓ Traiter l\'alerte</a>' +
             '<button class="btn btn-outline" onclick="askInfo(' + id + ')">Demander des informations</button>' +
-            '<button class="btn btn-danger" onclick="refuseAlert(' + id + ')">Refuser la prise en charge</button>';
+            '<button class="btn btn-danger" onclick="refuseAlert(' + id + ')">Refuser la prise en charge</button>'
+            : '<a class="btn btn-outline" href="alert-detail.html?id=' + id + '" style="text-decoration:none;text-align:center">Voir le détail</a>';
     };
 
     window.closePanel = function () {

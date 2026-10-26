@@ -218,7 +218,7 @@ def _build_garanties_table_flowable(garanties_list: List[Dict[str, Any]], normal
 def _build_logo_header_flowable(souscription: Souscription):
     """
     Construit l'en-tête des documents de police : logo de l'ASSUREUR à GAUCHE
-    (exigence référentiel), logo Mobility Health à droite.
+    (exigence référentiel), logo Mobility Health Care à droite.
     Retourne un flowable (Table) à insérer en haut des documents.
     """
     logo_w, logo_h = 3.5 * cm, 1.2 * cm
@@ -238,13 +238,13 @@ def _build_logo_header_flowable(souscription: Souscription):
             right_flowable = Image(mobility_io, width=logo_w, height=logo_h, kind="proportional")
         except Exception:
             _styles = getSampleStyleSheet()
-            right_flowable = Paragraph("<i>Mobility Health</i>", _styles["Normal"])
+            right_flowable = Paragraph("<i>Mobility Health Care</i>", _styles["Normal"])
     if not left_flowable:
         # Pas de logo assureur disponible : réserver l'emplacement à gauche.
         left_flowable = Spacer(1, logo_w)
     if not right_flowable:
         _styles = getSampleStyleSheet()
-        right_flowable = Paragraph("<i>Mobility Health</i>", _styles["Normal"])
+        right_flowable = Paragraph("<i>Mobility Health Care</i>", _styles["Normal"])
     col_widths = [9 * cm, 9 * cm]
     t = Table([[left_flowable, right_flowable]], colWidths=col_widths)
     t.setStyle(TableStyle([
@@ -446,7 +446,7 @@ def _build_conditions_context(
         "duree_voyage": duree_voyage,
         "compagnie_assurance": nom_compagnie,
         "siege_social": siege_social,
-        "intermediaire": "Mobility Health",
+        "intermediaire": "Mobility Health Care",
         "nom_assure": nom_assure,
         "date_et_lieu_naissance": date_et_lieu_naissance,
         "date_naissance": date_naissance_str,
@@ -535,7 +535,7 @@ class PDFService:
         produit = getattr(souscription, "produit_assurance", None)
         projet = getattr(souscription, "projet_voyage", None)
         
-        assurance_name = settings.ASSURANCE_NAME or (produit.assureur if produit else None) or "Mobility Health"
+        assurance_name = settings.ASSURANCE_NAME or (produit.assureur if produit else None) or "Mobility Health Care"
         assurance_address = settings.ASSURANCE_ADDRESS or "Adresse non renseignée"
         assurance_phone = settings.ASSURANCE_PHONE or "N/A"
         assurance_email = settings.ASSURANCE_EMAIL or settings.SMTP_FROM_EMAIL
@@ -608,7 +608,7 @@ class PDFService:
             spaceAfter=8
         )
         
-        # Logos : Mobility Health (gauche), Assureur (droite)
+        # Logos : Mobility Health Care (gauche), Assureur (droite)
         story.append(_build_logo_header_flowable(souscription))
         story.append(Spacer(1, 0.4*cm))
         
@@ -810,7 +810,7 @@ class PDFService:
             spaceAfter=8
         )
         
-        # Logos : Mobility Health (gauche), Assureur (droite)
+        # Logos : Mobility Health Care (gauche), Assureur (droite)
         story.append(_build_logo_header_flowable(souscription))
         story.append(Spacer(1, 0.4*cm))
         

@@ -37,16 +37,6 @@ async function loadProductDetail(productId) {
     try {
         const product = await apiCall(`/products/${productId}`);
 
-        let guarantees = [];
-        if (product.garanties) {
-            try {
-                guarantees = typeof product.garanties === 'string' ? JSON.parse(product.garanties) : product.garanties;
-            } catch (e) {
-                guarantees = product.garanties.split(',').map((g) => ({ titre: g.trim() }));
-            }
-        }
-        if (!Array.isArray(guarantees)) guarantees = [];
-
         let conditions = '';
         if (product.conditions) {
             try {
@@ -63,40 +53,13 @@ async function loadProductDetail(productId) {
 
         const productCur = product.currency;
 
-        function formatGarantieCapitaux(g) {
-            const raw = g.capitaux ?? g.plafond ?? g.description;
-            if (raw == null || raw === '') return '—';
-            if (typeof raw === 'number' && Number.isFinite(raw)) {
-                return formatPrice(raw, productCur);
-            }
-            const str = String(raw).trim();
-            if (!str) return '—';
-            const compact = str.replace(/[\s\u00a0\u202f]/g, '').replace(/,/g, '');
-            if (/^\d+$/.test(compact)) {
-                return formatPrice(Number(compact), productCur);
-            }
-            return escapeHtml(str);
-        }
-
-        const garantiesTable =
-            guarantees.length > 0
-                ? `
+        // Tableau officiel « Conditions de couverture » (DOCX revue app) —
+        // affiché pour tous les produits, indépendamment des données saisies.
+        const garantiesTable = `
             <div class="product-section">
-                <h2>Garanties</h2>
-                <table class="product-detail-table">
-                    <thead><tr><th>Garanties</th><th>Capitaux</th></tr></thead>
-                    <tbody>
-                        ${guarantees
-                            .map((g) => {
-                                const lib = g.titre || g.nom || g.libelle || g.garantie || 'Garantie';
-                                const cap = formatGarantieCapitaux(g);
-                                return `<tr><td>${escapeHtml(lib)}</td><td>${cap}</td></tr>`;
-                            })
-                            .join('')}
-                    </tbody>
-                </table>
-            </div>`
-                : '';
+                <h2>Conditions de couverture</h2>
+                ${typeof mhcRenderOfficialGaranties === 'function' ? mhcRenderOfficialGaranties() : ''}
+            </div>`;
 
         const pg = product.primes_generees || {};
         const hasPrimes = [pg.prime_nette, pg.accessoire, pg.taxes, pg.prime_total].some((v) => v != null && v !== '');
@@ -121,7 +84,7 @@ async function loadProductDetail(productId) {
                 <h2>Caractéristiques du produit</h2>
                 <table class="product-detail-table">
                     <tbody>
-                        <tr><td>Assureur</td><td>${escapeHtml(product.assureur || 'Mobility Health')}</td></tr>
+                        <tr><td>Assureur</td><td>${escapeHtml(product.assureur || 'Mobility Health Care')}</td></tr>
                         <tr><td>Validité</td><td>${product.duree_validite_jours ? product.duree_validite_jours + ' jours' : 'Selon le contrat'}</td></tr>
                         <tr><td>Zones couvertes</td><td>${escapeHtml(zones)}</td></tr>
                         <tr><td>Prix</td><td>${formatPrice(product.cout, productCur)}</td></tr>
@@ -130,25 +93,12 @@ async function loadProductDetail(productId) {
                 </table>
             </div>`;
 
-        const formatExclusionItem = (x) => {
-            if (x && typeof x === 'object') {
-                const ref = String(x.reference ?? x.cle ?? x.libelle ?? '').trim();
-                const exc = String(x.exclusion ?? x.valeur ?? x.description ?? '').trim();
-                if (ref && exc) return `${ref} — ${exc}`;
-                return ref || exc || JSON.stringify(x);
-            }
-            return String(x);
-        };
-        const exclusionsSection =
-            product.exclusions_generales && Array.isArray(product.exclusions_generales) && product.exclusions_generales.length > 0
-                ? `
+        // Les 19 exclusions officielles (DOCX revue app).
+        const exclusionsSection = `
             <div class="product-section">
-                <h2>Exclusions</h2>
-                <ul class="guarantees-list">
-                    ${product.exclusions_generales.map((x) => `<li>${escapeHtml(formatExclusionItem(x))}</li>`).join('')}
-                </ul>
-            </div>`
-                : '';
+                <h2>Exclusions générales</h2>
+                ${typeof mhcRenderOfficialExclusions === 'function' ? mhcRenderOfficialExclusions() : ''}
+            </div>`;
 
         const conditionsSection = conditions
             ? `

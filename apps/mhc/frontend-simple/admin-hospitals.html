@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestion des hôpitaux - Mobility Health</title>
+    <title>Gestion des hôpitaux - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/admin.css">
     <script>
@@ -82,7 +82,7 @@
         data-leaflet-cdn="true"
         onerror="window.__ensureLeafletCssFallback && window.__ensureLeafletCssFallback()"
     >
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
 </head>
 <body data-backoffice>
     <nav class="navbar">
@@ -112,11 +112,68 @@
                 <h2>Gestion des hôpitaux</h2>
                 <p class="muted">Créer un hôpital, choisir son médecin référent et assigner les équipes de réception et de comptabilité.</p>
             </div>
-            <button class="btn btn-outline" id="resetFormBtn">Nouvel hôpital</button>
+            <button class="btn btn-primary" id="resetFormBtn" data-requires-permission="comptes_partenaires_sante:edition">+ Nouvel hôpital</button>
         </div>
 
         <section class="dashboard-section">
-            <h3 id="formTitle">Créer un nouvel hôpital</h3>
+            <div class="table-toolbar">
+                <div>
+                    <h3>Hôpitaux enregistrés</h3>
+                    <p class="muted">Les hôpitaux apparaissent automatiquement sur la carte.</p>
+                </div>
+                <div class="toolbar-actions" style="display: flex; align-items: center; gap: 0.75rem;">
+                    <label for="searchHospitals" class="sr-only">Rechercher</label>
+                    <input type="search" id="searchHospitals" class="search-input" placeholder="Rechercher nom, ville, pays, contact..." aria-label="Rechercher dans les hôpitaux" style="max-width: 280px;">
+                    <button class="btn btn-outline btn-sm" id="refreshHospitalsBtn">Actualiser</button>
+                </div>
+            </div>
+
+            <div class="bo-tabs">
+                <button type="button" class="bo-tab active" data-tab="tab-hospitals-list">Liste</button>
+                <button type="button" class="bo-tab" data-tab="tab-hospitals-map">Carte</button>
+            </div>
+
+            <div class="bo-tab-panel active" id="tab-hospitals-list">
+                <div class="table-wrapper">
+                    <table class="data-table" id="hospitalsTable">
+                        <thead>
+                            <tr>
+                                <th>Hôpital</th>
+                                <th>Médecin référent</th>
+                                <th>Réception</th>
+                                <th>Comptabilité</th>
+                                <th>Contact</th>
+                                <th>Localisation</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hospitalsTableBody">
+                        </tbody>
+                    </table>
+                    <div id="hospitalsEmptyState" class="empty-state" hidden>
+                        <div class="empty-state-icon">🏥</div>
+                        <p>Aucun hôpital enregistré pour le moment.</p>
+                        <p class="muted">Cliquez sur « Nouvel hôpital » pour en ajouter un.</p>
+                    </div>
+                    <div id="hospitalsPagination" class="table-pagination-wrapper" hidden></div>
+                </div>
+            </div>
+
+            <div class="bo-tab-panel" id="tab-hospitals-map">
+                <div class="dashboard-section map-section">
+                    <div id="hospitalsMap" class="alerts-map"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal création/édition hôpital -->
+    <div class="bo-modal-backdrop" id="hospitalModal">
+        <div class="bo-modal wide">
+            <div class="bo-modal-head">
+                <h3 id="formTitle">Créer un nouvel hôpital</h3>
+                <button type="button" class="bo-modal-close" id="hospitalModalClose">&times;</button>
+            </div>
             <form id="hospitalForm" class="hospital-form">
                 <div class="hospital-form-grid">
                     <div class="form-group">
@@ -187,59 +244,82 @@
 
                 <div class="map-card" id="hospitalCreateMap"></div>
 
-                <div class="form-actions">
-                    <button type="submit" class="btn" id="submitBtn">Enregistrer</button>
-                    <button type="button" class="btn btn-outline" id="cancelEditBtn" hidden>Annuler</button>
+                <div class="bo-modal-actions">
+                    <button type="button" class="btn-outline" id="cancelEditBtn">Annuler</button>
+                    <button type="submit" class="btn-primary" id="submitBtn">Enregistrer</button>
                 </div>
             </form>
-        </section>
+        </div>
+    </div>
 
-        <section class="dashboard-section">
-            <div class="table-toolbar">
+    <!-- Modal tarifs médicaux de l'hôpital -->
+    <div id="tarifsModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width: 860px;">
+            <div class="modal-header">
                 <div>
-                    <h3>Hôpitaux enregistrés</h3>
-                    <p class="muted">Les hôpitaux apparaissent automatiquement sur la carte.</p>
+                    <p class="section-index text-muted">Paramétrage</p>
+                    <h3 id="tarifsModalTitle">Tarifs médicaux</h3>
                 </div>
-                <div class="toolbar-actions" style="display: flex; align-items: center; gap: 0.75rem;">
-                    <label for="searchHospitals" class="sr-only">Rechercher</label>
-                    <input type="search" id="searchHospitals" class="search-input" placeholder="Rechercher nom, ville, pays, contact..." aria-label="Rechercher dans les hôpitaux" style="max-width: 280px;">
-                    <button class="btn btn-outline btn-sm" id="refreshHospitalsBtn">Actualiser</button>
-                </div>
+                <button type="button" class="close" id="closeTarifsModalBtn" aria-label="Fermer">&times;</button>
             </div>
+            <p class="text-muted small" style="margin: 0 0 1rem;">
+                Catalogue des actes et examens facturables de l'établissement. Ces tarifs alimentent la facturation des séjours.
+            </p>
+            <div id="tarifsAlert" class="text-muted small" style="margin-bottom: 0.75rem;"></div>
 
-            <div class="dashboard-section map-section">
-                <div id="hospitalsMap" class="alerts-map"></div>
-            </div>
+            <div class="form-grid two-col">
+                <section>
+                    <h4 style="margin-bottom: 0.5rem;">Actes médicaux</h4>
+                    <form id="actTarifForm" class="form-grid" style="grid-template-columns: 1fr 120px auto; gap: 0.5rem; align-items: end;">
+                        <div class="form-group" style="margin: 0;">
+                            <label for="actNomInput" class="sr-only">Nom de l'acte</label>
+                            <input type="text" id="actNomInput" placeholder="Acte (ex. Consultation)" required>
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label for="actMontantInput" class="sr-only">Montant</label>
+                            <input type="number" id="actMontantInput" placeholder="Montant" min="0" step="1" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">+ Ajouter</button>
+                    </form>
+                    <div class="tarifs-prime-table-wrap" style="margin-top: 0.75rem; max-height: 320px; overflow-y: auto;">
+                        <table class="tarifs-prime-table">
+                            <thead>
+                                <tr><th>Acte</th><th>Montant</th><th></th></tr>
+                            </thead>
+                            <tbody id="actTarifsBody"></tbody>
+                        </table>
+                    </div>
+                </section>
 
-            <div class="table-wrapper">
-                <table class="data-table" id="hospitalsTable">
-                    <thead>
-                        <tr>
-                            <th>Hôpital</th>
-                            <th>Médecin référent</th>
-                            <th>Réception</th>
-                            <th>Comptabilité</th>
-                            <th>Contact</th>
-                            <th>Localisation</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="hospitalsTableBody">
-                    </tbody>
-                </table>
-                <div id="hospitalsEmptyState" class="empty-state" hidden>
-                    <div class="empty-state-icon">🏥</div>
-                    <p>Aucun hôpital enregistré pour le moment.</p>
-                    <p class="muted">Utilisez le formulaire ci-dessus pour en ajouter un.</p>
-                </div>
-                <div id="hospitalsPagination" class="table-pagination-wrapper" hidden></div>
+                <section>
+                    <h4 style="margin-bottom: 0.5rem;">Examens</h4>
+                    <form id="examTarifForm" class="form-grid" style="grid-template-columns: 1fr 120px auto; gap: 0.5rem; align-items: end;">
+                        <div class="form-group" style="margin: 0;">
+                            <label for="examNomInput" class="sr-only">Nom de l'examen</label>
+                            <input type="text" id="examNomInput" placeholder="Examen (ex. Radio)" required>
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label for="examMontantInput" class="sr-only">Montant</label>
+                            <input type="number" id="examMontantInput" placeholder="Montant" min="0" step="1" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">+ Ajouter</button>
+                    </form>
+                    <div class="tarifs-prime-table-wrap" style="margin-top: 0.75rem; max-height: 320px; overflow-y: auto;">
+                        <table class="tarifs-prime-table">
+                            <thead>
+                                <tr><th>Examen</th><th>Montant</th><th></th></tr>
+                            </thead>
+                            <tbody id="examTarifsBody"></tbody>
+                        </table>
+                    </div>
+                </section>
             </div>
-        </section>
-    </main>
+        </div>
+    </div>
 
     <footer>
         <div class="container">
-            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+            <p>&copy; 2024 Mobility Health Care. Tous droits réservés.</p>
         </div>
     </footer>
 
@@ -250,12 +330,12 @@
         onload="window.__handleLeafletLoaded && window.__handleLeafletLoaded()"
         onerror="window.__loadLeafletFallback && window.__loadLeafletFallback()"
     ></script>
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js?v=2"></script>
-    <script src="js/admin-hospitals.js?v=2"></script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/admin-hospitals.js?v=6"></script>
     <script src="js/table-scrollbar-fix.js?v=2"></script>
-    <script src="js/permissions.js?v=2"></script>
-    <script src="js/backoffice-nav.js?v=2"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
 </body>
 </html>
 

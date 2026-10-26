@@ -9,6 +9,14 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 RESAMPLE_METHOD = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
 
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+
+# Répertoires d'assets livrés dans l'image (frontend-simple) + repli mobile.
+_ASSETS_DIRS = [
+    os.path.join(_ROOT_DIR, "frontend-simple", "assets"),
+    os.path.join(_ROOT_DIR, "mobile-app", "assets", "images"),
+]
+
 # Chemin vers le logo (relatif au répertoire du projet)
 LOGO_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
@@ -48,12 +56,14 @@ class CardService:
         "assets",
         "card-pattern-teal.png",
     )
-    CARD_BACKGROUND_PATH = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        "frontend-simple",
-        "assets",
-        "card-background.jpg",
-    )
+    # Fond de carte officiel du kit (fond_carte_mhc.jpg) ; card-background.jpg
+    # reste en repli pour les anciens déploiements.
+    CARD_BACKGROUND_CANDIDATES = [
+        os.path.join(d, name)
+        for name in ("fond_carte_mhc.jpg", "card-background.jpg")
+        for d in _ASSETS_DIRS
+    ]
+    CARD_BACKGROUND_PATH = CARD_BACKGROUND_CANDIDATES[0]
 
     # Chemins vers les logos
     NSIA_LOGO_PATH = os.path.join(
@@ -64,6 +74,9 @@ class CardService:
     )
     _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     MOBILITY_LOGO_CANDIDATES = [
+        # Logo MyMHC blanc (kit officiel) — prévu pour le fond violet de la carte.
+        os.path.join(_ROOT, "frontend-simple", "assets", "logo_mhc_blanc.png"),
+        os.path.join(_ROOT, "mobile-app", "assets", "images", "logo_mhc_blanc.png"),
         os.path.join(_ROOT, "frontend-simple", "assets", "logo_officiel_mh.png"),
         os.path.join(_ROOT, "mobile-app", "assets", "images", "logo_officiel_mh.png"),
         os.path.join(_ROOT, "frontend-simple", "assets", "logo_officiel_mh.jpg"),
@@ -485,12 +498,13 @@ class CardService:
     def _create_card_background(cls) -> Image.Image:
         """Fond maquette officiel (card-background.jpg) redimensionné à la taille e-carte."""
         width, height = cls.WIDTH, cls.HEIGHT
-        if os.path.isfile(cls.CARD_BACKGROUND_PATH):
-            try:
-                with Image.open(cls.CARD_BACKGROUND_PATH) as source:
-                    return ImageOps.fit(source.convert("RGB"), (width, height), method=RESAMPLE_METHOD)
-            except Exception:
-                pass
+        for path in cls.CARD_BACKGROUND_CANDIDATES:
+            if os.path.isfile(path):
+                try:
+                    with Image.open(path) as source:
+                        return ImageOps.fit(source.convert("RGB"), (width, height), method=RESAMPLE_METHOD)
+                except Exception:
+                    continue
         return cls._create_card_background_fallback()
 
     @classmethod

@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Paiements sortants — Mobility Health</title>
+    <title>Paiements sortants — Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
     <style>
         .fo-page { padding: 1.2rem 1.4rem 3rem; }
         .fo-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
@@ -62,6 +62,21 @@
             </table>
         </div>
 
+        <div class="card" id="remboursements" style="display:none">
+            <div class="card-h" style="display:flex;align-items:center;gap:.8rem;">
+                <span>Remboursements de prime (ristournes)</span>
+                <select id="fRistourne" style="margin-left:auto;border:1px solid #e2e4f0;border-radius:.55rem;padding:.35rem .6rem;font-size:.75rem;">
+                    <option value="a_rembourser">À rembourser</option>
+                    <option value="rembourse">Remboursés</option>
+                    <option value="">Tous</option>
+                </select>
+            </div>
+            <table>
+                <thead><tr><th>Créé le</th><th>Souscription</th><th>Motif</th><th>Prime</th><th>Frais de police</th><th>Taxes</th><th>Total</th><th>Statut</th><th>Actions</th></tr></thead>
+                <tbody id="ristournesBody"><tr><td colspan="9" style="color:#8a8fa3">—</td></tr></tbody>
+            </table>
+        </div>
+
         <div class="card">
             <div class="card-h">Dossiers non réglés (rapprochement)</div>
             <table>
@@ -70,12 +85,50 @@
             </table>
         </div>
     </main>
+
+    <div class="bo-modal-backdrop" id="payModal">
+        <div class="bo-modal">
+            <div class="bo-modal-head">
+                <h3>Nouveau paiement sortant</h3>
+                <button type="button" class="bo-modal-close" id="payModalClose" aria-label="Fermer">&times;</button>
+            </div>
+            <form id="payForm" novalidate>
+                <div class="fgrid">
+                    <div class="form-group">
+                        <label for="mType">Type de flux *</label>
+                        <select id="mType" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mMontant">Montant (FCFA) *</label>
+                        <input type="number" id="mMontant" min="1" step="1" required placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="mBeneficiaire">Bénéficiaire</label>
+                        <input type="text" id="mBeneficiaire" placeholder="Nom du bénéficiaire">
+                    </div>
+                    <div class="form-group">
+                        <label for="mPeriode">Période</label>
+                        <input type="month" id="mPeriode">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="mDescription">Description</label>
+                        <input type="text" id="mDescription" placeholder="Motif du paiement (optionnel)">
+                    </div>
+                </div>
+                <div class="bo-modal-actions">
+                    <button type="button" class="btn btn-outline" id="payModalCancel">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="toast" id="toast"></div>
 
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js?v=2"></script>
-    <script src="js/permissions.js?v=2"></script>
-    <script src="js/backoffice-nav.js?v=2"></script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
     <script>
         const $ = id => document.getElementById(id);
         const esc = v => { const d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; };
@@ -89,6 +142,16 @@
             facture_hopital: 'Facture hôpital',
         };
         const STATUT_LABELS = { a_payer: 'À payer', controle: 'Contrôlé', paye: 'Payé', annule: 'Annulé' };
+        const TYPE_FEATURES = {
+            cession_reassurance: 'paiement_cession_reassurance', retention_assureur: 'paiement_retention_assureur',
+            commission_cession: 'paiement_commission_cession', commission_courtage: 'paiement_commission_courtage',
+            cout_police: 'paiement_cout_police', taxe: 'paiement_taxe', taxe_additionnelle: 'paiement_taxe_additionnelle',
+            retrocession_mhc: 'retrocession_mhc', quote_part_sinistre_reassureur: 'paiement_sinistre',
+            facture_hopital: 'paiement_facture_hopital',
+        };
+        const canType = (t, lvl) => window.MhPermissions
+            ? window.MhPermissions.can(TYPE_FEATURES[t] || 'paiement_sinistre', lvl)
+            : true;
 
         function qs() {
             const p = new URLSearchParams();
@@ -109,9 +172,9 @@
                     <td>${esc(p.periode || '—')}</td>
                     <td><span class="badge b-${p.statut}">${STATUT_LABELS[p.statut] || p.statut}</span></td>
                     <td>
-                        ${p.statut === 'a_payer' ? `<button class="btn btn-c" data-act="control:${p.id}">Contrôler</button>` : ''}
-                        ${(p.statut === 'a_payer' || p.statut === 'controle') ? `<button class="btn btn-p" data-act="pay:${p.id}">Payer</button>` : ''}
-                        ${p.statut !== 'paye' && p.statut !== 'annule' ? `<button class="btn btn-x" data-act="cancel:${p.id}">Annuler</button>` : ''}
+                        ${p.statut === 'a_payer' && canType(p.type_paiement, 'controle') ? `<button class="btn btn-c" data-act="control:${p.id}">Contrôler</button>` : ''}
+                        ${(p.statut === 'a_payer' || p.statut === 'controle') && canType(p.type_paiement, 'edition') ? `<button class="btn btn-p" data-act="pay:${p.id}">Payer</button>` : ''}
+                        ${p.statut !== 'paye' && p.statut !== 'annule' && canType(p.type_paiement, 'edition') ? `<button class="btn btn-x" data-act="cancel:${p.id}">Annuler</button>` : ''}
                     </td>
                 </tr>`).join('') || '<tr><td colspan="7" style="color:#8a8fa3">Aucun flux</td></tr>';
             document.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', async () => {
@@ -132,21 +195,100 @@
             } catch (_) { /* permission insuffisante pour le rapprochement */ }
         }
 
+        // Ristournes : calculées par MyMHC (annulation, modification à la baisse),
+        // confirmées ici une fois le remboursement effectué → quittance de ristourne (120).
+        const RISTOURNE_LABELS = { a_rembourser: 'À rembourser', rembourse: 'Remboursé' };
+        const RISTOURNE_MOYENS = { mobile_money: 'Mobile Money', virement: 'Virement', carte: 'Carte', autre: 'Autre' };
+        const canRefund = lvl => window.MhPermissions ? window.MhPermissions.can('remboursement', lvl) : true;
+
+        async function loadRistournes() {
+            if (!canRefund('consultation')) return;
+            $('remboursements').style.display = '';
+            const statut = $('fRistourne').value;
+            let list = [];
+            try { list = await apiCall('/ristournes' + (statut ? `?statut=${statut}` : '')); }
+            catch (e) { $('ristournesBody').innerHTML = `<tr><td colspan="9" style="color:#c81e1e">${esc(e.message || 'Erreur')}</td></tr>`; return; }
+            const moyens = Object.entries(RISTOURNE_MOYENS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+            $('ristournesBody').innerHTML = (list || []).map(r => `
+                <tr>
+                    <td>${esc((r.created_at || '').slice(0, 10))}</td>
+                    <td>#${esc(r.souscription_id)}</td>
+                    <td>${esc(r.motif || '—')}</td>
+                    <td>${fmt(Number(r.montant_prime))}</td>
+                    <td>${fmt(Number(r.montant_frais_police))}</td>
+                    <td>${fmt(Number(r.montant_taxes))}</td>
+                    <td><strong>${fmt(Number(r.montant_total))} ${esc(r.devise)}</strong></td>
+                    <td><span class="badge ${r.statut === 'rembourse' ? 'b-paye' : 'b-a_payer'}">${RISTOURNE_LABELS[r.statut] || r.statut}</span>${r.numero ? `<div style="font-size:.7rem;color:#8a8fa3">${esc(r.numero)}</div>` : ''}</td>
+                    <td>
+                        ${r.statut === 'a_rembourser' && canRefund('edition') ? `
+                            <select id="moyen-${r.id}" style="font-size:.72rem;border:1px solid #e2e4f0;border-radius:.4rem;padding:.2rem;">${moyens}</select>
+                            <input id="ref-${r.id}" placeholder="Réf. opération" style="font-size:.72rem;border:1px solid #e2e4f0;border-radius:.4rem;padding:.2rem;width:7rem;">
+                            <button class="btn btn-p" data-ristourne="${r.id}">Confirmer le remboursement</button>` : ''}
+                        ${r.statut === 'rembourse' ? `<button class="btn btn-c" data-quittance="${r.id}">Quittance</button>` : ''}
+                    </td>
+                </tr>`).join('') || '<tr><td colspan="9" style="color:#8a8fa3">Aucun remboursement</td></tr>';
+            document.querySelectorAll('[data-ristourne]').forEach(b => b.addEventListener('click', async () => {
+                const id = b.dataset.ristourne;
+                if (!confirm('Confirmer que ce remboursement a été effectué ? La quittance de ristourne sera générée.')) return;
+                try {
+                    await apiCall(`/ristournes/${id}/confirmer`, { method: 'POST', body: JSON.stringify({
+                        moyen_remboursement: $(`moyen-${id}`).value, reference: $(`ref-${id}`).value || null,
+                    }) });
+                    toast('Remboursement confirmé — quittance générée'); loadRistournes();
+                } catch (e) { toast(e.message || 'Erreur', true); }
+            }));
+            document.querySelectorAll('[data-quittance]').forEach(b => b.addEventListener('click', async () => {
+                const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+                try {
+                    const res = await fetch(`${API_BASE_URL}/ristournes/${b.dataset.quittance}/download`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                    if (!res.ok) throw new Error('Quittance indisponible');
+                    window.open(URL.createObjectURL(await res.blob()), '_blank', 'noopener');
+                } catch (e) { toast(e.message, true); }
+            }));
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             if (!(await requireBackoffice('index.html'))) return;
+            $('fRistourne').addEventListener('change', loadRistournes);
+            loadRistournes();
+            if (location.hash === '#remboursements') setTimeout(() => $('remboursements').scrollIntoView({ behavior: 'smooth' }), 300);
             $('fType').innerHTML = '<option value="">Tous les flux</option>' +
-                Object.entries(TYPE_LABELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+                Object.entries(TYPE_LABELS).filter(([k]) => canType(k, 'consultation')).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
             ['fType', 'fStatut', 'fPeriode'].forEach(id => $(id).addEventListener('change', load));
-            $('btnNew').addEventListener('click', async () => {
-                const type = prompt('Type de flux :\n' + Object.entries(TYPE_LABELS).map(([k, v], i) => `${i + 1}. ${v}`).join('\n'), 'cession_reassurance');
-                if (!type || !TYPE_LABELS[type]) return;
-                const montant = parseFloat(prompt('Montant :', '0'));
-                if (!montant) return;
-                const beneficiaire_nom = prompt('Bénéficiaire :') || null;
+            const editableTypes = Object.keys(TYPE_LABELS).filter(t => canType(t, 'edition'));
+            $('mType').innerHTML = editableTypes.map(k => `<option value="${k}">${TYPE_LABELS[k]}</option>`).join('');
+            $('btnNew').style.display = editableTypes.length ? '' : 'none';
+
+            const openModal = () => {
+                $('payModal').classList.add('open');
+                $('mPeriode').value = $('fPeriode').value || '';
+            };
+            const closeModal = () => {
+                $('payModal').classList.remove('open');
+                $('payForm').reset();
+            };
+            $('btnNew').addEventListener('click', () => {
+                if (!editableTypes.length) { toast('Aucun type de flux en édition pour votre profil', true); return; }
+                openModal();
+            });
+            $('payModalClose').addEventListener('click', closeModal);
+            $('payModalCancel').addEventListener('click', closeModal);
+            $('payModal').addEventListener('click', e => { if (e.target === $('payModal')) closeModal(); });
+            $('payForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const montant = parseFloat($('mMontant').value);
+                if (!montant || montant <= 0) { toast('Montant invalide', true); return; }
                 try {
-                    await apiCall('/finance/outbound', { method: 'POST', body: JSON.stringify({ type_paiement: type, beneficiaire_type: 'autre', beneficiaire_nom, montant, periode: $('fPeriode').value || null }) });
-                    toast('Paiement créé'); load();
-                } catch (e) { toast(e.message || 'Erreur', true); }
+                    await apiCall('/finance/outbound', { method: 'POST', body: JSON.stringify({
+                        type_paiement: $('mType').value,
+                        beneficiaire_type: 'autre',
+                        beneficiaire_nom: $('mBeneficiaire').value || null,
+                        montant,
+                        periode: $('mPeriode').value || null,
+                        description: $('mDescription').value || null,
+                    }) });
+                    toast('Paiement créé'); closeModal(); load();
+                } catch (err) { toast(err.message || 'Erreur', true); }
             });
             load();
         });

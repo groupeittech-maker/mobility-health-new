@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => AuthProvider(),
       child: MaterialApp.router(
-        title: 'Mobility Health',
+        title: 'Mobility Health Care',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         locale: const Locale('fr'),

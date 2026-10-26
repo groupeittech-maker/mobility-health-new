@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
-        android:label="mobility_health_mobile"
+        android:label="MyMHC"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:networkSecurityConfig="@xml/network_security_config">

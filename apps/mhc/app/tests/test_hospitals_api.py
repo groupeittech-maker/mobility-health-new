@@ -164,6 +164,7 @@ class TestHospitalAPI:
         hospital_doctor
     ):
         hospital_doctor.hospital_id = None
+        hospital_doctor.role = Role.MEDECIN_HOPITAL
         db.commit()
         db.refresh(hospital_doctor)
 

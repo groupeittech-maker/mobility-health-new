@@ -140,6 +140,16 @@ body[data-backoffice] > nav.navbar {
     box-shadow: inset 2px 0 0 var(--bo-accent);
 }
 
+.bo-section {
+    margin: 0.45rem 0 0.15rem;
+    padding: 0 0.6rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: rgba(201, 196, 232, 0.55);
+}
+
 .bo-sidebar-foot {
     padding: 0.9rem 1.2rem;
     font-size: 0.68rem;
@@ -389,7 +399,7 @@ body[data-backoffice] > main {
 .bo-kpi-ico.slate { background: #eef0f6; color: #475569; }
 
 .bo-kpi .l { font-size: 0.72rem; color: #8a8fa3; line-height: 1.25; }
-.bo-kpi .v { font-size: 1.35rem; font-weight: 800; color: #1e1650; line-height: 1.1; }
+.bo-kpi .v { font-size: 1.05rem; font-weight: 700; color: #1e1650; line-height: 1.15; font-variant-numeric: tabular-nums; }
 .bo-kpi .trend { font-size: 0.68rem; font-weight: 600; margin-top: 0.15rem; }
 .bo-kpi .trend.up { color: #0a9b6c; }
 .bo-kpi .trend.down { color: #c81e1e; }
@@ -702,26 +712,77 @@ body[data-backoffice] {
     --soft-gradient: linear-gradient(135deg, #4e267c 0%, #6c5ce7 100%);
 }
 
-/* ---------- Tableaux ---------- */
+/* ---------- Tableaux — modèle de référence : page Réassureurs ----------
+   Carte blanche, en-tête gris clair (pas de dégradé), texte 0.8rem,
+   bordures fines. S'applique à .data-table et aux tables nues. */
 body[data-backoffice] main .data-table,
 body[data-backoffice] main table.data-table {
-    border-radius: 12px;
-    border: 1px solid #e6e8f2;
-    box-shadow: 0 1px 3px rgba(30, 22, 80, 0.07);
+    border-radius: 0.8rem;
+    border: 1px solid #eceef6;
+    box-shadow: none;
+    font-size: 0.8rem;
 }
 body[data-backoffice] main .data-table thead {
-    background: var(--accent-gradient);
+    background: transparent;
+}
+body[data-backoffice] main .data-table thead th,
+body[data-backoffice] main .data-table th {
+    text-align: left;
+    color: #8a8fa3;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid #f1f2f8;
+    white-space: nowrap;
+}
+body[data-backoffice] main .data-table td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid #f5f6fb;
+    vertical-align: middle;
+    color: #3a3560;
+    font-size: 0.8rem;
+    line-height: 1.4;
 }
 body[data-backoffice] main .data-table thead th {
-    padding: 0.8rem 1.1rem;
-    font-size: 0.75rem;
-}
-body[data-backoffice] main .data-table th,
-body[data-backoffice] main .data-table td {
-    padding: 0.8rem 1.1rem;
+    letter-spacing: 0.02em;
 }
 body[data-backoffice] main .data-table tbody tr:hover {
-    background: #f7f6fc;
+    background: #fafbff;
+}
+body[data-backoffice] main .data-table td.num,
+body[data-backoffice] main .data-table th.num {
+    font-weight: 600;
+    color: #1e1650;
+    white-space: nowrap;
+}
+/* Tables nues dans les cartes (même modèle) */
+body[data-backoffice] main table:not(.data-table):not(.bo-table):not(.bo-matrix):not(.tarifs-prime-table):not(.guarantees-edit-table) {
+    font-size: 0.8rem;
+}
+body[data-backoffice] main table:not(.data-table):not(.bo-table):not(.bo-matrix):not(.tarifs-prime-table):not(.guarantees-edit-table) th {
+    text-align: left;
+    color: #8a8fa3;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid #f1f2f8;
+}
+body[data-backoffice] main table:not(.data-table):not(.bo-table):not(.bo-matrix):not(.tarifs-prime-table):not(.guarantees-edit-table) td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid #f5f6fb;
+    vertical-align: middle;
+    color: #3a3560;
+}
+body[data-backoffice] main .tarifs-prime-table thead th,
+body[data-backoffice] main .tarifs-prime-table th {
+    color: #8a8fa3;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: transparent;
+}
+body[data-backoffice] main .tarifs-prime-table,
+body[data-backoffice] main .guarantees-edit-table {
+    font-size: 0.8rem;
 }
 
 /* ---------- Formulaires ---------- */
@@ -802,4 +863,622 @@ body[data-backoffice] main .section-heading h4 {
 }
 body[data-backoffice] main .dashboard-header h2 {
     color: #1e1650;
+}
+
+/* =====================================================================
+   Uniformisation typographique — même échelle de tailles que la page
+   référence "Paiements sortants" (titres 1.35rem, texte 0.78-0.85rem,
+   KPI 1.15-1.35rem, tables 0.8rem). Ces règles neutralisent les styles
+   hérités d'admin.css pour toute page <body data-backoffice>.
+   ===================================================================== */
+
+body[data-backoffice] main {
+    font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+    font-size: 0.85rem;
+    color: #3a3560;
+}
+
+body[data-backoffice] main h1,
+body[data-backoffice] main .dashboard-header h2 {
+    font-size: 1.35rem;
+    color: #1e1650;
+    margin: 0.1rem 0 0.3rem;
+}
+body[data-backoffice] main h2,
+body[data-backoffice] main .dashboard-section h3,
+body[data-backoffice] main .section-heading h3 {
+    font-size: 1rem;
+    color: #1e1650;
+    margin: 0 0 0.4rem;
+}
+body[data-backoffice] main h3,
+body[data-backoffice] main h4,
+body[data-backoffice] main .section-heading h4 {
+    font-size: 0.88rem;
+    color: #1e1650;
+}
+body[data-backoffice] main p,
+body[data-backoffice] main .dashboard-header > div > p,
+body[data-backoffice] main .dashboard-header p.text-muted {
+    font-size: 0.8rem;
+    color: #8a8fa3;
+}
+
+/* ---------- Cartes héritées admin.css → format compact ---------- */
+body[data-backoffice] main .stat-card {
+    background: #fff;
+    border: 1px solid #eceef6;
+    border-radius: 0.8rem;
+    padding: 0.9rem 1rem;
+    box-shadow: none;
+    text-align: left;
+}
+body[data-backoffice] main .stat-card:hover {
+    transform: none;
+    box-shadow: none;
+}
+body[data-backoffice] main .stat-card h3 {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #8a8fa3;
+    text-transform: none;
+    margin: 0 0 0.2rem;
+}
+body[data-backoffice] main .stat-card p {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1e1650;
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+body[data-backoffice] main .stat-card .btn {
+    margin-top: 0.5rem;
+}
+body[data-backoffice] main .dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 0.9rem;
+    margin-bottom: 1.2rem;
+}
+
+body[data-backoffice] main .dashboard-section,
+body[data-backoffice] main .section-heading {
+    margin-bottom: 1rem;
+}
+body[data-backoffice] main .dashboard-section {
+    background: #fff;
+    border: 1px solid #eceef6;
+    border-radius: 0.85rem;
+    padding: 1rem 1.1rem;
+    box-shadow: none;
+}
+body[data-backoffice] main .dashboard-section > h3 {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #1e1650;
+    margin: 0 0 0.7rem;
+}
+
+body[data-backoffice] main .action-card,
+body[data-backoffice] main .quick-actions .action-card {
+    border: 1px solid #eceef6;
+    border-radius: 0.7rem;
+    padding: 0.7rem 0.8rem;
+    text-decoration: none;
+    box-shadow: none;
+}
+body[data-backoffice] main .action-card:hover {
+    border-color: #6c5ce7;
+    transform: none;
+    box-shadow: 0 4px 14px rgba(108, 92, 231, 0.15);
+}
+body[data-backoffice] main .action-card h4 {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #1e1650;
+    margin: 0 0 0.25rem;
+}
+body[data-backoffice] main .action-card p {
+    font-size: 0.68rem;
+    color: #8a8fa3;
+    margin: 0;
+}
+body[data-backoffice] main .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.7rem;
+}
+
+/* ---------- Liens ---------- */
+body[data-backoffice] main a {
+    color: #6c5ce7;
+}
+body[data-backoffice] main a.btn {
+    color: inherit;
+}
+/* Les boutons remplis (liens <a class="btn btn-…">) gardent leur texte blanc —
+   la règle a.btn{color:inherit} ci-dessus rendrait le libellé illisible. */
+body[data-backoffice] main a.btn-primary,
+body[data-backoffice] main a.btn-secondary,
+body[data-backoffice] main a.btn-success,
+body[data-backoffice] main a.btn-danger {
+    color: #fff;
+}
+body[data-backoffice] main .act-link {
+    color: #6c5ce7;
+    font-weight: 600;
+    font-size: 0.74rem;
+    text-decoration: none;
+}
+
+/* =====================================================================
+   Modal partagé bo-modal — le formulaire n'apparaît plus dans la page,
+   il s'ouvre via le bouton "Nouveau" au-dessus de la liste.
+   ===================================================================== */
+.bo-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 15, 60, 0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 1.2rem;
+}
+.bo-modal-backdrop.open { display: flex; }
+.bo-modal {
+    background: #fff;
+    border-radius: 0.9rem;
+    width: 640px;
+    max-width: 96vw;
+    max-height: 88vh;
+    overflow-y: auto;
+    padding: 1.2rem 1.3rem 1.4rem;
+    box-shadow: 0 20px 60px rgba(20, 15, 60, 0.25);
+}
+.bo-modal.wide { width: 860px; }
+.bo-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+.bo-modal-head h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #1e1650;
+}
+.bo-modal-close {
+    border: none;
+    background: #f3f4f8;
+    border-radius: 0.45rem;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: #555;
+    line-height: 1;
+}
+.bo-modal-close:hover { background: #e6e8f2; }
+.bo-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    margin-top: 1.1rem;
+}
+.bo-modal .fgrid,
+.bo-modal .form-grid.two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.7rem 0.9rem;
+}
+.bo-modal .form-group.full-width { grid-column: 1 / -1; }
+.bo-modal .form-group label,
+.bo-modal label { font-size: 0.74rem; font-weight: 600; color: #555; margin-bottom: 0.25rem; display: block; }
+.bo-modal input,
+.bo-modal select,
+.bo-modal textarea {
+    width: 100%;
+    border: 1px solid #e2e4f0;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    font-size: 0.82rem;
+    font-family: inherit;
+    box-sizing: border-box;
+    background: #fff;
+}
+.bo-modal input:focus,
+.bo-modal select:focus,
+.bo-modal textarea:focus {
+    border-color: #6c5ce7;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.12);
+}
+.bo-modal .btn-outline {
+    background: #fff;
+    border: 1px solid #e2e4f0;
+    border-radius: 0.55rem;
+    padding: 0.55rem 1rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.bo-modal .btn-primary {
+    background: #4e267c;
+    color: #fff;
+    border: none;
+    border-radius: 0.55rem;
+    padding: 0.55rem 1rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* =====================================================================
+   Onglets de listes (bo-tabs-panel) — plusieurs listes sur une même
+   page basculent en onglets au lieu d'être empilées.
+   ===================================================================== */
+.bo-tabs-panel { margin-bottom: 1rem; }
+.bo-tabs-panel .bo-tabs { margin-top: 0; }
+.bo-tab-panel { display: none; }
+.bo-tab-panel.active { display: block; }
+
+/* =====================================================================
+   Liste au premier plan : la page ouvre directement sur la table.
+   ===================================================================== */
+.bo-list-card {
+    background: #fff;
+    border: 1px solid #eceef6;
+    border-radius: 0.85rem;
+    overflow: hidden;
+}
+.bo-list-toolbar {
+    display: flex;
+    gap: 0.55rem;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 0.7rem 0.9rem;
+    border-bottom: 1px solid #f1f2f8;
+}
+.bo-list-toolbar .grow { flex: 1; min-width: 180px; }
+.bo-list-toolbar input[type="search"],
+.bo-list-toolbar select {
+    border: 1px solid #e2e4f0;
+    border-radius: 0.55rem;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.78rem;
+    background: #fff;
+}
+
+/* =====================================================================
+   Onglets hérités (.tab-btn) → même style que .bo-tab
+   ===================================================================== */
+body[data-backoffice] main .section-tabs {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+body[data-backoffice] main .tab-btn {
+    border: 1px solid #e2e4f0;
+    background: #fff;
+    border-radius: 0.6rem;
+    padding: 0.55rem 1rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #555;
+    cursor: pointer;
+    box-shadow: none;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+body[data-backoffice] main .tab-btn:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: #6c5ce7;
+}
+body[data-backoffice] main .tab-btn.active {
+    background: #4e267c;
+    color: #fff;
+    border-color: #4e267c;
+    transform: none;
+    box-shadow: none;
+}
+body[data-backoffice] main .tab-btn--link {
+    background: #fff;
+    color: #4e267c;
+}
+body[data-backoffice] main .tab-btn .cnt,
+body[data-backoffice] main .tab-btn .tab-count {
+    background: #f3f4f8;
+    border-radius: 0.5rem;
+    padding: 0 0.35rem;
+    font-size: 0.7rem;
+}
+body[data-backoffice] main .tab-btn.active .cnt,
+body[data-backoffice] main .tab-btn.active .tab-count {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+/* =====================================================================
+   Panneaux / filtres hérités (portail comptable, récap, etc.)
+   ===================================================================== */
+body[data-backoffice] main .filters-panel,
+body[data-backoffice] main .filters-row,
+body[data-backoffice] main .table-toolbar {
+    display: flex;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+body[data-backoffice] main .table-toolbar {
+    background: #fff;
+    border: 1px solid #eceef6;
+    border-radius: 0.8rem;
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.9rem;
+}
+body[data-backoffice] main .table-toolbar input[type="text"],
+body[data-backoffice] main .table-toolbar input[type="search"],
+body[data-backoffice] main .table-toolbar select,
+body[data-backoffice] main .filters-row input,
+body[data-backoffice] main .filters-row select,
+body[data-backoffice] main .filters-field input,
+body[data-backoffice] main .filters-field select {
+    border: 1px solid #e2e4f0;
+    border-radius: 0.55rem;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.8rem;
+    font-family: inherit;
+    background: #fff;
+    color: #3a3560;
+}
+body[data-backoffice] main .filters-panel {
+    background: #fff;
+    border: 1px solid #eceef6;
+    border-radius: 0.8rem;
+    padding: 0.9rem 1rem;
+    margin-bottom: 1rem;
+    display: block;
+}
+body[data-backoffice] main .filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.7rem 0.9rem;
+}
+body[data-backoffice] main .filters-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+body[data-backoffice] main .filters-field > span,
+body[data-backoffice] main .filters-row label {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #555;
+}
+body[data-backoffice] main .filters-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.7rem;
+}
+body[data-backoffice] main .filters-check {
+    font-size: 0.78rem;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+/* Panels liste/détail (portail comptable — factures hospitalières) */
+body[data-backoffice] main .panel,
+body[data-backoffice] main .panel-grid .panel {
+    background: #fff;
+    border: 1px solid #eceef6;
+    border-radius: 0.85rem;
+    box-shadow: none;
+}
+body[data-backoffice] main .panel-header {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid #f1f2f8;
+}
+body[data-backoffice] main .panel-header h4 {
+    font-size: 0.88rem;
+    color: #1e1650;
+    margin: 0;
+}
+body[data-backoffice] main .recap-totals {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.9rem;
+}
+body[data-backoffice] main .recap-totals .card,
+body[data-backoffice] main .recap-totals .recap-total-card {
+    border: 1px solid #eceef6;
+    border-radius: 0.8rem;
+    padding: 0.8rem 1rem;
+    box-shadow: none;
+}
+body[data-backoffice] main .table-note {
+    font-size: 0.74rem;
+    color: #8a8fa3;
+    margin-top: 0.8rem;
+    line-height: 1.5;
+}
+
+/* Status badges unifiés */
+body[data-backoffice] main .status-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.18rem 0.6rem;
+    border-radius: 0.7rem;
+    white-space: nowrap;
+}
+body[data-backoffice] main .status-badge.status-active,
+body[data-backoffice] main .status-badge.status-paid {
+    background: #e0f5f1;
+    color: #0a9b6c;
+}
+body[data-backoffice] main .status-badge.status-pending {
+    background: #fdf0dc;
+    color: #b45309;
+}
+body[data-backoffice] main .status-badge.status-inactive,
+body[data-backoffice] main .status-badge.status-rejected {
+    background: #fde8e8;
+    color: #c81e1e;
+}
+body[data-backoffice] main .accounting-tx-card__action-pill {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 0.6rem;
+    background: #e8f0fe;
+    color: #2d5bd7;
+}
+
+/* Toast partagé */
+.bo-toast {
+    position: fixed;
+    bottom: 1.4rem;
+    right: 1.4rem;
+    background: #1e1650;
+    color: #fff;
+    padding: 0.7rem 1.1rem;
+    border-radius: 0.6rem;
+    font-size: 0.82rem;
+    z-index: 3000;
+    display: none;
+}
+.bo-toast.show { display: block; }
+.bo-toast.error { background: #c81e1e; }
+
+/* ================================================================
+   UNIFORMISATION — TABLEAUX FINANCIERS (neutralise admin.css nth-child
+   + word-break qui cassent les montants)
+   ================================================================ */
+
+/* Les hacks de colonnes admin (min-width/max-width/ellipsis par nth-child)
+   ne doivent pas s'appliquer aux listes financières : tailles naturelles */
+body[data-backoffice] main .data-table th,
+body[data-backoffice] main .data-table td {
+    min-width: 0;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: normal;
+    overflow-wrap: normal;
+    hyphens: none;
+    line-height: 1.45;
+}
+
+/* Montants : alignés à droite, jamais cassés, chiffres tabulaires */
+body[data-backoffice] main table .num,
+body[data-backoffice] main table td.num,
+body[data-backoffice] main table th.num {
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+}
+body[data-backoffice] main table td.num {
+    font-weight: 600;
+    color: #1e1650;
+}
+body[data-backoffice] main table th.num {
+    text-align: right;
+}
+/* Cellules muted dans les colonnes montants (ex: nom réassureur) */
+body[data-backoffice] main table td.num .muted {
+    font-weight: 400;
+    font-size: 0.72rem;
+}
+
+/* Valeurs KPI / chiffres affichés : chiffres tabulaires + pas de cassure */
+body[data-backoffice] main .kpi-card .kpi-value,
+body[data-backoffice] main .kpi-value,
+body[data-backoffice] main .stat-value,
+body[data-backoffice] main .metric-value,
+body[data-backoffice] main .bo-kpi-value,
+body[data-backoffice] main [class*="value"],
+body[data-backoffice] main .amount,
+body[data-backoffice] main .montant {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+}
+
+/* Badges de statut dans les tables financières : rester sur une ligne */
+body[data-backoffice] main .data-table td .status-badge {
+    white-space: normal;
+    text-align: center;
+    line-height: 1.3;
+    max-width: 9.5rem;
+}
+
+/* Séparateur visuel : colonnes montants légèrement séparées */
+body[data-backoffice] main .data-table td.num + td.num,
+body[data-backoffice] main .data-table th.num + th.num {
+    border-left: 1px dashed #f0f1f8;
+}
+
+/* ================================================================
+   TABLE FINANCIÈRE LARGE — scroll horizontal + 1re colonne épinglée
+   ================================================================ */
+body[data-backoffice] main .finance-table {
+    min-width: 100%;
+}
+/* Première colonne épinglée : le N° souscription reste visible au scroll */
+body[data-backoffice] main .finance-table thead th:first-child,
+body[data-backoffice] main .finance-table tbody td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background: #fff;
+    box-shadow: 1px 0 0 #eceef6;
+}
+body[data-backoffice] main .finance-table tbody tr:hover td:first-child {
+    background: #fafbff;
+}
+/* Colonnes un peu plus denses sur ce tableau très large */
+body[data-backoffice] main .finance-table th,
+body[data-backoffice] main .finance-table td {
+    padding: 0.55rem 0.75rem;
+}
+/* Indicateur de fin de scroll : ombre sur le bord droit du wrapper */
+body[data-backoffice] main .table-wrapper:has(.finance-table) {
+    background: linear-gradient(to right, #fff 0%, transparent 30px) left / 100% 100% no-repeat,
+                radial-gradient(farthest-side at 100% 50%, rgba(90,76,180,0.12), transparent) right / 14px 100% no-repeat;
+}
+
+/* Recherche assuré — souscription pour un tiers */
+.client-search-results {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    max-height: 180px;
+    overflow-y: auto;
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 8px;
+    background: #fff;
+}
+.client-search-results:empty {
+    display: none;
+}
+.client-search-results .client-search-item,
+.client-search-results li {
+    padding: 8px 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f5f9;
+}
+.client-search-results .client-search-item:hover {
+    background: #f1f5ff;
+}
+.client-search-results li.muted {
+    cursor: default;
 }

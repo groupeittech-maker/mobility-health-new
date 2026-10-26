@@ -313,7 +313,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const MHLogoHeader(height: 72, compact: true),
+              const MHLogoHeader(compact: true),
               const SizedBox(height: 24),
               Text(
                 'Reinitialisation du mot de passe',
@@ -566,7 +566,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       child: FilledButton(
         onPressed: onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: AppColors.secondary,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),

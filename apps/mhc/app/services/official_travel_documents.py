@@ -1,4 +1,5 @@
-"""Documents officiels MHC : attestation, avenant d'annulation, quittance."""
+"""Documents officiels MHC : attestation, avenants (annulation, modification,
+prorogation), quittances de règlement et de ristourne."""
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -515,14 +516,11 @@ def generate_avenant_annulation(
     *,
     traveler_info: Optional[dict[str, Any]] = None,
     minors_info: Optional[list[dict[str, Any]]] = None,
+    date_annulation: Any = None,
 ) -> BytesIO:
     styles = _styles()
     produit = getattr(souscription, "produit_assurance", None)
-    projet = getattr(souscription, "projet_voyage", None)
-    dest = "—"
-    if projet:
-        dest_country = getattr(projet, "destination_country", None)
-        dest = getattr(dest_country, "nom", None) or getattr(projet, "destination", None) or "—"
+    dest = _destination_label(souscription)
     traveler = _traveler(user, traveler_info)
     assureur = getattr(produit, "assureur", None) or settings.ASSURANCE_NAME
     zone = getattr(produit, "zone_geographique", None) or "—"
@@ -535,14 +533,20 @@ def generate_avenant_annulation(
     story.append(Paragraph("1 INFORMATIONS", styles["section"]))
     story.append(_info_grid(
         ["N° DE POLICE", "N° D'ANNULATION", "DATE D'ANNULATION"],
-        [souscription.numero_souscription or "—", numero_avenant, _fmt_date(datetime.utcnow())],
+        [souscription.numero_souscription or "—", numero_avenant, _fmt_date(date_annulation or datetime.utcnow())],
         styles,
     ))
     story.append(Spacer(1, 0.12 * cm))
     story.append(_info_grid(
-        ["NOM ET PRÉNOM", "DATE DE NAISSANCE", "N° PASSEPORT / PIÈCE D'IDENTITÉ"],
-        [traveler["name"], traveler["birth"], traveler["passport"]],
-        styles,
+        ["ASSURÉ PRINCIPAL", "ASSURÉ ADDITIONNEL"],
+        [traveler["name"], _format_ayants_droit(minors_info)],
+        styles, col_width=9 * cm,
+    ))
+    story.append(Spacer(1, 0.12 * cm))
+    story.append(_info_grid(
+        ["DATE DE NAISSANCE", "N° PASSEPORT / PIÈCE D'IDENTITÉ"],
+        [traveler["birth"], traveler["passport"]],
+        styles, col_width=9 * cm,
     ))
     story.append(Spacer(1, 0.12 * cm))
     story.append(_info_grid(
@@ -556,21 +560,16 @@ def generate_avenant_annulation(
         [str(zone), _fmt_date(souscription.date_debut), _fmt_date(souscription.date_fin)],
         styles,
     ))
-    story.append(Spacer(1, 0.12 * cm))
-    story.append(_info_grid(
-        ["NOM, PRÉNOM ET DATE DE NAISSANCE DES ASSURÉS ADDITIONNEL"],
-        [_format_ayants_droit(minors_info)],
-        styles,
-    ))
     story.append(Paragraph("2 PORTÉE ET EFFETS DE L'ANNULATION", styles["section"]))
     story.append(Paragraph(
-        f"Mobility Health Care informe le souscripteur que la police d'assurance voyage référencée "
-        f"<b>{souscription.numero_souscription or 'XXXXXXX'}</b> souscrite auprès de "
-        f"<b>{assureur or 'XXX'}</b> est <b>ANNULÉE</b> à sa demande.",
+        f"Par la présente, Mobility Health Care informe le souscripteur mentionné ci-dessus que la police "
+        f"d'assurance voyage référencée <b>{souscription.numero_souscription or 'XXXXXXX'}</b> souscrite auprès de "
+        f"la compagnie d'assurance <b>{assureur or 'XXX'}</b> est <b>ANNULÉE</b>, à sa demande.",
         styles["body"],
     ))
     story.append(Paragraph(
-        "En conséquence, aucune garantie n'a été ni ne peut être activée, et aucune déclaration de sinistre ne peut être déposée au titre de cette police.",
+        "En conséquence, aucune garantie n'a été et ne pourra être activée au titre de cette police et aucun sinistre "
+        "ne pourra non plus être déclaré à Mobility Health Care.",
         styles["body"],
     ))
     city = settings.ASSURANCE_CITY or "Abidjan"
@@ -591,161 +590,94 @@ def generate_avenant_annulation(
     return buffer
 
 
-# Catalogues (clés stables) des motifs et pièces de la demande de suspension.
-AVENANT_SUSPENSION_MOTIFS: dict[str, str] = {
-    "annulation_avant_depart": "Annulation du voyage avant le départ (police non encore prise d'effet)",
-    "changement_situation": "Changement de situation faisant disparaître le risque assuré (dans un délai de 3 mois suivant l'événement)",
-    "erreur_double_souscription": "Erreur ou double souscription",
-    "autre": "Autre motif — à préciser ci-dessous :",
-}
-AVENANT_SUSPENSION_PIECES: dict[str, str] = {
-    "justificatif_annulation": "Justificatif d'annulation du voyage (le cas échéant)",
-    "copie_police": "Copie de la police d'assurance",
-    "copie_piece_identite": "Copie d'une pièce d'identité du souscripteur",
-    "autre_document": "Tout document justifiant le motif invoqué (changement de situation, erreur de souscription, etc.)",
-}
-
-
-def _check_row(checked: bool, label: str, styles) -> Table:
-    """Ligne « case à cocher + libellé » (rendu sûr quelle que soit la police)."""
-    mark = Paragraph(
-        "X" if checked else "",
-        ParagraphStyle("cbx", parent=styles["cell"], alignment=TA_CENTER, fontName="Helvetica-Bold"),
-    )
-    box = Table([[mark]], colWidths=[0.45 * cm], rowHeights=[0.45 * cm])
-    box.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 0.6, NAVY),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-    ]))
-    row = Table([[box, Paragraph(label, styles["body"])]], colWidths=[0.8 * cm, 16.5 * cm])
-    row.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-    ]))
-    return row
-
-
-def generate_avenant_suspension(
-    souscription: Souscription,
-    user: Optional[User],
-    numero_avenant: str,
-    *,
-    traveler_info: Optional[dict[str, Any]] = None,
-    minors_info: Optional[list[dict[str, Any]]] = None,
-    motifs: Optional[list[str]] = None,
-    motif_autre: Optional[str] = None,
-    pieces: Optional[list[str]] = None,
-    decision: Optional[str] = None,
-    date_effet: Optional[Any] = None,
-    date_emission: Optional[Any] = None,
-) -> BytesIO:
-    from app.services.pdf_service import _build_logo_header_flowable
-
-    styles = _styles()
-    produit = getattr(souscription, "produit_assurance", None)
-    traveler = _traveler(user, traveler_info)
-    assureur = getattr(produit, "assureur", None) or settings.ASSURANCE_NAME
-    motifs_set = set(motifs or [])
-    pieces_set = set(pieces or [])
-    emitted = date_emission or datetime.utcnow()
-
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.4 * cm, rightMargin=1.4 * cm, topMargin=1.2 * cm, bottomMargin=1.4 * cm)
-    story = []
-    story.append(_build_logo_header_flowable(souscription))
-    story.append(Spacer(1, 0.2 * cm))
-    story.append(Paragraph("AVENANT DE SUSPENSION DE POLICE D'ASSURANCE VOYAGE", styles["title"]))
-    story.append(Spacer(1, 0.15 * cm))
-    story.append(_info_grid(["N° DE POLICE", "N° DE LA SUSPENSION"], [souscription.numero_souscription or "—", numero_avenant], styles, col_width=9 * cm))
-    story.append(Spacer(1, 0.12 * cm))
-    story.append(_info_grid(["DATE D'ÉMISSION", "HEURE D'ÉMISSION"], [_fmt_date(emitted), emitted.strftime("%H:%M") if hasattr(emitted, "strftime") else "—"], styles, col_width=9 * cm))
-
-    story.append(Paragraph("1 IDENTIFICATION DU SOUSCRIPTEUR / BÉNÉFICIAIRE", styles["section"]))
-    story.append(_info_grid(["ASSURÉ PRINCIPAL", "ASSURÉS ADDITIONNEL"], [traveler["name"], _format_ayants_droit(minors_info)], styles, col_width=9 * cm))
-    story.append(Spacer(1, 0.12 * cm))
-    date_sous = getattr(souscription, "date_debut", None) or getattr(souscription, "created_at", None)
-    story.append(_info_grid(["DATE DE SOUSCRIPTION", "COMPAGNIE D'ASSURANCE"], [_fmt_date(date_sous), str(assureur or "—")], styles, col_width=9 * cm))
-    story.append(Spacer(1, 0.12 * cm))
-    story.append(_info_grid(["TELEPHONE", "EMAIL"], [getattr(user, "telephone", None) or "—", getattr(user, "email", None) or "—"], styles, col_width=9 * cm))
-
-    story.append(Paragraph("2 MOTIF DE LA DEMANDE DE SUSPENSION", styles["section"]))
-    for key, label in AVENANT_SUSPENSION_MOTIFS.items():
-        story.append(_check_row(key in motifs_set, label, styles))
-    if motif_autre:
-        story.append(Spacer(1, 0.1 * cm))
-        precision = Table([[Paragraph(motif_autre, styles["cell"])]], colWidths=[17 * cm])
-        precision.setStyle(TableStyle([
-            ("BOX", (0, 0), (-1, -1), 0.5, NAVY),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ]))
-        story.append(precision)
-
-    story.append(Paragraph("3 PIÈCES JUSTIFICATIVES À JOINDRE SELON LE MOTIF", styles["section"]))
-    for key, label in AVENANT_SUSPENSION_PIECES.items():
-        story.append(_check_row(key in pieces_set, label, styles))
-
-    story.append(Spacer(1, 0.3 * cm))
-    story.append(Paragraph("4 DÉCLARATION ET SIGNATURE DU SOUSCRIPTEUR", styles["section"]))
-    story.append(Paragraph(
-        "Je soussigné(e) demande la suspension de la police d'assurance mentionnée ci-dessus, dans les "
-        "conditions et pour le motif indiqué. J'ai pris connaissance du fait que cette demande sera transmise "
-        "à l'Assureur pour traitement, et que la suspension ne sera effective qu'après validation par ce dernier.",
-        styles["body"],
-    ))
-    story.append(Spacer(1, 0.35 * cm))
-    story.append(Table(
-        [[
-            Paragraph("Fait à : _____________________<br/><br/>Le : _____________________", styles["cell"]),
-            Paragraph("Signature du souscripteur :", styles["cell"]),
-        ]],
-        colWidths=[9 * cm, 9 * cm],
-    ))
-    story.append(Paragraph("5 CADRE RÉSERVÉ À L'ASSUREUR", styles["section"]))
-    decision_label = {"approved": "VALIDÉE", "rejected": "REFUSÉE"}.get(decision or "", "—")
-    story.append(_info_grid(["DÉCISION DE L'ASSUREUR", "DATE D'EFFET VALIDÉE"], [decision_label, _fmt_date(date_effet) if date_effet else "—"], styles, col_width=9 * cm))
-    story.append(Spacer(1, 0.5 * cm))
-    story.append(Paragraph("Document électronique généré par MyMHC • Suspension effective après validation de l'Assureur", styles["footer"]))
-    doc.build(story)
-    buffer.seek(0)
-    return buffer
-
-
-def generate_avenant_reemission(
-    souscription: Souscription,
-    user: Optional[User],
-    numero_avenant: str,
-    *,
-    traveler_info: Optional[dict[str, Any]] = None,
-    minors_info: Optional[list[dict[str, Any]]] = None,
-    avenant_suspension_ref: Optional[str] = None,
-    date_effet: Optional[Any] = None,
-    date_echeance: Optional[Any] = None,
-    date_emission: Optional[Any] = None,
-) -> BytesIO:
-    from app.services.pdf_service import _build_logo_header_flowable
-
-    styles = _styles()
-    produit = getattr(souscription, "produit_assurance", None)
+def _destination_label(souscription: Souscription) -> str:
     projet = getattr(souscription, "projet_voyage", None)
-    dest = "—"
-    if projet:
-        dest_country = getattr(projet, "destination_country", None)
-        dest = getattr(dest_country, "nom", None) or getattr(projet, "destination", None) or "—"
+    if not projet:
+        return "—"
+    dest_country = getattr(projet, "destination_country", None)
+    return str(getattr(dest_country, "nom", None) or getattr(projet, "destination", None) or "—")
+
+
+def _signatures(styles) -> list:
+    city = settings.ASSURANCE_CITY or "Abidjan"
+    return [
+        Spacer(1, 0.3 * cm),
+        Paragraph(f"Fait à <b>{city}</b>, le <b>{_fmt_date(datetime.utcnow())}</b>.", styles["body"]),
+        Spacer(1, 0.7 * cm),
+        Table(
+            [[
+                Paragraph("Pour l'Assureur", ParagraphStyle("sa", parent=styles["cell"], textColor=TEAL, fontName="Helvetica-Bold")),
+                Paragraph("Pour l'Assuré", ParagraphStyle("sb", parent=styles["cell"], textColor=TEAL, fontName="Helvetica-Bold", alignment=1)),
+            ]],
+            colWidths=[9 * cm, 9 * cm],
+        ),
+        Spacer(1, 0.5 * cm),
+    ]
+
+
+def _voyageurs_section(
+    styles,
+    souscription: Souscription,
+    user: Optional[User],
+    traveler_info: Optional[dict[str, Any]],
+    minors_info: Optional[list[dict[str, Any]]],
+) -> list:
     traveler = _traveler(user, traveler_info)
     genre = (traveler_info or {}).get("gender") or getattr(user, "sexe", None) or "—"
+    return [
+        Paragraph("1 IDENTIFICATION DES VOYAGEURS", styles["section"]),
+        _info_grid(
+            ["ASSURÉ PRINCIPAL", "ASSURÉ ADDITIONNEL", "DATE DE NAISSANCE", "GENRE"],
+            [traveler["name"], _format_ayants_droit(minors_info), traveler["birth"], str(genre)],
+            styles, col_width=4.5 * cm,
+        ),
+        Spacer(1, 0.12 * cm),
+        _info_grid(
+            ["NATIONALITÉ", "N° PASSEPORT / PIÈCE D'IDENTITÉ", "PAYS DE RÉSIDENCE", "PAYS DE DESTINATION"],
+            [traveler["nationality"], traveler["passport"], traveler["residence"], _destination_label(souscription)],
+            styles, col_width=4.5 * cm,
+        ),
+    ]
+
+
+def _days_between(start: Any, end: Any) -> Optional[int]:
+    if not start or not end:
+        return None
+    try:
+        return (end - start).days
+    except Exception:
+        return None
+
+
+def generate_avenant_modification(
+    souscription: Souscription,
+    user: Optional[User],
+    numero_avenant: str,
+    *,
+    traveler_info: Optional[dict[str, Any]] = None,
+    minors_info: Optional[list[dict[str, Any]]] = None,
+    date_debut_initiale: Any = None,
+    date_fin_initiale: Any = None,
+    nouvelle_date_debut: Any = None,
+    nouvelle_date_fin: Any = None,
+    montant_ajustement: Any = None,
+    nature_ajustement: Optional[str] = None,
+    date_emission: Any = None,
+) -> BytesIO:
+    """Avenant de modification de police (code 107) — modèle MHC."""
+    from app.services.pdf_service import _build_logo_header_flowable
+
+    styles = _styles()
     emitted = date_emission or datetime.utcnow()
-    echeance = date_echeance or getattr(souscription, "date_fin", None)
+    nature = {
+        "complement": "COMPLÉMENT",
+        "remboursement": "REMBOURSEMENT",
+    }.get(nature_ajustement or "", "AUCUN AJUSTEMENT")
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.4 * cm, rightMargin=1.4 * cm, topMargin=1.2 * cm, bottomMargin=1.4 * cm)
-    story = []
-    story.append(_build_logo_header_flowable(souscription))
-    story.append(Spacer(1, 0.2 * cm))
-    story.append(Paragraph("AVENANT DE RÉÉMISSION DE POLICE", styles["title"]))
+    story = [_build_logo_header_flowable(souscription), Spacer(1, 0.2 * cm)]
+    story.append(Paragraph("AVENANT DE MODIFICATION DE POLICE", styles["title"]))
     story.append(Spacer(1, 0.15 * cm))
     story.append(_info_grid(
         ["N° DE POLICE", "N° DE L'AVENANT", "DATE ET HEURE D'ÉMISSION"],
@@ -754,48 +686,219 @@ def generate_avenant_reemission(
     ))
     story.append(Spacer(1, 0.12 * cm))
     story.append(_info_grid(
-        ["DATE D'EFFET", "DATE D'ÉCHÉANCE"],
-        [_fmt_date(date_effet) if date_effet else _fmt_date(datetime.utcnow()), _fmt_date(echeance)],
+        ["DATE DE DÉBUT INITIALE", "DATE DE FIN INITIALE", "NOUVELLE DATE DE DÉBUT", "NOUVELLE DATE DE FIN"],
+        [_fmt_date(date_debut_initiale), _fmt_date(date_fin_initiale), _fmt_date(nouvelle_date_debut), _fmt_date(nouvelle_date_fin)],
+        styles, col_width=4.5 * cm,
+    ))
+    story.extend(_voyageurs_section(styles, souscription, user, traveler_info, minors_info))
+    story.append(Paragraph("2 MODALITÉS DE LA MODIFICATION", styles["section"]))
+    story.append(_info_grid(
+        ["MONTANT DE L'AJUSTEMENT", "NATURE DE L'AJUSTEMENT (COMPLÉMENT / REMBOURSEMENT)"],
+        [_money(montant_ajustement or 0), nature],
         styles, col_width=9 * cm,
     ))
-    story.append(Paragraph("1 IDENTIFICATION DES VOYAGEURS", styles["section"]))
+    story.append(Spacer(1, 0.2 * cm))
+    story.append(Paragraph(
+        "Le présent avenant a pour objet de modifier les dates de couverture du contrat mentionné ci-dessus, avant sa "
+        "date de prise d'effet initiale, à la demande de l'assuré principal. La nouvelle date de début peut être "
+        "antérieure ou postérieure à la date initiale, et la durée totale de couverture peut elle-même être allongée ou "
+        "raccourcie. Le montant de la prime est recalculé en conséquence et fait l'objet, selon le cas, d'un complément "
+        "à régler ou d'un remboursement partiel.",
+        styles["body"],
+    ))
+    story.append(Spacer(1, 0.12 * cm))
+    story.append(Paragraph(
+        "Cette modification est initiée depuis le compte MyMHC de l'assuré principal, via l'option dédiée disponible sur "
+        "la police concernée, et fait l'objet d'une validation avant génération du présent avenant. Elle ne peut être "
+        "sollicitée qu'avant le jour où la police entre en vigueur ; une fois la police active, toute demande relative aux "
+        "dates ou à la durée de couverture relève d'un autre avenant. Le présent avenant ne prend effet qu'une fois "
+        "l'ajustement de prime réglé, par paiement du complément dû ou validation du remboursement applicable.",
+        styles["body"],
+    ))
+    story.extend(_signatures(styles))
+    story.append(Paragraph("Document électronique généré par MyMHC • À conserver avec la police modifiée", styles["footer"]))
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+def generate_avenant_prorogation(
+    souscription: Souscription,
+    user: Optional[User],
+    numero_avenant: str,
+    *,
+    traveler_info: Optional[dict[str, Any]] = None,
+    minors_info: Optional[list[dict[str, Any]]] = None,
+    date_fin_initiale: Any = None,
+    nouvelle_date_fin: Any = None,
+    date_effet: Any = None,
+    prime_complementaire: Any = None,
+    devise: str = "XAF",
+    date_emission: Any = None,
+) -> BytesIO:
+    """Avenant de prorogation de police (code 108) — modèle MHC."""
+    from app.services.pdf_service import _build_logo_header_flowable
+
+    styles = _styles()
+    emitted = date_emission or datetime.utcnow()
+    jours = _days_between(date_fin_initiale, nouvelle_date_fin)
+    duree = f"{jours} jour(s)" if jours is not None else "—"
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.4 * cm, rightMargin=1.4 * cm, topMargin=1.2 * cm, bottomMargin=1.4 * cm)
+    story = [_build_logo_header_flowable(souscription), Spacer(1, 0.2 * cm)]
+    story.append(Paragraph("AVENANT DE PROROGATION", styles["title"]))
+    story.append(Spacer(1, 0.15 * cm))
     story.append(_info_grid(
-        ["ASSURÉ PRINCIPAL", "ASSURÉ ADDITIONNEL", "DATE DE NAISSANCE", "GENRE"],
-        [traveler["name"], _format_ayants_droit(minors_info), traveler["birth"], str(genre)],
-        styles, col_width=4.4 * cm,
+        ["N° DE POLICE", "N° DE L'AVENANT", "DATE ET HEURE D'ÉMISSION"],
+        [souscription.numero_souscription or "—", numero_avenant, _fmt_date(emitted, with_time=True)],
+        styles,
     ))
     story.append(Spacer(1, 0.12 * cm))
     story.append(_info_grid(
-        ["NATIONALITÉ", "N° PASSEPORT / PIÈCE D'IDENTITÉ", "PAYS DE RÉSIDENCE", "PAYS DE DESTINATION"],
-        [traveler["nationality"], traveler["passport"], traveler["residence"], str(dest)],
-        styles, col_width=4.4 * cm,
+        ["DATE D'EFFET DE LA PROROGATION", "DATE DE FIN DE COUVERTURE INITIALE", "NOUVELLE DATE DE FIN DE COUVERTURE", "DURÉE DE LA PROROGATION ACCORDÉE"],
+        [_fmt_date(date_effet), _fmt_date(date_fin_initiale), _fmt_date(nouvelle_date_fin), duree],
+        styles, col_width=4.5 * cm,
     ))
-    story.append(Paragraph("2 PORTÉE ET EFFETS DE L'AVENANT", styles["section"]))
-    ref = avenant_suspension_ref or "—"
+    story.extend(_voyageurs_section(styles, souscription, user, traveler_info, minors_info))
+    story.append(Paragraph("2 MODALITÉS DE LA PROROGATION", styles["section"]))
+    story.append(_info_grid(
+        ["PRIME COMPLÉMENTAIRE DE PROROGATION", "DEVISE"],
+        [_money(prime_complementaire or 0, currency=""), devise or "XAF"],
+        styles, col_width=9 * cm,
+    ))
+    story.append(Spacer(1, 0.2 * cm))
     story.append(Paragraph(
-        f"Le présent avenant de réémission annule et remplace, à effet de la date mentionnée en section 1, la "
-        f"suspension prononcée par l'avenant référencé <b>{ref}</b>. Il emporte reprise de l'ensemble des garanties "
-        f"souscrites au contrat mentionné, sans effet rétroactif sur la période de suspension.",
+        "Le présent avenant de prorogation a pour objet de prolonger la durée de validité de la police mentionnée "
+        "ci-dessus, initialement fixée jusqu'à la date de fin de couverture indiquée ci-dessus, jusqu'à la nouvelle date "
+        "d'échéance qui y figure également. Il peut être sollicité par l'Assuré à tout moment, que la police soit déjà "
+        "entrée en vigueur ou qu'elle ne le soit pas encore, directement depuis son espace personnel sur l'application "
+        "MyMHC, au moyen de la fonction « Prolonger » disponible sur sa police. Il ne peut en revanche être sollicité "
+        "après la date de fin de couverture initiale de la police.",
         styles["body"],
     ))
+    story.append(Spacer(1, 0.12 * cm))
     story.append(Paragraph(
-        "Toute prestation médicale ou tout sinistre survenu pendant la période de suspension ne peut faire l'objet "
-        "d'une prise en charge au titre du présent avenant.",
+        "La prorogation ne prend effet qu'après paiement de la prime complémentaire correspondant à la période de "
+        "prolongation demandée, calculée au prorata de sa durée. Les autres conditions du contrat demeurent inchangées et "
+        "s'appliquent dans les mêmes termes pour la période prorogée.",
         styles["body"],
     ))
-    city = settings.ASSURANCE_CITY or "Abidjan"
-    story.append(Spacer(1, 0.3 * cm))
-    story.append(Paragraph(f"Fait à <b>{city}</b>, le <b>{_fmt_date(datetime.utcnow())}</b>.", styles["body"]))
-    story.append(Spacer(1, 0.7 * cm))
-    story.append(Table(
+    story.extend(_signatures(styles))
+    story.append(Paragraph("Document électronique généré par MyMHC • À conserver avec la police prorogée", styles["footer"]))
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+RISTOURNE_MOYENS: dict[str, str] = {
+    "carte": "CARTE",
+    "mobile_money": "MOBILE MONEY",
+    "virement": "VIREMENT",
+    "autre": "AUTRE",
+}
+
+
+def generate_quittance_ristourne(
+    souscription: Souscription,
+    user: Optional[User],
+    numero_quittance: str,
+    *,
+    traveler_info: Optional[dict[str, Any]] = None,
+    numero_avenant: Optional[str] = None,
+    motif: Optional[str] = None,
+    montant_prime: Any = 0,
+    montant_frais_police: Any = 0,
+    montant_taxes: Any = 0,
+    montant_total: Any = 0,
+    devise: str = "XAF",
+    moyen_remboursement: Optional[str] = None,
+    date_emission: Any = None,
+) -> BytesIO:
+    """Quittance de ristourne (code 120) — modèle MHC."""
+    from app.services.pdf_service import _build_logo_header_flowable
+
+    styles = _styles()
+    traveler = _traveler(user, traveler_info)
+    emitted = date_emission or datetime.utcnow()
+    currency = devise or "XAF"
+    moyen = RISTOURNE_MOYENS.get((moyen_remboursement or "").lower(), (moyen_remboursement or "AUTRE").upper())
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.5 * cm, rightMargin=1.5 * cm, topMargin=1.4 * cm, bottomMargin=1.4 * cm)
+    story = [_build_logo_header_flowable(souscription), Spacer(1, 0.3 * cm)]
+    story.append(Paragraph("QUITTANCE DE RISTOURNE", styles["title"]))
+    story.append(Spacer(1, 0.2 * cm))
+    meta = Table(
         [[
-            Paragraph("Pour l'Assureur", ParagraphStyle("s", parent=styles["cell"], textColor=TEAL, fontName="Helvetica-Bold")),
-            Paragraph("Pour l'Assuré", ParagraphStyle("s2", parent=styles["cell"], textColor=TEAL, fontName="Helvetica-Bold", alignment=1)),
+            Paragraph(f"<b>N° DE QUITTANCE</b><br/>{numero_quittance}", styles["cell"]),
+            Paragraph(f"<b>DATE ET HEURE D'ÉMISSION</b><br/>{_fmt_date(emitted, with_time=True)}", styles["cell"]),
+            Paragraph("<b>STATUT DU REMBOURSEMENT</b><br/>REMBOURSÉ", ParagraphStyle("refunded", parent=styles["cell"], alignment=1, fontName="Helvetica-Bold")),
         ]],
-        colWidths=[9 * cm, 9 * cm],
+        colWidths=[6 * cm, 6.5 * cm, 5.5 * cm],
+    )
+    meta.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#CBD2D9")),
+        ("BACKGROUND", (2, 0), (2, 0), PAID_BG),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(meta)
+    story.append(Spacer(1, 0.35 * cm))
+    story.append(Paragraph("IDENTIFICATION DU VOYAGEUR", styles["section"]))
+    story.append(_info_grid(
+        ["NOM ET PRÉNOMS", "NUMÉRO DE POLICE", "N° DE L'AVENANT CONCERNÉ"],
+        [traveler["name"], souscription.numero_souscription or "—", numero_avenant or "—"],
+        styles,
     ))
+    story.append(Spacer(1, 0.12 * cm))
+    story.append(_info_grid(["MOTIF DU REMBOURSEMENT"], [motif or "—"], styles, col_width=18 * cm))
+    story.append(Paragraph("DÉTAILS DU REMBOURSEMENT", styles["section"]))
+    rows = [
+        [Paragraph("MONTANT DE LA PRIME REMBOURSÉE", styles["cell"]), Paragraph(_money(montant_prime, currency), styles["cell"])],
+        [Paragraph("FRAIS DE POLICE REMBOURSÉS", styles["cell"]), Paragraph(_money(montant_frais_police, currency), styles["cell"])],
+        [Paragraph("TAXES REMBOURSÉES", styles["cell"]), Paragraph(_money(montant_taxes, currency), styles["cell"])],
+        [Paragraph("<b>MONTANT TOTAL REMBOURSÉ</b>", ParagraphStyle("rtot", parent=styles["head"])), Paragraph(f"<b>{_money(montant_total, currency)}</b>", ParagraphStyle("rtot2", parent=styles["head"]))],
+        [Paragraph("MOYEN DE REMBOURSEMENT", styles["cell"]), Paragraph(moyen, styles["cell"])],
+    ]
+    table = Table(rows, colWidths=[10 * cm, 8 * cm])
+    table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#CBD2D9")),
+        ("BACKGROUND", (0, 3), (-1, 3), TEAL),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(table)
+    story.append(Spacer(1, 0.25 * cm))
+    words_currency = "francs CFA" if currency.upper() in {"XAF", "XOF", "F CFA"} else currency
+    story.append(Paragraph(
+        f"<b>Montant total remboursé en lettres :</b> {_amount_in_words(montant_total, words_currency)}",
+        styles["body"],
+    ))
+    story.append(Spacer(1, 0.3 * cm))
+    notice = Table(
+        [[Paragraph(
+            "La présente quittance certifie l'enregistrement du remboursement indiqué ci-dessus, effectué au titre du motif "
+            "référencé, le cas échéant en lien avec l'avenant mentionné. Elle est générée automatiquement par la plateforme "
+            "MyMHC après validation de la transaction. Elle ne peut être modifiée et ne vaut pas, à elle seule, avenant au "
+            "contrat. Les garanties, exclusions et conditions applicables demeurent celles prévues au contrat émis par "
+            "l'assureur, telles qu'ajustées le cas échéant par l'avenant référencé.",
+            styles["small"],
+        )]],
+        colWidths=[18 * cm],
+    )
+    notice.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.6, NAVY),
+        ("BACKGROUND", (0, 0), (-1, -1), LIGHT_ROW),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(notice)
     story.append(Spacer(1, 0.5 * cm))
-    story.append(Paragraph("Document électronique généré par MyMHC • À conserver avec la police réémise", styles["footer"]))
+    story.append(Paragraph("Document électronique généré par MyMHC • À conserver comme justificatif de remboursement", styles["footer"]))
     doc.build(story)
     buffer.seek(0)
     return buffer
@@ -808,16 +911,27 @@ def generate_quittance_paiement(
     numero_quittance: str,
     *,
     traveler_info: Optional[dict[str, Any]] = None,
+    breakdown: Optional[dict[str, Any]] = None,
 ) -> BytesIO:
+    """Quittance de règlement (code 119).
+
+    `breakdown` ({prime, cout_police, taxes}) remplace la ventilation déduite de
+    la souscription — utilisé pour les compléments de prime (avenants).
+    """
     styles = _styles()
     traveler = _traveler(user, traveler_info)
     total = getattr(paiement, "montant", None) or getattr(souscription, "prix_applique", 0)
     prime = getattr(souscription, "prime_assurance", None) or total
     try:
         total_dec = Decimal(str(total))
-        prime_dec = Decimal(str(prime))
-        taxes = (total_dec - prime_dec) if total_dec > prime_dec else Decimal("0")
-        police_cost = Decimal("0")
+        if breakdown:
+            prime_dec = Decimal(str(breakdown.get("prime") or 0))
+            police_cost = Decimal(str(breakdown.get("cout_police") or 0))
+            taxes = Decimal(str(breakdown.get("taxes") or 0))
+        else:
+            prime_dec = Decimal(str(prime))
+            taxes = (total_dec - prime_dec) if total_dec > prime_dec else Decimal("0")
+            police_cost = Decimal("0")
     except Exception:
         total_dec = prime_dec = taxes = police_cost = Decimal("0")
     method = getattr(paiement, "type_paiement", None)
@@ -830,7 +944,7 @@ def generate_quittance_paiement(
     from app.services.pdf_service import _build_logo_header_flowable
     story.append(_build_logo_header_flowable(souscription))
     story.append(Spacer(1, 0.3 * cm))
-    story.append(Paragraph("QUITTANCE DE PAIEMENT", styles["title"]))
+    story.append(Paragraph("QUITTANCE DE RÈGLEMENT", styles["title"]))
     story.append(Spacer(1, 0.2 * cm))
     meta = Table(
         [[

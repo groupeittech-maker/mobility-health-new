@@ -37,10 +37,9 @@
     };
 
     function roleGroup(r) {
-        if (['medecin_referent_mh', 'medical_reviewer', 'superviseur_affaires_medicales', 'agent_medical_mhc', 'agent_conformite_medical', 'agent_medical_assureur'].includes(r)) return 'medical';
+        if (['medecin_referent_mh', 'superviseur_affaires_medicales', 'agent_medical_mhc', 'agent_conformite_medical', 'agent_medical_assureur'].includes(r)) return 'medical';
         if (['production_agent', 'agent_conformite_production', 'superviseur_technique', 'assistant_souscription', 'agent_production_assureur', 'agent_production_courtier'].includes(r)) return 'production';
         if (['agent_sinistre_mh', 'agent_sinistre_assureur', 'agent_sinistre_courtier', 'agent_conformite_sinistre'].includes(r)) return 'sinistre';
-        if (['sos_operator'].includes(r)) return 'alertes';
         return 'production';
     }
 

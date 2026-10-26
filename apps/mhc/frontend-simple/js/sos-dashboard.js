@@ -267,7 +267,9 @@ async function initSosDashboard() {
     const allowedRoles = isHospitalReceptionSosMapScoped()
         ? ['agent_reception_hopital', 'hospital_admin']
         : SOS_ALLOWED_ROLES;
-    const isValid = await requireAnyRole(allowedRoles, 'index.html');
+    const isValid = isHospitalReceptionSosMapScoped()
+        ? await requireAnyRole(allowedRoles, 'index.html')
+        : await requirePermission('alerte_sos', 'consultation', 'bo-dashboard.html');
     if (!isValid) {
         return;
     }

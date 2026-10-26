@@ -16,10 +16,10 @@ class TeleconsultationScreen extends StatefulWidget {
   const TeleconsultationScreen({super.key});
 
   @override
-  State<TeleconsultationScreen> createState() => _TeleconsultationScreenState();
+  State<TeleconsultationScreen> createState() => TeleconsultationScreenState();
 }
 
-class _TeleconsultationScreenState extends State<TeleconsultationScreen> {
+class TeleconsultationScreenState extends State<TeleconsultationScreen> {
   final MedecinConseilService _service = MedecinConseilService();
   List<MedecinConseilAssignment> _assignments = [];
   bool _loading = true;
@@ -30,6 +30,8 @@ class _TeleconsultationScreenState extends State<TeleconsultationScreen> {
     super.initState();
     _load();
   }
+
+  void refresh() => _load();
 
   Future<void> _load() async {
     final cached = await _service.loadCached();

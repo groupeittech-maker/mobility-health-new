@@ -19,6 +19,7 @@ from typing import Any, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.constants import MAX_TRIP_DAYS
 from app.core.enums import StatutSouscription
 from app.models.paiement import Paiement
 from app.models.produit_assurance import ProduitAssurance
@@ -26,7 +27,12 @@ from app.models.projet_voyage import ProjetVoyage
 from app.models.questionnaire import Questionnaire
 from app.models.souscription import Souscription
 from app.models.user import User
-from app.services.medical_eligibility import MedicalEligibilityError, validate_medical_eligibility
+from app.services.medical_eligibility import (
+    PREGNANCY_MAX_MONTHS,
+    MedicalEligibilityError,
+    parse_pregnancy_months,
+    validate_medical_eligibility,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +122,7 @@ MEDICAL_DECLARATION_KEYS = {
     "contactpersonnemalade",
     "antecedentsrecents",
     "voyagemedical",           # voyage à but médical
+    "activitesportivepro",     # activité sportive professionnelle / à risque
 }
 
 
@@ -340,6 +347,47 @@ def _is_pregnancy_positive(value: Any, *, free_text: bool = False) -> bool:
     return False
 
 
+def _has_affirmative_declaration(reponses: Any) -> bool:
+    """« Oui » à une question médicale, y compris dans les réponses imbriquées
+    (une entrée par assuré : principal et chaque enfant)."""
+    if isinstance(reponses, dict):
+        for key, value in reponses.items():
+            if _normalized_key(key) in MEDICAL_DECLARATION_KEYS and _is_affirmative(value):
+                return True
+            if isinstance(value, (dict, list)) and _has_affirmative_declaration(value):
+                return True
+    elif isinstance(reponses, list):
+        return any(_has_affirmative_declaration(item) for item in reponses)
+    return False
+
+
+def _product_excluded_conditions(product: Any) -> list[str]:
+    """Maladies / traitements exclus par le produit : mots-clés renseignés sur
+    les exclusions générales (`mots_cles` ou `maladies`, liste ou texte « a, b »)."""
+    keywords: list[str] = []
+    for item in getattr(product, "exclusions_generales", None) or []:
+        if not isinstance(item, dict):
+            continue
+        raw = item.get("mots_cles") or item.get("maladies") or []
+        values = raw.split(",") if isinstance(raw, str) else raw if isinstance(raw, list) else []
+        keywords.extend(str(v).strip().lower() for v in values if str(v).strip())
+    return keywords
+
+
+def _ekyc_rejected(db: Optional[Session], souscription: Souscription) -> bool:
+    if db is None or getattr(souscription, "id", None) is None:
+        return False
+    from app.models.ekyc_session import EkycSession
+
+    latest = (
+        db.query(EkycSession)
+        .filter(EkycSession.souscription_id == souscription.id)
+        .order_by(EkycSession.created_at.desc())
+        .first()
+    )
+    return bool(latest and latest.status == "REJECTED")
+
+
 def _destination_excluded(destination: str, product: ProduitAssurance) -> bool:
     zones = product.zones_geographiques or {}
     excluded = zones.get("pays_exclus") or zones.get("excluded") or []
@@ -424,6 +472,14 @@ class SubscriptionDecisionEngine:
             reasons.append("Le souscripteur doit être majeur. Un enfant mineur ne peut pas souscrire seul.")
             return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
 
+        # Refus automatiques (workflow MyMHC V3) : fraude avérée, échec eKYC.
+        if getattr(user, "fraude_signalee", False):
+            reasons.append("Fraude détectée dans l'historique du client : souscription refusée automatiquement.")
+            return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
+        if _ekyc_rejected(db, souscription):
+            reasons.append("Identification (eKYC) échouée ou incohérente : souscription refusée automatiquement.")
+            return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
+
         age = _voyageur_age(user, admin_questionnaire, questionnaire, project, voyageur_age, voyageur_date_naissance)
 
         # 1. Règles de refus dur
@@ -442,8 +498,14 @@ class SubscriptionDecisionEngine:
             return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
 
         duration = _trip_duration_days(project)
-        if duration is not None and product.duree_max_jours is not None and duration > product.duree_max_jours:
-            reasons.append(f"Durée supérieure au maximum ({duration} > {product.duree_max_jours} jours)")
+        max_days = min(MAX_TRIP_DAYS, product.duree_max_jours) if product.duree_max_jours else MAX_TRIP_DAYS
+        if duration is not None and duration > max_days:
+            reasons.append(f"Durée supérieure au maximum autorisé ({duration} > {max_days} jours)")
+            return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
+
+        excluded = next((kw for kw in _product_excluded_conditions(product) if kw in " ".join(flat)), None)
+        if excluded:
+            reasons.append(f"Maladie ou traitement exclu par le produit ({excluded})")
             return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
 
         if project and _destination_excluded(project.destination, product):
@@ -464,19 +526,20 @@ class SubscriptionDecisionEngine:
             _is_pregnancy_positive(t, free_text=True) for t in flat
         )
         if pregnant:
-            review_steps.add("medical")
-            reasons.append("Grossesse déclarée : revue médicale requise")
+            # Grossesse de 5 mois maximum : ne bloque pas le paiement (pas de revue).
+            months = parse_pregnancy_months(reponses) if isinstance(reponses, dict) else None
+            if months is not None and 1 <= months <= PREGNANCY_MAX_MONTHS:
+                reasons.append(f"Grossesse déclarée ({months} mois, ≤ {PREGNANCY_MAX_MONTHS}) : pas de revue requise")
+            else:
+                review_steps.add("medical")
+                reasons.append("Grossesse déclarée : revue médicale requise")
 
         if age is not None and age >= 70:
             review_steps.add("medical")
             reasons.append(f"Assuré âgé de {age} ans : revue médicale requise")
 
-        # Réponses « oui » aux questions médicales structurées → revue médicale
-        if isinstance(reponses, dict) and any(
-            _is_affirmative(v)
-            for k, v in reponses.items()
-            if _normalized_key(k) in MEDICAL_DECLARATION_KEYS
-        ):
+        # Réponses « oui » aux questions médicales (principal et enfants) → revue médicale
+        if _has_affirmative_declaration(reponses):
             review_steps.add("medical")
             reasons.append("Condition médicale déclarée (réponse « oui ») : revue médicale requise")
 
@@ -522,6 +585,9 @@ class SubscriptionDecisionEngine:
         souscription.validation_medicale = "rejected"
         souscription.validation_technique = "rejected"
         souscription.validation_finale = "rejected"
+        # Motif explicite + horodatage du refus, affichés dans le détail de la souscription.
+        souscription.validation_finale_notes = "Refus automatique : " + "; ".join(reasons)
+        souscription.validation_finale_date = datetime.utcnow()
         logger.info(
             "Souscription %s refusée automatiquement : %s",
             souscription.id,

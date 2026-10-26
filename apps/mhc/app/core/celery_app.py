@@ -71,6 +71,16 @@ celery_app.conf.update(
             "schedule": crontab(hour=9, minute=0),  # Tous les jours à 9h
             "options": {"queue": "reminders"},
         },
+        "purge-stale-subscriptions": {
+            "task": "app.workers.tasks.purge_stale_subscriptions",
+            "schedule": crontab(minute=15),  # Toutes les heures
+            "options": {"queue": "default"},
+        },
+        "subscription-deletion-reminders": {
+            "task": "app.workers.tasks.send_subscription_deletion_reminders",
+            "schedule": crontab(hour=8, minute=0),  # Tous les jours à 8h (J-2 et veille)
+            "options": {"queue": "reminders"},
+        },
         "retry-failed-tasks": {
             "task": "app.workers.tasks.retry_failed_tasks",
             "schedule": crontab(minute="*/10"),  # Toutes les 10 minutes

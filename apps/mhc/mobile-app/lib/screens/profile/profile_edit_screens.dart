@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/mh_app_bar.dart';
 import '../../core/widgets/mh_surface_card.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
 import '../../core/utils/api_error_helper.dart';
@@ -27,7 +29,7 @@ class _EditScaffold extends StatelessWidget {
       backgroundColor: Colors.transparent,
       appBar: MhAppBar(title: title),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        padding: EdgeInsets.fromLTRB(20, 16, 20, 32 + MediaQuery.of(context).padding.bottom),
         child: child,
       ),
     );
@@ -149,7 +151,19 @@ class _EditEmailScreenState extends State<EditEmailScreen> {
       _loading = true;
     });
     try {
-      await users.confirmEmailChange(code);
+      final res = await users.confirmEmailChange(code);
+      if (!mounted) return;
+      // Le serveur renvoie un nouveau jeton si l'identifiant (username)
+      // a changé — sans lui, la session deviendrait invalide et l'app
+      // se bloquait jusqu'à reconnexion.
+      final newToken = res['access_token']?.toString();
+      if (newToken != null && newToken.isNotEmpty) {
+        await AuthService.instance.applyAccessToken(newToken);
+      }
+      if (!mounted) return;
+      try {
+        await context.read<AuthProvider>().refreshUser();
+      } catch (_) {}
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

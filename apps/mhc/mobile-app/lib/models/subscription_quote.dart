@@ -44,6 +44,8 @@ class SubscriptionQuoteLine {
   final double? fraisServices;
   final double? taxesTotal;
   final List<Map<String, dynamic>>? taxes;
+  final double? montantSurprime;
+  final double? pctSurprimeApplique;
   final String? zoneGeographiqueCode;
   final String? zoneLibelleFr;
   final String? trancheDureeCode;
@@ -58,6 +60,8 @@ class SubscriptionQuoteLine {
     this.fraisServices,
     this.taxesTotal,
     this.taxes,
+    this.montantSurprime,
+    this.pctSurprimeApplique,
     this.zoneGeographiqueCode,
     this.zoneLibelleFr,
     this.trancheDureeCode,
@@ -88,6 +92,8 @@ class SubscriptionQuoteLine {
       fraisServices: optNum(json['frais_services']),
       taxesTotal: optNum(json['taxes_total']),
       taxes: (json['taxes'] as List<dynamic>?)?.map((t) => Map<String, dynamic>.from(t as Map)).toList(),
+      montantSurprime: optNum(json['montant_surprime']),
+      pctSurprimeApplique: optNum(json['pct_surprime_applique']),
       zoneGeographiqueCode: json['zone_geographique_code'] as String?,
       zoneLibelleFr: json['zone_libelle_fr'] as String?,
       trancheDureeCode: json['tranche_duree_code'] as String?,

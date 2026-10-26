@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portail comptable assureur - Mobility Health</title>
+    <title>Portail comptable assureur - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/admin.css">
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
 </head>
 <body class="protected" data-backoffice>
     <nav class="navbar">
@@ -42,7 +42,7 @@
             <div class="section-heading">
                 <h3>Suivi des frais de souscription</h3>
                 <p class="muted">
-                    Visualisez la part assureur liée aux souscriptions de vos produits. Les montants Mobility Health restent visibles pour référence.
+                    Visualisez la part assureur liée aux souscriptions de vos produits. Les montants Mobility Health Care restent visibles pour référence.
                 </p>
             </div>
 
@@ -56,7 +56,7 @@
                     <p id="totalAmount">-</p>
                 </div>
                 <div class="stat-card">
-                    <h3>Part Mobility Health</h3>
+                    <h3>Part Mobility Health Care</h3>
                     <p id="mhAmount">-</p>
                 </div>
                 <div class="stat-card">
@@ -90,7 +90,7 @@
                     </li>
                 </ul>
                 <p class="table-note muted">
-                    Les montants sont filtrés sur l’assureur auquel votre compte est rattaché. La part assureur correspond à la prime d’assurance et la ligne Mobility Health aux frais de services (détail enregistré sur chaque souscription).
+                    Les montants sont filtrés sur l’assureur auquel votre compte est rattaché. La part assureur correspond à la prime d’assurance et la ligne Mobility Health Care aux frais de services (détail enregistré sur chaque souscription).
                 </p>
             </div>
         </section>
@@ -183,7 +183,7 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+            <p>&copy; 2024 Mobility Health Care. Tous droits réservés.</p>
         </div>
     </footer>
 
@@ -191,13 +191,13 @@
         window.ACCOUNTING_PORTAL_ALLOWED_ROLES = ['agent_comptable_assureur', 'agent_comptable_courtier', 'admin'];
         window.MH_ALLOWED_ROLES_OVERRIDE = ['agent_comptable_assureur', 'agent_comptable_courtier', 'admin'];
     </script>
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/permissions.js"></script>
-    <script src="js/backoffice-nav.js"></script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
     <script src="js/currency.js"></script>
     <script src="js/table-pagination.js"></script>
-    <script src="js/table-top-scrollbar.js"></script>
+    <script src="js/table-top-scrollbar.js?v=3"></script>
     <script src="js/accounting-ledger.js"></script>
     <script src="js/mh-invoices.js"></script>
     <script src="js/accounting-portal.js"></script>

@@ -1505,6 +1505,7 @@ class AttestationService:
         souscription: Souscription,
         paiement: Paiement,
         user: Optional[User] = None,
+        breakdown: Optional[dict] = None,
     ) -> dict:
         """Génère la quittance de règlement (code 119) après paiement."""
         from app.services.mhc_reference_service import allocate_quittance_number
@@ -1518,6 +1519,7 @@ class AttestationService:
             user,
             numero,
             traveler_info=traveler_info,
+            breakdown=breakdown,
         )
         pdf_bytes = pdf_buffer.read()
         payload = {

@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portail sinistre assureur - Mobility Health</title>
+    <title>Portail sinistre assureur - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/admin.css">
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
 </head>
 <body class="protected" data-backoffice>
     <nav class="navbar">
@@ -33,7 +33,6 @@
             <div class="section-tabs" id="sinistresTabs">
                 <button class="tab-btn active" data-section="sinistresListSection">Liste des sinistres</button>
                 <button class="tab-btn" data-section="workflowSection">Détails du workflow</button>
-                <button class="tab-btn" data-section="suspensionsSection" onclick="renderAssureurSuspensions('suspensionsList')">Suspensions à valider</button>
             </div>
         </div>
 
@@ -79,14 +78,6 @@
         </section>
 
         <!-- Détails du workflow -->
-        <section id="suspensionsSection" class="dashboard-section" hidden>
-            <div class="section-header">
-                <h2>Demandes de suspension de police</h2>
-                <button class="btn" onclick="renderAssureurSuspensions('suspensionsList')">Actualiser</button>
-            </div>
-            <div id="suspensionsList"><p class="muted">Cliquez sur « Actualiser » pour charger les demandes.</p></div>
-        </section>
-
         <section id="workflowSection" class="dashboard-section" hidden>
             <div class="section-heading">
                 <h3>Détails du workflow de traitement</h3>
@@ -114,7 +105,7 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+            <p>&copy; 2024 Mobility Health Care. Tous droits réservés.</p>
         </div>
     </footer>
 
@@ -122,14 +113,13 @@
         window.ASSUREUR_SINISTRES_ALLOWED_ROLES = ['agent_sinistre_assureur', 'admin'];
         window.MH_ALLOWED_ROLES_OVERRIDE = ['agent_sinistre_assureur', 'admin'];
     </script>
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/permissions.js"></script>
-    <script src="js/backoffice-nav.js"></script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
     <script src="js/currency.js"></script>
     <script src="js/table-pagination.js"></script>
-    <script src="js/avenants-ui.js?v=20260909-1"></script>
-    <script src="js/assureur-sinistres.js"></script>
+    <script src="js/assureur-sinistres.js?v=3"></script>
 </body>
 </html>
 

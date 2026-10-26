@@ -3,7 +3,11 @@
  */
 
 function initTopScrollbar() {
-    const tableWrappers = document.querySelectorAll('.table-wrapper, [id$="TableContainer"], #ledgerWrapper');
+    const WRAPPER_SEL = '.table-wrapper, [id$="TableContainer"], #ledgerWrapper';
+    // Ne garder que les conteneurs les plus internes (évite les scrollbars doublées
+    // quand un #ledgerWrapper contient un .table-wrapper, etc.)
+    const tableWrappers = Array.from(document.querySelectorAll(WRAPPER_SEL))
+        .filter(w => !w.querySelector(WRAPPER_SEL));
     
     tableWrappers.forEach(wrapper => {
         // Vérifier si la scrollbar en haut existe déjà

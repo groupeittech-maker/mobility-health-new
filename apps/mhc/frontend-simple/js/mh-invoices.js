@@ -19,7 +19,9 @@ let mhSearchTerm = '';
 let mhUserRole = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const allowed = await requireAnyRole(MH_ALLOWED_ROLES, 'login.html');
+    const allowed = window.MH_ALLOWED_ROLES_OVERRIDE
+        ? await requireAnyRole(MH_ALLOWED_ROLES, 'login.html')
+        : await requirePermission('facturation_medicale', 'consultation', 'bo-dashboard.html');
     if (!allowed) {
         return;
     }
@@ -298,7 +300,8 @@ function canValidateInvoiceCompta(invoice) {
     return (
         invoice &&
         invoice.statut === 'pending_compta' &&
-        MH_ACTION_ROLES.includes(mhUserRole || '')
+        (MH_ACTION_ROLES.includes(mhUserRole || '') ||
+            (window.MhPermissions && window.MhPermissions.can('facturation_medicale', 'controle')))
     );
 }
 

@@ -6,6 +6,13 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, false
 from app.core.database import get_db
 from app.core.enums import Role
+from app.core.permissions import (
+    F_FACTURATION_MEDICALE,
+    F_SINISTRES,
+    LEVEL_CONSULTATION,
+    LEVEL_CONTROLE,
+    has_permission,
+)
 from app.api.v1.auth import get_current_user
 from app.models.user import User
 from app.models.hospital import Hospital
@@ -293,17 +300,30 @@ def _notify_role_users(
                     pass
 
 
+def _role_str(current_user) -> str:
+    role = getattr(current_user, "role", "user")
+    if hasattr(role, "value"):
+        role = role.value
+    return str(role or "user")
+
+
 def require_finance_or_admin(current_user: User):
     """Vérifier que l'utilisateur a les droits finance ou admin"""
-    if current_user.role not in [
+    if current_user.role in [
         Role.FINANCE_MANAGER,
         Role.AGENT_COMPTABLE_MH,
         Role.ADMIN,
     ]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
-        )
+        return
+    # Matrice de permissions : contrôle ou édition de la facturation médicale
+    if has_permission(
+        _role_str(current_user), F_FACTURATION_MEDICALE, LEVEL_CONTROLE
+    ):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Not enough permissions"
+    )
 
 
 def require_medical_role(current_user: User):
@@ -370,6 +390,14 @@ def _invoice_query_with_access(db: Session, current_user: User):
                 detail="Aucun hôpital associé à votre compte.",
             )
         return base_query.filter(Invoice.hospital_id == current_user.hospital_id)
+
+    # Rôles internes : accès selon la matrice de permissions (facturation médicale ou sinistres)
+    if has_permission(
+        _role_str(current_user), F_FACTURATION_MEDICALE, LEVEL_CONSULTATION
+    ) or has_permission(
+        _role_str(current_user), F_SINISTRES, LEVEL_CONSULTATION
+    ):
+        return base_query
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -836,10 +864,12 @@ async def validate_sinistre(
 ):
     """Valider une facture pour sinistre (SOS operator, agent sinistre MH)."""
     if current_user.role not in [Role.SOS_OPERATOR, Role.AGENT_SINISTRE_MH, Role.ADMIN]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès réservé au pôle sinistre (SOS / agent sinistre MH) ou admin.",
-        )
+        # Matrice de permissions : contrôle ou édition des sinistres
+        if not has_permission(_role_str(current_user), F_SINISTRES, LEVEL_CONTROLE):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Accès réservé au pôle sinistre (SOS / agent sinistre MH) ou admin.",
+            )
     
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not invoice:

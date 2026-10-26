@@ -3,8 +3,9 @@ from typing import List, Optional
 from decimal import Decimal
 import json
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response, RedirectResponse
 from io import BytesIO
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, selectinload
 from app.core.database import get_db
 from app.core.enums import StatutSouscription, Role, StatutPaiement
@@ -13,6 +14,7 @@ from app.models.user import User
 from app.models.souscription import Souscription
 from app.models.produit_assurance import ProduitAssurance
 from app.models.courtier import Courtier
+from app.models.courtier_agent import CourtierAgent
 from app.models.projet_voyage import ProjetVoyage
 from app.models.attestation import Attestation
 from app.models.paiement import Paiement
@@ -34,7 +36,11 @@ from app.schemas.souscription import (
 )
 from app.schemas.ecard import ECardResponse
 from app.schemas.subscription_decision import SubscriptionDecisionResult, VoyageurInfo
-from app.services.attestation_service import AttestationService
+from app.services.attestation_service import (
+    AttestationService,
+    INLINE_BUCKET_NAME,
+    INLINE_OBJECT_KEY,
+)
 from app.services.subscription_decision_service import SubscriptionDecisionEngine
 from app.api.v1.attestations import (
     _get_ecard_public_base,
@@ -93,6 +99,10 @@ def require_production_agent(current_user: User = Depends(get_current_user)) -> 
     return current_user
 
 
+# Rôles autorisés à souscrire pour un tiers (mêmes règles que POST /subscriptions/start).
+from app.core.permissions import THIRD_PARTY_SUBSCRIPTION_ROLES, can_act_for_third_party
+
+
 class SouscriptionStartRequest(BaseModel):
     """Schéma pour démarrer une souscription"""
     produit_assurance_id: int
@@ -109,6 +119,73 @@ class SouscriptionStartRequest(BaseModel):
     age: Optional[int] = None  # Si absent, calculé depuis l'utilisateur cible (date_naissance)
     canal_distribution: Optional[str] = "assureur"  # assureur | courtier
     courtier_id: Optional[int] = None
+
+
+class ClientSearchItem(BaseModel):
+    id: int
+    email: Optional[str] = None
+    username: Optional[str] = None
+    full_name: Optional[str] = None
+    telephone: Optional[str] = None
+    date_naissance: Optional[date] = None
+    pays_residence: Optional[str] = None
+    numero_passeport: Optional[str] = None
+    sexe: Optional[str] = None
+
+
+@router.get("/clients/search", response_model=List[ClientSearchItem])
+async def search_subscription_clients(
+    q: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Rechercher un assuré (compte client) pour créer une souscription à sa place.
+    Réservé aux rôles autorisés à souscrire pour un tiers.
+    """
+    if current_user.role not in THIRD_PARTY_SUBSCRIPTION_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous n'avez pas les permissions pour rechercher des assurés.",
+        )
+    term = (q or "").strip()
+    if len(term) < 3:
+        return []
+    pattern = f"%{term}%"
+    users = (
+        db.query(User)
+        .filter(User.role == 'user')
+        .filter(
+            or_(
+                User.email.ilike(pattern),
+                User.full_name.ilike(pattern),
+                User.username.ilike(pattern),
+                User.telephone.ilike(pattern),
+            )
+        )
+        .order_by(User.full_name)
+        .limit(10)
+        .all()
+    )
+    return users
+
+
+@router.get("/clients/{client_id}", response_model=ClientSearchItem)
+async def get_subscription_client(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Détail d'un assuré pour le parcours de souscription pour un tiers."""
+    if current_user.role not in THIRD_PARTY_SUBSCRIPTION_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous n'avez pas les permissions pour consulter cet assuré.",
+        )
+    user = db.query(User).filter(User.id == client_id, User.role == 'user').first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assuré introuvable")
+    return user
 
 
 @router.post("/start", response_model=SouscriptionResponse, status_code=status.HTTP_201_CREATED)
@@ -130,12 +207,7 @@ async def start_subscription(
     # Si on essaie de souscrire pour un tiers, vérifier les permissions
     if subscription_data.user_id and subscription_data.user_id != current_user.id:
         # Vérifier que l'utilisateur actuel a les permissions pour souscrire pour un tiers
-        allowed_roles = {
-            Role.ADMIN, Role.PRODUCTION_AGENT, Role.ASSISTANT_SOUSCRIPTION,
-            Role.SUPERVISEUR_TECHNIQUE,
-            Role.AGENT_PRODUCTION_ASSUREUR, Role.AGENT_PRODUCTION_COURTIER,
-        }
-        if current_user.role not in allowed_roles:
+        if current_user.role not in THIRD_PARTY_SUBSCRIPTION_ROLES:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Vous n'avez pas les permissions pour souscrire pour un tiers."
@@ -157,12 +229,22 @@ async def start_subscription(
         )
     selected_courtier_id: Optional[int] = None
     if canal_distribution == "courtier":
-        if not subscription_data.courtier_id:
+        courtier_id = subscription_data.courtier_id
+        if not courtier_id:
+            # Agent lié à un courtier (assistant souscription, agent production courtier) :
+            # le courtier est déduit de l'affectation de l'agent.
+            courtier_agent = db.query(CourtierAgent).filter(
+                CourtierAgent.user_id == current_user.id,
+                CourtierAgent.type_agent.in_(('production', 'souscription')),
+            ).first()
+            if courtier_agent:
+                courtier_id = courtier_agent.courtier_id
+        if not courtier_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="courtier_id requis pour le canal courtier",
             )
-        courtier = db.query(Courtier).filter(Courtier.id == subscription_data.courtier_id).first()
+        courtier = db.query(Courtier).filter(Courtier.id == courtier_id).first()
         if not courtier:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Courtier introuvable")
         selected_courtier_id = courtier.id
@@ -378,6 +460,16 @@ async def quote_subscription_prices(
                 frais_services=float(d.frais_services) if d.frais_services is not None else None,
                 taxes_total=float(d.taxes_total) if d.taxes_total is not None else None,
                 taxes=taxe_list if taxe_list else None,
+                montant_surprime=(
+                    float(d.montant_surprime)
+                    if getattr(d, "montant_surprime", None) is not None
+                    else None
+                ),
+                pct_surprime_applique=(
+                    float(d.pct_surprime_applique)
+                    if getattr(d, "pct_surprime_applique", None) is not None
+                    else None
+                ),
                 zone_geographique_code=zc,
                 zone_libelle_fr=zl,
                 tranche_duree_code=d.tranche_duree_code,
@@ -519,45 +611,90 @@ async def get_subscription_user_photo(
         .first()
     )
     
-    if not questionnaire or not questionnaire.reponses:
-        return {"photo_url": None}
-    
+    reponses = (questionnaire.reponses if questionnaire else None) or {}
+
     # Chercher la photo dans différents emplacements possibles
-    personal = questionnaire.reponses.get("personal") or {}
-    technical = questionnaire.reponses.get("technical") or {}
-    
+    personal = reponses.get("personal") or {}
+    technical = reponses.get("technical") or {}
+
     photo_payload = (
-        personal.get("photoIdentity") or 
+        personal.get("photoIdentity") or
         personal.get("photo_identity") or
         technical.get("photoIdentity") or
         technical.get("photo_identity") or
-        questionnaire.reponses.get("photoIdentity") or
-        questionnaire.reponses.get("photo_identity") or
-        questionnaire.reponses.get("identityPhoto") or
-        questionnaire.reponses.get("identity_photo")
+        reponses.get("photoIdentity") or
+        reponses.get("photo_identity") or
+        reponses.get("identityPhoto") or
+        reponses.get("identity_photo")
     )
+
+    # Repli : la photo peut être stockée dans le questionnaire médical
+    # (clés photo_medicale / photoMedicale / photo_identity, base64 data URL).
+    if not photo_payload:
+        medical = (
+            db.query(Questionnaire)
+            .filter(
+                Questionnaire.souscription_id == subscription_id,
+                Questionnaire.type_questionnaire == "medical",
+            )
+            .order_by(Questionnaire.version.desc())
+            .first()
+        )
+        med_reponses = (medical.reponses if medical else None) or {}
+        photo_payload = (
+            med_reponses.get("photo_medicale") or
+            med_reponses.get("photoMedicale") or
+            med_reponses.get("photo_identity") or
+            med_reponses.get("photoIdentity")
+        )
     
     if not photo_payload:
         return {"photo_url": None}
     
-    # Extraire l'URL de la photo (peut être une data URL ou une URL signée)
+    if not photo_payload:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Aucune photo d'identité",
+        )
+
+    # Extraire la photo (data URL base64, base64 brut ou URL)
     photo_url = None
     if isinstance(photo_payload, str):
-        # Si c'est une chaîne, c'est probablement une data URL ou une URL
         photo_url = photo_payload
     elif isinstance(photo_payload, dict):
-        # Si c'est un objet, chercher dataUrl, url, ou photo_url
         photo_url = (
             photo_payload.get("dataUrl") or
             photo_payload.get("url") or
             photo_payload.get("photo_url") or
-            photo_payload.get("base64")  # Si c'est juste le base64, on peut le convertir en data URL
+            photo_payload.get("base64")
         )
-        # Si on a seulement le base64, créer une data URL
-        if not photo_url and photo_payload.get("base64"):
-            photo_url = f"data:image/jpeg;base64,{photo_payload.get('base64')}"
-    
-    return {"photo_url": photo_url}
+        if photo_url and not str(photo_url).startswith(("data:", "http")):
+            photo_url = f"data:image/jpeg;base64,{photo_url}"
+
+    if not photo_url:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Aucune photo d'identité",
+        )
+
+    # Le mobile attend les octets image bruts — décoder la data URL.
+    if isinstance(photo_url, str) and photo_url.startswith("data:"):
+        import base64
+        header, _, b64 = photo_url.partition(",")
+        media_type = "image/jpeg"
+        if header.startswith("data:") and ";" in header:
+            media_type = header[5:].split(";")[0] or "image/jpeg"
+        try:
+            content = base64.b64decode(b64)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Photo invalide",
+            )
+        return Response(content=content, media_type=media_type)
+
+    # URL distante : laisser le client suivre la redirection.
+    return RedirectResponse(photo_url)
 
 
 @router.get("/{subscription_id}", response_model=SouscriptionResponse)
@@ -567,18 +704,13 @@ async def get_subscription(
     current_user: User = Depends(get_current_user)
 ):
     """Obtenir une souscription par ID"""
-    souscription = (
-        db.query(Souscription)
-        .options(
-            selectinload(Souscription.produit_assurance),
-            selectinload(Souscription.projet_voyage),
-        )
-        .filter(
-            Souscription.id == subscription_id,
-            Souscription.user_id == current_user.id
-        )
-        .first()
-    )
+    query = db.query(Souscription).options(
+        selectinload(Souscription.produit_assurance),
+        selectinload(Souscription.projet_voyage),
+    ).filter(Souscription.id == subscription_id)
+    if not can_act_for_third_party(current_user.role):
+        query = query.filter(Souscription.user_id == current_user.id)
+    souscription = query.first()
     
     if not souscription:
         raise HTTPException(
@@ -680,15 +812,24 @@ async def get_subscription_ecard(
         else:
             holder_name = "Assuré(e)"
 
-    # Ne jamais renvoyer une URL minio:9000 (inaccessible depuis le navigateur)
+    # Ne jamais renvoyer une URL minio:9000 (inaccessible depuis le navigateur).
+    # Exception : carte « inline » (données base64, pas d'objet MinIO) — l'URL
+    # data: est déjà auto-suffisante, ne pas la remplacer par le proxy.
     card_url = attestation.carte_numerique_url or ""
-    if (card_url and _is_internal_minio_url(card_url)) or (
-        attestation.carte_numerique_path and attestation.carte_numerique_bucket and _get_ecard_public_base(request)
+    is_inline_card = (
+        attestation.carte_numerique_bucket == INLINE_BUCKET_NAME
+        or attestation.carte_numerique_path == INLINE_OBJECT_KEY
+        or card_url.startswith("data:")
+    )
+    if not is_inline_card and (
+        (card_url and _is_internal_minio_url(card_url)) or (
+            attestation.carte_numerique_path and attestation.carte_numerique_bucket and _get_ecard_public_base(request)
+        )
     ):
         proxy = _build_ecard_proxy_url(attestation.id, request)
         if proxy:
             card_url = proxy
-    elif not card_url and attestation.carte_numerique_path and attestation.carte_numerique_bucket:
+    elif not card_url and not is_inline_card and attestation.carte_numerique_path and attestation.carte_numerique_bucket:
         proxy = _build_ecard_proxy_url(attestation.id, request)
         if proxy:
             card_url = proxy
@@ -952,7 +1093,7 @@ async def process_resiliation(
         # Résiliation:
         # - le courtier rembourse intégralement sa commission,
         # - l'assureur rembourse intégralement la prime,
-        # - Mobility Health conserve 30 % de la prime.
+        # - Mobility Health Care conserve 30 % de la prime.
         try:
             # Trouver le paiement associé à la souscription
             paiement = (
@@ -1105,7 +1246,10 @@ async def delete_subscription(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Supprimer une souscription résiliée"""
+    """Supprimer une souscription résiliée, ou un brouillon / « à payer »
+    (liste « En attente » de MyMHC)."""
+    from app.services.subscription_cleanup import DELETABLE_STATUSES, deletion_blocker
+
     souscription = (
         db.query(Souscription)
         .filter(
@@ -1121,11 +1265,14 @@ async def delete_subscription(
             detail="Souscription non trouvée"
         )
     
-    # Vérifier que la souscription est résiliée
-    if souscription.statut != StatutSouscription.RESILIEE:
+    if souscription.statut in DELETABLE_STATUSES:
+        blocker = deletion_blocker(db, souscription)
+        if blocker:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=blocker)
+    elif souscription.statut != StatutSouscription.RESILIEE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Seules les souscriptions résiliées peuvent être supprimées"
+            detail="Seules les souscriptions résiliées, brouillons ou à payer peuvent être supprimées"
         )
     
     # Supprimer la souscription (les attestations seront supprimées en cascade)
@@ -1154,19 +1301,18 @@ async def evaluate_subscription(
     - reject  : souscription refusée
     - review  : dossier à valider par le pipeline médical / technique / production
     """
-    souscription = (
+    query = (
         db.query(Souscription)
         .options(
             selectinload(Souscription.user),
             selectinload(Souscription.produit_assurance),
             selectinload(Souscription.projet_voyage),
         )
-        .filter(
-            Souscription.id == subscription_id,
-            Souscription.user_id == current_user.id,
-        )
-        .first()
+        .filter(Souscription.id == subscription_id)
     )
+    if not can_act_for_third_party(current_user.role):
+        query = query.filter(Souscription.user_id == current_user.id)
+    souscription = query.first()
 
     if not souscription:
         raise HTTPException(

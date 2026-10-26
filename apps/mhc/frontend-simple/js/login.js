@@ -15,10 +15,6 @@ function getDashboardUrlForRole(role) {
         'agent_sinistre_mh': 'bo-dashboard.html',
         'agent_comptable_mh': 'bo-dashboard.html',
         'assistant_souscription': 'courtier-production.html',
-        'medical_reviewer': 'bo-dashboard.html',
-        'technical_reviewer': 'bo-dashboard.html',
-        'finance_manager': 'bo-dashboard.html',
-        'sos_operator': 'alert-center.html',
         'medecin_referent_mh': 'bo-dashboard.html',
         // Portails partenaires
         'doctor': 'doctor-dashboard.html',

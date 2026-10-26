@@ -6,6 +6,7 @@ import 'screens/forgot_password_screen.dart';
 import 'screens/home/attestations_screen.dart';
 import 'screens/home/ecards_screen.dart';
 import 'screens/home/home_screen.dart';
+import 'screens/home/notifications_screen.dart';
 import 'screens/home/reseau_mhc_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/profile/change_destination_screen.dart';
@@ -84,6 +85,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/reseau',
       builder: (context, state) => const ReseauMhcScreen(),
+    ),
+    GoRoute(
+      path: '/notifications',
+      builder: (context, state) => const NotificationsScreen(),
     ),
     GoRoute(
       path: '/profile',

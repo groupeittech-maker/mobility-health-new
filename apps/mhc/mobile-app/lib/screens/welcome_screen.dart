@@ -52,87 +52,28 @@ class WelcomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            const MHLogoHeader(height: 52, compact: true),
-            const SizedBox(height: 14),
+            const Center(child: MHLogoHeader(compact: true)),
+            const SizedBox(height: 10),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   children: [
-                    RichText(
-                      textAlign: TextAlign.center,
-                      text: const TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'Votre santé\n',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.secondary,
-                              height: 1.15,
-                            ),
-                          ),
-                          TextSpan(
-                            text: 'sans frontières',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.brandTeal,
-                              height: 1.15,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Des solutions d’assurance\net d’assistance médicale\noù que vous soyez.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.mutedText,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                    // Bandeau héro de la maquette : photo voyageur + textes
+                    // « Votre santé sans frontières » incrustés dans l'image.
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(18),
                       child: AspectRatio(
-                        aspectRatio: 4 / 3,
+                        aspectRatio: 248 / 126,
                         child: Image.asset(
                           'assets/images/welcome_hero.png',
                           fit: BoxFit.cover,
-                          alignment: Alignment.topCenter,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.brandTeal,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Color(0xFFC9C9D4),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     MhSolidButton(
                       label: 'Créer un compte',
-                      color: AppColors.brandTeal,
                       onPressed: () => context.go('/register'),
                     ),
                     const SizedBox(height: 12),
@@ -143,6 +84,8 @@ class WelcomeScreen extends StatelessWidget {
                     const SizedBox(height: 18),
                     const MhSocialLogin(),
                     const SizedBox(height: 18),
+                    const MhProtectionCard(),
+                    const SizedBox(height: 16),
                     const Text(
                       'Your Health Has No Borders.',
                       style: TextStyle(

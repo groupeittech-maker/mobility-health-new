@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/mh_app_bar.dart';
 import '../../core/widgets/mh_states.dart';
+import '../../core/widgets/mh_stripe.dart';
 import '../../core/widgets/mh_surface_card.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
@@ -64,10 +65,16 @@ class _MonProfilScreenState extends State<MonProfilScreen> {
           ? const MhLoadingView()
           : _error != null
               ? MhOfflineView(onRetry: _load)
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              : SafeArea(
+                  bottom: false,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: _load,
+                          child: ListView(
+                            padding:
+                                const EdgeInsets.fromLTRB(20, 16, 20, 16),
                     children: [
                       MHSurfaceCard(
                         padding: const EdgeInsets.all(16),
@@ -192,6 +199,11 @@ class _MonProfilScreenState extends State<MonProfilScreen> {
                           ),
                         ),
                       ),
+                    ],
+                          ),
+                        ),
+                      ),
+                      const MhStripe(),
                     ],
                   ),
                 ),

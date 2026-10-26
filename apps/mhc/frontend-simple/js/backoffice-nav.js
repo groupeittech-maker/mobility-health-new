@@ -40,10 +40,6 @@
         superviseur_comptable: 'bo-dashboard.html',
         agent_comptable_mh: 'bo-dashboard.html',
         agent_conformite_comptable: 'bo-dashboard.html',
-        finance_manager: 'bo-dashboard.html',
-        sos_operator: 'alert-center.html',
-        medical_reviewer: 'bo-dashboard.html',
-        technical_reviewer: 'bo-dashboard.html',
         medecin_referent_mh: 'bo-dashboard.html',
         doctor: 'doctor-dashboard.html',
         hospital_admin: 'hospital-dashboard.html',
@@ -62,113 +58,100 @@
     };
 
     const MENU = [
-        { id: 'dashboard', label: 'Tableau de bord', icon: 'dashboard', href: 'bo-dashboard.html' },
-        { id: 'alertes', label: "Centre d'alerte des urgences", icon: 'alert', href: 'alert-center.html', feature: 'alerte_sos', internalOnly: true },
+        { id: 'dashboard', label: 'Tableau de bord', icon: 'dashboard', href: 'bo-dashboard.html', dynamicDashboard: true },
         {
-            id: 'production',
-            label: 'Production',
+            id: 'pole_technique',
+            label: 'Pôle Technique',
             icon: 'production',
-            feature: 'production',
             internalOnly: true,
             children: [
-                { label: 'Création compte utilisateur', href: 'admin-users.html', feature: 'comptes_utilisateurs', minLevel: 'edition' },
-                { label: 'Coordination de production', href: 'admin-subscriptions.html', feature: 'production' },
+                { section: 'Gestion' },
+                { label: 'Production', href: 'admin-subscriptions.html', feature: 'production' },
                 { label: 'Coordination des avenants', href: 'admin-subscriptions.html#avenants', feature: 'production' },
-                { label: 'Encaissements des primes', href: 'finance-outbound.html#encaissements', feature: 'encaissement_prime' },
-                { label: 'Remboursement annulation', href: 'finance-outbound.html#remboursements', feature: 'remboursement' },
+                { label: 'Sinistres', href: 'sinistre-invoices.html', feature: 'sinistres' },
+                { section: 'Paramétrage' },
+                { label: 'Produits & garanties', href: 'admin-products.html', feature: 'comptes_produits', minLevel: 'edition' },
+                { label: 'Tarifaire commun', href: 'admin-tarification.html', feature: 'comptes_produits', minLevel: 'edition' },
+                { label: 'Frais et taxes', href: 'admin-tarification-frais.html', feature: 'comptes_produits', minLevel: 'edition' },
+                { label: 'Destinations & pays', href: 'admin-destinations.html', feature: 'comptes_produits', minLevel: 'edition' },
+                { label: 'Modèles d’attestations', href: 'admin-attestations.html', feature: 'comptes_produits', minLevel: 'edition' },
             ],
         },
         {
-            id: 'sinistres',
-            label: 'Sinistre',
-            icon: 'claim',
-            feature: 'sinistres',
-            internalOnly: true,
-            children: [
-                { label: 'Suivi des sinistres', href: 'sinistre-invoices.html', feature: 'sinistres' },
-                { label: 'Encaissement primes', href: 'finance-outbound.html', feature: 'encaissement_quote_part_sinistre' },
-                { label: 'Remboursement', href: 'finance-outbound.html', feature: 'remboursement' },
-                { label: 'Paiement sinistre', href: 'finance-outbound.html', feature: 'paiement_sinistre' },
-            ],
-        },
-        { id: 'assureur', label: 'Assureur', icon: 'shield', href: 'admin-assureurs.html', feature: 'comptes_assureurs' },
-        { id: 'reassureur', label: 'Réassureur', icon: 'shield', href: 'admin-reassureurs.html', feature: 'comptes_reassureurs' },
-        { id: 'reassureur_portal', label: 'Portail réassureur', icon: 'shield', href: 'reassureur-portal.html', roles: ['agent_verificateur_reassureur'] },
-        { id: 'intermediaire', label: 'Intermédiaire', icon: 'partners', href: 'admin-courtiers.html', feature: 'comptes_intermediaires' },
-        { id: 'courtier_production', label: 'Portail production', icon: 'production', href: 'courtier-production.html', roles: ['agent_production_courtier', 'assistant_souscription'] },
-        { id: 'courtier_sinistres', label: 'Portail sinistres', icon: 'claim', href: 'courtier-sinistres.html', roles: ['agent_sinistre_courtier'] },
-        { id: 'courtier_comptable', label: 'Portail comptable', icon: 'money', href: 'accounting-portal.html', roles: ['agent_comptable_courtier'] },
-        { id: 'assureur_production', label: 'Portail production', icon: 'production', href: 'assureur-production.html', roles: ['agent_production_assureur', 'agent_medical_assureur'] },
-        { id: 'assureur_sinistres', label: 'Portail sinistres', icon: 'claim', href: 'assureur-sinistres.html', roles: ['agent_sinistre_assureur'] },
-        { id: 'assureur_comptable', label: 'Portail comptable', icon: 'money', href: 'assureur-accounting.html', roles: ['agent_comptable_assureur'] },
-        { id: 'hopital_portail', label: 'Portail hôpital', icon: 'medical', href: 'hospital-dashboard.html', roles: ['hospital_admin', 'medecin_hopital', 'agent_reception_hopital', 'agent_comptable_hopital'] },
-        { id: 'partenaire_sante', label: 'Partenaire santé', icon: 'medical', href: 'admin-hospitals.html', feature: 'comptes_partenaires_sante' },
-        { id: 'assures', label: 'Assurés', icon: 'users', href: 'admin-users.html', feature: 'comptes_utilisateurs' },
-        {
-            id: 'medecin_conseil',
-            label: 'Médecin conseil',
-            icon: 'stetho',
-            feature: 'prise_en_charge',
-            internalOnly: true,
-            children: [
-                { label: 'Création compte utilisateur', href: 'admin-users.html', feature: 'comptes_utilisateurs', minLevel: 'edition' },
-                { label: "Centre d'alerte des urgences", href: 'alert-center.html', feature: 'alerte_sos' },
-                { label: 'Émission bon de prise en charge', href: 'alert-center.html', feature: 'prise_en_charge' },
-                { label: 'Émission bon de refus de prise en charge', href: 'alert-center.html', feature: 'prise_en_charge' },
-                { label: 'Réception bulletin de sortie', href: 'medical-validations.html', feature: 'bulletin_sortie' },
-                { label: "Émission bon d'hospitalisation", href: 'alert-center.html', feature: 'hospitalisation' },
-                { label: "Émission bon de prolongation d'hospitalisation", href: 'alert-center.html', feature: 'hospitalisation' },
-                { label: 'Émission bon de rapatriement sanitaire', href: 'alert-center.html', feature: 'rapatriement' },
-                { label: 'Émission bon de rapatriement funéraire', href: 'alert-center.html', feature: 'rapatriement' },
-                { label: 'Réception rapport médical', href: 'medical-validations.html', feature: 'rapport_medical' },
-                { label: 'Validation facture hospitalière', href: 'sinistre-invoices.html', feature: 'facturation_medicale' },
-                { label: 'Reporting', href: 'statistics-portal.html', feature: 'rapport_medical' },
-            ],
-        },
-        {
-            id: 'affaires_medicales',
-            label: 'Affaires médicales',
-            icon: 'medical',
-            feature: 'prise_en_charge',
-            internalOnly: true,
-            children: [
-                { label: 'Validations médicales', href: 'medical-validations.html', feature: 'prise_en_charge' },
-                { label: 'Alertes SOS', href: 'alert-center.html', feature: 'alerte_sos' },
-                { label: 'Carte des alertes', href: 'sos-alerts-map.html', feature: 'alerte_sos' },
-                { label: 'Factures médicales', href: 'sinistre-invoices.html', feature: 'facturation_medicale' },
-            ],
-        },
-        { id: 'hotels', label: 'Hôtels', icon: 'partners', href: 'admin-ops.html', feature: 'alerte_sos', internalOnly: true },
-        { id: 'transport', label: 'Transport médical', icon: 'globe', href: 'admin-ops.html?tab=providers', feature: 'alerte_sos', internalOnly: true },
-        {
-            id: 'finance',
-            label: 'Finance et comptabilité',
+            id: 'pole_finance',
+            label: 'Comptabilité & Finances',
             icon: 'money',
             feature: 'encaissement_prime',
             internalOnly: true,
             children: [
+                { section: 'Gestion' },
                 { label: 'Tableau financier', href: 'finance-dashboard.html', feature: 'encaissement_prime' },
-                { label: 'Paiements sortants', href: 'finance-outbound.html', feature: 'paiement_sinistre' },
-                { label: 'Portail comptable', href: 'accounting-portal.html', feature: 'encaissement_prime' },
+                { label: 'Encaissements primes', href: 'finance-outbound.html#encaissements', feature: 'encaissement_prime' },
+                { label: 'Paiements & Flux sortants', href: 'finance-outbound.html', feature: 'paiement_sinistre' },
+                { label: 'Remboursements', href: 'finance-outbound.html#remboursements', feature: 'remboursement' },
+                { label: 'Factures médicales', href: 'mh-invoices.html', feature: 'facturation_medicale' },
+                { section: 'Supervision' },
                 { label: 'Grand livre', href: 'accounting-ledger.html', feature: 'retrocession_mhc' },
-                { label: 'Factures', href: 'mh-invoices.html', feature: 'facturation_medicale' },
+                { label: 'Portail comptable', href: 'accounting-portal.html', feature: 'encaissement_prime' },
+            ],
+        },
+        {
+            id: 'pole_medical',
+            label: 'Affaires Médicales',
+            icon: 'medical',
+            internalOnly: true,
+            children: [
+                { section: 'Gestion' },
+                { label: "Centre d'alerte des urgences", href: 'alert-center.html', feature: 'alerte_sos' },
+                { label: 'Carte des alertes', href: 'sos-alerts-map.html', feature: 'alerte_sos' },
+                { label: 'Validations médicales', href: 'medical-validations.html', feature: 'prise_en_charge' },
+                { label: 'Prise en charge', href: 'alert-center.html', feature: 'prise_en_charge' },
+                { label: 'Hospitalisations', href: 'alert-center.html', feature: 'hospitalisation' },
+                { label: 'Rapatriements', href: 'alert-center.html', feature: 'rapatriement' },
+                { label: 'Facturation médicale', href: 'sinistre-invoices.html', feature: 'facturation_medicale' },
+                { section: 'Paramétrage' },
+                { label: 'Hôtels & hébergements', href: 'admin-ops.html', feature: 'alerte_sos' },
+                { label: 'Transporteurs médicaux', href: 'admin-ops.html?tab=providers', feature: 'alerte_sos' },
+            ],
+        },
+        {
+            id: 'gestion_comptes',
+            label: 'Comptes & Partenaires',
+            icon: 'users',
+            internalOnly: true,
+            children: [
+                { section: 'Comptes internes' },
+                { label: 'Utilisateurs MHC', href: 'admin-users.html', feature: 'comptes_utilisateurs', minLevel: 'edition' },
+                { label: 'Médecins-conseil', href: 'admin-users.html?role=medecin_referent_mh', feature: 'comptes_medecins_conseil' },
+                { section: 'Partenaires' },
+                { label: 'Assureurs', href: 'admin-assureurs.html', feature: 'comptes_assureurs' },
+                { label: 'Courtiers & intermédiaires', href: 'admin-courtiers.html', feature: 'comptes_intermediaires' },
+                { label: 'Réassureurs', href: 'admin-reassureurs.html', feature: 'comptes_reassureurs' },
+                { label: 'Partenaires santé', href: 'admin-hospitals.html', feature: 'comptes_partenaires_sante' },
+            ],
+        },
+        {
+            id: 'portails_externes',
+            label: 'Portails externes',
+            icon: 'globe',
+            children: [
+                { label: 'Portail réassureur', href: 'reassureur-portal.html', roles: ['agent_verificateur_reassureur'] },
+                { section: 'Courtier' },
+                { label: 'Production', href: 'courtier-production.html', roles: ['agent_production_courtier', 'assistant_souscription'] },
+                { label: 'Sinistres', href: 'courtier-sinistres.html', roles: ['agent_sinistre_courtier'] },
+                { label: 'Comptabilité', href: 'accounting-portal.html', roles: ['agent_comptable_courtier'] },
+                { section: 'Assureur' },
+                { label: 'Production', href: 'assureur-production.html', roles: ['agent_production_assureur', 'agent_medical_assureur'] },
+                { label: 'Sinistres', href: 'assureur-sinistres.html', roles: ['agent_sinistre_assureur'] },
+                { label: 'Comptabilité', href: 'assureur-accounting.html', roles: ['agent_comptable_assureur'] },
+                { section: 'Partenaire santé' },
+                { label: 'Portail hôpital', href: 'hospital-dashboard.html', roles: ['hospital_admin', 'medecin_hopital', 'agent_comptable_hopital'] },
+                { label: 'Réception — dossiers assignés', href: 'hospital-reception.html', roles: ['hospital_admin', 'agent_reception_hopital'] },
+                { label: 'Facturation hôpital', href: 'hospital-invoices.html', roles: ['hospital_admin', 'agent_comptable_hopital'] },
+                { label: 'Prise en charge médecin', href: 'hospital-doctor.html', roles: ['hospital_admin', 'medecin_hopital'] },
             ],
         },
         { id: 'reporting', label: 'Reporting', icon: 'chart', href: 'statistics-portal.html', feature: 'encaissement_prime', internalOnly: true },
-        {
-            id: 'parametres',
-            label: 'Paramètres',
-            icon: 'gear',
-            roles: ['admin', 'superviseur_technique'],
-            children: [
-                { label: 'Utilisateurs', href: 'admin-users.html', feature: 'comptes_utilisateurs', minLevel: 'edition' },
-                { label: 'Produits', href: 'admin-products.html', feature: 'comptes_produits', minLevel: 'edition' },
-                { label: 'Tarification', href: 'admin-tarification.html', feature: 'comptes_produits', minLevel: 'edition' },
-                { label: 'Frais et taxes', href: 'admin-tarification-frais.html', feature: 'comptes_produits', minLevel: 'edition' },
-                { label: 'Destinations', href: 'admin-destinations.html', feature: 'comptes_produits', minLevel: 'edition' },
-                { label: 'Attestations', href: 'admin-attestations.html', feature: 'comptes_produits', minLevel: 'edition' },
-            ],
-        },
     ];
 
     const ROLE_LABELS = (typeof window !== 'undefined' && window.MH_ROLE_LABELS) || {
@@ -180,12 +163,27 @@
     }
 
     function canSee(item) {
+        if (item.section) return true;
         if (item.roles && !item.roles.includes(currentRole())) return false;
         if (item.internalOnly && !(window.MhPermissions && window.MhPermissions.isInternalBackoffice())) return false;
         if (!item.feature) return true;
         const perms = window.MhPermissions;
         if (!perms || !perms.can) return currentRole() === 'admin';
         return perms.can(item.feature, item.minLevel || 'consultation');
+    }
+
+    // Supprime les en-têtes de section sans item visible qui les suit
+    // (évite un label "Paramétrage" orphelin si toutes ses entrées sont filtrées).
+    function pruneSections(children) {
+        const kept = [];
+        children.forEach((c, i) => {
+            if (!c.section) { kept.push(c); return; }
+            const rest = children.slice(i + 1);
+            const nextSection = rest.findIndex(x => x.section);
+            const itemsBeforeNext = nextSection === -1 ? rest.length : nextSection;
+            if (itemsBeforeNext > 0) kept.push(c);
+        });
+        return kept;
     }
 
     function currentFile() {
@@ -203,9 +201,30 @@
         return ICO[name] || ICO.doc;
     }
 
+    // État des accordéons persisté en sessionStorage : survit aux navigations
+    // entre les pages statiques (chaque page reconstruit la sidebar).
+    const OPEN_STATE_KEY = 'bo_menu_open_groups';
+
+    function getOpenGroups() {
+        try {
+            return JSON.parse(sessionStorage.getItem(OPEN_STATE_KEY) || '[]');
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function setGroupOpen(id, isOpen) {
+        const groups = getOpenGroups();
+        const idx = groups.indexOf(id);
+        if (isOpen && idx === -1) groups.push(id);
+        if (!isOpen && idx !== -1) groups.splice(idx, 1);
+        sessionStorage.setItem(OPEN_STATE_KEY, JSON.stringify(groups));
+    }
+
     function renderMenu() {
         const ul = document.createElement('ul');
         ul.className = 'bo-menu';
+        const openGroups = getOpenGroups();
         MENU.forEach(item => {
             if (!canSee(item)) return;
             const li = document.createElement('li');
@@ -214,26 +233,36 @@
                 : item.href;
 
             if (item.children && item.children.length) {
-                const visibleChildren = item.children.filter(canSee);
+                const visibleChildren = pruneSections(item.children.filter(canSee));
                 if (!visibleChildren.length) return;
                 const anyChildActive = visibleChildren.some(c => linkIsActive(c.href));
-                li.className = 'bo-group' + (anyChildActive ? ' open' : '');
+                // Ouvert si : groupe contenant la page active OU préalablement ouvert par l'utilisateur
+                const isOpen = anyChildActive || openGroups.includes(item.id);
+                li.className = 'bo-group' + (isOpen ? ' open' : '');
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'bo-group-btn' + (anyChildActive ? ' active' : '');
                 btn.innerHTML = icon(item.icon) + '<span>' + item.label + '</span>' +
                     '<svg class="bo-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
-                btn.addEventListener('click', () => li.classList.toggle('open'));
+                btn.addEventListener('click', () => {
+                    const nowOpen = li.classList.toggle('open');
+                    setGroupOpen(item.id, nowOpen);
+                });
                 li.appendChild(btn);
                 const sub = document.createElement('ul');
                 sub.className = 'bo-sub';
                 visibleChildren.forEach(child => {
                     const cli = document.createElement('li');
-                    const a = document.createElement('a');
-                    a.className = 'bo-link' + (linkIsActive(child.href) ? ' active' : '');
-                    a.href = child.href;
-                    a.textContent = child.label;
-                    cli.appendChild(a);
+                    if (child.section) {
+                        cli.className = 'bo-section';
+                        cli.textContent = child.section;
+                    } else {
+                        const a = document.createElement('a');
+                        a.className = 'bo-link' + (linkIsActive(child.href) ? ' active' : '');
+                        a.href = child.href;
+                        a.textContent = child.label;
+                        cli.appendChild(a);
+                    }
                     sub.appendChild(cli);
                 });
                 li.appendChild(sub);
@@ -254,7 +283,7 @@
         aside.className = 'bo-sidebar';
         aside.innerHTML =
             '<div class="bo-brand">' +
-            '  <img src="assets/logo_mobility_healthcare_officiel.png" alt="Mobility Health">' +
+            '  <img src="assets/logo_mobility_healthcare_officiel.png" alt="Mobility Health Care">' +
             '  <div><a class="bo-brand-name" href="#">Mobility Health Care</a>' +
             '  <div class="bo-brand-tag">Travel safe. Live free.</div></div>' +
             '</div>';
@@ -263,6 +292,17 @@
         foot.className = 'bo-sidebar-foot';
         foot.textContent = 'Des soins sans frontières pour un monde en mouvement';
         aside.appendChild(foot);
+        // Ramener le lien actif dans la zone visible (scroll de la sidebar
+        // uniquement, jamais celui de la page)
+        requestAnimationFrame(() => {
+            const active = aside.querySelector('.bo-link.active');
+            if (!active) return;
+            const aRect = active.getBoundingClientRect();
+            const sRect = aside.getBoundingClientRect();
+            if (aRect.top < sRect.top || aRect.bottom > sRect.bottom) {
+                aside.scrollTop += aRect.top - sRect.top - sRect.height / 2;
+            }
+        });
         return aside;
     }
 

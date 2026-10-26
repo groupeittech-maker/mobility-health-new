@@ -186,18 +186,17 @@ async function loadHospitalStayOptions() {
 }
 
 function configureBackLink() {
-    const backLink = document.getElementById('backLink');
-    if (!backLink) {
-        return;
-    }
-    backLink.addEventListener('click', (event) => {
-        event.preventDefault();
-        if (previousUrl) {
-            window.location.href = previousUrl;
-            return;
-        }
-        const defaultTarget = getDefaultBackTarget();
-        window.location.href = defaultTarget;
+    const target = previousUrl || getDefaultBackTarget();
+    // Vrai lien (fonctionne même sans JS), visible dans la nav ET dans
+    // l'en-tête du dossier (le shell back-office masque la navbar d'origine).
+    const label = target.includes('hospital-reception')
+        ? '← Dossiers assignés'
+        : '← Retour';
+    ['backLink', 'dossierBackLink'].forEach((id) => {
+        const link = document.getElementById(id);
+        if (!link) return;
+        link.setAttribute('href', target);
+        link.textContent = label;
     });
 }
 
@@ -1313,8 +1312,11 @@ async function handleDispatchAmbulance(button) {
         console.error('Erreur ambulance:', error);
         showAlert(error.message || 'Impossible d’envoyer l’ambulance.', 'error');
     } finally {
-        button.disabled = false;
-        button.textContent = '🚑 Envoyer une ambulance';
+        // Ne pas réactiver à l'aveugle : si l'envoi a réussi l'étape est
+        // 'completed' et le bouton reste « Ambulance déployée », désactivé.
+        const dispatched = getWorkflowStep('ambulance_en_route')?.statut === 'completed';
+        button.disabled = dispatched;
+        button.textContent = dispatched ? '🚑 Ambulance déployée' : '🚑 Envoyer une ambulance';
     }
 }
 
@@ -1356,7 +1358,7 @@ function buildReceptionStayAlert(stay) {
         case 'invoiced':
             return {
                 tone: 'success',
-                message: 'Facture émise et transmise au comptable Mobility Health.',
+                message: 'Facture émise et transmise au comptable Mobility Health Care.',
             };
         default:
             return {
@@ -1628,7 +1630,7 @@ function renderInvoiceSection() {
     } else if (canCreateInvoice) {
         summary.innerHTML = `
             <p class="muted">
-                Utilisez les informations du séjour pour générer une facture. Elle sera transmise au comptable Mobility Health.
+                Utilisez les informations du séjour pour générer une facture. Elle sera transmise au comptable Mobility Health Care.
             </p>
         `;
         if (actionBtn) {

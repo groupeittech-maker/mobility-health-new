@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 import httpx
 from app.core.database import get_db
 from app.api.v1.auth import get_current_user, get_current_user_optional
+from app.core.permissions import can_act_for_third_party
 from app.models.user import User
 from app.models.souscription import Souscription
 from app.models.attestation import Attestation
@@ -139,7 +140,8 @@ _SUBSCRIPTION_VALIDATION_FIELDS = {
 }
 
 _VALIDATION_ROLE_MATRIX = {
-    "medecin": {Role.MEDICAL_REVIEWER, Role.DOCTOR, Role.MEDECIN_REFERENT_MH},
+    "medecin": {Role.MEDICAL_REVIEWER, Role.DOCTOR, Role.MEDECIN_REFERENT_MH,
+                Role.AGENT_MEDICAL_MHC, Role.SUPERVISEUR_AFFAIRES_MEDICALES},
     "technique": {Role.TECHNICAL_REVIEWER, Role.FINANCE_MANAGER, Role.HOSPITAL_ADMIN, Role.ADMIN},
     "production": {Role.PRODUCTION_AGENT, Role.ADMIN},
 }
@@ -406,11 +408,11 @@ async def get_subscription_attestations(
     
     logger.info(f"🔍 Recherche d'attestations pour souscription {subscription_id} (utilisateur {current_user.id})")
     
-    # Vérifier que la souscription existe et appartient à l'utilisateur
-    souscription = db.query(Souscription).filter(
-        Souscription.id == subscription_id,
-        Souscription.user_id == current_user.id
-    ).first()
+    # Vérifier que la souscription existe et appartient à l'utilisateur (ou tiers autorisé)
+    query = db.query(Souscription).filter(Souscription.id == subscription_id)
+    if not can_act_for_third_party(current_user.role):
+        query = query.filter(Souscription.user_id == current_user.id)
+    souscription = query.first()
     
     if not souscription:
         logger.warning(f"❌ Souscription {subscription_id} non trouvée ou n'appartient pas à l'utilisateur {current_user.id}")

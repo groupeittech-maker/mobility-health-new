@@ -121,8 +121,31 @@
         renderStatutMedical(d.statut_medical);
         renderNotes(d.notes || []);
         renderTimeline(d.timeline || []);
+        updateActionButtons(d);
         renderMap(a, d.hospital_assigne);
         $('openMapsLink').href = `https://www.google.com/maps/search/?api=1&query=${a.latitude},${a.longitude}`;
+    }
+
+    function updateActionButtons(d) {
+        const types = new Set((d.timeline || []).map(e => e.type));
+        const closed = ['resolue', 'annulee'].includes(d.alerte && d.alerte.statut);
+        const hasBpcu = (d.care_documents || []).some(doc => doc.type === 'bpcu');
+        const states = [
+            ['btnAmbulance', types.has('ambulance'), '🚑 Ambulance déjà envoyée'],
+            ['btnNotifyHospital', types.has('notification_hopital'), '🏥 Hôpital déjà prévenu'],
+            ['btnPriseEnCharge', hasBpcu || types.has('prise_en_charge'), '📋 Prise en charge validée'],
+            ['btnHotel', types.has('hotel'), '🏨 Hébergement organisé'],
+        ];
+        states.forEach(([id, done, label]) => {
+            const b = $(id);
+            if (!b) return;
+            if (done || closed) {
+                b.disabled = true;
+                b.textContent = done ? label : b.textContent;
+            } else {
+                b.disabled = false;
+            }
+        });
     }
 
     function renderStatutMedical(sm) {

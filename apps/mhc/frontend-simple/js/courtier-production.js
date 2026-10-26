@@ -1,3 +1,16 @@
+
+function escapeHtml(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 const PORTAL_ALLOWED_ROLES =
     window.COURTIER_PRODUCTION_ALLOWED_ROLES || ['agent_production_courtier', 'assistant_souscription', 'admin'];
 
@@ -17,8 +30,194 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     initSectionTabs();
     initSubscriptionsFilters();
+    initNewSubscriptionModal();
     await loadSubscriptions();
 });
+
+// ------------------------------------------------------------------
+// Nouvelle souscription pour un tiers (assistant de souscription)
+// ------------------------------------------------------------------
+
+function canCreateSubscription() {
+    const perms = window.MhPermissions;
+    if (perms && perms.can) {
+        return perms.can('production', 'edition');
+    }
+    return true;
+}
+
+function initNewSubscriptionModal() {
+    const btn = document.getElementById('newSubscriptionBtn');
+    const modal = document.getElementById('subscriptionModal');
+    if (!btn || !modal) {
+        return;
+    }
+    if (!canCreateSubscription()) {
+        return; // bouton masqué par défaut dans le HTML
+    }
+    btn.hidden = false;
+
+    const closeBtn = document.getElementById('subscriptionModalClose');
+    const cancelBtn = document.getElementById('subscriptionCancelBtn');
+    const form = document.getElementById('subscriptionForm');
+    const searchInput = document.getElementById('clientSearchInput');
+    const resultsList = document.getElementById('clientSearchResults');
+    const clientIdInput = document.getElementById('subscriptionClientId');
+    const clientLabel = document.getElementById('clientSelectedLabel');
+
+    const open = async () => {
+        form.reset();
+        clientIdInput.value = '';
+        clientLabel.textContent = '';
+        resultsList.innerHTML = '';
+        modal.classList.add('open');
+        await loadSubscriptionProducts();
+        searchInput.focus();
+    };
+    const close = () => modal.classList.remove('open');
+
+    btn.addEventListener('click', open);
+    closeBtn?.addEventListener('click', close);
+    const wizardBtn = document.getElementById('subscriptionWizardBtn');
+    wizardBtn?.addEventListener('click', () => {
+        const uid = document.getElementById('subscriptionClientId').value;
+        if (uid) {
+            window.location.href = `subscription-wizard.html?for_user_id=${uid}`;
+        }
+    });
+    cancelBtn?.addEventListener('click', close);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+    // Création d'un compte voyageur (sans smartphone / sans compte existant)
+    document.getElementById('toggleNewTraveler')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        const block = document.getElementById('newTravelerBlock');
+        block.hidden = !block.hidden;
+    });
+    document.getElementById('createTravelerBtn')?.addEventListener('click', async () => {
+        const msg = document.getElementById('createTravelerMsg');
+        const name = document.getElementById('newTravelerName').value.trim();
+        const email = document.getElementById('newTravelerEmail').value.trim();
+        if (!name || !email) {
+            msg.textContent = 'Nom complet et email requis.';
+            return;
+        }
+        try {
+            const user = await apiCall('/auth/register', {
+                method: 'POST',
+                body: JSON.stringify({
+                    email,
+                    username: email,
+                    full_name: name,
+                    password: `MHC-${Math.random().toString(36).slice(2, 10)}`,
+                    telephone: document.getElementById('newTravelerPhone').value.trim() || null,
+                    date_naissance: document.getElementById('newTravelerBirth').value || null,
+                    pays_residence: document.getElementById('newTravelerCountry').value.trim() || null,
+                }),
+            });
+            clientIdInput.value = user.id;
+            clientLabel.textContent = `Nouveau voyageur créé : ${user.full_name || name} (${user.email})`;
+            document.getElementById('subscriptionWizardBtn').disabled = false;
+            document.getElementById('newTravelerBlock').hidden = true;
+            msg.textContent = '';
+        } catch (err) {
+            msg.textContent = err?.message || 'Création du compte impossible.';
+        }
+    });
+
+    let searchTimer = null;
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        const q = searchInput.value.trim();
+        if (q.length < 3) {
+            resultsList.innerHTML = '';
+            return;
+        }
+        searchTimer = setTimeout(() => searchClients(q), 300);
+    });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = document.getElementById('subscriptionSubmitBtn');
+        const payload = {
+            produit_assurance_id: Number(document.getElementById('subscriptionProductId').value),
+            user_id: Number(clientIdInput.value),
+            date_debut: document.getElementById('subscriptionDateDebut').value
+                ? `${document.getElementById('subscriptionDateDebut').value}T00:00:00`
+                : null,
+            notes: document.getElementById('subscriptionNotes').value.trim() || null,
+            canal_distribution: 'courtier',
+        };
+        if (!payload.user_id) {
+            alert('Sélectionnez un assuré dans les résultats de recherche.');
+            return;
+        }
+        try {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Création…';
+            const sub = await apiCall('/subscriptions/start', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
+            close();
+            alert(`Souscription ${sub.numero_souscription || sub.id} créée (en attente).`);
+            await loadSubscriptions();
+        } catch (err) {
+            alert(err?.message || 'Erreur lors de la création de la souscription.');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Créer la souscription';
+        }
+    });
+}
+
+async function loadSubscriptionProducts() {
+    const select = document.getElementById('subscriptionProductId');
+    if (!select || select.options.length > 1) {
+        return;
+    }
+    try {
+        const products = await apiCall('/products/');
+        (products || []).forEach((p) => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.nom || `Produit ${p.id}`;
+            select.appendChild(opt);
+        });
+    } catch (err) {
+        console.error('Produits non chargés', err);
+    }
+}
+
+async function searchClients(q) {
+    const resultsList = document.getElementById('clientSearchResults');
+    const clientIdInput = document.getElementById('subscriptionClientId');
+    const clientLabel = document.getElementById('clientSelectedLabel');
+    try {
+        const clients = await apiCall(`/subscriptions/clients/search?q=${encodeURIComponent(q)}`);
+        resultsList.innerHTML = '';
+        if (!clients.length) {
+            resultsList.innerHTML = '<li class="muted">Aucun assuré trouvé</li>';
+            return;
+        }
+        clients.forEach((c) => {
+            const li = document.createElement('li');
+            li.className = 'client-search-item';
+            li.textContent = `${c.full_name || c.username || ''} — ${c.email || ''} ${c.telephone ? '· ' + c.telephone : ''}`;
+            li.addEventListener('click', () => {
+                clientIdInput.value = c.id;
+                clientLabel.textContent = `Assuré sélectionné : ${c.full_name || c.username} (${c.email})`;
+                const wizardBtn = document.getElementById('subscriptionWizardBtn');
+                if (wizardBtn) wizardBtn.disabled = false;
+                resultsList.innerHTML = '';
+                document.getElementById('clientSearchInput').value = '';
+            });
+            resultsList.appendChild(li);
+        });
+    } catch (err) {
+        resultsList.innerHTML = '<li class="muted">Recherche indisponible</li>';
+    }
+}
 
 function initSectionTabs() {
     const tabButtons = document.querySelectorAll('.tab-btn');

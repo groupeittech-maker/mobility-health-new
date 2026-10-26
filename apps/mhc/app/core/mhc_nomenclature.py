@@ -12,11 +12,11 @@ class MhcOperationCode(str, Enum):
     POLICE = "10"
     SINISTRE = "11"
     ATTESTATION_ASSURANCE = "101"
-    BON_ANNULATION_POLICE = "102"
-    BON_RESILIATION_POLICE = "103"
+    AVENANT_ANNULATION_POLICE = "102"
+    BON_SUSPENSION_POLICE = "103"  # Code réservé : la suspension n'existe pas dans MyMHC
     BON_RENOUVELLEMENT = "104"
-    AVENANT_SUSPENSION = "105"
-    AVENANT_REEMISSION = "106"
+    AVENANT_MODIFICATION_POLICE = "107"
+    AVENANT_PROROGATION_POLICE = "108"
     BPCU = "111"
     BRPCU = "112"
     BH = "113"
@@ -26,6 +26,7 @@ class MhcOperationCode(str, Enum):
     BPH = "117"
     CERTIFICAT_DECES = "118"
     QUITTANCE_REGLEMENT = "119"
+    QUITTANCE_RISTOURNE = "120"
     ARS = "121"  # Attestation de retour de rapatriement sanitaire (code non fourni dans le tableur)
     ARF = "122"  # Attestation de rapatriement funéraire (code non fourni dans le tableur)
 
@@ -60,11 +61,11 @@ OPERATION_LABELS: Dict[str, str] = {
     MhcOperationCode.POLICE.value: "Police",
     MhcOperationCode.SINISTRE.value: "Sinistre",
     MhcOperationCode.ATTESTATION_ASSURANCE.value: "Attestation d'assurance",
-    MhcOperationCode.BON_ANNULATION_POLICE.value: "Bon d'annulation de police",
-    MhcOperationCode.BON_RESILIATION_POLICE.value: "Bon de résiliation de police",
+    MhcOperationCode.AVENANT_ANNULATION_POLICE.value: "Avenant d'annulation de police",
+    MhcOperationCode.BON_SUSPENSION_POLICE.value: "Bon de suspension de police",
     MhcOperationCode.BON_RENOUVELLEMENT.value: "Bon de renouvellement",
-    MhcOperationCode.AVENANT_SUSPENSION.value: "Avenant de suspension de police",
-    MhcOperationCode.AVENANT_REEMISSION.value: "Avenant de réémission de police",
+    MhcOperationCode.AVENANT_MODIFICATION_POLICE.value: "Avenant de modification de police",
+    MhcOperationCode.AVENANT_PROROGATION_POLICE.value: "Avenant de prorogation de police",
     MhcOperationCode.BPCU.value: "Bon de prise en charge d'urgence",
     MhcOperationCode.BRPCU.value: "Bon de refus de prise en charge d'urgence",
     MhcOperationCode.BH.value: "Bon d'hospitalisation",
@@ -74,6 +75,7 @@ OPERATION_LABELS: Dict[str, str] = {
     MhcOperationCode.BPH.value: "Bon de prolongation d'hospitalisation",
     MhcOperationCode.CERTIFICAT_DECES.value: "Certificat de décès",
     MhcOperationCode.QUITTANCE_REGLEMENT.value: "Quittance de règlement",
+    MhcOperationCode.QUITTANCE_RISTOURNE.value: "Quittance de ristourne",
     MhcOperationCode.ARS.value: "Attestation de retour de rapatriement sanitaire",
     MhcOperationCode.ARF.value: "Attestation de rapatriement funéraire",
 }
@@ -298,7 +300,17 @@ def format_attestation_number(order: int) -> str:
 
 def format_avenant_annulation_number(order: int) -> str:
     """Avenant d'annulation de police — code 102 (suit le n° de police)."""
-    return f"{pad6(order)}-{MhcOperationCode.BON_ANNULATION_POLICE.value}"
+    return f"{pad6(order)}-{MhcOperationCode.AVENANT_ANNULATION_POLICE.value}"
+
+
+def format_avenant_modification_number(order: int) -> str:
+    """Avenant de modification de police — code 107 (suit le n° de police)."""
+    return f"{pad6(order)}-{MhcOperationCode.AVENANT_MODIFICATION_POLICE.value}"
+
+
+def format_avenant_prorogation_number(order: int) -> str:
+    """Avenant de prorogation de police — code 108 (suit le n° de police)."""
+    return f"{pad6(order)}-{MhcOperationCode.AVENANT_PROROGATION_POLICE.value}"
 
 
 def format_quittance_number(order: int) -> str:
@@ -306,14 +318,9 @@ def format_quittance_number(order: int) -> str:
     return f"{pad6(order)}-{MhcOperationCode.QUITTANCE_REGLEMENT.value}"
 
 
-def format_avenant_suspension_number(order: int) -> str:
-    """Avenant de suspension de police — code 105."""
-    return f"{pad6(order)}-{MhcOperationCode.AVENANT_SUSPENSION.value}"
-
-
-def format_avenant_reemission_number(order: int) -> str:
-    """Avenant de réémission de police — code 106."""
-    return f"{pad6(order)}-{MhcOperationCode.AVENANT_REEMISSION.value}"
+def format_quittance_ristourne_number(order: int) -> str:
+    """Quittance de ristourne — code 120 (suit le n° de police)."""
+    return f"{pad6(order)}-{MhcOperationCode.QUITTANCE_RISTOURNE.value}"
 
 
 def format_bph_number(bh_order: int, sequence: int, sinistre_order: int) -> str:

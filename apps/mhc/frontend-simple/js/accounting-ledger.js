@@ -47,15 +47,7 @@ function formatIntegerGrouped(n) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const allowedRoles = [
-        'agent_comptable_mh',
-        'agent_comptable_assureur',
-        'agent_comptable_courtier',
-        'finance_manager',
-        'admin',
-    ];
-
-    const hasAccess = await requireAnyRole(allowedRoles, 'index.html');
+    const hasAccess = await requirePermission('remboursement', 'consultation', 'index.html');
     if (!hasAccess) {
         return;
     }
@@ -93,7 +85,7 @@ function setListPlaceholder(message) {
     if (!list) {
         return;
     }
-    list.innerHTML = `<li class="accounting-tx-card--placeholder"><p class="muted">${escapeHtml(message)}</p></li>`;
+    list.innerHTML = `<tr><td colspan="13" class="muted" style="text-align:center;padding:1rem;">${escapeHtml(message)}</td></tr>`;
     if (typeof paginateList === 'function') {
         paginateList(TRANSACTIONS_LIST_ID);
     }
@@ -262,65 +254,32 @@ function updateStats() {
     setText('paidTransactions', formatIntegerGrouped(paidCount));
 }
 
-function buildTransactionCard(item, showActions) {
+function buildTransactionRow(item, showActions) {
     const statusBadge = renderStatusBadge(item.statut_transaction, item.status_code);
-    const refLine = item.reference_transaction
-        ? `<p class="muted small">${escapeHtml(item.reference_transaction)}</p>`
-        : '';
-    const actionBlock = showActions
-        ? `<div class="reception-alert-card__actions"><span class="accounting-tx-card__action-pill" title="Action">${escapeHtml(formatAction(item.action))}</span></div>`
-        : '';
+    const courtier = escapeHtml(item.courtier_nom || '—') +
+        (item.commission_courtier_pct != null
+            ? ` <span class="muted">(${escapeHtml(String(item.commission_courtier_pct))}%)</span>`
+            : '');
+    const actionCell = showActions
+        ? `<span class="accounting-tx-card__action-pill" title="Action">${escapeHtml(formatAction(item.action))}</span>`
+        : '—';
 
     return `
-        <li class="card reception-alert-card accounting-tx-card">
-            <div class="reception-alert-card__body">
-                <div class="reception-alert-card__main">
-                    <div class="reception-alert-card__head">
-                        <strong class="reception-alert-card__numero">${escapeHtml(item.numero_souscription || '—')}</strong>
-                        ${statusBadge}
-                    </div>
-                    <p class="reception-alert-card__patient">${escapeHtml(item.assure || '—')}</p>
-                    <p class="muted small"><strong>Assureur :</strong> ${escapeHtml(item.assureur_nom || '—')}</p>
-                    <p class="muted small"><strong>Courtier :</strong> ${escapeHtml(item.courtier_nom || '—')}${
-                        item.commission_courtier_pct != null
-                            ? ` (${escapeHtml(String(item.commission_courtier_pct))}%)`
-                            : ''
-                    }</p>
-                    ${refLine}
-                    <div class="accounting-tx-card__grid">
-                        <div>
-                            <span class="sos-alert-card__label">Prime Nette Totale encaissée</span>
-                            <div class="sos-alert-card__value">${formatAmount(item.montant_total)}</div>
-                        </div>
-                        <div>
-                            <span class="sos-alert-card__label">Montant reversé à l'assuré</span>
-                            <div class="sos-alert-card__value">${formatShareAmount(item.montant_assure)}</div>
-                        </div>
-                        <div>
-                            <span class="sos-alert-card__label">Part assureur (participation)</span>
-                            <div class="sos-alert-card__value">${formatAmount(item.montant_assureur)}</div>
-                        </div>
-                        <div>
-                            <span class="sos-alert-card__label">Commission courtier</span>
-                            <div class="sos-alert-card__value">${formatShareAmount(item.montant_courtier)}</div>
-                        </div>
-                        <div>
-                            <span class="sos-alert-card__label">Part réassureur${item.reassureur_nom ? ' (' + item.reassureur_nom + ')' : ''}</span>
-                            <div class="sos-alert-card__value">${formatShareAmount(item.montant_reassureur)}</div>
-                        </div>
-                        <div>
-                            <span class="sos-alert-card__label">Part MHC (nette)</span>
-                            <div class="sos-alert-card__value">${formatAmount(item.montant_mh)}</div>
-                        </div>
-                        <div>
-                            <span class="sos-alert-card__label">Part eKYC (350 FCFA/dossier)</span>
-                            <div class="sos-alert-card__value">${formatShareAmount(item.montant_ekyc)}</div>
-                        </div>
-                    </div>
-                </div>
-                ${actionBlock}
-            </div>
-        </li>`;
+        <tr>
+            <td><strong>${escapeHtml(item.numero_souscription || '—')}</strong></td>
+            <td>${escapeHtml(item.assure || '—')}</td>
+            <td>${escapeHtml(item.assureur_nom || '—')}</td>
+            <td>${courtier}</td>
+            <td class="muted">${escapeHtml(item.reference_transaction || '—')}</td>
+            <td class="num">${formatAmount(item.montant_total)}</td>
+            <td class="num">${formatShareAmount(item.montant_assure)}</td>
+            <td class="num">${formatAmount(item.montant_assureur)}</td>
+            <td class="num">${formatShareAmount(item.montant_courtier)}</td>
+            <td class="num">${formatShareAmount(item.montant_reassureur)}${item.reassureur_nom ? ` <span class="muted">(${escapeHtml(item.reassureur_nom)})</span>` : ''}</td>
+            <td class="num">${formatAmount(item.montant_mh)}</td>
+            <td>${statusBadge}</td>
+            <td>${actionCell}</td>
+        </tr>`;
 }
 
 function renderTransactions() {
@@ -344,7 +303,7 @@ function renderTransactions() {
         return;
     }
 
-    list.innerHTML = filtered.map((item) => buildTransactionCard(item, showActions)).join('');
+    list.innerHTML = filtered.map((item) => buildTransactionRow(item, showActions)).join('');
     if (typeof paginateList === 'function') {
         paginateList(TRANSACTIONS_LIST_ID);
     }
@@ -421,6 +380,11 @@ function formatAction(action) {
 
 function shouldShowActions() {
     const role = localStorage.getItem('user_role');
-    return ['agent_comptable_mh', 'finance_manager', 'admin'].includes(role);
+    if (['agent_comptable_mh', 'finance_manager', 'admin'].includes(role)) {
+        return true;
+    }
+    return window.MhPermissions
+        ? window.MhPermissions.can('remboursement', 'controle')
+        : false;
 }
 

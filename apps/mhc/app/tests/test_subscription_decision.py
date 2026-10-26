@@ -173,7 +173,8 @@ class TestSubscriptionDecisionEngineEvaluate:
         assert result.decision == "review"
         assert "medical" in result.review_steps
 
-    def test_review_medical_pregnancy(self):
+    def test_pregnancy_up_to_five_months_does_not_block_payment(self):
+        """Workflow V3 : seul « Oui » = grossesse ≤ 5 mois → paiement puis validation automatique."""
         sub = _subscription()
         result = SubscriptionDecisionEngine.evaluate(
             db=None,
@@ -181,12 +182,87 @@ class TestSubscriptionDecisionEngineEvaluate:
             user=_user(30),
             product=_product(),
             project=_project(),
-            questionnaire=_questionnaire({"enceinte": "oui", "mois_grossesse": 3}),
+            questionnaire=_questionnaire({"enceinte": "oui", "mois_grossesse": 5, "maladie_chronique": "non"}),
+        )
+        assert result.decision == "approve"
+        assert sub.statut == StatutSouscription.EN_ATTENTE_PAIEMENT
+
+    def test_pregnancy_with_other_yes_goes_to_review(self):
+        sub = _subscription()
+        result = SubscriptionDecisionEngine.evaluate(
+            db=None,
+            souscription=sub,
+            user=_user(30),
+            product=_product(),
+            project=_project(),
+            questionnaire=_questionnaire({"enceinte": "oui", "mois_grossesse": 3, "voyage_medical": "oui"}),
         )
         assert result.decision == "review"
         assert result.primary_step == "medical"
         assert sub.statut == StatutSouscription.EN_ATTENTE_VALIDATION
         assert sub.validation_medicale == "pending"
+
+    def test_child_yes_answer_sends_whole_dossier_to_review(self):
+        sub = _subscription()
+        result = SubscriptionDecisionEngine.evaluate(
+            db=None,
+            souscription=sub,
+            user=_user(40),
+            product=_product(),
+            project=_project(),
+            questionnaire=_questionnaire({
+                "maladie_chronique": "non",
+                "enfants": [{"nom": "Enfant", "maladie_chronique": "oui", "maladie_chronique_precision": "asthme"}],
+            }),
+        )
+        assert result.decision == "review"
+        assert "medical" in result.review_steps
+
+    def test_reject_trip_longer_than_92_days(self):
+        sub = _subscription()
+        result = SubscriptionDecisionEngine.evaluate(
+            db=None,
+            souscription=sub,
+            user=_user(35),
+            product=_product(duree_max=365),
+            project=_project(days=93),
+            questionnaire=_questionnaire({}),
+        )
+        assert result.decision == "reject"
+        assert "92" in " ".join(result.reasons)
+        assert sub.validation_finale_notes.startswith("Refus automatique")
+
+    def test_reject_known_fraud(self):
+        sub = _subscription()
+        user = _user(35)
+        user.fraude_signalee = True
+        result = SubscriptionDecisionEngine.evaluate(
+            db=None,
+            souscription=sub,
+            user=user,
+            product=_product(),
+            project=_project(),
+            questionnaire=_questionnaire({}),
+        )
+        assert result.decision == "reject"
+        assert "fraude" in " ".join(result.reasons).lower()
+
+    def test_reject_condition_excluded_by_product(self):
+        sub = _subscription()
+        product = _product()
+        product.exclusions_generales = [
+            {"reference": "Exclusion 7", "exclusion": "Maladies mentales", "mots_cles": "schizophrénie, bipolaire"},
+        ]
+        result = SubscriptionDecisionEngine.evaluate(
+            db=None,
+            souscription=sub,
+            user=_user(35),
+            product=product,
+            project=_project(),
+            questionnaire=_questionnaire({"maladie_chronique": "oui", "maladie_chronique_precision": "Trouble bipolaire"}),
+        )
+        assert result.decision == "reject"
+        assert "bipolaire" in " ".join(result.reasons)
 
     def test_review_medical_senior(self):
         sub = _subscription()

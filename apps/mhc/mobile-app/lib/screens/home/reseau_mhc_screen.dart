@@ -82,6 +82,18 @@ class _ReseauMhcScreenState extends State<ReseauMhcScreen> {
     return {for (final k in keys) k: map[k]!};
   }
 
+  /// Fiche pays : carte visuelle du pays avec les villes couvertes par le
+  /// réseau MHC mises en évidence.
+  void _showCountryDetails(DestinationCountryModel c) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CountryDetailSheet(country: c),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final groups = _grouped;
@@ -159,29 +171,40 @@ class _ReseauMhcScreenState extends State<ReseauMhcScreen> {
                             ),
                             const Divider(height: 16),
                             ...e.value.map(
-                              (c) => Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        c.nom,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: Color(0xFF352A42),
+                              (c) => InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () => _showCountryDetails(c),
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 6),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          c.nom,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF352A42),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    Text(
-                                      c.villes.isEmpty
-                                          ? c.code
-                                          : '${c.villes.length} ville${c.villes.length > 1 ? 's' : ''}',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.mutedText,
+                                      Text(
+                                        c.villes.isEmpty
+                                            ? c.code
+                                            : '${c.villes.length} ville${c.villes.length > 1 ? 's' : ''}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.mutedText,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 6),
+                                      const Icon(
+                                        Icons.chevron_right,
+                                        size: 18,
+                                        color: AppColors.secondary,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -222,4 +245,165 @@ class _ReseauMhcScreenState extends State<ReseauMhcScreen> {
             ),
     );
   }
+}
+
+/// Fiche pays du réseau MHC : en-tête « carte » violet/teal avec repère et
+/// liste des villes couvertes en surbrillance.
+class _CountryDetailSheet extends StatelessWidget {
+  const _CountryDetailSheet({required this.country});
+
+  final DestinationCountryModel country;
+
+  @override
+  Widget build(BuildContext context) {
+    final villes = country.villes;
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      builder: (_, controller) {
+        return Material(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          clipBehavior: Clip.antiAlias,
+          child: ListView(
+            controller: controller,
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // « Carte » stylisée du pays : dégradé charte + repère central.
+              Container(
+                height: 150,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF4E267C), Color(0xFF14AE98)],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: CustomPaint(painter: _GridPainter()),
+                    ),
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.location_on,
+                            color: Colors.white,
+                            size: 42,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            country.nom,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            '${villes.length} ville${villes.length > 1 ? 's' : ''} couverte${villes.length > 1 ? 's' : ''}',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Villes couvertes',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.secondary,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (villes.isEmpty)
+                const Text(
+                  'Aucune ville référencée pour ce pays.',
+                  style: TextStyle(color: AppColors.mutedText, fontSize: 12),
+                )
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: villes
+                      .map(
+                        (v) => Chip(
+                          avatar: const Icon(
+                            Icons.location_on,
+                            size: 16,
+                            color: AppColors.brandTeal,
+                          ),
+                          label: Text(
+                            v.nom,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                          backgroundColor: const Color(0xFFEDE9FE),
+                          side: const BorderSide(color: Color(0xFFD8CCED)),
+                        ),
+                      )
+                      .toList(),
+                ),
+              const SizedBox(height: 16),
+              const Text(
+                'La présence d’une ville dans le réseau MHC ne garantit pas sa '
+                'couverture par votre police : vérifiez la zone et les '
+                'conditions de votre contrat.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.mutedText,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Quadrillage discret pour l'en-tête « carte ».
+class _GridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.08)
+      ..strokeWidth = 1;
+    const step = 28.0;
+    for (double x = 0; x < size.width; x += step) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (double y = 0; y < size.height; y += step) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

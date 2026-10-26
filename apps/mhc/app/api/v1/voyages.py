@@ -10,7 +10,9 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 from app.core.database import get_db
 from app.core.config import settings
+from app.core.constants import MAX_TRIP_DAYS
 from app.api.v1.auth import get_current_user, get_current_user_optional
+from app.core.permissions import can_act_for_third_party
 from app.models.destination import DestinationCountry
 from app.models.user import User
 from app.models.projet_voyage import ProjetVoyage
@@ -54,16 +56,19 @@ ALLOWED_DOCUMENT_TYPES = {
 async def list_projets_voyage(
     skip: int = 0,
     limit: int = 100,
+    user_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Lister les projets de voyage de l'utilisateur connecté"""
+    """Lister les projets de voyage de l'utilisateur connecté (ou du voyageur cible pour les agents tiers)"""
     query = db.query(ProjetVoyage).filter(ProjetVoyage.user_id == current_user.id)
     
     # Si l'utilisateur est admin, il peut voir tous les projets
     _role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
     if _role == "admin":
         query = db.query(ProjetVoyage)
+    elif user_id and can_act_for_third_party(_role):
+        query = db.query(ProjetVoyage).filter(ProjetVoyage.user_id == user_id)
     
     projets = query.order_by(ProjetVoyage.created_at.desc()).offset(skip).limit(limit).all()
     
@@ -147,6 +152,26 @@ def _get_destination_country_name(
     return None
 
 
+def _validate_trip_window(
+    date_depart: Optional[datetime],
+    date_retour: Optional[datetime],
+    *,
+    start_for_duration: Optional[datetime] = None,
+) -> None:
+    """Date de départ passée interdite (aujourd'hui autorisé) ; voyage ≤ 92 jours."""
+    if date_depart is not None and date_depart.date() < datetime.utcnow().date():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La date de départ ne peut pas être dans le passé.",
+        )
+    start = start_for_duration or date_depart
+    if start is not None and date_retour is not None and (date_retour - start).days > MAX_TRIP_DAYS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"La durée du voyage est limitée à {MAX_TRIP_DAYS} jours.",
+        )
+
+
 def _validate_destination_country(
     db: Session,
     current_user: User,
@@ -224,17 +249,32 @@ async def create_projet_voyage(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La date de retour doit être postérieure à la date de départ"
         )
+    _validate_trip_window(projet_data.date_depart, projet_data.date_retour)
     
+    # Souscription pour un tiers : la validation pays de résidence concerne le voyageur cible.
+    _role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    target_user_id = getattr(projet_data, 'user_id', None)
+    target_user: Optional[User] = None
+    if target_user_id and target_user_id != current_user.id:
+        if not can_act_for_third_party(_role):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Vous n'avez pas les permissions pour créer un projet de voyage pour un tiers.",
+            )
+        target_user = db.query(User).filter(User.id == target_user_id).first()
+        if not target_user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Voyageur introuvable")
+
     _validate_destination_country(
         db,
-        current_user,
+        target_user or current_user,
         projet_data.destination_country_id,
         projet_data.notes,
     )
-    
-    # Créer le projet avec l'ID de l'utilisateur connecté
+
+    # Créer le projet avec l'ID de l'utilisateur connecté (ou du voyageur cible)
     projet_data_dict = projet_data.model_dump()
-    projet_data_dict['user_id'] = current_user.id
+    projet_data_dict['user_id'] = target_user_id or current_user.id
     # PostgreSQL n'accepte que les valeurs enum en minuscules (en_planification), pas le nom (EN_PLANIFICATION)
     statut_raw = projet_data_dict.get('statut')
     if hasattr(statut_raw, 'value'):
@@ -318,6 +358,11 @@ async def update_projet_voyage(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La date de retour doit être postérieure à la date de départ"
         )
+    _validate_trip_window(
+        date_depart if projet_data.date_depart is not None else None,
+        date_retour,
+        start_for_duration=date_depart,
+    )
 
     destination_country_id = (
         projet_data.destination_country_id
@@ -632,7 +677,7 @@ def _get_project_or_404(
             detail="Projet de voyage non trouvé",
         )
     _role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
-    if projet.user_id != current_user.id and _role != "admin":
+    if projet.user_id != current_user.id and not can_act_for_third_party(_role):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Vous n'avez pas accès à ce projet",

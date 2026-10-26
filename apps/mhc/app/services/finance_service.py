@@ -311,7 +311,7 @@ class FinanceService:
     ) -> Tuple[Decimal, Decimal]:
         """
         Répartition comptable des encaissements souscription : part assureur = Prime Nette
-        (prime_assurance), Mobility Health = tout le chargement (Coût de Police + Taxe +
+        (prime_assurance), Mobility Health Care = tout le chargement (Coût de Police + Taxe +
         taxes additionnelles) = montant total - Prime Nette.
         """
         mt = montant_total or Decimal("0.00")

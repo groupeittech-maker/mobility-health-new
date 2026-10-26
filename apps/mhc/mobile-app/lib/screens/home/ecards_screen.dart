@@ -63,7 +63,7 @@ class _EcardsScreenState extends State<EcardsScreen> {
           holderName: ecard?['holder_name']?.toString() ?? '',
           policyNumber: ecard?['numero_souscription']?.toString() ??
               (sub.numeroSouscription.isNotEmpty ? sub.numeroSouscription : null),
-          validity: _formatValidity(ecard),
+          validity: _formatValidity(sub, ecard),
           isChild: false,
           photoBytes: photo,
         ));
@@ -74,7 +74,7 @@ class _EcardsScreenState extends State<EcardsScreen> {
             policyNumber: sub.numeroSouscription.isNotEmpty
                 ? sub.numeroSouscription
                 : null,
-            validity: _formatValidity(ecard),
+            validity: _formatValidity(sub, ecard),
             isChild: true,
           ));
         }
@@ -96,13 +96,13 @@ class _EcardsScreenState extends State<EcardsScreen> {
     }
   }
 
-  String? _formatValidity(Map<String, dynamic>? ecard) {
+  /// « Du … au … » comme sur l'attestation : début = date d'effet de la
+  /// souscription, fin = fin de couverture de l'e-carte.
+  String? _formatValidity(SubscriptionModel sub, Map<String, dynamic>? ecard) {
     final raw = ecard?['coverage_end_date']?.toString() ??
         ecard?['card_expires_at']?.toString();
-    if (raw == null || raw.isEmpty) return null;
-    final d = DateTime.tryParse(raw);
-    if (d == null) return raw;
-    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    final end = (raw != null ? DateTime.tryParse(raw) : null) ?? sub.dateFin;
+    return MhEcard.validityRange(sub.dateDebut, end);
   }
 
   /// Noms des mineurs rattachés : champ structuré `projet.mineurs`, sinon
@@ -191,7 +191,7 @@ class _EcardsScreenState extends State<EcardsScreen> {
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                    padding: EdgeInsets.fromLTRB(20, 12, 20, 32 + MediaQuery.of(context).padding.bottom),
                     children: [
                       if (_cards.isEmpty)
                         MhEcardEmpty(

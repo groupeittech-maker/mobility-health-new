@@ -81,6 +81,9 @@ def deliver_email_sync(
     body_text: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Envoie un e-mail immédiatement via SMTP."""
+    if settings.EMAIL_DELIVERY_MODE == "stub":
+        logger.info("[stub] e-mail vers %s : %s", to_email, subject)
+        return {"status": "success", "to": to_email, "subject": subject, "mode": "stub"}
     if not smtp_configured():
         raise EmailDeliveryError(
             "Configuration SMTP incomplète (SMTP_HOST, SMTP_USER, SMTP_PASSWORD)."
@@ -130,6 +133,10 @@ def dispatch_email(
     """
     if synchronous:
         return deliver_email_sync(to_email, subject, body_html, body_text)
+
+    if settings.EMAIL_DELIVERY_MODE == "stub":
+        logger.info("[stub] e-mail vers %s : %s", to_email, subject)
+        return {"status": "success", "to": to_email, "subject": subject, "mode": "stub"}
 
     from app.workers.tasks import send_email
 

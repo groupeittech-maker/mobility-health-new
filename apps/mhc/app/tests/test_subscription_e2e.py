@@ -25,7 +25,8 @@ class TestSubscriptionE2E:
             "destination": "Paris, France",
             "date_depart": (datetime.utcnow() + timedelta(days=30)).isoformat(),
             "date_retour": (datetime.utcnow() + timedelta(days=60)).isoformat(),
-            "nombre_participants": 2,
+            # 1 participant : > 1 déclenche une revue production (moteur de décision)
+            "nombre_participants": 1,
             "questionnaire_type": "long",
         }
         
@@ -60,13 +61,14 @@ class TestSubscriptionE2E:
         subscription_data = subscription_response.json()
         subscription_id = subscription_data["id"]
         assert subscription_data["statut"] == "en_attente"
-        assert subscription_data["prix_applique"] == float(product.cout)
+        # prix_applique = coût de base + frais de police / taxes éventuels
+        assert subscription_data["prix_applique"] >= float(product.cout)
         assert subscription_data["produit_assurance_id"] == product.id
         assert subscription_data["projet_voyage_id"] == project_id
         
         # Step 4: Complete short questionnaire
         questionnaire_response = client.post(
-            f"/api/v1/questionnaires/subscriptions/{subscription_id}/questionnaire/short",
+            f"/api/v1/subscriptions/{subscription_id}/questionnaire/short",
             json={
                 "age": 30,
                 "destination": "France",
@@ -82,7 +84,7 @@ class TestSubscriptionE2E:
         
         # Step 5: Complete long questionnaire
         long_questionnaire_response = client.post(
-            f"/api/v1/questionnaires/subscriptions/{subscription_id}/questionnaire/long",
+            f"/api/v1/subscriptions/{subscription_id}/questionnaire/long",
             json={
                 "antecedents_medicaux": False,
                 "medicaments_actuels": [],
@@ -93,7 +95,33 @@ class TestSubscriptionE2E:
             headers=auth_headers
         )
         assert long_questionnaire_response.status_code == status.HTTP_200_OK
-        
+
+        # Step 5ter: questionnaire médical avec photo d'identité (requis pour l'attestation définitive)
+        tiny_png = (
+            "data:image/png;base64,"
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        )
+        medical_questionnaire_response = client.post(
+            f"/api/v1/subscriptions/{subscription_id}/questionnaire/medical",
+            json={
+                "photo": tiny_png,
+                "antecedents": "non",
+                "traitement_en_cours": "non",
+                "enceinte": "non",
+            },
+            headers=auth_headers
+        )
+        assert medical_questionnaire_response.status_code == status.HTTP_200_OK
+
+        # Step 5bis: évaluation du dossier — approbation automatique attendue
+        evaluate_response = client.post(
+            f"/api/v1/subscriptions/{subscription_id}/evaluate",
+            json={"voyageur_age": 30},
+            headers=auth_headers
+        )
+        assert evaluate_response.status_code == status.HTTP_200_OK
+        assert evaluate_response.json()["decision"] == "approve"
+
         # Step 6: Initiate payment
         payment_response = client.post(
             "/api/v1/payments/initiate",
@@ -138,21 +166,21 @@ class TestSubscriptionE2E:
         
         # Step 9: Get attestations
         attestations_response = client.get(
-            f"/api/v1/attestations/subscriptions/{subscription_id}/attestations",
+            f"/api/v1/subscriptions/{subscription_id}/attestations",
             headers=auth_headers
         )
         assert attestations_response.status_code == status.HTTP_200_OK
         attestations = attestations_response.json()
-        # Should have at least one attestation (provisoire)
+        # Should have at least one attestation (définitive après paiement validé)
         assert len(attestations) > 0
         attestation = attestations[0]
-        assert attestation["type_attestation"] == "provisoire"
+        assert attestation["type_attestation"] == "definitive"
         assert "numero_attestation" in attestation
         
         # Step 10: Get attestation with signed URL
         attestation_id = attestation["id"]
         attestation_url_response = client.get(
-            f"/api/v1/attestations/attestations/{attestation_id}",
+            f"/api/v1/attestations/{attestation_id}",
             headers=auth_headers
         )
         assert attestation_url_response.status_code == status.HTTP_200_OK
@@ -244,7 +272,7 @@ class TestSubscriptionE2E:
     def test_questionnaire_before_subscription(self, client, auth_headers):
         """Test questionnaire creation before subscription exists"""
         response = client.post(
-            "/api/v1/questionnaires/subscriptions/99999/questionnaire/short",
+            "/api/v1/subscriptions/99999/questionnaire/short",
             json={"age": 30},
             headers=auth_headers
         )

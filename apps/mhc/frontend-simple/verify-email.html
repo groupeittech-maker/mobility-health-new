@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vérification d'email - Mobility Health</title>
+    <title>Vérification d'email - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
         .verification-code-input {
@@ -54,7 +54,7 @@
                         maxlength="6"
                         pattern="[0-9]{6}"
                         placeholder="000000">
-                    <small style="color: var(--secondary-color);">Entrez le code à 6 chiffres reçu par email</small>
+                    <small id="channelHint" style="color: var(--secondary-color);">Entrez le code à 6 chiffres reçu</small>
                 </div>
 
                 <div class="form-actions" style="border-top:none;padding-top:0;">
@@ -76,7 +76,7 @@
         </div>
     </main>
 
-    <script src="js/api.js?v=20261007"></script>
+    <script src="js/api.js?v=20261013"></script>
     <script src="js/verify-email.js"></script>
 </body>
 </html>

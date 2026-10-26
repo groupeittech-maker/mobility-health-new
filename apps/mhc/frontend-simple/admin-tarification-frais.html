@@ -16,7 +16,7 @@
         .country-card .badge { font-size: 0.8rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: #f0f4ff; color: #4f1f78; }
         .muted { color: #64748b; font-size: 0.9rem; }
     </style>
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
 </head>
 <body data-backoffice>
     <nav class="navbar">
@@ -52,8 +52,22 @@
             </div>
         </div>
 
-        <section class="product-form-section" style="margin-bottom: 1.5rem;">
-            <h3>Ajouter / modifier un pays</h3>
+        <section class="product-form-section">
+            <div class="section-heading" style="display:flex; align-items:center; justify-content:space-between;">
+                <h3 style="margin:0;">Pays configurés</h3>
+                <button type="button" class="btn btn-primary" id="btnNewParam">+ Nouveau pays</button>
+            </div>
+            <div id="listAlert"></div>
+            <div id="paramsList"></div>
+        </section>
+    </main>
+
+    <div class="bo-modal-backdrop" id="paramModal">
+        <div class="bo-modal">
+            <div class="bo-modal-head">
+                <h3 id="paramModalTitle">Ajouter / modifier un pays</h3>
+                <button type="button" class="bo-modal-close" id="paramModalClose">&times;</button>
+            </div>
             <div id="formAlert"></div>
             <div class="form-grid two-col" style="margin-bottom: 1rem;">
                 <div class="form-group">
@@ -96,20 +110,17 @@
                 <label><input type="checkbox" id="activeInput" checked> Actif</label>
             </div>
 
-            <button type="button" class="btn btn-primary" id="btnSave">Enregistrer</button>
-        </section>
+            <div class="bo-modal-actions">
+                <button type="button" class="btn-outline" id="paramModalCancel">Annuler</button>
+                <button type="button" class="btn-primary" id="btnSave">Enregistrer</button>
+            </div>
+        </div>
+    </div>
 
-        <section class="product-form-section">
-            <h3>Pays configurés</h3>
-            <div id="listAlert"></div>
-            <div id="paramsList"></div>
-        </section>
-    </main>
-
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js?v=2"></script>
-    <script src="js/admin-tarification-frais.js?v=2"></script>
-    <script src="js/permissions.js?v=2"></script>
-    <script src="js/backoffice-nav.js?v=2"></script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/admin-tarification-frais.js?v=3"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
 </body>
 </html>

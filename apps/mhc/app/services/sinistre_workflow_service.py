@@ -91,7 +91,7 @@ SINISTRE_WORKFLOW_TEMPLATE: List[Dict] = [
         "key": "facture_emise",
         "ordre": 12,
         "titre": "Facture hospitalière émise",
-        "description": "L'hôpital rédige la facture du séjour pour transmission à Mobility Health.",
+        "description": "L'hôpital rédige la facture du séjour pour transmission à Mobility Health Care.",
         "auto_sync": True,
     },
     {
@@ -180,6 +180,8 @@ def update_workflow_step(
     notes: Optional[str] = None,
 ) -> SinistreProcessStep:
     """Met à jour manuellement une étape de workflow."""
+    if not isinstance(statut, StatutWorkflowSinistre):
+        statut = StatutWorkflowSinistre(str(statut))
     steps, _ = ensure_workflow_steps(db, sinistre, alerte)
     steps_map = {step.step_key: step for step in steps}
     step = steps_map.get(step_key)

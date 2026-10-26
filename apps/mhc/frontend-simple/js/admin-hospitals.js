@@ -33,6 +33,7 @@ let currentPageHospitals = 0;
 document.addEventListener('DOMContentLoaded', initAdminHospitals);
 
 async function initAdminHospitals() {
+    setupViewTabs();
     const allowed = await requirePermission('comptes_partenaires_sante', 'consultation', 'login.html');
     if (!allowed) {
         return;
@@ -47,7 +48,30 @@ async function initAdminHospitals() {
         loadHospitals(),
     ]);
     populateUserSelects();
-    await initMaps();
+    try {
+        await initMaps();
+    } catch (error) {
+        console.error('Initialisation des cartes impossible', error);
+    }
+}
+
+let viewTabsBound = false;
+function setupViewTabs() {
+    if (viewTabsBound) return;
+    viewTabsBound = true;
+    document.querySelectorAll('.bo-tabs .bo-tab').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const target = btn.dataset.tab;
+            document.querySelectorAll('.bo-tabs .bo-tab').forEach((b) => b.classList.toggle('active', b === btn));
+            document.querySelectorAll('.bo-tab-panel').forEach((p) => p.classList.toggle('active', p.id === target));
+            if (target === 'tab-hospitals-map' && state.hospitalsMap) {
+                setTimeout(() => {
+                    state.hospitalsMap.invalidateSize();
+                    plotHospitalsOnMap();
+                }, 60);
+            }
+        });
+    });
 }
 
 function cacheDomElements() {
@@ -67,17 +91,38 @@ function cacheDomElements() {
 
 function setupEventListeners() {
     document.getElementById('refreshHospitalsBtn')?.addEventListener('click', () => loadHospitals(true));
-    document.getElementById('resetFormBtn')?.addEventListener('click', resetForm);
+    document.getElementById('resetFormBtn')?.addEventListener('click', () => {
+        resetForm();
+        openHospitalModal();
+    });
+    document.getElementById('hospitalModalClose')?.addEventListener('click', closeHospitalModal);
+    document.getElementById('hospitalModal')?.addEventListener('click', (e) => {
+        if (e.target === document.getElementById('hospitalModal')) closeHospitalModal();
+    });
     if (searchHospitalsInputEl) {
         searchHospitalsInputEl.addEventListener('input', () => {
             searchHospitalsTerm = (searchHospitalsInputEl.value || '').trim().toLowerCase();
             renderHospitalsTable();
         });
     }
-    cancelEditBtnEl?.addEventListener('click', resetForm);
+    cancelEditBtnEl?.addEventListener('click', () => {
+        resetForm();
+        closeHospitalModal();
+    });
     if (formEl) {
         formEl.addEventListener('submit', handleSubmit);
     }
+}
+
+function openHospitalModal() {
+    document.getElementById('hospitalModal')?.classList.add('open');
+    if (state.selectionMap) {
+        setTimeout(() => state.selectionMap.invalidateSize(), 150);
+    }
+}
+
+function closeHospitalModal() {
+    document.getElementById('hospitalModal')?.classList.remove('open');
 }
 
 async function initMaps() {
@@ -258,6 +303,9 @@ function renderHospitalsTable() {
     currentPageHospitals = Math.min(currentPageHospitals, totalPages - 1);
     const start = currentPageHospitals * ROWS_PER_PAGE;
     const pageData = filtered.slice(start, start + ROWS_PER_PAGE);
+    const canEdit = window.MhPermissions
+        ? window.MhPermissions.can('comptes_partenaires_sante', 'edition')
+        : true;
     const rows = pageData.map(hospital => {
         const medecinName = hospital.medecin_referent?.full_name || hospital.medecin_referent?.email || 'Non défini';
         const contactLines = [
@@ -287,10 +335,12 @@ function renderHospitalsTable() {
                     <div class="muted">${coords}</div>
                 </td>
                 <td class="table-actions">
+                    ${canEdit ? `
                     <select class="action-select" data-hospital-id="${hospital.id}">
                         <option value="">Actions</option>
                         <option value="edit">Modifier</option>
-                    </select>
+                        <option value="tarifs">Tarifs médicaux</option>
+                    </select>` : '—'}
                 </td>
             </tr>
         `;
@@ -346,6 +396,9 @@ function setupHospitalsTableActions() {
             case 'edit':
                 startEditHospital(hospitalId);
                 break;
+            case 'tarifs':
+                openTarifsModal(hospitalId);
+                break;
         }
         
         // Réinitialiser le select
@@ -394,6 +447,7 @@ async function startEditHospital(hospitalId) {
             state.selectionMarker.setLatLng(coords);
             state.selectionMap.setView(coords, 12);
         }
+        openHospitalModal();
     } catch (error) {
         console.error('Impossible de charger le détail de l’hôpital:', error);
         showAlert(error.message || 'Impossible de charger le détail de l’hôpital.', 'error');
@@ -476,6 +530,7 @@ async function handleSubmit(event) {
             showAlert('Hôpital enregistré avec succès.', 'success');
         }
         resetForm();
+        closeHospitalModal();
         await loadHospitals();
     } catch (error) {
         console.error('Erreur lors de l’enregistrement:', error);
@@ -531,5 +586,141 @@ function escapeHtml(text) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+}
+
+// --- Tarifs médicaux (actes & examens) -----------------------------------
+
+const tarifsState = {
+    hospitalId: null,
+    actTarifs: [],
+    examTarifs: [],
+};
+
+let tarifsModalEl;
+let actTarifsBodyEl;
+let examTarifsBodyEl;
+
+function cacheTarifsDom() {
+    tarifsModalEl = document.getElementById('tarifsModal');
+    actTarifsBodyEl = document.getElementById('actTarifsBody');
+    examTarifsBodyEl = document.getElementById('examTarifsBody');
+    document.getElementById('closeTarifsModalBtn')?.addEventListener('click', closeTarifsModal);
+    document.getElementById('actTarifForm')?.addEventListener('submit', handleActTarifSubmit);
+    document.getElementById('examTarifForm')?.addEventListener('submit', handleExamTarifSubmit);
+    tarifsModalEl?.addEventListener('click', (event) => {
+        if (event.target === tarifsModalEl) closeTarifsModal();
+    });
+}
+
+async function openTarifsModal(hospitalId) {
+    if (!tarifsModalEl) cacheTarifsDom();
+    tarifsState.hospitalId = hospitalId;
+    const hospital = state.hospitals.find(h => h.id === hospitalId);
+    document.getElementById('tarifsModalTitle').textContent =
+        `Tarifs médicaux — ${hospital?.nom || 'Hôpital #' + hospitalId}`;
+    tarifsModalEl.style.display = 'flex';
+    await loadTarifs();
+}
+
+function closeTarifsModal() {
+    if (tarifsModalEl) tarifsModalEl.style.display = 'none';
+    tarifsState.hospitalId = null;
+    tarifsState.actTarifs = [];
+    tarifsState.examTarifs = [];
+}
+
+async function loadTarifs() {
+    try {
+        const detail = await apiCall(`/hospitals/${tarifsState.hospitalId}/details`);
+        tarifsState.actTarifs = detail.act_tarifs || [];
+        tarifsState.examTarifs = detail.exam_tarifs || [];
+        renderTarifs();
+    } catch (error) {
+        console.error('Erreur chargement tarifs:', error);
+        showTarifsAlert(error.message || 'Impossible de charger les tarifs.', 'error');
+    }
+}
+
+function renderTarifs() {
+    if (actTarifsBodyEl) {
+        actTarifsBodyEl.innerHTML = tarifsState.actTarifs.length
+            ? tarifsState.actTarifs.map(t => `
+                <tr>
+                    <td>${escapeHtml(t.nom)}</td>
+                    <td>${Number(t.montant).toLocaleString('fr-FR')} F</td>
+                    <td><button type="button" class="btn btn-outline btn-sm tarif-delete" data-kind="act" data-id="${t.id}">✕</button></td>
+                </tr>
+            `).join('')
+            : '<tr><td colspan="3" class="muted">Aucun acte tarifé.</td></tr>';
+        actTarifsBodyEl.querySelectorAll('.tarif-delete').forEach(btn =>
+            btn.addEventListener('click', () => deleteTarif('act', btn.dataset.id)));
+    }
+    if (examTarifsBodyEl) {
+        examTarifsBodyEl.innerHTML = tarifsState.examTarifs.length
+            ? tarifsState.examTarifs.map(t => `
+                <tr>
+                    <td>${escapeHtml(t.nom)}</td>
+                    <td>${Number(t.montant).toLocaleString('fr-FR')} F</td>
+                    <td><button type="button" class="btn btn-outline btn-sm tarif-delete" data-kind="exam" data-id="${t.id}">✕</button></td>
+                </tr>
+            `).join('')
+            : '<tr><td colspan="3" class="muted">Aucun examen tarifé.</td></tr>';
+        examTarifsBodyEl.querySelectorAll('.tarif-delete').forEach(btn =>
+            btn.addEventListener('click', () => deleteTarif('exam', btn.dataset.id)));
+    }
+}
+
+async function handleActTarifSubmit(event) {
+    event.preventDefault();
+    const nom = document.getElementById('actNomInput').value.trim();
+    const montant = parseFloat(document.getElementById('actMontantInput').value);
+    if (!nom || !Number.isFinite(montant)) return;
+    try {
+        await apiCall(`/hospitals/${tarifsState.hospitalId}/act-tarifs`, {
+            method: 'POST',
+            body: JSON.stringify({ nom, montant }),
+        });
+        event.target.reset();
+        showTarifsAlert('Acte ajouté.', 'success');
+        await loadTarifs();
+    } catch (error) {
+        showTarifsAlert(error.message || "Impossible d'ajouter l'acte.", 'error');
+    }
+}
+
+async function handleExamTarifSubmit(event) {
+    event.preventDefault();
+    const nom = document.getElementById('examNomInput').value.trim();
+    const montant = parseFloat(document.getElementById('examMontantInput').value);
+    if (!nom || !Number.isFinite(montant)) return;
+    try {
+        await apiCall(`/hospitals/${tarifsState.hospitalId}/exam-tarifs`, {
+            method: 'POST',
+            body: JSON.stringify({ nom, montant }),
+        });
+        event.target.reset();
+        showTarifsAlert('Examen ajouté.', 'success');
+        await loadTarifs();
+    } catch (error) {
+        showTarifsAlert(error.message || "Impossible d'ajouter l'examen.", 'error');
+    }
+}
+
+async function deleteTarif(kind, tarifId) {
+    if (!window.confirm('Supprimer ce tarif ?')) return;
+    try {
+        await apiCall(`/hospitals/${tarifsState.hospitalId}/${kind}-tarifs/${tarifId}`, { method: 'DELETE' });
+        showTarifsAlert('Tarif supprimé.', 'success');
+        await loadTarifs();
+    } catch (error) {
+        showTarifsAlert(error.message || 'Impossible de supprimer le tarif.', 'error');
+    }
+}
+
+function showTarifsAlert(message, type) {
+    const el = document.getElementById('tarifsAlert');
+    if (!el) return;
+    el.textContent = message || '';
+    el.style.color = type === 'error' ? '#c0392b' : '#1e8449';
 }
 

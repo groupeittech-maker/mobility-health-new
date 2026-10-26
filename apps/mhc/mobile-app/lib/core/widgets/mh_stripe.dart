@@ -1,54 +1,34 @@
 import 'package:flutter/material.dart';
 
-/// Bande graphique chevron du kit MyMHC (bas de chaque écran, ~31 px).
-/// Chevrons alternés turquoise / violet alignés sur la charte.
+/// Bande graphique officielle du kit MyMHC (bas de chaque écran).
+/// Image « Bar du bas » (assets/images/bande_mhc_bas.png) affichée pleine
+/// largeur, ancrée en haut. Par défaut la bande se prolonge dans la zone
+/// système du bas (barre de navigation Android) : elle est collée tout en
+/// bas de l'écran, sans bande blanche en dessous.
 class MhStripe extends StatelessWidget {
-  const MhStripe({super.key, this.height = 26});
+  const MhStripe({super.key, this.height = 30, this.fillBottomInset = true});
 
   final double height;
 
+  /// Étendre la bande sous la barre de navigation système. Les écrans
+  /// doivent alors utiliser `SafeArea(bottom: false)`.
+  final bool fillBottomInset;
+
   @override
   Widget build(BuildContext context) {
+    final inset =
+        fillBottomInset ? MediaQuery.of(context).viewPadding.bottom : 0.0;
     return SizedBox(
-      height: height,
+      height: height + inset,
       width: double.infinity,
-      child: CustomPaint(painter: _ChevronPainter()),
+      child: Image.asset(
+        'assets/images/bande_mhc_bas.png',
+        width: double.infinity,
+        height: height + inset,
+        fit: BoxFit.cover,
+        alignment: Alignment.topCenter,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      ),
     );
   }
-}
-
-class _ChevronPainter extends CustomPainter {
-  static const _colors = [
-    Color(0xFF14AE98), // turquoise brand
-    Color(0xFF4E267C), // violet brand
-    Color(0xFF0E7C8C), // teal profond
-    Color(0xFF2E86C8), // bleu
-  ];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
-    final chevronH = size.height;
-    final halfW = chevronH * 0.9;
-
-    var x = -halfW;
-    var i = 0;
-    while (x < size.width + halfW) {
-      paint.color = _colors[i % _colors.length];
-      final path = Path()
-        ..moveTo(x, 0)
-        ..lineTo(x + halfW, chevronH / 2)
-        ..lineTo(x, chevronH)
-        ..lineTo(x + halfW * 0.45, chevronH)
-        ..lineTo(x + halfW * 1.45, chevronH / 2)
-        ..lineTo(x + halfW * 0.45, 0)
-        ..close();
-      canvas.drawPath(path, paint);
-      x += halfW * 0.55;
-      i++;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

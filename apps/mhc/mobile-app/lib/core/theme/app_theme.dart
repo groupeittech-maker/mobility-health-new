@@ -13,12 +13,6 @@ class AppTheme {
     end: Alignment.centerRight,
   );
 
-  static const _softGradient = LinearGradient(
-    colors: [AppColors.primary, AppColors.primaryLight],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
   /// Dégradé principal (violet → teal) pour boutons et barres.
   static LinearGradient get accentGradient => _accentGradient;
 
@@ -71,11 +65,19 @@ class AppTheme {
         shadowColor: Colors.black.withValues(alpha: 0.1),
       ),
       inputDecorationTheme: MHSurfaceCard.surfaceInputDecorationTheme,
+      // Boutons d'action : violet MHC dans l'ensemble de l'application.
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.secondary,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.secondary,
+          foregroundColor: Colors.white,
         ),
       ),
       textTheme: GoogleFonts.poppinsTextTheme(),
@@ -102,11 +104,11 @@ class MHGradientButton extends StatelessWidget {
       width: double.infinity,
       height: 52,
       decoration: BoxDecoration(
-        gradient: AppTheme.accentGradient,
+        color: AppColors.secondary,
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.35),
+            color: AppColors.secondary.withValues(alpha: 0.35),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),

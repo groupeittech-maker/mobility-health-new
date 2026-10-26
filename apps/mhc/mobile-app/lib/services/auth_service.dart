@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../core/network/api_client.dart';
+import '../core/utils/api_error_helper.dart';
 import '../core/storage/token_storage.dart';
 import '../models/user.dart';
 import 'api_services.dart';
@@ -17,6 +18,11 @@ class AuthService {
 
   /// Une seule requête [getMe] en vol (évite 2× /auth/me au démarrage de l’étape voyage).
   Future<UserModel>? _getMeInFlight;
+
+  /// Remplace le jeton d'accès (ex. après changement d'e-mail : le serveur
+  /// renvoie un nouveau jeton car l'identifiant `sub` a changé).
+  Future<void> applyAccessToken(String token) =>
+      _storage.setAccessToken(token);
 
   /// Jeton présent (sans appel réseau). La validité est vérifiée par [validateAuth] / [AuthProvider.checkAuth].
   Future<bool> get isLoggedIn async {
@@ -214,7 +220,12 @@ class AuthService {
     if (d is Map && d['detail'] != null) {
       final detail = d['detail'];
       if (detail is String) return detail;
-      if (detail is List && detail.isNotEmpty) return detail.first.toString();
+      if (detail is List && detail.isNotEmpty) {
+        // Erreurs de validation FastAPI/Pydantic : [{type, loc, msg, ...}]
+        final msg = pydanticDetailToMessage(detail);
+        if (msg != null) return msg;
+        return detail.first.toString();
+      }
     }
     return e.message;
   }

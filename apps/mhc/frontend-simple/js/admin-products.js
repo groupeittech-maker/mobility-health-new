@@ -76,7 +76,7 @@ const ZONE_PRESETS = [
 ];
 
 /**
- * Garanties-type Mobility Health : tableau 2 colonnes (garantie + capitaux), texte libre pour les capitaux.
+ * Garanties-type Mobility Health Care : tableau 2 colonnes (garantie + capitaux), texte libre pour les capitaux.
  */
 const DEFAULT_GARANTIES = [
     { titre: 'Assistance et suivi médical', capitaux: '' },
@@ -571,10 +571,12 @@ function normalizeExclusionItem(item) {
     if (item && typeof item === 'object') {
         const refRaw = item.reference ?? item.libelle ?? item.cle ?? '';
         const excRaw = item.exclusion ?? item.valeur ?? '';
-        if (refRaw !== '' || excRaw !== '') {
+        const kwRaw = item.mots_cles ?? item.maladies ?? '';
+        if (refRaw !== '' || excRaw !== '' || kwRaw !== '') {
             return {
                 reference: String(refRaw).trim(),
                 exclusion: String(excRaw).trim(),
+                mots_cles: Array.isArray(kwRaw) ? kwRaw.join(', ') : String(kwRaw).trim(),
             };
         }
     }
@@ -608,6 +610,7 @@ function addExclusionRow(item = { reference: '', exclusion: '' }) {
     row.innerHTML = `
         <input type="text" id="${uid}-reference" data-field="reference" value="${escapeHtmlAttr(norm.reference)}" placeholder="Référence (ex. Exclusion 1)" aria-label="Référence">
         <input type="text" id="${uid}-exclusion" data-field="exclusion" value="${escapeHtmlAttr(norm.exclusion)}" placeholder="Texte de l’exclusion" aria-label="Exclusion">
+        <input type="text" id="${uid}-mots-cles" data-field="mots_cles" value="${escapeHtmlAttr(norm.mots_cles || '')}" placeholder="Maladies / traitements exclus (refus auto), ex. dialyse, chimiothérapie" aria-label="Mots-clés de refus automatique" title="Si un motif médical déclaré contient l'un de ces mots-clés, la souscription est refusée automatiquement.">
         <button type="button" class="icon-button" data-action="remove-exclusion" aria-label="Supprimer la ligne">&times;</button>
     `;
     const removeBtn = row.querySelector('[data-action="remove-exclusion"]');
@@ -637,11 +640,11 @@ function collectExclusions() {
             row.querySelector('[data-field="exclusion"]')?.value?.trim() ||
             row.querySelector('[data-field="valeur"]')?.value?.trim() ||
             '';
-        if (reference || exclusion) {
-            out.push({
-                reference: reference || '',
-                exclusion: exclusion || '',
-            });
+        const motsCles = row.querySelector('[data-field="mots_cles"]')?.value?.trim() || '';
+        if (reference || exclusion || motsCles) {
+            const entry = { reference: reference || '', exclusion: exclusion || '' };
+            if (motsCles) entry.mots_cles = motsCles.split(',').map((s) => s.trim()).filter(Boolean);
+            out.push(entry);
         }
     });
     return out;

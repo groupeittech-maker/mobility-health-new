@@ -1,3 +1,16 @@
+
+function escapeHtml(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 const PORTAL_ALLOWED_ROLES =
     window.COURTIER_SINISTRES_ALLOWED_ROLES || ['agent_sinistre_courtier', 'admin'];
 
@@ -81,7 +94,7 @@ async function loadSinistres() {
             if (skip) {
                 params.set('skip', skip.toString());
             }
-            const batch = await apiCall(`/courtier/sinistres?${params.toString()}`);
+            const batch = await apiCall(`/courtier/sinistres/sinistres?${params.toString()}`);
             const items = Array.isArray(batch) ? batch : [];
             collected.push(...items);
             if (items.length < SINISTRES_PAGE_SIZE) {
@@ -190,7 +203,7 @@ async function loadWorkflowSinistres() {
     if (empty) empty.hidden = false;
     
     try {
-        const data = await apiCall('/courtier/sinistres?limit=100');
+        const data = await apiCall('/courtier/sinistres/sinistres?limit=100');
         const sinistres = Array.isArray(data) ? data : [];
         
         if (counter) {
@@ -239,8 +252,8 @@ async function viewSinistreWorkflow(sinistreId) {
     detailPanel.innerHTML = '<p class="muted">Chargement des détails...</p>';
     
     try {
-        const sinistre = await apiCall(`/courtier/sinistres/${sinistreId}`);
-        const workflowSteps = await apiCall(`/courtier/sinistres/${sinistreId}/workflow`);
+        const sinistre = await apiCall(`/courtier/sinistres/sinistres/${sinistreId}`);
+        const workflowSteps = await apiCall(`/courtier/sinistres/sinistres/${sinistreId}/workflow`);
         
         const numeroSinistre = sinistre.numero_sinistre || `Sinistre #${sinistre.id}`;
         const numeroAlerte = sinistre.alerte?.numero_alerte || '—';

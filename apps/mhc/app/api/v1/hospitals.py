@@ -339,7 +339,7 @@ async def create_hospital(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_bo_permission(F_COMPTES_PARTENAIRES_SANTE, LEVEL_EDITION))
 ):
-    """Créer un nouvel hôpital affilié à Mobility Health."""
+    """Créer un nouvel hôpital affilié à Mobility Health Care."""
     existing = db.query(Hospital).filter(
         Hospital.nom == hospital_data.nom,
         Hospital.ville == hospital_data.ville

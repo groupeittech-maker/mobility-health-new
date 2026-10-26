@@ -8,10 +8,11 @@ import '../../models/medecin_conseil.dart';
 import '../../models/subscription.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
-import '../../services/avenant_service.dart';
 import '../../services/medecin_conseil_service.dart';
 import '../../widgets/medecin_conseil_card.dart';
+import 'policy_actions_section.dart';
 import '../pdf_viewer_screen.dart';
+import '../subscription/step_paiement_screen.dart';
 import '../../core/utils/api_error_helper.dart';
 
 /// Détail d'une souscription : identité, récap souscription, attestations, e-carte (si généré).
@@ -39,7 +40,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
   bool _loading = true;
   String? _error;
   String? _downloadingId; // 'pdf-{id}' ou 'ecard-{id}'
-  bool _resiliationLoading = false;
+  bool _evaluating = false;
 
   @override
   void initState() {
@@ -70,6 +71,13 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
           'email': u.email,
           'telephone': u.telephone ?? '',
         };
+      } catch (_) {}
+      // Recharger la souscription : le statut peut avoir évolué (paiement,
+      // décision automatique, suspension…) — sinon l'écran reste figé sur
+      // l'ancien statut après un retour de paiement.
+      try {
+        _subscription =
+            await _subscriptionsService.getSubscription(_subscription.id);
       } catch (_) {}
       final att = await _attestationsService.getSubscriptionAttestations(_subscription.id);
       final cachedConseil = await _medecinConseilService.loadCached();
@@ -163,245 +171,6 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
     }
   }
 
-  Future<void> _requestResiliation(String? notes) async {
-    setState(() => _resiliationLoading = true);
-    try {
-      final updated = await _subscriptionsService.requestResiliation(
-        _subscription.id,
-        notes: notes?.trim().isEmpty == true ? null : notes,
-      );
-      if (!mounted) return;
-      setState(() {
-        _subscription = updated;
-        _resiliationLoading = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Demande de résiliation envoyée. Elle sera examinée par un agent.'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _resiliationLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur : ${apiErrorToUserMessage(e)}'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _showSuspensionSheet() async {
-    Map<String, dynamic> catalog;
-    try {
-      catalog = await AvenantService.instance.fetchCatalog();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Chargement des motifs impossible : $e'), backgroundColor: Colors.red),
-      );
-      return;
-    }
-    if (!mounted) return;
-    final motifsCatalog = Map<String, dynamic>.from(catalog['motifs'] ?? {});
-    final piecesCatalog = Map<String, dynamic>.from(catalog['pieces'] ?? {});
-    final selectedMotifs = <String>{};
-    final selectedPieces = <String>{};
-    final autreCtrl = TextEditingController();
-    var submitting = false;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: 16, right: 16, top: 16,
-            bottom: 16 + MediaQuery.viewInsetsOf(ctx).bottom,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Demander la suspension',
-                    style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                const Text('Votre demande sera transmise à l\'assureur. La suspension prend effet après validation.',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-                const SizedBox(height: 12),
-                const Text('Motif(s)', style: TextStyle(fontWeight: FontWeight.w600)),
-                ...motifsCatalog.entries.map((e) => CheckboxListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      value: selectedMotifs.contains(e.key),
-                      title: Text(e.value.toString(), style: const TextStyle(fontSize: 13)),
-                      onChanged: (v) => setSheetState(() {
-                        if (v == true) {
-                          selectedMotifs.add(e.key);
-                        } else {
-                          selectedMotifs.remove(e.key);
-                        }
-                      }),
-                    )),
-                if (selectedMotifs.contains('autre'))
-                  TextField(
-                    controller: autreCtrl,
-                    decoration: const InputDecoration(labelText: 'Préciser le motif', border: OutlineInputBorder()),
-                    maxLines: 2,
-                  ),
-                const SizedBox(height: 8),
-                const Text('Pièces justificatives (optionnel)', style: TextStyle(fontWeight: FontWeight.w600)),
-                ...piecesCatalog.entries.map((e) => CheckboxListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      value: selectedPieces.contains(e.key),
-                      title: Text(e.value.toString(), style: const TextStyle(fontSize: 13)),
-                      onChanged: (v) => setSheetState(() {
-                        if (v == true) {
-                          selectedPieces.add(e.key);
-                        } else {
-                          selectedPieces.remove(e.key);
-                        }
-                      }),
-                    )),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: submitting
-                        ? null
-                        : () async {
-                            if (selectedMotifs.isEmpty) {
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                const SnackBar(content: Text('Sélectionnez au moins un motif.')),
-                              );
-                              return;
-                            }
-                            if (selectedMotifs.contains('autre') && autreCtrl.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                const SnackBar(content: Text('Précisez le motif « Autre ».')),
-                              );
-                              return;
-                            }
-                            setSheetState(() => submitting = true);
-                            try {
-                              await AvenantService.instance.requestSuspension(
-                                _subscription.id,
-                                motifs: selectedMotifs.toList(),
-                                motifAutre: autreCtrl.text,
-                                pieces: selectedPieces.toList(),
-                              );
-                              if (!ctx.mounted) return;
-                              Navigator.pop(ctx);
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Demande de suspension envoyée. En attente de validation de l\'assureur.'),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-                            } catch (e) {
-                              setSheetState(() => submitting = false);
-                              if (!ctx.mounted) return;
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                SnackBar(content: Text(apiErrorToUserMessage(e)), backgroundColor: Colors.red),
-                              );
-                            }
-                          },
-                    child: Text(submitting ? 'Envoi…' : 'Envoyer la demande'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showResiliationDialog() {
-    final controller = TextEditingController();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Demande de résiliation',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Indiquez la raison de votre demande (optionnel).',
-              style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: 'Raison de la demande...',
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF64748B),
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    ),
-                    child: const Text('Annuler'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _requestResiliation(controller.text);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Envoyer'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -418,33 +187,31 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
           foregroundColor: const Color(0xFF1E293B),
           elevation: 0,
         ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.block, size: 64, color: Colors.grey.shade400),
-                const SizedBox(height: 20),
-                Text(
-                  'Souscription résiliée',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF1E293B),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'L\'accès aux informations de cette souscription n\'est plus disponible.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFF64748B),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+        // Police annulée : plus de garanties, mais l'avenant d'annulation et le
+        // suivi du remboursement restent consultables.
+        body: ListView(
+          padding: EdgeInsets.fromLTRB(24, 32, 24, bottomPadding),
+          children: [
+            Icon(Icons.block, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 20),
+            Text(
+              'Police annulée',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1E293B),
+              ),
+              textAlign: TextAlign.center,
             ),
-          ),
+            const SizedBox(height: 12),
+            Text(
+              'Aucune garantie ne peut plus être activée au titre de cette police.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFF64748B),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            PolicyActionsSection(subscription: s, onChanged: _load),
+          ],
         ),
       );
     }
@@ -491,46 +258,20 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                     _row('Fin', _formatDate(s.dateFin)),
                     _row('Prix', '${s.prixApplique.toStringAsFixed(0)} XAF'),
                   ]),
+                  if (s.statut == 'en_attente' || s.statut == 'en_attente_paiement')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: _pendingDossierCard(s),
+                    ),
                   const SizedBox(height: 20),
                   MedecinConseilCard(
                     assignments: _medecinConseil,
                     fromCache: _medecinConseilFromCache,
                   ),
-                  if (s.canRequestResiliation)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _resiliationLoading ? null : _showResiliationDialog,
-                          icon: _resiliationLoading
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.cancel_outlined, size: 20),
-                          label: Text(_resiliationLoading ? 'Envoi en cours...' : 'Demander la résiliation'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.danger.withValues(alpha: 0.9),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (s.isActive)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _showSuspensionSheet,
-                          icon: const Icon(Icons.pause_circle_outline, size: 20),
-                          label: const Text('Demander la suspension'),
-                        ),
-                      ),
-                    ),
+                  PolicyActionsSection(
+                    subscription: s,
+                    onChanged: _load,
+                  ),
                   if (s.hasPendingResiliation)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
@@ -718,6 +459,145 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  /// Carte « dossier à finaliser » : un dossier resté en_attente (soumission
+  /// interrompue côté réseau) peut être re-soumis au moteur de décision, puis
+  /// payé — sinon il restait bloqué sans possibilité de reprise.
+  Widget _pendingDossierCard(SubscriptionModel s) {
+    final awaitingPayment = s.statut == 'en_attente_paiement';
+    return MHSurfaceCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.pending_actions, color: Colors.orange.shade700),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  awaitingPayment
+                      ? 'Dossier approuvé — reste à payer'
+                      : 'Dossier non encore soumis à décision',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.secondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            awaitingPayment
+                ? 'Votre dossier a été accepté automatiquement. Finalisez le paiement pour obtenir votre attestation.'
+                : 'La soumission a été interrompue (connexion). Renvoyez le dossier pour décision automatique.',
+            style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _evaluating
+                  ? null
+                  : (awaitingPayment ? _goToPayment : _submitForDecision),
+              icon: _evaluating
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Icon(awaitingPayment ? Icons.payment : Icons.send, size: 18),
+              label: Text(
+                _evaluating
+                    ? 'Décision en cours…'
+                    : (awaitingPayment
+                        ? 'Procéder au paiement'
+                        : 'Soumettre pour décision'),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _submitForDecision() async {
+    setState(() {
+      _evaluating = true;
+      _error = null;
+    });
+    try {
+      final result =
+          await _subscriptionsService.evaluateSubscription(_subscription.id);
+      if (!mounted) return;
+      // Recharger la souscription complète — le statut peut avoir changé
+      // (approve → en_attente_paiement, review → en_attente_validation…).
+      try {
+        _subscription =
+            await _subscriptionsService.getSubscription(_subscription.id);
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() => _evaluating = false);
+      final decision = (result['decision'] ?? '').toString();
+      if (decision == 'approve') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Dossier accepté automatiquement — vous pouvez payer.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      } else if (decision == 'review') {
+        final steps = (result['review_steps'] as List?)?.join(', ') ?? '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Dossier en revue ($steps). Vous serez notifié.'),
+          ),
+        );
+      } else if (decision == 'reject') {
+        final reasons = (result['reasons'] as List?)?.join(' ') ?? '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Dossier refusé. $reasons'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _evaluating = false;
+          _error = apiErrorToUserMessage(e);
+        });
+      }
+    }
+  }
+
+  void _goToPayment() {
+    final s = _subscription;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('Paiement')),
+          body: StepPaiementScreen(
+            subscriptionId: s.id,
+            montant: s.prixApplique,
+            recapProduit: s.produitAssurance?.nom,
+            recapAssure: _user?['display_name'],
+            onContinue: () {
+              Navigator.of(context).pop();
+              _load();
+            },
+          ),
+        ),
+      ),
     );
   }
 

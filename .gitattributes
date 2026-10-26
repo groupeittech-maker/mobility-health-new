@@ -1,0 +1,3 @@
+# deploy.ps1 envoie des here-strings en SSH : le CRLF casse les commandes
+# distantes. Le fichier doit rester en LF même sur un checkout Windows.
+apps/mhc/deploy.ps1 text eol=lf

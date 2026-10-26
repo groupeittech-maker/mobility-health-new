@@ -58,24 +58,31 @@ class Settings(BaseSettings):
             return [x.strip() for x in s.split(",") if x.strip()]
     
     # Assurance / informations de contact pour les attestations
-    ASSURANCE_NAME: str = "Mobility Health"
+    ASSURANCE_NAME: str = "Mobility Health Care"
     ASSURANCE_ADDRESS: str = "Plateau, Abidjan, Cote d'Ivoire"
     ASSURANCE_PHONE: str = "+225 00 00 00 00"
     ASSURANCE_EMAIL: str = "support@mobilityhealth.com"
-    ASSURANCE_AGENT_NAME: str = "Equipe Mobility Health"
+    ASSURANCE_AGENT_NAME: str = "Equipe Mobility Health Care"
     ASSURANCE_AGENT_TITLE: str = "Représentant habilité"
     ASSURANCE_CITY: str = "Abidjan"
     ASSURANCE_SITE_WEB: str = "https://srv1324425.hstgr.cloud"
     ASSURANCE_ALERT_CENTER: str = "+242 05 098 35 35"
+
+    # Annulation avant la date d'effet (ristourne) : la prime et les taxes sont
+    # remboursées ; le coût de police et les frais de service MHC sont retenus
+    # sauf si ces options sont activées.
+    ANNULATION_REMBOURSE_COUT_POLICE: bool = False
+    ANNULATION_REMBOURSE_FRAIS_SERVICES: bool = False
     
-    # Email (SMTP)
+    # Email (SMTP) — mode "stub" court-circuite l'envoi (tests, dev sans SMTP)
+    EMAIL_DELIVERY_MODE: str = "live"
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_SECURITY: str = "starttls"  # starttls, ssl, plain
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_FROM_EMAIL: str = "noreply@mobilityhealth.com"
-    SMTP_FROM_NAME: str = "Mobility Health"
+    SMTP_FROM_NAME: str = "Mobility Health Care"
     
     # SMS (Twilio ou autre)
     SMS_PROVIDER: str = "twilio"  # twilio, aws_sns, etc.
@@ -103,9 +110,16 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = ""  # Si différent de REDIS_URL
 
     # Services externes IT-Tech (stub | live)
+    # AfriPaie (orchestrateur de paiement)
     PAYMENT_SERVICE_URL: str = ""
-    PAYMENT_SERVICE_API_KEY: str = ""
+    PAYMENT_SERVICE_API_KEY: str = ""  # sk_test_… ou sk_live_…
     PAYMENT_SERVICE_MODE: str = "stub"
+    # Secret whsec_… du endpoint webhook déclaré via POST /v1/webhook-endpoints
+    PAYMENT_SERVICE_WEBHOOK_SECRET: str = ""
+    # URL publique du frontend (redirection après paiement hébergé AfriPaie)
+    FRONTEND_BASE_URL: str = "http://localhost:8899"
+    PAYMENT_CHECKOUT_SUCCESS_URL: str = ""  # défaut : {FRONTEND_BASE_URL}/payment-return.html?result=success
+    PAYMENT_CHECKOUT_CANCEL_URL: str = ""   # défaut : {FRONTEND_BASE_URL}/payment-return.html?result=cancel
 
     OCR_SERVICE_URL: str = ""
     OCR_SERVICE_API_KEY: str = ""
@@ -118,7 +132,15 @@ class Settings(BaseSettings):
     # Messagerie IT-Tech — SMS / WhatsApp (codes de vérification, notifications)
     MESSAGING_SERVICE_URL: str = ""
     MESSAGING_SERVICE_API_KEY: str = ""
-    MESSAGING_SERVICE_MODE: str = "stub"
+    MESSAGING_SERVICE_MODE: str = "stub"  # stub | live (agrégateur IT-Tech) | meta (WhatsApp Cloud API)
+
+    # WhatsApp Business — Meta Cloud API (MESSAGING_SERVICE_MODE=meta)
+    WHATSAPP_ACCESS_TOKEN: str = ""          # Token permanent (utilisateur système Meta)
+    WHATSAPP_PHONE_NUMBER_ID: str = ""       # ID du numéro WhatsApp Business
+    WHATSAPP_API_VERSION: str = "v20.0"
+    WHATSAPP_WEBHOOK_VERIFY_TOKEN: str = ""  # Token de vérification du webhook Meta
+    WHATSAPP_VERIFICATION_TEMPLATE: str = ""  # Template approuvé pour les codes de vérification (ex. mhc_code_verification)
+    WHATSAPP_TEMPLATE_LANG: str = "fr"        # Code langue des templates (fr / en / fr_FR…)
 
     # eKYC (IT-TECH) — session + webhooks
     EKYC_SERVICE_URL: str = ""

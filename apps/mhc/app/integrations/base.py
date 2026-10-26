@@ -48,6 +48,7 @@ class BaseServiceClient:
         *,
         json: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         if not self.base_url:
             raise ExternalServiceError(
@@ -55,12 +56,15 @@ class BaseServiceClient:
                 "URL du service non configurée",
             )
         url = f"{self.base_url}{path}"
+        headers = self._headers()
+        if extra_headers:
+            headers.update(extra_headers)
         try:
             with httpx.Client(timeout=self.timeout) as client:
                 response = client.request(
                     method,
                     url,
-                    headers=self._headers(),
+                    headers=headers,
                     json=json,
                     params=params,
                 )

@@ -16,7 +16,7 @@ email-validator==2.1.1  # Validation d'emails pour Pydantic
 # Authentification et sécurité
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-bcrypt==4.1.1
+bcrypt==4.0.1  # <4.1 : passlib 1.7.4 lit bcrypt.__about__
 
 # Redis
 redis==5.0.1

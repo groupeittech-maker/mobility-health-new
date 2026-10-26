@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comptabilité - Mobility Health</title>
+    <title>Comptabilité - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/admin.css">
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
 </head>
 <body class="protected" data-backoffice>
     <nav class="navbar">
@@ -43,7 +43,7 @@
                 <p id="totalAmount">-</p>
             </div>
             <div class="stat-card">
-                <h3>Commission Mobility Health</h3>
+                <h3>Commission MHC</h3>
                 <p id="mhAmount">-</p>
             </div>
             <div class="stat-card">
@@ -72,13 +72,32 @@
             </div>
 
             <div id="ledgerWrapper">
-                <ul id="transactionsCardList" class="accounting-tx-card-list" aria-label="Transactions">
-                    <li class="accounting-tx-card--placeholder">
-                        <p class="muted">Chargement des transactions…</p>
-                    </li>
-                </ul>
+                <div class="table-wrapper" style="overflow-x:auto;">
+                    <table class="data-table finance-table" aria-label="Transactions">
+                        <thead>
+                            <tr>
+                                <th>N° souscription</th>
+                                <th>Assuré</th>
+                                <th>Assureur</th>
+                                <th>Courtier</th>
+                                <th>Référence</th>
+                                <th class="num">Total encaissé</th>
+                                <th class="num">Reversé assuré</th>
+                                <th class="num">Part assureur</th>
+                                <th class="num">Commission courtier</th>
+                                <th class="num">Part réassureur</th>
+                                <th class="num">Commission MHC</th>
+                                <th>Statut</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionsCardList">
+                            <tr><td colspan="14" class="muted">Chargement des transactions…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
                 <p class="table-note muted">
-                    * Pour les paiements de souscription : la <strong>Part assureur</strong> = prime nette assureur après éventuelle commission courtier ; la <strong>Commission courtier</strong> = pourcentage paramétré sur la prime ; la <strong>Commission Mobility Health</strong> = frais de services.
+                    * Pour les paiements de souscription : la <strong>Part assureur</strong> = prime nette assureur après éventuelle commission courtier ; la <strong>Commission courtier</strong> = pourcentage paramétré sur la prime ; la <strong>Commission MHC</strong> = frais de services.
                     En cas de remboursement, la commission courtier est annulée et la part MH reste basée sur les frais de service.
                 </p>
             </div>
@@ -87,18 +106,18 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+            <p>&copy; 2024 Mobility Health Care. Tous droits réservés.</p>
         </div>
     </footer>
 
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js?v=2"></script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/permissions.js?v=3"></script>
     <script src="js/currency.js?v=2"></script>
     <script src="js/table-pagination.js?v=2"></script>
-    <script src="js/table-top-scrollbar.js?v=2"></script>
-    <script src="js/accounting-ledger.js?v=2"></script>
-    <script src="js/permissions.js?v=2"></script>
-    <script src="js/backoffice-nav.js?v=2"></script>
+    <script src="js/table-top-scrollbar.js?v=3"></script>
+    <script src="js/accounting-ledger.js?v=4"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
 </body>
 </html>
 

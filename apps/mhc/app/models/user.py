@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, Enum as SQLEnum, ForeignKey, Date, DateTime, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import deferred, relationship
 from sqlalchemy.types import TypeDecorator
 from app.core.database import Base
 from app.core.enums import Role
@@ -65,6 +65,11 @@ class User(Base, TimestampMixin):
     traitements_en_cours = Column(Text, nullable=True)  # médicaments réguliers
     antecedents_recents = Column(Text, nullable=True)   # hospitalisation, chirurgie, suivi médical < 6 mois
     grossesse = Column(Boolean, nullable=True)         # si concernée (femme)
+    # Photo de profil MyMHC (data URL base64), modifiable depuis le menu Compte.
+    photo_profil = deferred(Column(Text, nullable=True))
+    # Fraude avérée dans l'historique du client : refus automatique des souscriptions.
+    fraude_signalee = Column(Boolean, default=False, nullable=False, server_default="false")
+    fraude_motif = Column(Text, nullable=True)
 
     # Relations
     role_obj = relationship("RoleModel", back_populates="users", foreign_keys=[role_id])

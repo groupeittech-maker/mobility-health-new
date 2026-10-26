@@ -1,6 +1,6 @@
 """
 API IA - Module d'analyse pour Agent de Production
-Mobility Health
+Mobility Health Care
 """
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends

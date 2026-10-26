@@ -1,6 +1,6 @@
 /**
  * Module JavaScript pour les statistiques avec serveur MCP
- * Intégration avec l'API Mobility Health
+ * Intégration avec l'API Mobility Health Care
  */
 
 // S'assurer que window existe

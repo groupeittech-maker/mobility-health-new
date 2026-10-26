@@ -53,7 +53,6 @@
         'agent_sinistre_mh', 'agent_conformite_sinistre', 'superviseur_affaires_medicales',
         'agent_medical_mhc', 'agent_conformite_medical', 'superviseur_comptable',
         'agent_comptable_mh', 'agent_conformite_comptable', 'medecin_referent_mh',
-        'sos_operator', 'medical_reviewer', 'technical_reviewer', 'finance_manager',
     ]);
 
     function isInternalBackoffice() {

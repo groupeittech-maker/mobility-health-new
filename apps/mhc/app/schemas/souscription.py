@@ -86,6 +86,9 @@ class SubscriptionQuotePriceItem(BaseModel):
     cout_police: Optional[float] = None
     frais_services: Optional[float] = None
     taxes_total: Optional[float] = None
+    # Surprime liée à l'âge de l'assuré (composante de la prime nette).
+    montant_surprime: Optional[float] = None
+    pct_surprime_applique: Optional[float] = None
     taxes: Optional[List[TaxeDetail]] = None
     zone_geographique_code: Optional[str] = None
     zone_libelle_fr: Optional[str] = None

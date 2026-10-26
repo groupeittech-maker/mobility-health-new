@@ -2,19 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
 
-/// Chemins du logo officiel affiché DANS L'APPLICATION (splash, connexion,
-/// inscription, en-têtes) : fonds clairs -> on utilise le logo COULEUR
-/// (PNG transparent) en priorité, avec le JPG couleur en secours.
-/// NB : la version BLANCHE (logo_officiel_mh.png) est réservée à l'e-carte
-/// (fond violet) — l'utiliser ici la rendrait invisible sur fond clair.
-const String kMhOfficialLogoPng = 'assets/images/logo_mobility_healthcare_officiel.png';
+/// Logo « MyMHC » affiché DANS L'APPLICATION (connexion, inscription,
+/// en-têtes) sur fonds clairs. Le logo blanc MHC (logo_mhc_blanc.png) est
+/// réservé à l'e-carte (fond violet).
+const String kMhOfficialLogoPng = 'assets/images/logo_mymhc.png';
 const String kMhOfficialLogoJpg = 'assets/images/logo_officiel_mh.jpg';
+
+/// Hauteur unique du logo sur l'ensemble des pages de l'application.
+const double kMhLogoHeight = 46;
 
 /// Logo officiel seul (AppBar, splash, etc.) : PNG transparent d’abord, puis JPG, puis fallback texte.
 class MHOfficialLogo extends StatelessWidget {
   const MHOfficialLogo({
     super.key,
-    required this.height,
+    this.height = kMhLogoHeight,
   });
 
   final double height;
@@ -41,7 +42,7 @@ class MHOfficialLogo extends StatelessWidget {
 class MHLogoHeader extends StatelessWidget {
   const MHLogoHeader({
     super.key,
-    this.height = 100,
+    this.height = kMhLogoHeight,
     this.showSlogan = false,
     this.compact = false,
   });

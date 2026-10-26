@@ -148,7 +148,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 16),
-              const MHLogoHeader(height: 72, compact: true),
+              const MHLogoHeader(compact: true),
               const SizedBox(height: 24),
               MHSurfaceCard(
                 padding: const EdgeInsets.all(20),
@@ -205,7 +205,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       child: FilledButton(
                         onPressed: _loading ? null : _verify,
                         style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.primary,
+                          backgroundColor: AppColors.secondary,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),

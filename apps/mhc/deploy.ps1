@@ -95,9 +95,9 @@ if (Get-Command $tarCommand -ErrorAction SilentlyContinue) {
             Write-Host "   Extraction sur le serveur..." -ForegroundColor Gray
             $sshScript = @"
 echo 'Extraction des fichiers frontend...'
-sudo rm -rf $SERVER_FRONTEND/*
-sudo tar xzf /tmp/frontend.tar.gz -C $SERVER_FRONTEND/
-sudo chown -R $FILE_OWNER $SERVER_FRONTEND
+rm -rf $SERVER_FRONTEND/*
+tar xzf /tmp/frontend.tar.gz -C $SERVER_FRONTEND/
+chown -R $FILE_OWNER $SERVER_FRONTEND
 rm /tmp/frontend.tar.gz
 echo 'Frontend deploye'
 "@
@@ -147,7 +147,7 @@ echo 'Frontend deploye'
     Write-Host "   $fileCount fichiers copies" -ForegroundColor Gray
     
     # Definir les permissions
-    & ssh -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "sudo chown -R ${FILE_OWNER} ${SERVER_FRONTEND}" 2>&1 | Out-Null
+    & ssh -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "chown -R ${FILE_OWNER} ${SERVER_FRONTEND}" 2>&1 | Out-Null
     
     if ($?) {
         Write-Host "   Frontend deploye avec succes" -ForegroundColor Green
@@ -165,8 +165,8 @@ Write-Host "   Correction des permissions sur le serveur..." -ForegroundColor Gr
 
 # S'assurer que le dossier backend a les bonnes permissions
 $permScript = @"
-sudo mkdir -p $SERVER_BACKEND
-sudo chown -R $FILE_OWNER $SERVER_BACKEND
+mkdir -p $SERVER_BACKEND
+chown -R $FILE_OWNER $SERVER_BACKEND
 "@
 & ssh -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" $permScript 2>&1 | Out-Null
 
@@ -222,9 +222,9 @@ foreach ($item in $backendItems) {
                     # Extraire sur le serveur
                     $extractScript = @"
 cd $SERVER_BACKEND
-sudo rm -rf ${item}
-sudo tar xzf /tmp/${item}.tar.gz
-sudo chown -R $FILE_OWNER ${item}
+rm -rf ${item}
+tar xzf /tmp/${item}.tar.gz
+chown -R $FILE_OWNER ${item}
 rm /tmp/${item}.tar.gz
 "@
                     $extractResult = & ssh -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" $extractScript 2>&1
@@ -289,7 +289,7 @@ COMPOSE_FILES="-f docker-compose.yml -f docker-compose.prod.yml"
 [ ! -f docker-compose.prod.yml ] && COMPOSE_FILES="-f docker-compose.yml"
 
 echo '[1/6] Reconstruction de l image API...'
-if sudo docker compose `$COMPOSE_FILES build --no-cache api; then
+if docker compose `$COMPOSE_FILES build --no-cache api; then
     echo 'Image API reconstruite avec succes'
 else
     echo 'Erreur reconstruction image API'
@@ -297,31 +297,31 @@ else
 fi
 
 echo '[2/6] Arret des services existants...'
-sudo docker compose `$COMPOSE_FILES stop -t 15 2>/dev/null || true
-sudo docker compose `$COMPOSE_FILES down -t 15 --remove-orphans 2>/dev/null || true
+docker compose `$COMPOSE_FILES stop -t 15 2>/dev/null || true
+docker compose `$COMPOSE_FILES down -t 15 --remove-orphans 2>/dev/null || true
 for c in mobility_health_db mobility_health_redis mobility_health_minio mobility_health_api mobility_health_celery_worker mobility_health_celery_beat; do
-  sudo docker rm -f "`$c" 2>/dev/null || true
+  docker rm -f "`$c" 2>/dev/null || true
 done
-sudo docker ps -aq --filter name=mobility_health | xargs -r sudo docker rm -f 2>/dev/null || true
-sudo docker network rm mobility_health_default 2>/dev/null || true
+docker ps -aq --filter name=mobility_health | xargs -r docker rm -f 2>/dev/null || true
+docker network rm mobility_health_default 2>/dev/null || true
 echo 'Services arretes'
 
 echo '[3/6] Demarrage de tous les services (db, redis, minio, api, celery)...'
-if sudo docker compose `$COMPOSE_FILES up -d --force-recreate --remove-orphans; then
+if docker compose `$COMPOSE_FILES up -d --force-recreate --remove-orphans; then
     echo 'Services demarres'
 else
     echo 'Premier essai echoue — nettoyage puis retry...'
     for c in mobility_health_db mobility_health_redis mobility_health_minio mobility_health_api mobility_health_celery_worker mobility_health_celery_beat; do
-      sudo docker rm -f "`$c" 2>/dev/null || true
+      docker rm -f "`$c" 2>/dev/null || true
     done
-    sudo docker compose `$COMPOSE_FILES up -d --force-recreate --remove-orphans
+    docker compose `$COMPOSE_FILES up -d --force-recreate --remove-orphans
 fi
 
 echo '[4/6] Attente du demarrage complet des services (15 secondes)...'
 sleep 15
 
 echo '[5/6] Application des migrations Alembic...'
-MIGRATION_RESULT=`$(sudo docker compose `$COMPOSE_FILES exec -T api alembic upgrade head 2>&1)
+MIGRATION_RESULT=`$(docker compose `$COMPOSE_FILES exec -T api alembic upgrade head 2>&1)
 MIGRATION_EXIT_CODE=`$?
 if [ `$MIGRATION_EXIT_CODE -eq 0 ]; then
     echo 'Migrations Alembic appliquees avec succes'
@@ -333,7 +333,7 @@ else
 fi
 
 echo '[6/6] Redemarrage de l API pour appliquer les changements...'
-if sudo docker compose `$COMPOSE_FILES restart api; then
+if docker compose `$COMPOSE_FILES restart api; then
     echo 'API redemarree'
 else
     echo 'Erreur redemarrage API'
@@ -342,7 +342,7 @@ fi
 
 echo '[Verification] Verification de l etat des services...'
 sleep 5
-SERVICES_STATUS=`$(sudo docker compose `$COMPOSE_FILES ps --format json)
+SERVICES_STATUS=`$(docker compose `$COMPOSE_FILES ps --format json)
 echo "`$SERVICES_STATUS"
 
 echo 'Tous les services sont redemarres'
@@ -401,7 +401,7 @@ cd $SERVER_BACKEND
 COMPOSE_FILES="-f docker-compose.yml -f docker-compose.prod.yml"
 [ ! -f docker-compose.prod.yml ] && COMPOSE_FILES="-f docker-compose.yml"
 echo 'Verification des services Docker...'
-sudo docker compose `$COMPOSE_FILES ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}'
+docker compose `$COMPOSE_FILES ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}'
 "@
 
 $servicesStatus = & ssh -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" $checkServicesScript 2>&1
@@ -423,7 +423,7 @@ Write-Host ""
 Write-Host "Etape 5/5: Redemarrage de Nginx et verification finale..." -ForegroundColor Yellow
 Write-Host "   Redemarrage de Nginx..." -ForegroundColor Gray
 
-$nginxResult = & ssh -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "sudo systemctl reload nginx" 2>&1
+$nginxResult = & ssh -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "systemctl reload nginx" 2>&1
 
 if ($?) {
     Write-Host "   ✓ Nginx redemarre" -ForegroundColor Green
@@ -461,7 +461,7 @@ while (-not $apiHealthy -and $retryCount -lt $maxRetries) {
             Start-Sleep -Seconds 5
         } else {
             Write-Host "   ✗ L'API ne repond pas apres $maxRetries tentatives" -ForegroundColor Red
-            Write-Host "   Vérifiez les logs: sudo docker compose logs api" -ForegroundColor Yellow
+            Write-Host "   Vérifiez les logs: docker compose logs api" -ForegroundColor Yellow
             $script:hasErrors = $true
         }
     }

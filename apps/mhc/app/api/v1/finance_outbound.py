@@ -16,6 +16,7 @@ from app.core.permissions import (
     LEVEL_CONTROLE,
     LEVEL_EDITION,
     has_permission,
+    is_internal_backoffice_role,
 )
 from app.models.finance_outbound import PaiementFournisseur
 from app.models.paiement import Paiement
@@ -48,6 +49,14 @@ def _check(u, type_paiement: str, level: str) -> None:
     feature = TYPE_TO_FEATURE.get(type_paiement, F_PAIEMENT_SINISTRE)
     if not has_permission(_role_str(u), feature, level):
         raise HTTPException(status_code=403, detail=f"Permission « {feature} » ({level}) requise")
+
+
+def _check_write(u, type_paiement: str, level: str) -> None:
+    # Écriture des flux sortants réservée au back-office interne :
+    # les « E » partenaires sont nominaux et ne doivent pas créer d'ordres de paiement MHC.
+    if not (_role_str(u) == "admin" or is_internal_backoffice_role(_role_str(u))):
+        raise HTTPException(status_code=403, detail="Action réservée au back-office MHC")
+    _check(u, type_paiement, level)
 
 
 class OutboundCreate(BaseModel):
@@ -119,7 +128,7 @@ async def create_outbound(
 ):
     if payload.type_paiement not in PaiementFournisseur.TYPES:
         raise HTTPException(status_code=400, detail=f"type_paiement invalide : {sorted(PaiementFournisseur.TYPES)}")
-    _check(current_user, payload.type_paiement, LEVEL_EDITION)
+    _check_write(current_user, payload.type_paiement, LEVEL_EDITION)
     p = PaiementFournisseur(
         reference=f"PF-{datetime.utcnow().strftime('%Y%m')}-{uuid.uuid4().hex[:6].upper()}",
         type_paiement=payload.type_paiement,
@@ -148,7 +157,7 @@ async def control_outbound(payment_id: int, db: Session = Depends(get_db), curre
         raise HTTPException(status_code=404, detail="Paiement introuvable")
     if p.statut != "a_payer":
         raise HTTPException(status_code=400, detail=f"Statut actuel : {p.statut}")
-    _check(current_user, p.type_paiement, LEVEL_CONTROLE)
+    _check_write(current_user, p.type_paiement, LEVEL_CONTROLE)
     p.statut = "controle"
     p.controlled_by_id = current_user.id
     p.controlled_at = datetime.utcnow()
@@ -163,7 +172,7 @@ async def pay_outbound(payment_id: int, db: Session = Depends(get_db), current_u
         raise HTTPException(status_code=404, detail="Paiement introuvable")
     if p.statut not in ("a_payer", "controle"):
         raise HTTPException(status_code=400, detail=f"Statut actuel : {p.statut}")
-    _check(current_user, p.type_paiement, LEVEL_EDITION)
+    _check_write(current_user, p.type_paiement, LEVEL_EDITION)
     p.statut = "paye"
     p.paid_by_id = current_user.id
     p.paid_at = datetime.utcnow()
@@ -178,7 +187,7 @@ async def cancel_outbound(payment_id: int, db: Session = Depends(get_db), curren
         raise HTTPException(status_code=404, detail="Paiement introuvable")
     if p.statut == "paye":
         raise HTTPException(status_code=400, detail="Un paiement effectué ne peut être annulé")
-    _check(current_user, p.type_paiement, LEVEL_EDITION)
+    _check_write(current_user, p.type_paiement, LEVEL_EDITION)
     p.statut = "annule"
     db.commit()
     return _to_dict(p)

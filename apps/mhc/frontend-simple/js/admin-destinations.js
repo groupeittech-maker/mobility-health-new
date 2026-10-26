@@ -16,11 +16,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    // Vérifier que l'utilisateur est admin
-    const userRole = localStorage.getItem('user_role');
-    if (userRole !== 'admin') {
-        alert('Accès réservé aux administrateurs');
-        window.location.href = 'user-dashboard.html';
+    // Vérifier que l'utilisateur a accès aux comptes produits (lecture pour voir, édition pour modifier)
+    if (!window.MhPermissions || !window.MhPermissions.can('comptes_produits', 'consultation')) {
+        alert('Accès non autorisé');
+        window.location.href = 'bo-dashboard.html';
         return;
     }
 
@@ -45,7 +44,14 @@ async function loadMedecinConseilOptions() {
 }
 
 function populateMedecinConseilSelect(selectedId = '') {
-    const select = document.getElementById('countryMedecinConseil');
+    _fillMedecinSelect(document.getElementById('countryMedecinConseil'), selectedId);
+}
+
+function populateCityMedecinSelect(selectedId = '') {
+    _fillMedecinSelect(document.getElementById('cityMedecinConseil'), selectedId);
+}
+
+function _fillMedecinSelect(select, selectedId) {
     if (!select) return;
     select.innerHTML = '<option value="">-- Aucun médecin-conseil --</option>';
     medecinConseilOptions.forEach((doctor) => {
@@ -186,10 +192,10 @@ function renderCountries() {
                         <div class="country-code">Code: ${countryCode}${medecinConseilLabel(country) ? ` · Médecin-conseil: ${escapeHtml(medecinConseilLabel(country))}` : ''}</div>
                     </div>
                     <div class="item-actions" onclick="event.stopPropagation()">
-                        <button class="btn-icon edit" onclick="editCountry(${countryId})" title="Modifier">
+                        <button class="btn-icon edit" onclick="editCountry(${countryId})" title="Modifier" data-requires-permission="comptes_produits:edition">
                             ✏️
                         </button>
-                        <button class="btn-icon delete" onclick="deleteCountry(${countryId}, '${countryNameAttr}')" title="Supprimer">
+                        <button class="btn-icon delete" onclick="deleteCountry(${countryId}, '${countryNameAttr}')" title="Supprimer" data-requires-permission="comptes_produits:edition">
                             🗑️
                         </button>
                     </div>
@@ -205,7 +211,8 @@ function renderCountries() {
         console.log('📝 Aperçu HTML (premiers 200 caractères):', htmlContent.substring(0, 200));
         
         container.innerHTML = htmlContent;
-        
+        if (window.MhPermissions) window.MhPermissions.applyDom(container);
+
         // Pagination pour les pays
         const pagEl = document.getElementById('countriesPagination');
         if (pagEl) {
@@ -319,17 +326,19 @@ function renderCitiesList() {
         <div class="city-item ${!ville.est_actif ? 'inactive' : ''}">
             <div class="city-info">
                 <div class="city-name">${escapeHtml(ville.nom)}</div>
+                ${ville.medecin_conseil?.nom ? `<div class="city-medecin" style="font-size:.75rem;color:#7c3aed;">👨‍⚕️ ${escapeHtml(ville.medecin_conseil.nom)}</div>` : ''}
             </div>
             <div class="item-actions">
-                <button class="btn-icon edit" onclick="editCity(${ville.id})" title="Modifier">
+                <button class="btn-icon edit" onclick="editCity(${ville.id})" title="Modifier" data-requires-permission="comptes_produits:edition">
                     ✏️
                 </button>
-                <button class="btn-icon delete" onclick="deleteCity(${ville.id}, '${(ville.nom || '').replace(/'/g, "\\'")}')" title="Supprimer">
+                <button class="btn-icon delete" onclick="deleteCity(${ville.id}, '${(ville.nom || '').replace(/'/g, "\\'")}')" title="Supprimer" data-requires-permission="comptes_produits:edition">
                     🗑️
                 </button>
             </div>
         </div>
     `).join('');
+    if (window.MhPermissions) window.MhPermissions.applyDom(container);
     const pagEl = document.getElementById('citiesPagination');
     if (pagEl) {
         if (filtered.length <= ROWS_PER_PAGE) {
@@ -355,6 +364,10 @@ function renderCitiesList() {
 }
 
 function showCountryModal(countryId = null) {
+    if (!window.MhPermissions || !window.MhPermissions.can('comptes_produits', 'edition')) {
+        alert('Action réservée aux profils avec droit d\'édition');
+        return;
+    }
     const modal = document.getElementById('countryModal');
     const form = document.getElementById('countryForm');
     const title = document.getElementById('countryModalTitle');
@@ -497,6 +510,10 @@ async function deleteCountry(countryId, countryName) {
 }
 
 function showCityModal(cityId = null) {
+    if (!window.MhPermissions || !window.MhPermissions.can('comptes_produits', 'edition')) {
+        alert('Action réservée aux profils avec droit d\'édition');
+        return;
+    }
     if (!currentSelectedCountryId) {
         showAlert('Veuillez d\'abord sélectionner un pays', 'error');
         return;
@@ -516,6 +533,7 @@ function showCityModal(cityId = null) {
             document.getElementById('cityOrder').value = city.ordre_affichage || 0;
             document.getElementById('cityActive').checked = city.est_actif;
             document.getElementById('cityNotes').value = city.notes || '';
+            populateCityMedecinSelect(city.medecin_conseil_id || '');
         }
     } else {
         title.textContent = 'Ajouter une ville';
@@ -523,6 +541,7 @@ function showCityModal(cityId = null) {
         document.getElementById('cityId').value = '';
         document.getElementById('cityActive').checked = true;
         document.getElementById('cityOrder').value = 0;
+        populateCityMedecinSelect('');
     }
     
     document.getElementById('cityCountryId').value = currentSelectedCountryId;
@@ -539,11 +558,13 @@ async function saveCity(event) {
     
     const cityId = document.getElementById('cityId').value;
     const paysId = parseInt(document.getElementById('cityCountryId').value);
+    const medecinValue = document.getElementById('cityMedecinConseil').value;
     const data = {
         nom: document.getElementById('cityName').value.trim(),
         ordre_affichage: parseInt(document.getElementById('cityOrder').value) || 0,
         est_actif: document.getElementById('cityActive').checked,
         notes: document.getElementById('cityNotes').value.trim() || null,
+        medecin_conseil_id: medecinValue ? parseInt(medecinValue) : null,
     };
     
     try {

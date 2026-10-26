@@ -20,6 +20,7 @@ from app.core.constants import (
 )
 from app.core.database import get_db
 from app.core.enums import Role, StatutWorkflowSinistre
+from app.core.permissions import has_permission, LEVEL_EDITION, F_ALERTE_SOS, F_FACTURATION_MEDICALE
 from pydantic import BaseModel
 from app.models.alerte import Alerte
 from app.models.hospital import Hospital
@@ -459,6 +460,8 @@ async def dispatch_ambulance(
         sinistre,
         {Role.HOSPITAL_ADMIN, Role.AGENT_RECEPTION_HOPITAL},
     )
+    if not has_permission(_role_value(current_user), F_ALERTE_SOS, LEVEL_EDITION):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission alerte_sos (édition) requise")
 
     alerte = db.query(Alerte).filter(Alerte.id == sinistre.alerte_id).first()
     step = update_workflow_step(
@@ -900,6 +903,8 @@ async def create_invoice_for_stay(
         sinistre,
         {Role.HOSPITAL_ADMIN, Role.AGENT_COMPTABLE_HOPITAL},
     )
+    if not has_permission(_role_value(current_user), F_FACTURATION_MEDICALE, LEVEL_EDITION):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission facturation_medicale (édition) requise")
     if stay.status != "validated":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

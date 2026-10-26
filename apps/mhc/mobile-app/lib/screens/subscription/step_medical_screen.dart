@@ -63,7 +63,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_pregnancyIneligible) {
       setState(() {
         _error =
@@ -98,6 +98,54 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
         });
         return;
       }
+    }
+
+    // Toute réponse « Oui » (hors question grossesse) oriente le dossier vers
+    // le service technique : on informe l'utilisateur avant de poursuivre.
+    final requiresTechnicalReview = _maladeSouscription == 'oui' ||
+        _malade12Mois == 'oui' ||
+        _maladieChronique == 'oui' ||
+        _voyageMedical == 'oui' ||
+        _activite == 'oui';
+    if (requiresTechnicalReview && mounted) {
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.medical_information_outlined,
+                  color: AppColors.secondary),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Analyse médicale',
+                  style: TextStyle(fontSize: 18),
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Votre dossier sera redirigé vers le service technique de MHC '
+            'qui prendra contact avec vous dans les brefs délais.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Revenir'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+              ),
+              child: const Text('Continuer'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true || !mounted) return;
     }
 
     String? prec(TextEditingController c) {

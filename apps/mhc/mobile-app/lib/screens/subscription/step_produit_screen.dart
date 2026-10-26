@@ -195,7 +195,7 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
             const MHSectionTitle(title: 'Choisissez votre assurance'),
             const SizedBox(height: 8),
             Text(
-              'Comparez les offres pour la zone choisie. Les montants sont des exemples de présentation.',
+              'Comparez les offres pour la zone choisie.',
               style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
             ),
             const SizedBox(height: 12),
@@ -314,10 +314,6 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
               ),
             ] else if (widget.devisParProduit != null && widget.devisParProduit!.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text(
-                'Tarif = prime d’assurance + frais de services selon votre pays de résidence, la destination et la durée (identique au paiement).',
-                style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
-              ),
             ],
             const SizedBox(height: 16),
             if (_productList.isEmpty)
@@ -351,7 +347,7 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
                       'Aucun produit n’est disponible pour votre combinaison pays de résidence / '
                       'destination : il n’y a pas d’assureur partenaire configuré pour ce parcours '
                       '(par ex. inter-Afrique vers ce pays). Modifiez la destination ou contactez '
-                      'Mobility Healthcare.',
+                      'Mobility Health Care.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: const Color(0xFF64748B),
                         height: 1.45,
@@ -363,7 +359,7 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
                       FilledButton(
                         onPressed: widget.onBackToVoyage,
                         style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.primary,
+                          backgroundColor: AppColors.secondary,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                         child: const Text('Modifier le voyage'),
@@ -460,7 +456,7 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
-                          'Ouvrez « Voir les détails » puis validez « J\'ai lu les exclusions ».',
+                          'Ouvrez « Voir mes conditions de couverture » puis validez « J\'ai lu les exclusions ».',
                         ),
                       ),
                     );
@@ -650,7 +646,7 @@ class _ProductCard extends StatelessWidget {
               GestureDetector(
                 onTap: onViewDetails,
                 child: const Text(
-                  'Garanties · Capitaux · Exclusions',
+                  'Conditions de couverture',
                   style: TextStyle(
                     fontSize: 14,
                     color: AppColors.primary,

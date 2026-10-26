@@ -338,7 +338,8 @@ async def create_destination_city(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Pays de destination non trouvé"
         )
-    
+    ensure_medecin_conseil(db, city_data.medecin_conseil_id)
+
     ville = DestinationCity(**city_data.model_dump())
     db.add(ville)
     db.commit()
@@ -362,6 +363,8 @@ async def update_destination_city(
         )
     
     update_data = city_data.model_dump(exclude_unset=True)
+    if "medecin_conseil_id" in update_data:
+        ensure_medecin_conseil(db, update_data["medecin_conseil_id"])
     for field, value in update_data.items():
         setattr(ville, field, value)
     

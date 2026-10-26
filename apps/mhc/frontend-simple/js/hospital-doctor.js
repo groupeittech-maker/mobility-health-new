@@ -393,44 +393,44 @@ function renderPriorityBadgeHtml(priority) {
     return `<span class="priority-badge ${getPriorityClass(priority)}">${escapeHtml(getPriorityLabel(priority))}</span>`;
 }
 
+// Ligne de tableau au modèle du « Centre d'alerte des urgences » —
+// ligne cliquable = aperçu du dossier, colonne Actions = Traiter / Détails.
+function typeUrgenceLabel(alert) {
+    const desc = (alert.description || '').toLowerCase();
+    if (desc.includes('accident')) return 'Accident';
+    if (desc.includes('décès') || desc.includes('deces')) return 'Décès';
+    if (desc.includes('évac') || desc.includes('evac')) return 'Évacuation sanitaire';
+    return 'Maladie';
+}
+
 function buildDoctorToTreatCard(alert, sinistre) {
     const patient = alert.user_full_name || `Utilisateur #${alert.user_id}`;
-    const description = alert.description ? truncate(alert.description, 120) : 'Aucune description';
-    const priorityBadge = renderPriorityBadgeHtml(alert.priorite);
     const stayStatus = getStayStatusBadge(sinistre.hospital_stay?.status);
-    const hospitalName = alert.assigned_hospital?.nom || '—';
+    const hospital = alert.assigned_hospital || {};
     const alertLabel = escapeHtml(alert.numero_alerte || `Alerte #${alert.id}`);
-    const updated = formatDateTime(alert.updated_at);
+    const updated = formatDateTime(alert.updated_at || alert.created_at);
     const dossierUrl = `hospital-alert-details.html?alert_id=${alert.id}`;
     const isSelected = selectedCaseId === alert.id;
     return `
-        <li class="card reception-alert-card doctor-case-card${isSelected ? ' selected' : ''}" data-row-alert-id="${alert.id}" tabindex="0" role="group" aria-label="Dossier ${alertLabel}">
-            <div class="reception-alert-card__body">
-                <div class="reception-alert-card__main">
-                    <div class="reception-alert-card__head">
-                        <strong class="reception-alert-card__numero">${alertLabel}</strong>
-                        <span class="reception-alert-card__priority">${priorityBadge}</span>
-                    </div>
-                    <p class="reception-alert-card__patient">${escapeHtml(patient)}</p>
-                    <p class="muted small doctor-case-card__description">${escapeHtml(description)}</p>
-                    <div class="doctor-case-card__meta">
-                        <span class="doctor-case-card__meta-item"><strong>Hôpital</strong> ${escapeHtml(hospitalName)}</span>
-                        <span class="doctor-case-card__meta-sep" aria-hidden="true">·</span>
-                        <span class="doctor-case-card__meta-item">${stayStatus}</span>
-                    </div>
-                    <p class="muted small reception-alert-card__date">Mis à jour le ${updated}</p>
-                </div>
-                <div class="reception-alert-card__actions">
-                    <a class="btn btn-primary btn-sm" href="hospital-doctor-report.html?alert_id=${alert.id}">Traiter</a>
-                    <a class="btn btn-outline btn-sm" href="${dossierUrl}">Voir la fiche</a>
-                </div>
-            </div>
-        </li>
+        <tr class="doctor-case-card${isSelected ? ' selected' : ''}" data-row-alert-id="${alert.id}" tabindex="0">
+            <td><span class="bo-prio ${alert.priorite || 'normale'}"></span><span class="num">${alertLabel}</span></td>
+            <td class="muted">${updated}</td>
+            <td>${escapeHtml(patient)}</td>
+            <td>${typeUrgenceLabel(alert)}</td>
+            <td>${escapeHtml(hospital.nom || '—')}</td>
+            <td>${escapeHtml(hospital.pays || '—')}</td>
+            <td>${stayStatus}</td>
+            <td>
+                <a class="act-link" data-preview-case title="Aperçu du dossier">👁</a>
+                <a class="act-link" href="hospital-doctor-report.html?alert_id=${alert.id}">Traiter</a>
+                <a class="act-link" href="${dossierUrl}">Détails</a>
+            </td>
+        </tr>
     `;
 }
 
 function bindDoctorToTreatCardList(cardList) {
-    cardList.querySelectorAll('.doctor-case-card[data-row-alert-id]').forEach((li) => {
+    cardList.querySelectorAll('tr[data-row-alert-id]').forEach((li) => {
         li.addEventListener('click', (e) => {
             if (e.target.closest('a, button')) {
                 return;
@@ -449,6 +449,14 @@ function bindDoctorToTreatCardList(cardList) {
             const id = Number(li.getAttribute('data-row-alert-id'));
             selectDoctorCase(id);
         });
+        const preview = li.querySelector('[data-preview-case]');
+        if (preview) {
+            preview.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                selectDoctorCase(Number(li.getAttribute('data-row-alert-id')));
+            });
+        }
     });
 }
 
@@ -466,15 +474,16 @@ function renderDoctorCases() {
         casesToShow = casesToShow.filter((entry) => matchDoctorCaseSearch(entry, searchDoctorToTreat));
     }
 
+    const casesWrap = document.getElementById('doctorCasesTableWrap');
     if (!casesToShow.length) {
         cardList.innerHTML = '';
-        cardList.hidden = true;
+        if (casesWrap) casesWrap.hidden = true;
         emptyState.hidden = false;
         return;
     }
 
     emptyState.hidden = true;
-    cardList.hidden = false;
+    if (casesWrap) casesWrap.hidden = false;
 
     const totalPages = Math.max(1, Math.ceil(casesToShow.length / ROWS_PER_PAGE));
     currentPageDoctorToTreat = Math.min(currentPageDoctorToTreat, totalPages - 1);
@@ -548,26 +557,18 @@ function buildDoctorHistoryCard(alert, sinistre) {
     const updated = formatDateTime(stay?.updated_at || alert.updated_at);
     const dossierUrl = `hospital-alert-details.html?alert_id=${alert.id}`;
     const alertLabel = escapeHtml(alert.numero_alerte || `Alerte #${alert.id}`);
+    const hospital = alert.assigned_hospital || {};
     return `
-        <li class="card reception-alert-card doctor-history-card" role="group" aria-label="Dossier traité ${alertLabel}">
-            <div class="reception-alert-card__body">
-                <div class="reception-alert-card__main">
-                    <div class="reception-alert-card__head">
-                        <strong class="reception-alert-card__numero">${alertLabel}</strong>
-                    </div>
-                    <p class="reception-alert-card__patient">${escapeHtml(patient)}</p>
-                    <div class="doctor-case-card__meta">
-                        <span class="doctor-case-card__meta-item">${statusBadge}</span>
-                        <span class="doctor-case-card__meta-sep" aria-hidden="true">·</span>
-                        <span class="doctor-case-card__meta-item">Rapport <span class="badge">${reportStatus}</span></span>
-                    </div>
-                    <p class="muted small reception-alert-card__date">Dernière mise à jour · ${updated}</p>
-                </div>
-                <div class="reception-alert-card__actions">
-                    <a class="btn btn-primary btn-sm" href="${dossierUrl}">Voir le dossier</a>
-                </div>
-            </div>
-        </li>
+        <tr data-row-alert-id="${alert.id}">
+            <td><span class="bo-prio ${alert.priorite || 'normale'}"></span><span class="num">${alertLabel}</span></td>
+            <td class="muted">${updated}</td>
+            <td>${escapeHtml(patient)}</td>
+            <td>${typeUrgenceLabel(alert)}</td>
+            <td>${escapeHtml(hospital.nom || '—')}</td>
+            <td>${escapeHtml(hospital.pays || '—')}</td>
+            <td>${statusBadge}<div class="muted" style="font-size:.7rem;margin-top:.15rem">Rapport : ${reportStatus}</div></td>
+            <td><a class="act-link" href="${dossierUrl}">Détails</a></td>
+        </tr>
     `;
 }
 
@@ -585,15 +586,16 @@ function renderHistoryCases() {
         casesToShow = casesToShow.filter((entry) => matchDoctorCaseSearch(entry, searchDoctorTreated));
     }
 
+    const historyWrap = document.getElementById('doctorHistoryTableWrap');
     if (!casesToShow.length) {
         cardList.innerHTML = '';
-        cardList.hidden = true;
+        if (historyWrap) historyWrap.hidden = true;
         empty.hidden = false;
         return;
     }
 
     empty.hidden = true;
-    cardList.hidden = false;
+    if (historyWrap) historyWrap.hidden = false;
 
     const totalPages = Math.max(1, Math.ceil(casesToShow.length / ROWS_PER_PAGE));
     currentPageDoctorTreated = Math.min(currentPageDoctorTreated, totalPages - 1);
@@ -652,7 +654,7 @@ function selectDoctorCase(alertId) {
     }
     selectedCaseId = alertId;
     renderSelectedCase(match);
-    document.querySelectorAll('.doctor-case-card[data-row-alert-id]').forEach((card) => {
+    document.querySelectorAll('tr[data-row-alert-id]').forEach((card) => {
         const rowId = Number(card.getAttribute('data-row-alert-id'));
         card.classList.toggle('selected', rowId === Number(alertId));
     });

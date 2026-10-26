@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Détails de l'alerte — Mobility Health</title>
+    <title>Détails de l'alerte — Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
     <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
     <style>
         .ad-page { padding: 1.2rem 1.4rem 3rem; }
@@ -44,7 +44,12 @@
         .ad-step-sep { width: 40px; height: 2px; background: #e0e2ee; margin: 0 .6rem; }
 
         /* Grid */
-        .ad-grid { display: grid; grid-template-columns: 320px 1fr 330px; gap: 1rem; align-items: start; }
+        /* minmax(0,1fr) + min-width:0 : la colonne centrale (tableau des
+           établissements) ne peut plus pousser la colonne de droite hors
+           de l'écran — le tableau défile en interne si nécessaire. */
+        .ad-grid { display: grid; grid-template-columns: 320px minmax(0, 1fr) 330px; gap: 1rem; align-items: start; }
+        .ad-grid > div { min-width: 0; }
+        .ad-grid .card-b:has(table) { overflow-x: auto; }
         .card { background: #fff; border: 1px solid #eceef6; border-radius: .8rem; overflow: hidden; }
         .card + .card { margin-top: 1rem; }
         .card-h { display: flex; align-items: center; gap: .5rem; padding: .8rem 1rem; border-bottom: 1px solid #f1f2f8; font-weight: 700; font-size: .85rem; color: #1e1650; }
@@ -53,7 +58,7 @@
         .card-b { padding: 1rem; }
         .kv { display: grid; grid-template-columns: 110px 1fr; row-gap: .45rem; font-size: .8rem; }
         .kv dt { color: #8a8fa3; }
-        .kv dd { margin: 0; color: #333; font-weight: 500; }
+        .kv dd { margin: 0; color: #333; font-weight: 500; overflow-wrap: anywhere; word-break: break-word; min-width: 0; }
         .ad-insured { display: flex; gap: .9rem; align-items: center; margin-bottom: .9rem; }
         .ad-insured img, .ad-insured .ph { width: 62px; height: 62px; border-radius: .6rem; object-fit: cover; }
         .ad-insured .ph { background: #eceef6; display: grid; place-items: center; color: #9aa0b5; font-size: 1.4rem; font-weight: 700; }
@@ -63,7 +68,8 @@
         #alertMap { height: 260px; border-radius: .6rem; }
         .map-open { font-size: .72rem; color: #6c5ce7; text-decoration: none; font-weight: 600; }
 
-        table.fac { width: 100%; border-collapse: collapse; font-size: .78rem; }
+        table.fac { width: 100%; border-collapse: collapse; font-size: .78rem; table-layout: auto; }
+        table.fac td:first-child { max-width: 180px; overflow-wrap: anywhere; }
         table.fac th { text-align: left; color: #8a8fa3; font-weight: 600; padding: .45rem .5rem; border-bottom: 1px solid #f1f2f8; font-size: .72rem; }
         table.fac td { padding: .55rem .5rem; border-bottom: 1px solid #f5f6fb; vertical-align: top; }
         .fac-status { font-size: .7rem; font-weight: 700; color: #0a9b6c; background: #e4f8f0; padding: .15rem .5rem; border-radius: .7rem; white-space: nowrap; }
@@ -79,19 +85,19 @@
 
         .sm-row { display: grid; grid-template-columns: 120px 1fr; font-size: .78rem; padding: .35rem 0; border-bottom: 1px dashed #f1f2f8; }
         .sm-row dt { color: #8a8fa3; }
-        .sm-row dd { margin: 0; font-weight: 600; }
+        .sm-row dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; word-break: break-word; min-width: 0; }
         .sm-badge { display: inline-block; padding: .12rem .55rem; border-radius: .7rem; font-size: .7rem; font-weight: 700; }
         .sm-badge.conscient { background: #e4f8f0; color: #0a9b6c; }
         .sm-badge.autre { background: #fdf0dc; color: #b45309; }
 
-        .note-item { font-size: .78rem; padding: .5rem 0; border-bottom: 1px dashed #f1f2f8; }
+        .note-item { font-size: .78rem; padding: .5rem 0; border-bottom: 1px dashed #f1f2f8; overflow-wrap: anywhere; word-break: break-word; }
         .note-item .meta { color: #8a8fa3; font-size: .7rem; margin-top: .15rem; }
         .note-add { display: flex; gap: .5rem; margin-top: .6rem; }
         .note-add input { flex: 1; border: 1px solid #e6e7f0; border-radius: .5rem; padding: .45rem .6rem; font-size: .8rem; }
 
         .timeline { position: relative; padding-left: 1.2rem; }
         .timeline::before { content: ''; position: absolute; left: 5px; top: 4px; bottom: 4px; width: 2px; background: #eceef6; }
-        .tl-item { position: relative; padding: .35rem 0 .6rem; font-size: .78rem; }
+        .tl-item { position: relative; padding: .35rem 0 .6rem; font-size: .78rem; overflow-wrap: anywhere; word-break: break-word; }
         .tl-item::before { content: ''; position: absolute; left: -1.03rem; top: .6rem; width: 8px; height: 8px; border-radius: 50%; background: #6c5ce7; border: 2px solid #fff; box-shadow: 0 0 0 2px #eceef6; }
         .tl-item .tl-time { color: #8a8fa3; font-size: .7rem; }
         .tl-item .tl-actor { color: #8a8fa3; font-size: .7rem; }
@@ -101,6 +107,7 @@
         .action-card h4 { font-size: .82rem; color: #1e1650; margin: 0 0 .2rem; display: flex; gap: .45rem; align-items: center; }
         .action-card p { font-size: .72rem; color: #8a8fa3; margin: 0 0 .7rem; }
         .action-card .btn { width: 100%; justify-content: center; font-size: .78rem; padding: .55rem; }
+        .action-card .btn:disabled { background: #e7e9f2 !important; color: #9aa0b5 !important; cursor: not-allowed; }
         .btn-red { background: #e23d3d; color: #fff; }
         .btn-blue { background: #2d5bd7; color: #fff; }
         .btn-green { background: #0a9b6c; color: #fff; }
@@ -122,7 +129,10 @@
         .toast.show { display: block; }
         .toast.error { background: #c81e1e; }
 
-        @media (max-width: 1200px) {
+        /* La sidebar BO réduit la largeur utile : on passe à 2 colonnes plus
+           tôt pour que la colonne droite (communication/statut/historique)
+           ne soit plus écrasée et que le texte ne soit pas coupé. */
+        @media (max-width: 1500px) {
             .ad-grid { grid-template-columns: 1fr 1fr; }
             .ad-actionbar { grid-template-columns: repeat(2, 1fr); }
         }
@@ -391,11 +401,11 @@
 
     <div class="toast" id="toast"></div>
 
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js?v=2"></script>
-    <script src="js/permissions.js?v=2"></script>
-    <script src="js/backoffice-nav.js?v=2"></script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
     <script src="vendor/leaflet/leaflet.js"></script>
-    <script src="js/alert-detail.js?v=2"></script>
+    <script src="js/alert-detail.js?v=3"></script>
 </body>
 </html>

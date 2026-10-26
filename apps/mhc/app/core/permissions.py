@@ -195,7 +195,8 @@ _AGENT_CONFORMITE_MEDICAL = _perms(
 # Pôle comptabilité et finances.
 _SUPERVISEUR_COMPTABLE = _perms(
     **{f: C for f in _TECH_ACCOUNTS + _MEDICAL_ACCOUNTS},
-    **{f: C for f in (F_PRODUCTION, F_SINISTRES, F_FACTURATION_MEDICALE)},
+    **{f: C for f in (F_PRODUCTION, F_SINISTRES)},
+    **{F_FACTURATION_MEDICALE: K},  # valide comptablement les factures hospitalières
     **{f: E for f in _FINANCE_FLOWS},
 )
 
@@ -289,11 +290,6 @@ ROLE_PERMISSIONS: Dict[str, Dict[str, str]] = {
     "hospital_admin": _HOSPITAL_ADMIN,
     # Médecin-conseil
     "medecin_referent_mh": _MEDECIN_CONSEIL,
-    # Rôles historiques rapprochés des profils cibles
-    "sos_operator": _AGENT_MEDICAL_MHC,
-    "medical_reviewer": _AGENT_CONFORMITE_MEDICAL,
-    "technical_reviewer": _AGENT_CONFORMITE_PRODUCTION,
-    "finance_manager": _SUPERVISEUR_COMPTABLE,
     # Assuré / médecin legacy : aucun accès back-office
     "user": {},
     "doctor": {},
@@ -326,10 +322,6 @@ ROLE_LABELS: Dict[str, str] = {
     "medecin_hopital": "Agent médical (partenaire santé)",
     "agent_reception_hopital": "Agent d'accueil (partenaire santé)",
     "medecin_referent_mh": "Médecin-conseil",
-    "sos_operator": "Opérateur SOS",
-    "medical_reviewer": "Validateur médical",
-    "technical_reviewer": "Validateur technique",
-    "finance_manager": "Responsable finance",
     "doctor": "Médecin",
     "user": "Assuré",
 }
@@ -341,6 +333,24 @@ ROLE_LABELS: Dict[str, str] = {
 # sur le périmètre de leur organisation — ils passent par leurs portails
 # scopés (assureur_production, assureur_sinistres, reassureur_portal,
 # hospital_*) et jamais par les listes globales des routers admin_*.
+# Rôles habilités à mener le parcours de souscription en lieu et place d'un voyageur
+# (assistant de souscription, agents production internes et partenaires).
+THIRD_PARTY_SUBSCRIPTION_ROLES = {
+    "admin",
+    "production_agent",
+    "assistant_souscription",
+    "superviseur_technique",
+    "agent_production_assureur",
+    "agent_production_courtier",
+}
+
+
+def can_act_for_third_party(role) -> bool:
+    """Le rôle peut-il agir sur les données d'un voyageur (souscription pour un tiers) ?"""
+    role_key = role.value if hasattr(role, "value") else str(role or "")
+    return role_key.strip().lower() in THIRD_PARTY_SUBSCRIPTION_ROLES
+
+
 INTERNAL_BACKOFFICE_ROLES = {
     "superviseur_technique",
     "production_agent",
@@ -354,11 +364,6 @@ INTERNAL_BACKOFFICE_ROLES = {
     "agent_comptable_mh",
     "agent_conformite_comptable",
     "medecin_referent_mh",
-    # Rôles historiques rapprochés
-    "sos_operator",
-    "medical_reviewer",
-    "technical_reviewer",
-    "finance_manager",
 }
 
 

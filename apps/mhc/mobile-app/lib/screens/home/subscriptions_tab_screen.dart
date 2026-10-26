@@ -17,10 +17,11 @@ class SubscriptionsTabScreen extends StatefulWidget {
   const SubscriptionsTabScreen({super.key});
 
   @override
-  State<SubscriptionsTabScreen> createState() => _SubscriptionsTabScreenState();
+  State<SubscriptionsTabScreen> createState() => SubscriptionsTabScreenState();
 }
 
-class _SubscriptionsTabScreenState extends State<SubscriptionsTabScreen> {
+class SubscriptionsTabScreenState extends State<SubscriptionsTabScreen>
+    with WidgetsBindingObserver {
   final SubscriptionsService _subsService = SubscriptionsService();
   List<SubscriptionModel> _list = [];
   bool _loading = true;
@@ -29,6 +30,7 @@ class _SubscriptionsTabScreenState extends State<SubscriptionsTabScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final peek = SubscriptionsService.peekSubscriptionsCache();
     if (peek != null) {
       _list = peek;
@@ -37,7 +39,22 @@ class _SubscriptionsTabScreenState extends State<SubscriptionsTabScreen> {
     _load();
   }
 
-  Future<void> _load({bool forceRefresh = false}) async {
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// L'écran vit dans un IndexedStack : initState ne se rejoue pas au retour
+  /// sur l'onglet — refresh public appelé par HomeScreen + reprise de l'app.
+  void refresh() => _load(forceRefresh: true);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) refresh();
+  }
+
+  Future<void> _load({bool forceRefresh = true}) async {
     setState(() {
       _error = null;
       if (_list.isEmpty) _loading = true;

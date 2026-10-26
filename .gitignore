@@ -99,3 +99,7 @@ htmlcov/
 CHECKLIST_INSTALLATION_VPS.md
 INSTALLATION_VPS_HOSTINGER.md
 IDENTIFIANTS_TEST.md
+# Artefacts locaux (tests/build)
+apps/mhc/celerybeat-schedule
+apps/mhc/mobile-app/releases/
+apps/mhc/mobile-app/*.mp4

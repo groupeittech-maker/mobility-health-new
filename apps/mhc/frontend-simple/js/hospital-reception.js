@@ -3,7 +3,8 @@ const ACTIVE_ALERT_STATUSES = new Set(['en_attente', 'en_cours']);
 const ALERT_REFRESH_INTERVAL = 60000;
 
 let assignedAlerts = [];
-let currentReceptionTab = 'to_treat'; // 'to_treat' | 'orientations'
+let currentReceptionTab = 'to_treat'; // 'to_treat' | 'pending_validation' | 'orientations'
+const RECEPTION_TABS = new Set(['to_treat', 'pending_validation', 'orientations']);
 let searchAlertsReception = '';
 const ROWS_PER_PAGE = 6;
 let currentPageReception = 0;
@@ -71,8 +72,6 @@ function bindReceptionEvents() {
     if (refreshBtn) {
         refreshBtn.addEventListener('click', () => refreshReceptionAlerts(true));
     }
-    const tabToTreat = document.getElementById('tabReceptionToTreat');
-    const tabOrientations = document.getElementById('tabReceptionOrientations');
     const searchInput = document.getElementById('searchAlertsReception');
     if (searchInput) {
         searchInput.addEventListener('input', () => {
@@ -89,20 +88,33 @@ function bindReceptionEvents() {
         });
     }
 
-    [tabToTreat, tabOrientations].forEach((btn) => {
-        if (!btn) return;
+    document.querySelectorAll('[data-reception-tab]').forEach((btn) => {
         btn.addEventListener('click', () => {
-            const tab = btn.getAttribute('data-reception-tab');
-            if (tab !== 'to_treat' && tab !== 'orientations') return;
-            currentReceptionTab = tab;
-            currentPageReception = 0;
-            tabToTreat.classList.toggle('active', tab === 'to_treat');
-            tabToTreat.setAttribute('aria-selected', tab === 'to_treat' ? 'true' : 'false');
-            tabOrientations.classList.toggle('active', tab === 'orientations');
-            tabOrientations.setAttribute('aria-selected', tab === 'orientations' ? 'true' : 'false');
-            renderAlertsTable();
+            setReceptionTab(btn.getAttribute('data-reception-tab'));
         });
     });
+
+    ['fTypeReception', 'fStatutReception', 'fFromReception', 'fToReception'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', () => {
+                currentPageReception = 0;
+                renderAlertsTable();
+            });
+        }
+    });
+}
+
+function setReceptionTab(tab) {
+    if (!RECEPTION_TABS.has(tab)) return;
+    currentReceptionTab = tab;
+    currentPageReception = 0;
+    document.querySelectorAll('[data-reception-tab]').forEach((b) => {
+        const active = b.getAttribute('data-reception-tab') === tab;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    renderAlertsTable();
 }
 
 function startAutoRefresh() {
@@ -148,10 +160,12 @@ function filterReceptionAlerts(alerts = []) {
     if (!Array.isArray(alerts)) {
         return [];
     }
+    // Les alertes orientées restent visibles même une fois résolues
+    // (onglet « Dossiers orientés » = historique de la réception).
     return alerts
         .filter(alert =>
             alert?.assigned_hospital?.id === currentHospitalId &&
-            ACTIVE_ALERT_STATUSES.has(alert?.statut)
+            (ACTIVE_ALERT_STATUSES.has(alert?.statut) || alert?.is_oriented)
         )
         .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 }
@@ -164,20 +178,68 @@ function setAlertsLoading(state) {
 }
 
 function toggleGlobalState({ table, empty }) {
-    const cardList = document.getElementById('alertsCardList');
+    const tableWrap = document.getElementById('alertsTableWrap');
     const emptyState = document.getElementById('alertsEmpty');
-    if (cardList) {
-        cardList.hidden = !table;
+    if (tableWrap) {
+        tableWrap.hidden = !table;
     }
     if (emptyState) {
         emptyState.hidden = !empty;
     }
 }
 
+// Une alerte est « traitée » côté réception quand une ambulance a été
+// déployée (étape workflow 'ambulance_en_route' terminée) — le séjour
+// n'existe pas encore, donc is_oriented reste faux et le dossier doit
+// quand même quitter « À traiter ».
+function alertAmbulanceDispatched(alert) {
+    return (alert?.workflow_steps || []).some(
+        (step) => step.step_key === 'ambulance_en_route' && step.statut === 'completed'
+    );
+}
+
+function alertHandledByReception(alert) {
+    return Boolean(alert?.is_oriented) || alertAmbulanceDispatched(alert);
+}
+
 function getAlertsForCurrentTab() {
-    const toTreat = assignedAlerts.filter((a) => !a.is_oriented);
-    const orientations = assignedAlerts.filter((a) => a.is_oriented);
-    return currentReceptionTab === 'orientations' ? orientations : toTreat;
+    // à traiter : aucune action réception — en attente de validation : action
+    // faite, en attente du médecin référent — orientés : validés ou clôturés.
+    const toTreat = assignedAlerts.filter((a) => !alertHandledByReception(a));
+    const pendingValidation = assignedAlerts.filter(
+        (a) => alertHandledByReception(a) && !a.is_validated && a.statut !== 'resolue'
+    );
+    const orientations = assignedAlerts.filter(
+        (a) => alertHandledByReception(a) && (a.is_validated || a.statut === 'resolue')
+    );
+    if (currentReceptionTab === 'pending_validation') return pendingValidation;
+    if (currentReceptionTab === 'orientations') return orientations;
+    return toTreat;
+}
+
+function typeUrgenceLabel(alert) {
+    const desc = (alert.description || '').toLowerCase();
+    if (desc.includes('accident')) return 'Accident';
+    if (desc.includes('décès') || desc.includes('deces')) return 'Décès';
+    if (desc.includes('évac') || desc.includes('evac')) return 'Évacuation sanitaire';
+    return 'Maladie';
+}
+
+function receptionFilterValue(id) {
+    const el = document.getElementById(id);
+    return (el && el.value) || '';
+}
+
+function matchReceptionAlertFilters(alert) {
+    const type = receptionFilterValue('fTypeReception');
+    if (type && typeUrgenceLabel(alert).toLowerCase().indexOf(type) < 0) return false;
+    const statut = receptionFilterValue('fStatutReception');
+    if (statut && alert.statut !== statut) return false;
+    const from = receptionFilterValue('fFromReception');
+    if (from && alert.created_at < from) return false;
+    const to = receptionFilterValue('fToReception');
+    if (to && alert.created_at > to + 'T23:59') return false;
+    return true;
 }
 
 function matchReceptionAlertSearch(alert, term) {
@@ -193,26 +255,32 @@ function matchReceptionAlertSearch(alert, term) {
 
 function renderAlertsTable() {
     const list = document.getElementById('alertsCardList');
+    const tableWrap = document.getElementById('alertsTableWrap');
     const emptyState = document.getElementById('alertsEmpty');
     const emptyMessage = document.getElementById('alertsEmptyMessage');
     if (!list || !emptyState) {
         return;
     }
 
-    let alertsToShow = getAlertsForCurrentTab();
+    let alertsToShow = getAlertsForCurrentTab().filter(matchReceptionAlertFilters);
     if (searchAlertsReception) {
         alertsToShow = alertsToShow.filter((alert) => matchReceptionAlertSearch(alert, searchAlertsReception));
     }
 
     if (emptyMessage) {
-        emptyMessage.textContent = currentReceptionTab === 'orientations'
-            ? 'Aucune orientation envoyée pour le moment.'
-            : 'Aucun dossier à traiter pour le moment.';
+        const messages = {
+            to_treat: 'Aucun dossier à traiter pour le moment.',
+            pending_validation: 'Aucun dossier en attente de validation médicale.',
+            orientations: 'Aucun dossier orienté pour le moment.',
+        };
+        emptyMessage.textContent = messages[currentReceptionTab] || messages.to_treat;
     }
 
     if (!alertsToShow.length) {
         list.innerHTML = '';
-        list.hidden = true;
+        if (tableWrap) {
+            tableWrap.hidden = true;
+        }
         emptyState.hidden = false;
         const pagEl = document.getElementById('receptionAlertsPagination');
         if (pagEl) {
@@ -226,14 +294,16 @@ function renderAlertsTable() {
     }
 
     emptyState.hidden = true;
-    list.hidden = false;
+    if (tableWrap) {
+        tableWrap.hidden = false;
+    }
 
     const totalPages = Math.max(1, Math.ceil(alertsToShow.length / ROWS_PER_PAGE));
     currentPageReception = Math.min(currentPageReception, totalPages - 1);
     const start = currentPageReception * ROWS_PER_PAGE;
     const pageData = alertsToShow.slice(start, start + ROWS_PER_PAGE);
 
-    list.innerHTML = pageData.map((alert) => buildAlertCard(alert)).join('');
+    list.innerHTML = pageData.map((alert) => buildAlertRow(alert)).join('');
 
     const pagEl = document.getElementById('receptionAlertsPagination');
     if (pagEl) {
@@ -258,20 +328,20 @@ function renderAlertsTable() {
         }
     }
 
-    list.querySelectorAll('.reception-alert-card[data-row-alert-id]').forEach((card) => {
-        card.addEventListener('click', (event) => {
+    list.querySelectorAll('tr[data-row-alert-id]').forEach((row) => {
+        row.addEventListener('click', (event) => {
             if (
-                event.target.closest('.reception-dossier-full-link') ||
+                event.target.closest('a') ||
                 event.target.closest('[data-open-alert]')
             ) {
                 return;
             }
-            list.querySelectorAll('.reception-alert-card[data-row-alert-id]').forEach((c) => c.classList.remove('selected'));
-            card.classList.add('selected');
-            const alertId = Number(card.getAttribute('data-row-alert-id'));
+            list.querySelectorAll('tr[data-row-alert-id]').forEach((c) => c.classList.remove('selected'));
+            row.classList.add('selected');
+            const alertId = Number(row.getAttribute('data-row-alert-id'));
             selectAlert(alertId);
         });
-        card.addEventListener('keydown', (event) => {
+        row.addEventListener('keydown', (event) => {
             if (event.key !== 'Enter' && event.key !== ' ') {
                 return;
             }
@@ -279,9 +349,9 @@ function renderAlertsTable() {
                 return;
             }
             event.preventDefault();
-            list.querySelectorAll('.reception-alert-card[data-row-alert-id]').forEach((c) => c.classList.remove('selected'));
-            card.classList.add('selected');
-            selectAlert(Number(card.getAttribute('data-row-alert-id')));
+            list.querySelectorAll('tr[data-row-alert-id]').forEach((c) => c.classList.remove('selected'));
+            row.classList.add('selected');
+            selectAlert(Number(row.getAttribute('data-row-alert-id')));
         });
     });
 
@@ -289,10 +359,10 @@ function renderAlertsTable() {
         btn.addEventListener('click', (event) => {
             event.stopPropagation();
             const id = Number(btn.getAttribute('data-alert-id'));
-            list.querySelectorAll('.reception-alert-card[data-row-alert-id]').forEach((c) => c.classList.remove('selected'));
-            const card = btn.closest('.reception-alert-card');
-            if (card) {
-                card.classList.add('selected');
+            list.querySelectorAll('tr[data-row-alert-id]').forEach((c) => c.classList.remove('selected'));
+            const row = btn.closest('tr[data-row-alert-id]');
+            if (row) {
+                row.classList.add('selected');
             }
             selectAlert(id);
         });
@@ -305,30 +375,37 @@ function hospitalAlertDetailsPageUrl(alertId) {
     return `hospital-alert-details.html?alert_id=${alertId}&from=${from}`;
 }
 
-function buildAlertCard(alert) {
-    const numero = escapeHtml(alert.numero_alerte || `Dossier #${alert.id}`);
+// Tableau au modèle du « Centre d'alerte des urgences » :
+// ligne cliquable (aperçu) + colonne Actions (dossier complet).
+function buildAlertRow(alert) {
+    const numero = escapeHtml(alert.numero_alerte || `URG-${alert.id}`);
     const patient = escapeHtml(alert.user_full_name || `Utilisateur #${alert.user_id}`);
-    const priority = renderPriorityBadge(alert.priorite);
-    const created = formatDateTime(alert.created_at);
     const isSelected = selectedAlert && selectedAlert.id === alert.id;
     const dossierUrl = hospitalAlertDetailsPageUrl(alert.id);
+    const handled = alertHandledByReception(alert);
+    const hospital = alert.assigned_hospital || {};
+    let stateBadge;
+    if (handled && (alert.is_validated || alert.statut === 'resolue')) {
+        stateBadge = `<span class="bo-badge validee">${alert.is_oriented ? 'Orienté' : 'Traité'}</span>`;
+    } else if (handled) {
+        stateBadge = '<span class="bo-badge a_valider">En attente de validation</span>';
+    } else {
+        stateBadge = '<span class="bo-badge en_attente">À traiter</span>';
+    }
     return `
-        <li class="card reception-alert-card${isSelected ? ' selected' : ''}" data-row-alert-id="${alert.id}" tabindex="0" role="group" aria-label="Dossier ${escapeHtml(alert.numero_alerte || '#' + alert.id)}">
-            <div class="reception-alert-card__body">
-                <div class="reception-alert-card__main">
-                    <div class="reception-alert-card__head">
-                        <strong class="reception-alert-card__numero">${numero}</strong>
-                        <span class="reception-alert-card__priority">${priority}</span>
-                    </div>
-                    <p class="reception-alert-card__patient">${patient}</p>
-                    <p class="muted small reception-alert-card__date">Assigné le ${created}</p>
-                </div>
-                <div class="reception-alert-card__actions">
-                    <a class="btn btn-primary btn-sm reception-dossier-full-link" href="${dossierUrl}">Voir le dossier</a>
-                    <button type="button" class="btn btn-outline btn-sm" data-open-alert data-alert-id="${alert.id}">Aperçu</button>
-                </div>
-            </div>
-        </li>
+        <tr data-row-alert-id="${alert.id}"${isSelected ? ' class="selected"' : ''} tabindex="0">
+            <td><span class="bo-prio ${alert.priorite || 'normale'}"></span><span class="num">${numero}</span></td>
+            <td class="muted">${formatDateTime(alert.created_at)}</td>
+            <td>${patient}</td>
+            <td>${typeUrgenceLabel(alert)}</td>
+            <td>${escapeHtml(hospital.nom || '—')}</td>
+            <td>${escapeHtml(hospital.pays || '—')}</td>
+            <td>${stateBadge}</td>
+            <td>
+                <a class="act-link" data-open-alert data-alert-id="${alert.id}" title="Aperçu du dossier">👁</a>
+                <a class="act-link" href="${dossierUrl}">Détails</a>
+            </td>
+        </tr>
     `;
 }
 
@@ -354,9 +431,9 @@ async function selectAlert(alertId) {
         
         const cardList = document.getElementById('alertsCardList');
         if (cardList) {
-            cardList.querySelectorAll('.reception-alert-card[data-row-alert-id]').forEach((card) => {
-                const rowAlertId = Number(card.getAttribute('data-row-alert-id'));
-                card.classList.toggle('selected', rowAlertId === alertId);
+            cardList.querySelectorAll('tr[data-row-alert-id]').forEach((row) => {
+                const rowAlertId = Number(row.getAttribute('data-row-alert-id'));
+                row.classList.toggle('selected', rowAlertId === alertId);
             });
         }
         console.log('✅ Sélection terminée');
@@ -545,8 +622,8 @@ function closeAlertDetails() {
     resetAlertDetails();
     const cardList = document.getElementById('alertsCardList');
     if (cardList) {
-        cardList.querySelectorAll('.reception-alert-card[data-row-alert-id]').forEach((card) => {
-            card.classList.remove('selected');
+        cardList.querySelectorAll('tr[data-row-alert-id]').forEach((row) => {
+            row.classList.remove('selected');
         });
     }
     // Faire défiler vers la liste des alertes
@@ -700,16 +777,10 @@ async function handleOrientationSubmit(event) {
         if (document.getElementById('orientationService')) document.getElementById('orientationService').value = '';
         if (document.getElementById('orientationChambre')) document.getElementById('orientationChambre').value = '';
         await refreshReceptionAlerts();
-        currentReceptionTab = 'orientations';
-        const tabToTreat = document.getElementById('tabReceptionToTreat');
-        const tabOrientations = document.getElementById('tabReceptionOrientations');
-        if (tabToTreat) tabToTreat.classList.remove('active');
-        if (tabOrientations) {
-            tabOrientations.classList.add('active');
-            tabOrientations.setAttribute('aria-selected', 'true');
-        }
-        if (tabToTreat) tabToTreat.setAttribute('aria-selected', 'false');
-        renderAlertsTable();
+        // Le dossier vient d'être traité par la réception : il rejoint
+        // l'onglet « En attente de validation » tant que le médecin référent
+        // n'a pas confirmé, puis « Dossiers orientés ».
+        setReceptionTab('pending_validation');
         updateReceptionStats();
         resetAlertDetails();
     } catch (error) {
@@ -755,7 +826,7 @@ function updateReceptionStats() {
     }
     const ambulance = document.getElementById('ambulanceCount');
     if (ambulance) {
-        const dispatched = assignedAlerts.filter(alert => alert.workflow_status === 'ambulance_en_route').length;
+        const dispatched = assignedAlerts.filter(alertAmbulanceDispatched).length;
         ambulance.textContent = dispatched.toString();
     }
     const orientation = document.getElementById('orientationCount');
@@ -763,15 +834,24 @@ function updateReceptionStats() {
         const oriented = assignedAlerts.filter(alert => alert.is_oriented === true).length;
         orientation.textContent = oriented.toString();
     }
-    const toTreatCount = assignedAlerts.filter((a) => !a.is_oriented).length;
-    const orientationsCount = assignedAlerts.filter((a) => a.is_oriented).length;
+    const toTreatCount = assignedAlerts.filter((a) => !alertHandledByReception(a)).length;
+    const pendingCount = assignedAlerts.filter(
+        (a) => alertHandledByReception(a) && !a.is_validated && a.statut !== 'resolue'
+    ).length;
+    const orientationsCount = assignedAlerts.filter(
+        (a) => alertHandledByReception(a) && (a.is_validated || a.statut === 'resolue')
+    ).length;
     const tabToTreat = document.getElementById('tabReceptionToTreat');
+    const tabPending = document.getElementById('tabReceptionPendingValidation');
     const tabOrientations = document.getElementById('tabReceptionOrientations');
     if (tabToTreat) {
         tabToTreat.textContent = `Dossiers à traiter (${toTreatCount})`;
     }
+    if (tabPending) {
+        tabPending.textContent = `En attente de validation (${pendingCount})`;
+    }
     if (tabOrientations) {
-        tabOrientations.textContent = `Orientations envoyées (${orientationsCount})`;
+        tabOrientations.textContent = `Dossiers orientés (${orientationsCount})`;
     }
 }
 

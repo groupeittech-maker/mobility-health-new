@@ -206,6 +206,54 @@ class _SocialButton extends StatelessWidget {
   }
 }
 
+/// Carte « Vos données sont protégées » (kit : fond lavande, bouclier violet).
+class MhProtectionCard extends StatelessWidget {
+  const MhProtectionCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3EEF9),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.verified_user_outlined,
+              color: AppColors.secondary, size: 26),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Vos données sont protégées',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.secondary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Nous utilisons un chiffrement de niveau bancaire\n'
+                  'pour sécuriser vos informations.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Libellé de champ au-dessus de la boîte (style kit : violet, gras).
 class MhFieldLabel extends StatelessWidget {
   const MhFieldLabel(this.text, {super.key, this.required_ = false});

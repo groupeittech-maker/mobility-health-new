@@ -16,7 +16,15 @@ class MessagingClient(Protocol):
 
 
 def get_messaging_client() -> MessagingClient:
-    mode: Literal["stub", "live"] = settings.MESSAGING_SERVICE_MODE  # type: ignore[assignment]
+    mode: Literal["stub", "live", "meta"] = settings.MESSAGING_SERVICE_MODE  # type: ignore[assignment]
+    if mode == "meta":
+        from app.integrations.messaging.whatsapp_meta import WhatsAppMetaClient
+
+        return WhatsAppMetaClient(
+            access_token=settings.WHATSAPP_ACCESS_TOKEN,
+            phone_number_id=settings.WHATSAPP_PHONE_NUMBER_ID,
+            api_version=settings.WHATSAPP_API_VERSION,
+        )
     if mode == "live":
         from app.integrations.messaging.client import MessagingLiveClient
 

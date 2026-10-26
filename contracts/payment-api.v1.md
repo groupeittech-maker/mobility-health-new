@@ -1,52 +1,84 @@
-# Payment API v1 — contrat public
+# Payment API v1 — contrat public (AfriPaie)
 
 **Consommateur principal :** MHC (`apps/mhc/app/integrations/payment/`)
+**Fournisseur :** AfriPaie — orchestrateur de paiement pan-africain (`PAYMENT_SERVICE_URL`, ex. https://afripaie.online)
 
-## Endpoints
+**Authentification :** `Authorization: Bearer sk_test_…` / `sk_live_…`
+(`PAYMENT_SERVICE_API_KEY`). Idempotence : en-tête `Idempotency-Key`.
 
-### POST /v1/payments/intents
+## Encaissement — deux parcours
 
-Crée une intention de paiement.
+### 1. Push direct — `POST /v1/payments`
 
-**Request :**
 ```json
 {
+  "reference": "MHC-SUB-42-P17",
   "amount": 25000,
   "currency": "XAF",
   "country": "CG",
-  "reference": "MHC-SUB-2026-0042",
-  "method": "mobile_money",
-  "customer": { "phone": "+242...", "email": "..." },
-  "callback_url": "https://mhc.../api/v1/webhooks/payment",
-  "metadata": {}
+  "channel": "mobile_money",
+  "network": "MTN_CG",
+  "customer": { "phone": "+24206000000", "email": "...", "name": "..." },
+  "description": "Souscription MH-2026-0042",
+  "metadata": { "payment_id": "17", "subscription_id": "42", "user_id": "7" },
+  "return_url": "https://mhc…/payment-return.html"
 }
 ```
 
-**Response :**
+- `amount` : **entier en unités mineures** (XAF/XOF → exposant 0).
+- `country` facultatif : l'indicatif du `customer.phone` désigne le pays.
+- Réponse : `{ "id": "pay_…", "status": "PROCESSING",
+  "action": { "type": "ussd_push|redirect|none", "instructions|url": … },
+  "provider": { "id": "…" } }`
+
+### 2. Page hébergée — `POST /v1/checkout-sessions`
+
 ```json
 {
-  "payment_id": "pay_abc123",
-  "status": "pending",
-  "provider": "mtn_cg",
-  "checkout_url": null,
-  "expires_at": "2026-09-01T12:00:00Z"
+  "reference": "MHC-SUB-42-P17",
+  "amount": 25000, "currency": "XAF",
+  "customer": { "email": "…" },
+  "success_url": "https://mhc…/payment-return.html?result=success&payment_id=17",
+  "cancel_url": "https://mhc…/payment-return.html?result=cancel&payment_id=17",
+  "metadata": { "payment_id": "17", "subscription_id": "42" }
 }
 ```
 
-### GET /v1/payments/{payment_id}
+Réponse : `{ "id": "cs_…", "status": "OPEN", "url": "https://afripaie…/pay/<token>", "expires_at": "…" }`
+→ rediriger l'assuré vers `url`. Le paiement créé depuis la page hérite de
+`reference` et `metadata` (+ `afripaie_checkout_session`).
 
-Retourne le statut d'une transaction.
+## Statut
 
-### Webhook → MHC
+`GET /v1/payments/{pay_…}` — interroge l'agrégateur et fait avancer l'état.
+`GET /v1/checkout-sessions/{cs_…}` — session + `payment` complet associé.
 
-`POST {callback_url}` — événements : `payment.success`, `payment.failed`, `payment.expired`.
+Statuts AfriPaie → MHC : `CREATED|OPEN→pending`, `PROCESSING|AWAITING_CUSTOMER→processing`,
+`SUCCEEDED|COMPLETED→success`, `FAILED→failed`, `EXPIRED|CANCELLED→expired`.
 
-**Authentification :** Bearer API key ou signature HMAC (à définir avec l'orchestrateur existant).
+## Webhooks → MHC
 
-## Statuts
+Endpoint déclaré une fois via `POST /v1/webhook-endpoints` (scope `accounts:write`)
+→ réponse contient `secret` (`whsec_…`, affiché une fois) → `PAYMENT_SERVICE_WEBHOOK_SECRET`.
 
-`pending` | `processing` | `success` | `failed` | `expired` | `refunded`
+MHC expose `POST /api/v1/payments/webhooks/afripaie`.
 
-## Notes
+- Événements : `payment.succeeded` | `payment.failed` | `payment.expired`
+- Corps : `{ "id": "evt_<res>_<type>", "type": "…", "data": <paiement complet> }`
+- En-têtes : `Afripaie-Signature: t=<ts>,v1=<hmac-sha256(t.corps_brut)>`,
+  `afripaie-event-id`, `afripaie-event-type`
+- Tolérance horodatage : 5 min. Livraison « au moins une fois », sans ordre
+  garanti — MHC se fie à l'état courant du `Paiement` (jamais écraser `valide`).
 
-L'orchestrateur Payment IT-Tech est **déjà développé** — ce contrat aligne MHC sur son API existante (phase 4).
+## Rapprochement MHC
+
+`Paiement.reference_externe` = `pay_…` (direct) ou `cs_…` (checkout, remplacé
+par le `pay_…` au premier webhook). Le rattachement utilise, dans l'ordre :
+`data.id` == reference_externe → `data.metadata.payment_id` → référence
+`MHC-SUB-<souscription>-P<paiement>`.
+
+## Test
+
+Clé `sk_test_…` + numéros simulateur (partie nationale à zéros, dernier
+chiffre = issue : `0` succès, `2` refus, `7` expiration).
+Ex. CI : `+2250000000000` succès, `+2250000000002` refus.

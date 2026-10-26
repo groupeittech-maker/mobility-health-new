@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hôtels &amp; Transport médical — Mobility Health</title>
+    <title>Hôtels &amp; Transport médical — Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
     <style>
         .op-page { padding: 1.2rem 1.4rem 3rem; }
         .op-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
@@ -26,7 +26,7 @@
     <main class="container op-page">
         <div class="op-head">
             <h1>Hôtels &amp; Transport médical</h1>
-            <button class="btn-primary" id="btnNew">+ Ajouter</button>
+            <button class="btn-primary" id="btnNew" data-requires-permission="alerte_sos:edition">+ Ajouter</button>
         </div>
         <div class="tabs">
             <button class="tab active" data-tab="hotels">Hôtels</button>
@@ -39,12 +39,40 @@
             </table>
         </div>
     </main>
+
+    <div class="bo-modal-backdrop" id="opModal">
+        <div class="bo-modal">
+            <div class="bo-modal-head">
+                <h3 id="opModalTitle">Nouvel hôtel</h3>
+                <button type="button" class="bo-modal-close" id="opModalClose">&times;</button>
+            </div>
+            <div class="fgrid">
+                <div><label>Nom *</label><input id="fNom"></div>
+                <div><label>Ville</label><input id="fVille"></div>
+                <div><label>Pays</label><input id="fPays"></div>
+                <div><label>Téléphone</label><input id="fTel"></div>
+                <div id="extraWrapHotel"><label>Catégorie</label><input id="fCategorie" placeholder="ex: 4 étoiles"></div>
+                <div id="extraWrapProvider" style="display:none"><label>Type de véhicule</label>
+                    <select id="fTypeVehicule">
+                        <option value="ambulance">Ambulance</option>
+                        <option value="vsl">VSL</option>
+                        <option value="taxi_medicalise">Taxi médicalisé</option>
+                        <option value="avion_sanitaire">Avion sanitaire</option>
+                    </select>
+                </div>
+            </div>
+            <div class="bo-modal-actions">
+                <button type="button" class="btn-outline" id="opModalCancel">Annuler</button>
+                <button type="button" class="btn-primary" id="opModalSave">Enregistrer</button>
+            </div>
+        </div>
+    </div>
     <div class="toast" id="toast"></div>
 
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js?v=2"></script>
-    <script src="js/permissions.js?v=2"></script>
-    <script src="js/backoffice-nav.js?v=2"></script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
     <script>
         const $ = id => document.getElementById(id);
         const esc = v => { const d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; };
@@ -84,21 +112,36 @@
                 tab = t.dataset.tab;
                 load();
             }));
-            $('btnNew').addEventListener('click', async () => {
-                const nom = prompt(tab === 'hotels' ? 'Nom de l\u2019hôtel :' : 'Nom du transporteur :');
-                if (!nom) return;
-                const ville = prompt('Ville :') || null;
-                const pays = prompt('Pays :') || null;
-                const tel = prompt('Téléphone :') || null;
-                const extra = tab === 'hotels'
-                    ? { categorie: prompt('Catégorie (ex: 4 étoiles) :') || null }
-                    : { type_vehicule: prompt('Type (ambulance / vsl / taxi_medicalise / avion_sanitaire) :') || null };
+            const openOpModal = () => {
+                $('opModalTitle').textContent = tab === 'hotels' ? 'Nouvel hôtel' : 'Nouveau transporteur médical';
+                $('extraWrapHotel').style.display = tab === 'hotels' ? '' : 'none';
+                $('extraWrapProvider').style.display = tab === 'providers' ? '' : 'none';
+                ['fNom','fVille','fPays','fTel','fCategorie'].forEach(id => $(id).value = '');
+                $('opModal').classList.add('open');
+            };
+            const closeOpModal = () => $('opModal').classList.remove('open');
+            $('btnNew')?.addEventListener('click', openOpModal);
+            $('opModalClose').addEventListener('click', closeOpModal);
+            $('opModalCancel').addEventListener('click', closeOpModal);
+            $('opModal').addEventListener('click', e => { if (e.target === $('opModal')) closeOpModal(); });
+            $('opModalSave').addEventListener('click', async () => {
+                const nom = $('fNom').value.trim();
+                if (!nom) { toast('Nom requis', true); return; }
+                const body = {
+                    nom,
+                    ville: $('fVille').value.trim() || null,
+                    pays: $('fPays').value.trim() || null,
+                    telephone: $('fTel').value.trim() || null,
+                    ...(tab === 'hotels'
+                        ? { categorie: $('fCategorie').value.trim() || null }
+                        : { type_vehicule: $('fTypeVehicule').value }),
+                };
                 try {
                     await apiCall('/ops/' + (tab === 'hotels' ? 'hotels' : 'transport-providers'), {
                         method: 'POST',
-                        body: JSON.stringify({ nom, ville, pays, telephone: tel, ...extra }),
+                        body: JSON.stringify(body),
                     });
-                    toast('Enregistré'); load();
+                    closeOpModal(); toast('Enregistré'); load();
                 } catch (e) { toast(e.message || 'Erreur', true); }
             });
             load();

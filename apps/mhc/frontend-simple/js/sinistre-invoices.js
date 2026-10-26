@@ -18,7 +18,7 @@ let searchTerm = '';
 let currentUserRole = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const allowed = await requireAnyRole(SINISTRE_ALLOWED_ROLES, 'login.html');
+    const allowed = await requirePermission('sinistres', 'consultation', 'bo-dashboard.html');
     if (!allowed) {
         return;
     }
@@ -313,7 +313,7 @@ function canValidateInvoiceSinistre(invoice) {
     return (
         invoice &&
         invoice.statut === 'pending_sinistre' &&
-        SINISTRE_ACTION_ROLES.includes(currentUserRole || '')
+        window.MhPermissions && window.MhPermissions.can('sinistres', 'controle')
     );
 }
 

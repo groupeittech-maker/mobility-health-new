@@ -1,12 +1,9 @@
 // Vérifier l'authentification et les rôles autorisés
 (async function() {
     // Les attestations peuvent être validées par les rôles de revue MH
-    const isValid = await requireAnyRole(
-        ['admin', 'doctor', 'hospital_admin', 'medical_reviewer', 'technical_reviewer', 'production_agent', 'finance_manager'],
-        'index.html'
-    );
+    const isValid = await requirePermission('comptes_produits', 'consultation', 'bo-dashboard.html');
     if (!isValid) {
-        return; // requireAnyRole() a déjà redirigé
+        return; // requirePermission() a déjà redirigé
     }
 })();
 
@@ -74,7 +71,7 @@ function renderValidation(type, validations, attestationId, userRole) {
     const isValid = validation && validation.est_valide;
     
     let canValidate = false;
-    if (type === 'medecin' && (userRole === 'doctor' || userRole === 'medical_reviewer')) canValidate = true;
+    if (type === 'medecin' && ['doctor', 'medical_reviewer', 'medecin_referent_mh'].includes(userRole)) canValidate = true;
     if (type === 'technique' && ['admin', 'hospital_admin', 'technical_reviewer', 'finance_manager'].includes(userRole)) canValidate = true;
     if (type === 'production' && (userRole === 'admin' || userRole === 'production_agent')) canValidate = true;
     

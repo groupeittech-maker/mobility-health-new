@@ -26,6 +26,7 @@ from app.models.alerte import Alerte
 from app.models.alerte_ops import AlerteEvent, AlerteNote, AlerteStatutMedical
 from app.models.hospital import Hospital
 from app.models.hospital_stay import HospitalStay
+from app.core.mhc_nomenclature import MhcCareDocumentType
 from app.models.mhc_care_document import MhcCareDocument
 from app.models.sinistre import Sinistre
 from app.models.sinistre_attachment import SinistreAttachment
@@ -95,7 +96,7 @@ def _current_step(db: Session, alerte: Alerte, sinistre: Optional[Sinistre]) -> 
     if sinistre:
         has_bpcu = (
             db.query(MhcCareDocument)
-            .filter(MhcCareDocument.sinistre_id == sinistre.id, MhcCareDocument.document_type == "BPCU")
+            .filter(MhcCareDocument.sinistre_id == sinistre.id, MhcCareDocument.document_type == MhcCareDocumentType.BPCU.value)
             .first()
         )
         if has_bpcu:
@@ -258,6 +259,16 @@ async def get_alerte_detail_complet(
         ),
         "sinistre_id": sinistre.id if sinistre else None,
         "numero_sinistre": sinistre.numero_sinistre if sinistre else None,
+        "care_documents": (
+            [
+                {"type": d.document_type, "status": d.statut, "numero": d.numero}
+                for d in db.query(MhcCareDocument)
+                .filter(MhcCareDocument.sinistre_id == sinistre.id)
+                .order_by(MhcCareDocument.issued_at.asc())
+                .all()
+            ]
+            if sinistre else []
+        ),
         "documents": _documents_payload(db, sinistre),
         "notes": [
             {"id": n.id, "note": n.note, "author_name": n.author_name, "created_at": n.created_at.isoformat() if n.created_at else None}
@@ -444,6 +455,18 @@ async def execute_action(alerte_id: int, payload: ActionRequest, db: Session = D
     elif payload.action == "prise_en_charge":
         if not sinistre:
             raise HTTPException(status_code=400, detail="Orientez d'abord l'alerte vers un établissement")
+        if not sinistre.numero_sinistre:
+            # La prise en charge directe vaut validation : on attribue le
+            # numéro de sinistre avant l'émission du BPCU (même logique que
+            # la validation médicale dans sos.py).
+            from app.services.mhc_reference_service import allocate_sinistre_number
+            if sinistre.souscription_id and sinistre.souscription is None:
+                sinistre.souscription = db.query(Souscription).filter(
+                    Souscription.id == sinistre.souscription_id
+                ).first()
+            if sinistre.hospital_id and sinistre.hospital is None:
+                sinistre.hospital = db.query(Hospital).filter(Hospital.id == sinistre.hospital_id).first()
+            sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
         from app.services.mhc_care_document_service import issue_care_document, CareDocumentPermissionError
         try:
             docs = issue_care_document(db, sinistre, "BPCU", current_user, notes=payload.notes, alerte=alerte)

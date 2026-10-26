@@ -173,7 +173,7 @@ class _ChangeDestinationScreenState extends State<ChangeDestinationScreen> {
                   ),
                 )
               : ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                  padding: EdgeInsets.fromLTRB(20, 16, 20, 32 + MediaQuery.of(context).padding.bottom),
                   children: [
                     MHSurfaceCard(
                       padding: const EdgeInsets.all(16),

@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tableau de bord Finance - Mobility Health</title>
+    <title>Tableau de bord Finance — Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/admin.css">
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
 </head>
 <body data-backoffice>
     <nav class="navbar">
@@ -25,56 +24,75 @@
     </nav>
 
     <main class="container">
-        <div class="dashboard-header">
-            <h2>Tableau de bord Finance</h2>
-            <p id="welcomeMessage">Bienvenue, <span id="userName"></span></p>
-        </div>
-
-        <div class="dashboard-stats">
-            <div class="stat-card">
-                <h3>Souscriptions</h3>
-                <p id="subscriptionsCount">-</p>
-                <a href="admin-subscriptions.html" class="btn btn-primary">Gérer</a>
-            </div>
-
-            <div class="stat-card">
-                <h3>Paiements en attente</h3>
-                <p id="pendingPaymentsCount">-</p>
-            </div>
-            <div class="stat-card">
-                <h3>Validations techniques à traiter</h3>
-                <p id="technicalReviewsCount">-</p>
-                <a href="technical-review.html" class="btn btn-primary">Accéder</a>
+        <div class="bo-page-head">
+            <div>
+                <div class="bo-breadcrumb">Comptabilité &amp; Finances</div>
+                <h1>Tableau financier</h1>
+                <p class="sub">Bienvenue, <span id="userName"></span></p>
             </div>
         </div>
 
-        <div class="dashboard-section">
-            <h3>Actions rapides</h3>
-            <div class="quick-actions">
-                <a href="admin-subscriptions.html" class="action-card">
-                    <h4>Gérer les souscriptions</h4>
-                    <p>Voir et gérer les souscriptions en attente</p>
-                </a>
-                <a href="technical-review.html" class="action-card">
-                    <h4>Valider les attestations</h4>
-                    <p>Consulter les dossiers techniques à approuver</p>
-                </a>
+        <div class="bo-kpis">
+            <div class="bo-kpi">
+                <div class="bo-kpi-ico blue">📄</div>
+                <div>
+                    <div class="l">Souscriptions</div>
+                    <div class="v" id="subscriptionsCount">—</div>
+                    <div class="trend"><a href="admin-subscriptions.html" class="act-link">Gérer →</a></div>
+                </div>
+            </div>
+            <div class="bo-kpi">
+                <div class="bo-kpi-ico amber">⏳</div>
+                <div>
+                    <div class="l">Paiements en attente</div>
+                    <div class="v" id="pendingPaymentsCount">—</div>
+                </div>
+            </div>
+            <div class="bo-kpi">
+                <div class="bo-kpi-ico teal">✅</div>
+                <div>
+                    <div class="l">Validations techniques</div>
+                    <div class="v" id="technicalReviewsCount">—</div>
+                    <div class="trend"><a href="technical-review.html" class="act-link">Accéder →</a></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bo-card">
+            <div class="bo-card-h"><span class="bo-card-title">Actions rapides</span></div>
+            <div class="bo-card-b">
+                <div class="bo-quick">
+                    <a href="admin-subscriptions.html">
+                        <span class="qi" style="background:#e8f0fe;color:#2d5bd7">📄</span>
+                        Gérer les souscriptions
+                    </a>
+                    <a href="technical-review.html">
+                        <span class="qi" style="background:#e0f5f1;color:#0a9b6c">✅</span>
+                        Valider les attestations
+                    </a>
+                    <a href="finance-outbound.html">
+                        <span class="qi" style="background:#fdf0dc;color:#b45309">💸</span>
+                        Paiements sortants
+                    </a>
+                    <a href="accounting-ledger.html">
+                        <span class="qi" style="background:#efeaf9;color:#4e267c">📒</span>
+                        Grand livre
+                    </a>
+                </div>
             </div>
         </div>
     </main>
 
     <footer>
         <div class="container">
-            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+            <p>&copy; 2024 Mobility Health Care. Tous droits réservés.</p>
         </div>
     </footer>
 
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js?v=2"></script>
-    <script src="js/finance-dashboard.js?v=2"></script>
-    <script src="js/permissions.js?v=2"></script>
-    <script src="js/backoffice-nav.js?v=2"></script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/finance-dashboard.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
 </body>
 </html>
-
-

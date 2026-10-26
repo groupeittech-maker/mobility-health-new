@@ -53,7 +53,9 @@ class _AttestationsScreenState extends State<AttestationsScreen> {
       });
     }
     try {
-      final list = await _attestationsService.getUserAttestations(forceRefresh: forceRefresh);
+      // Toujours rafraîchir : une attestation peut être générée entre-temps
+      // (validation dossier + paiement) — le cache 2 min masquerait la nouvelle.
+      final list = await _attestationsService.getUserAttestations(forceRefresh: true);
       if (mounted) {
         setState(() {
           _attestations = list;
@@ -334,7 +336,7 @@ class _AttestationCard extends StatelessWidget {
                         : const Icon(Icons.picture_as_pdf, size: 20),
                     label: Text(pdfDownloading ? 'Téléchargement…' : 'PDF'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: AppColors.secondary,
                       foregroundColor: Colors.white,
                     ),
                   ),

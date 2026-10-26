@@ -152,7 +152,7 @@ function buildProductCard(subscription) {
         <article class="product-card">
             <div class="product-card-header">
                 <div>
-                    <h3>${product.nom || 'Produit Mobility Health'}</h3>
+                    <h3>${product.nom || 'Produit Mobility Health Care'}</h3>
                     <p style="margin:0; color: var(--secondary-color); font-size: 0.95rem;">
                         ${subscription.numero_souscription || 'Souscription #' + subscription.id}
                     </p>

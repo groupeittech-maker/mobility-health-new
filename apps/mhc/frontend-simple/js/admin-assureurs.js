@@ -92,10 +92,20 @@ function attachEvents() {
         elements.refreshBtn.addEventListener('click', () => refreshAssureurs(true));
     }
     if (elements.newBtn) {
-        elements.newBtn.addEventListener('click', resetAssureurForm);
+        elements.newBtn.addEventListener('click', async () => {
+            await resetAssureurForm();
+            openAssureurModal();
+        });
     }
     if (elements.resetBtn) {
-        elements.resetBtn.addEventListener('click', resetAssureurForm);
+        elements.resetBtn.addEventListener('click', async () => {
+            closeAssureurModal();
+            await resetAssureurForm();
+        });
+        document.getElementById('assureurModalClose')?.addEventListener('click', closeAssureurModal);
+        document.getElementById('assureurModal')?.addEventListener('click', (e) => {
+            if (e.target === document.getElementById('assureurModal')) closeAssureurModal();
+        });
     }
     elements.assureurLogoFile?.addEventListener('change', updatePreviewCard);
     elements.assureurNom?.addEventListener('input', updatePreviewCard);
@@ -214,41 +224,60 @@ function populateAgentsSelect(selectElement, agents, type) {
     }
 }
 
+function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = String(value ?? '');
+    return div.innerHTML;
+}
+
 function renderAssureurList(list) {
     if (!elements.assureursList) {
         return;
     }
+    const canEdit = window.MhPermissions
+        ? window.MhPermissions.can('comptes_assureurs', 'edition')
+        : true;
     if (!list.length) {
         elements.assureursList.innerHTML = '<div class="empty-state">Aucun assureur ne correspond à la recherche.</div>';
         return;
     }
 
-    const fragment = document.createDocumentFragment();
-    list.forEach((assureur) => {
-        const card = document.createElement('div');
-        card.className = `assureur-card${assureur.id === selectedAssureurId ? ' selected' : ''}`;
-        const displayName = String(assureur.nom || 'Assureur').trim();
-        card.innerHTML = `
-            <div class="assureur-card__content">
-                <strong>${displayName}</strong>
-                <span>${assureur.pays} · ID ${assureur.id}</span>
-            </div>
-            <div class="assureur-meta">
-                ${assureur.agents && assureur.agents.length > 0
-                    ? `<span>${assureur.agents.length} agent(s) assigné(s)</span>`
-                    : assureur.agent_comptable
-                        ? `<span>${assureur.agent_comptable.full_name || assureur.agent_comptable.username}</span>`
-                        : '<span class="text-muted">Aucun agent assigné</span>'}
-            </div>
-            <div class="courtiers-table__actions" style="margin-top:.5rem;">
-                <button type="button" class="btn btn-sm btn-outline" data-edit-assureur="${assureur.id}">Modifier</button>
-                <button type="button" class="btn btn-sm btn-danger" data-delete-assureur="${assureur.id}">Supprimer</button>
-            </div>
-        `;
-        fragment.appendChild(card);
-    });
-    elements.assureursList.innerHTML = '';
-    elements.assureursList.appendChild(fragment);
+    elements.assureursList.innerHTML = `
+        <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+            <thead>
+                <tr>
+                    <th>Assureur</th>
+                    <th>Pays</th>
+                    <th>Agents assignés</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${list.map((assureur) => {
+                    const displayName = escapeHtml(String(assureur.nom || 'Assureur').trim());
+                    const pays = escapeHtml(assureur.pays || '—');
+                    const logoSrc = getAssureurLogoSrc(assureur);
+                    const logo = logoSrc
+                        ? `<img src="${logoSrc}" alt="" style="width:26px;height:26px;border-radius:6px;object-fit:cover;">`
+                        : `<span style="display:inline-grid;place-items:center;width:26px;height:26px;border-radius:6px;background:#efeaf9;color:#4e267c;font-weight:700;font-size:.72rem;">${escapeHtml((assureur.nom || '?').trim().charAt(0).toUpperCase() || '?')}</span>`;
+                    const agentsLabel = assureur.agents && assureur.agents.length > 0
+                        ? `${assureur.agents.length} agent(s)`
+                        : assureur.agent_comptable
+                            ? escapeHtml(assureur.agent_comptable.full_name || assureur.agent_comptable.username || '')
+                            : '—';
+                    return `
+                        <tr>
+                            <td><div style="display:flex;align-items:center;gap:.55rem;">${logo}<strong>${displayName}</strong></div></td>
+                            <td>${pays}</td>
+                            <td>${agentsLabel}</td>
+                            <td>
+                                ${canEdit ? `<button type="button" class="act" data-edit-assureur="${assureur.id}" style="color:#6c5ce7;font-size:.76rem;font-weight:600;background:none;border:none;cursor:pointer;margin-right:.6rem;">Modifier</button>
+                                <button type="button" class="act" data-delete-assureur="${assureur.id}" style="color:#c81e1e;font-size:.76rem;font-weight:600;background:none;border:none;cursor:pointer;">Supprimer</button>` : '—'}
+                            </td>
+                        </tr>`;
+                }).join('')}
+            </tbody>
+        </table>`;
     elements.assureursList.querySelectorAll('[data-edit-assureur]').forEach((btn) => {
         btn.addEventListener('click', () => selectAssureur(Number(btn.getAttribute('data-edit-assureur'))));
     });
@@ -259,6 +288,14 @@ function renderAssureurList(list) {
             await deleteAssureur(assureur);
         });
     });
+}
+
+function openAssureurModal() {
+    document.getElementById('assureurModal')?.classList.add('open');
+}
+
+function closeAssureurModal() {
+    document.getElementById('assureurModal')?.classList.remove('open');
 }
 
 async function selectAssureur(assureurId) {
@@ -310,6 +347,7 @@ async function selectAssureur(assureurId) {
     elements.formModeLabel.textContent = 'Modification';
     renderAssureurList(assureursCache);
     updatePreviewCard();
+    openAssureurModal();
 }
 
 async function resetAssureurForm() {
@@ -470,6 +508,7 @@ async function handleAssureurFormSubmit(event) {
         }
         await refreshAssureurs(true);
         resetAssureurForm();
+        closeAssureurModal();
     } catch (error) {
         console.error('Erreur enregistrement assureur:', error);
         showAlert(error.message || 'Impossible d’enregistrer cet assureur.', 'error');

@@ -23,7 +23,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const attestationsLink = document.getElementById('attestationsLink');
     const sosLink = document.getElementById('sosLink');
-    const resiliationBtn = document.getElementById('resiliationBtn');
 
     try {
         const isValid = await requireAuth();
@@ -81,29 +80,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         renderSubscriptionDetails(subscription, container);
-        updateActionLinks(subscription, attestationsLink, sosLink, resiliationBtn);
-        // Avenant de suspension (assuré) : bouton + liste des avenants
+        updateActionLinks(subscription, attestationsLink, sosLink);
+        // Actions sur la police (annulation / modification / prorogation) + avenants
         try {
-            const suspensionBtn = document.getElementById('suspensionBtn');
-            if (suspensionBtn && typeof showSuspensionModal === 'function') {
-                if ((subscription.statut || '') === 'active') {
-                    suspensionBtn.style.display = 'inline-block';
-                    suspensionBtn.onclick = () => showSuspensionModal(subscription);
-                } else {
-                    suspensionBtn.style.display = 'none';
-                }
-            }
-            if (typeof loadAvenantsList === 'function') {
+            if (typeof renderPolicyActions === 'function') {
                 let avenantsHolder = document.getElementById('avenantsSection');
                 if (!avenantsHolder) {
                     avenantsHolder = document.createElement('div');
                     avenantsHolder.id = 'avenantsSection';
                     container.appendChild(avenantsHolder);
                 }
-                loadAvenantsList(subscription.id, avenantsHolder);
+                renderPolicyActions(subscription, avenantsHolder);
             }
         } catch (avenantErr) {
-            console.warn('Avenants UI indisponible:', avenantErr);
+            console.warn('Actions police indisponibles:', avenantErr);
         }
         await maybeAttachEcardSection(subscription, container);
         await renderMedecinConseilForSubscription(subscription, container);
@@ -326,7 +316,7 @@ function renderInfoCard(label, value, options = {}) {
     `;
 }
 
-function updateActionLinks(subscription, attestationsLink, sosLink, resiliationBtn) {
+function updateActionLinks(subscription, attestationsLink, sosLink) {
     if (attestationsLink) {
         attestationsLink.href = `user-attestations.html?subscription_id=${subscription.id}`;
     }
@@ -344,28 +334,6 @@ function updateActionLinks(subscription, attestationsLink, sosLink, resiliationB
             sosLink.title = 'La déclaration de sinistre sera disponible une fois la souscription activée.';
         }
     }
-
-    // Gérer le bouton de résiliation
-    if (resiliationBtn) {
-        const demandeResiliation = subscription.demande_resiliation;
-        const isActive = subscription.statut === 'active';
-        const canRequestResiliation = isActive && (!demandeResiliation || demandeResiliation === 'rejected');
-
-        if (canRequestResiliation) {
-            resiliationBtn.style.display = 'inline-block';
-            resiliationBtn.onclick = () => showResiliationModal(subscription);
-            resiliationBtn.textContent = 'Demander la résiliation';
-        } else if (demandeResiliation === 'pending') {
-            resiliationBtn.style.display = 'inline-block';
-            resiliationBtn.disabled = true;
-            resiliationBtn.textContent = 'Résiliation en cours...';
-            resiliationBtn.title = 'Une demande de résiliation est en cours de traitement';
-        } else if (demandeResiliation === 'approved') {
-            resiliationBtn.style.display = 'none';
-        } else {
-            resiliationBtn.style.display = 'none';
-        }
-    }
 }
 
 function getStatusInfo(status) {
@@ -376,7 +344,10 @@ function getStatusInfo(status) {
         expiree: { label: 'Expirée', class: 'expiree' },
         expired: { label: 'Expirée', class: 'expired' },
         suspendue: { label: 'Suspendue', class: 'suspendue' },
-        resiliee: { label: 'Résiliée', class: 'resiliee' },
+        resiliee: { label: 'Annulée', class: 'resiliee' },
+        refusee: { label: 'Refusée', class: 'resiliee' },
+        en_attente_validation: { label: 'Validation en attente', class: 'pending' },
+        en_attente_paiement: { label: 'Paiement en attente', class: 'pending' },
     };
     return map[status] || { label: status || 'Inconnu', class: 'pending' };
 }
@@ -526,7 +497,7 @@ function renderEcardSection(ecard, subscriptionId) {
                 <h3>Carte d'assurance numérique</h3>
                 <p class="muted-text">Présentez-la lors des contrôles ou scannez le QR code affiché.</p>
             </div>
-            <img data-subscription-id="${escapeHtml(String(sid))}" data-ecard-load="1" src="${placeholderSvg}" alt="Carte numérique Mobility Health" class="ecard-image subscription-ecard-img" loading="lazy">
+            <img data-subscription-id="${escapeHtml(String(sid))}" data-ecard-load="1" src="${placeholderSvg}" alt="Carte numérique Mobility Health Care" class="ecard-image subscription-ecard-img" loading="lazy">
             <div class="info-grid">
                 ${metaCards}
             </div>
@@ -663,125 +634,5 @@ function renderResiliationSection(subscription) {
             </div>
         </div>
     `;
-}
-
-let currentResiliationSubscription = null;
-
-function showResiliationModal(subscription) {
-    currentResiliationSubscription = subscription;
-    const modal = document.getElementById('resiliationModal');
-    const notesTextarea = document.getElementById('resiliationNotes');
-    const confirmBtn = document.getElementById('confirmResiliationBtn');
-    
-    if (!modal) {
-        console.error('Modal de résiliation non trouvé');
-        return;
-    }
-    
-    // Réinitialiser le formulaire
-    if (notesTextarea) {
-        notesTextarea.value = '';
-    }
-    
-    // Réinitialiser le bouton
-    if (confirmBtn) {
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirmer la demande';
-    }
-    
-    // Afficher le modal
-    modal.classList.add('show');
-    document.body.style.overflow = 'hidden';
-    
-    // Focus sur le textarea
-    if (notesTextarea) {
-        setTimeout(() => notesTextarea.focus(), 100);
-    }
-    
-    // Gérer la soumission
-    if (confirmBtn) {
-        confirmBtn.onclick = () => submitResiliationRequest(subscription);
-    }
-    
-    // Fermer en cliquant sur le fond
-    modal.onclick = (e) => {
-        if (e.target === modal) {
-            closeResiliationModal();
-        }
-    };
-    
-    // Fermer avec Escape
-    const handleEscape = (e) => {
-        if (e.key === 'Escape' && modal.classList.contains('show')) {
-            closeResiliationModal();
-        }
-    };
-    document.addEventListener('keydown', handleEscape);
-    modal._escapeHandler = handleEscape;
-}
-
-function closeResiliationModal() {
-    const modal = document.getElementById('resiliationModal');
-    if (modal) {
-        modal.classList.remove('show');
-        document.body.style.overflow = '';
-        
-        // Retirer le handler Escape
-        if (modal._escapeHandler) {
-            document.removeEventListener('keydown', modal._escapeHandler);
-            delete modal._escapeHandler;
-        }
-    }
-    currentResiliationSubscription = null;
-}
-
-async function submitResiliationRequest(subscription) {
-    const notesTextarea = document.getElementById('resiliationNotes');
-    const confirmBtn = document.getElementById('confirmResiliationBtn');
-    const notes = notesTextarea ? notesTextarea.value.trim() : '';
-    
-    if (!confirmBtn) {
-        return;
-    }
-    
-    // Désactiver le bouton pendant l'envoi
-    confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Envoi en cours...';
-    
-    try {
-        await apiCall(`/subscriptions/${subscription.id}/request-resiliation`, {
-            method: 'POST',
-            body: JSON.stringify({
-                notes: notes || null
-            })
-        });
-        
-        // Afficher un message de succès
-        if (typeof showAlert === 'function') {
-            showAlert('Demande de résiliation envoyée avec succès. Elle sera examinée par un agent.', 'success');
-        }
-        
-        // Fermer le modal
-        closeResiliationModal();
-        
-        // Recharger la page après un court délai pour afficher la mise à jour
-        setTimeout(() => {
-            window.location.reload();
-        }, 1000);
-    } catch (error) {
-        console.error('Erreur lors de la demande de résiliation:', error);
-        
-        // Réactiver le bouton
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirmer la demande';
-        
-        // Afficher l'erreur
-        const errorMessage = error.message || 'Impossible de demander la résiliation';
-        if (typeof showAlert === 'function') {
-            showAlert(`Erreur: ${errorMessage}`, 'error');
-        } else {
-            alert(`Erreur: ${errorMessage}`);
-        }
-    }
 }
 

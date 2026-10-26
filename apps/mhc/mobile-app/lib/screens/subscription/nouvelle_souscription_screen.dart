@@ -612,7 +612,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
               SubscriptionStepper(currentStep: _currentStep),
             if (_currentStep > 1 && !_dossierLocked)
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                padding: EdgeInsets.fromLTRB(12, 0, 12, 8 + MediaQuery.of(context).padding.bottom),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
@@ -635,7 +635,14 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
                             'attestation-${_subscriptionId!}-$_attestationReloadTick',
                           ),
                           subscriptionId: _subscriptionId!,
-                          onDone: () => Navigator.of(context).pop(),
+                          onDone: () {
+                            // Invalide les caches : la nouvelle souscription
+                            // active, sa carte santé et ses attestations
+                            // doivent apparaître dès le retour à l'accueil.
+                            SubscriptionsService.clearSubscriptionsCache();
+                            AttestationsService.clearUserAttestationsCache();
+                            Navigator.of(context).pop();
+                          },
                         )
                       : _buildLoadingOrPlaceholder())
                   : IndexedStack(
@@ -708,6 +715,8 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
                                   onDossierStateChanged:
                                       _onDossierStateChanged,
                                   onContinue: () => setState(() {
+                                    SubscriptionsService.clearSubscriptionsCache();
+                                    AttestationsService.clearUserAttestationsCache();
                                     _attestationReloadTick += 1;
                                     _showAttestation = true;
                                   }),

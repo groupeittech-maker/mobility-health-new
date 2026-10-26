@@ -3,10 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dossier d'alerte - Mobility Health</title>
+    <title>Dossier d'alerte - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/admin.css">
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
+    <style>
+        /* Page dossier : contenu resserré et dense, pas d'étalement pleine largeur */
+        body.alert-dossier-page main {
+            max-width: 1150px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        body.alert-dossier-page .dossier-top-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+            align-items: stretch;
+        }
+        body.alert-dossier-page .dossier-top-grid .dashboard-section {
+            margin-bottom: 0;
+        }
+        body.alert-dossier-page .info-grid {
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.6rem 1rem;
+        }
+        body.alert-dossier-page .info-grid strong {
+            display: block;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #8a8fa3;
+            margin-bottom: 0.2rem;
+        }
+        body.alert-dossier-page .info-grid > div > div {
+            font-size: 0.85rem;
+            color: #1e1650;
+        }
+        body.alert-dossier-page .patient-dossier-grid {
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+        body.alert-dossier-page #dossierBackLink {
+            align-self: center;
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+        @media (max-width: 1100px) {
+            body.alert-dossier-page .dossier-top-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        @media (max-width: 700px) {
+            body.alert-dossier-page .dossier-top-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
     <script>
         (function () {
             try {
@@ -17,7 +69,7 @@
         })();
     </script>
 </head>
-<body data-backoffice>
+<body data-backoffice class="alert-dossier-page">
     <nav class="navbar">
         <div class="container">
             <div class="navbar-brand">
@@ -32,9 +84,12 @@
     </nav>
 
     <main class="container">
-        <div class="dashboard-header">
-            <h2>Alerte <span id="alertNumber"></span></h2>
-            <p id="alertMeta" class="muted"></p>
+        <div class="dashboard-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+            <div>
+                <h2>Alerte <span id="alertNumber"></span></h2>
+                <p id="alertMeta" class="muted"></p>
+            </div>
+            <a class="btn btn-outline btn-sm" id="dossierBackLink" href="hospital-reception.html">← Retour</a>
         </div>
 
         <section class="dashboard-section" id="receptionLandingSection" hidden>
@@ -88,34 +143,36 @@
             <div id="assignedAlertsPagination" class="table-pagination-wrapper" hidden></div>
         </section>
 
-        <section class="dashboard-section">
-            <h3>Informations générales</h3>
-            <div class="info-grid">
-                <div>
-                    <strong>Statut</strong>
-                    <div id="alertStatus">-</div>
+        <div class="dossier-top-grid">
+            <section class="dashboard-section">
+                <h3>Informations générales</h3>
+                <div class="info-grid">
+                    <div>
+                        <strong>Statut</strong>
+                        <div id="alertStatus">-</div>
+                    </div>
+                    <div>
+                        <strong>Priorité</strong>
+                        <div id="alertPriority">-</div>
+                    </div>
+                    <div>
+                        <strong>Coordonnées</strong>
+                        <div id="alertLocation">-</div>
+                    </div>
                 </div>
-                <div>
-                    <strong>Priorité</strong>
-                    <div id="alertPriority">-</div>
-                </div>
-                <div>
-                    <strong>Coordonnées</strong>
-                    <div id="alertLocation">-</div>
-                </div>
-            </div>
-            <p id="alertDescription" class="muted"></p>
-        </section>
+                <p id="alertDescription" class="muted"></p>
+            </section>
 
-        <section class="dashboard-section">
-            <h3>Informations patient</h3>
-            <div id="patientInfo"></div>
-        </section>
+            <section class="dashboard-section">
+                <h3>Informations patient</h3>
+                <div id="patientInfo"></div>
+            </section>
 
-        <section class="dashboard-section">
-            <h3>Hôpital et sinistre</h3>
-            <div id="hospitalInfo" class="info-grid"></div>
-        </section>
+            <section class="dashboard-section">
+                <h3>Hôpital et sinistre</h3>
+                <div id="hospitalInfo" class="info-grid"></div>
+            </section>
+        </div>
 
         <section class="dashboard-section" id="receptionActionsSection" hidden>
             <h3>Actions réception</h3>
@@ -319,15 +376,15 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2024 Mobility Health. Tous droits réservés.</p>
+            <p>&copy; 2024 Mobility Health Care. Tous droits réservés.</p>
         </div>
     </footer>
 
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/permissions.js"></script>
-    <script src="js/backoffice-nav.js"></script>
-    <script src="js/hospital-alert-details.js"></script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
+    <script src="js/hospital-alert-details.js?v=3"></script>
 </body>
 </html>
 

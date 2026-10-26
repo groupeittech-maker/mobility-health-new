@@ -37,7 +37,9 @@ async function fetchTabCounts() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const allowed = await requireAnyRole(PORTAL_ALLOWED_ROLES, 'login.html');
+    const allowed = window.ACCOUNTING_PORTAL_ALLOWED_ROLES
+        ? await requireAnyRole(PORTAL_ALLOWED_ROLES, 'login.html')
+        : await requirePermission('encaissement_prime', 'consultation', 'bo-dashboard.html');
     if (!allowed) {
         return;
     }

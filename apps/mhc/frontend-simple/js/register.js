@@ -18,12 +18,22 @@ document.addEventListener('DOMContentLoaded', function() {
         return country ? country.code : null;
     }
 
+    // Recherche insensible aux accents : « cote » trouve « Côte d'Ivoire »,
+    // « o » équivaut à « ô », etc. (revue app).
+    function normalizeSearchText(s) {
+        return (s || '')
+            .toLowerCase()
+            .trim()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    }
+
     function filterCountries(searchTerm) {
         if (!referenceCountries.length) return [];
-        const term = (searchTerm || '').toLowerCase().trim();
+        const term = normalizeSearchText(searchTerm);
         if (term === '') return referenceCountries;
         return referenceCountries.filter(country =>
-            country.name.toLowerCase().includes(term)
+            normalizeSearchText(country.name).includes(term)
         );
     }
 
@@ -266,6 +276,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
+        // Afficher le champ WhatsApp quand ce canal est choisi
+        const canalSelect = document.getElementById('canal_verification');
+        const whatsappGroup = document.getElementById('whatsappGroup');
+        canalSelect?.addEventListener('change', function() {
+            if (whatsappGroup) {
+                whatsappGroup.style.display = this.value === 'whatsapp' ? '' : 'none';
+            }
+        });
+
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
 
@@ -292,24 +311,35 @@ document.addEventListener('DOMContentLoaded', function() {
             registerBtn.textContent = 'Inscription en cours...';
 
             const formData = new FormData(form);
+            const canal = (formData.get('canal_verification') || 'email').trim().toLowerCase();
+            const telephoneValue = (() => {
+                // Même format que le mobile : indicatif + chiffres uniquement
+                const digits = (formData.get('phone') || '').replace(/\D/g, '');
+                if (!digits) return null;
+                const code = (formData.get('phone_code') || '').trim();
+                return `${code}${digits}`;
+            })();
             const data = {
                 email: email,
                 username: email,
                 password: password,
                 full_name: formData.get('full_name'),
                 date_naissance: formData.get('date_naissance') || null,
-                telephone: (() => {
-                    // Même format que le mobile : indicatif + chiffres uniquement
-                    const digits = (formData.get('phone') || '').replace(/\D/g, '');
-                    if (!digits) return null;
-                    const code = (formData.get('phone_code') || '').trim();
-                    return `${code}${digits}`;
-                })(),
+                telephone: telephoneValue,
                 sexe: formData.get('sexe') || null,
                 pays_residence: paysResidenceInput?.getAttribute('data-country-code') || getCountryCode(formData.get('pays_residence')) || null,
                 nationalite: nationaliteInput?.getAttribute('data-country-code') || getCountryCode(formData.get('nationalite')) || null,
+                nom_contact_urgence: [
+                    (formData.get('contact_urgence_prenom') || '').trim(),
+                    (formData.get('contact_urgence_nom') || '').trim(),
+                ].filter(Boolean).join(' ') || null,
                 contact_urgence: (formData.get('contact_urgence') || '').trim() || null,
+                canal_verification: canal,
             };
+            if (canal === 'whatsapp') {
+                const wa = (formData.get('numero_whatsapp') || '').replace(/[^\d+]/g, '').trim();
+                data.numero_whatsapp = wa || telephoneValue;
+            }
 
             try {
                 const apiUrl = window.API_BASE_URL || 'https://srv1324425.hstgr.cloud/api/v1';
@@ -334,13 +364,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const user = await response.json();
 
                 console.log('Inscription réussie:', user);
+                const canalLabel = { whatsapp: 'par WhatsApp', sms: 'par SMS', email: 'à votre adresse e-mail' }[canal] || 'à votre adresse e-mail';
                 showAlert(
-                    'Inscription enregistrée. Un code de vérification a été envoyé à votre adresse e-mail. Saisissez-le pour activer votre compte et vous connecter.',
+                    `Inscription enregistrée. Un code de vérification a été envoyé ${canalLabel}. Saisissez-le pour activer votre compte et vous connecter.`,
                     'success'
                 );
                 setTimeout(() => {
                     const em = encodeURIComponent(user.email || email);
-                    window.location.href = `verify-email.html?email=${em}`;
+                    window.location.href = `verify-email.html?email=${em}&channel=${canal}`;
                 }, 2000);
 
             } catch (error) {

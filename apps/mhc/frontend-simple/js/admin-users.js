@@ -50,10 +50,6 @@ const ROLE_OPTIONS = [
     { value: 'user', label: 'Utilisateur' },
     { value: 'doctor', label: 'Médecin' },
     { value: 'hospital_admin', label: 'Admin hôpital' },
-    { value: 'finance_manager', label: 'Responsable finance' },
-    { value: 'sos_operator', label: 'Opérateur SOS' },
-    { value: 'medical_reviewer', label: 'Validateur médical' },
-    { value: 'technical_reviewer', label: 'Validateur technique' },
     { value: 'production_agent', label: 'Agent production' },
     { value: 'agent_comptable_mh', label: 'Agent comptable MH' },
     { value: 'agent_comptable_assureur', label: 'Agent comptable assureur' },
@@ -181,13 +177,44 @@ let currentPageUsers = 0;
 // Stocker tous les utilisateurs pour la recherche
 let allUsers = [];
 
+// Filtre par rôle via l'URL (?role=medecin_referent_mh) — ex. page « Médecins-conseil »
+const roleFilterParam = new URLSearchParams(window.location.search).get('role');
+
+const ROLE_PAGE_TITLES = {
+    medecin_referent_mh: 'Médecins-conseil',
+    doctor: 'Médecins',
+    medecin_hopital: 'Médecins hôpital',
+};
+
+// Droits de gestion de la liste affichée (édition requise pour créer/modifier)
+function canManageUsers() {
+    if (!window.MhPermissions) return true;
+    const feature = roleFilterParam
+        ? (ROLE_CREATION_FEATURES[roleFilterParam] || 'comptes_utilisateurs')
+        : 'comptes_utilisateurs';
+    return window.MhPermissions.can(feature, 'edition');
+}
+
+function applyRoleFilterTitle() {
+    if (!roleFilterParam) return;
+    const pageTitle = ROLE_PAGE_TITLES[roleFilterParam] || getRoleLabel(roleFilterParam) + 's';
+    const title = document.querySelector('.dashboard-header h2') || document.querySelector('main h2');
+    if (title) title.textContent = 'Gestion — ' + pageTitle;
+    document.title = pageTitle + ' - Mobility Health Care';
+    const searchInput = document.getElementById('userSearchInput');
+    if (searchInput) searchInput.placeholder = 'Rechercher par nom, email, username ou rôle...';
+}
+
 // Charger les utilisateurs
 async function loadUsers() {
     const container = document.getElementById('usersTableContainer');
     showLoading(container);
     
     try {
-        allUsers = await usersAPI.getAll();
+        const users = await usersAPI.getAll();
+        allUsers = roleFilterParam
+            ? users.filter((user) => user.role === roleFilterParam)
+            : users;
         
         if (allUsers.length === 0) {
             container.innerHTML = '<p>Aucun utilisateur trouvé.</p>';
@@ -215,8 +242,12 @@ function renderUsersTable(users) {
     const start = currentPageUsers * ROWS_PER_PAGE;
     const pageData = users.slice(start, start + ROWS_PER_PAGE);
     
+    const canManage = canManageUsers();
+    const newUserBtn = document.getElementById('newUserBtn');
+    if (newUserBtn) newUserBtn.style.display = canManage ? '' : 'none';
+
     let html = '<div class="table-wrapper" style="overflow-x: scroll !important;"><table class="data-table" style="min-width: 100%;"><thead><tr>';
-    html += '<th>Email</th><th>Username</th><th>Rôle</th><th>Statut</th><th>Date création</th><th>Actions</th>';
+    html += '<th>Email</th><th>Username</th><th>Rôle</th><th>Statut</th><th>Date création</th>' + (canManage ? '<th>Actions</th>' : '');
     html += '</tr></thead><tbody>';
     
     pageData.forEach(user => {
@@ -232,14 +263,14 @@ function renderUsersTable(users) {
                 <td>${roleLabel}</td>
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                 <td>${formatCreatedAt(user.created_at)}</td>
-                <td class="table-actions">
+                ${canManage ? `<td class="table-actions">
                     <select class="action-select" data-user-id="${user.id}" data-user-name="${encodedName}">
                         <option value="">Actions</option>
                         <option value="edit-user">Modifier</option>
                         <option value="reset-password">Réinitialiser</option>
                         <option value="delete-user">Supprimer</option>
                     </select>
-                </td>
+                </td>` : ''}
             </tr>
         `;
     });
@@ -666,6 +697,21 @@ function setupCreateUserForm() {
     
     populateRoleSelect(roleSelect);
     resetStatusSelect(statusSelect);
+    if (roleFilterParam && roleSelect) {
+        roleSelect.value = roleFilterParam;
+        roleSelect.disabled = true;
+    }
+
+    const createModal = document.getElementById('createUserModal');
+    document.getElementById('newUserBtn')?.addEventListener('click', () => {
+        createModal?.classList.add('open');
+    });
+    const closeCreateModal = () => createModal?.classList.remove('open');
+    document.getElementById('createUserModalClose')?.addEventListener('click', closeCreateModal);
+    document.getElementById('createUserCancel')?.addEventListener('click', closeCreateModal);
+    createModal?.addEventListener('click', (e) => {
+        if (e.target === createModal) closeCreateModal();
+    });
 
     // Sélecteur réassureur affiché pour le profil vérificateur réassureur.
     const reassureurGroup = document.getElementById('reassureurGroup');
@@ -676,7 +722,7 @@ function setupCreateUserForm() {
             reassureurGroup.style.display = show ? '' : 'none';
             if (show && !reassureurSelect.dataset.loaded && typeof apiCall === 'function') {
                 try {
-                    const items = await apiCall('/admin/reassureurs/');
+                    const items = await apiCall('/admin/reassureurs');
                     reassureurSelect.innerHTML = '<option value="">— Sélectionner —</option>' +
                         (items || []).map(r => `<option value="${r.id}">${r.nom}</option>`).join('');
                     reassureurSelect.dataset.loaded = '1';
@@ -698,7 +744,7 @@ function setupCreateUserForm() {
             email: formData.get('email')?.trim(),
             username: formData.get('username')?.trim(),
             password: formData.get('password') || '',
-            role: formData.get('role'),
+            role: roleSelect?.disabled && roleFilterParam ? roleFilterParam : formData.get('role'),
             is_active: formData.get('is_active') === 'true',
         };
         const reassureurId = parseInt(formData.get('reassureur_id'), 10);
@@ -731,6 +777,11 @@ function setupCreateUserForm() {
             form.reset();
             populateRoleSelect(roleSelect);
             resetStatusSelect(statusSelect);
+            if (roleFilterParam && roleSelect) {
+                roleSelect.value = roleFilterParam;
+                roleSelect.disabled = true;
+            };
+            document.getElementById('createUserModal')?.classList.remove('open');
             
             await loadUsers();
         } catch (error) {
@@ -746,6 +797,7 @@ function setupCreateUserForm() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    applyRoleFilterTitle();
     setupCreateUserForm();
     setupEditUserForm();
     setupResetPasswordForm();

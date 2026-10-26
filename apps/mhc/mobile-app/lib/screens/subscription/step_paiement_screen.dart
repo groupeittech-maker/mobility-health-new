@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
@@ -79,10 +82,25 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
   String _dossierState = 'to_submit';
   List<String> _decisionReasons = const [];
 
+  /// Paiement externe (AfriPaie) en attente de validation :
+  /// push USSD à composer sur le téléphone ou page de checkout ouverte.
+  bool _paymentPending = false;
+  int? _pendingPaymentId;
+  String? _pendingPaymentUrl;
+  String? _pendingInstructions;
+  bool _pollTimedOut = false;
+  Timer? _pollTimer;
+
   @override
   void initState() {
     super.initState();
     _syncDossierState();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
   /// Resynchronise l'état du dossier avec le statut serveur (ré-ouverture écran
@@ -179,18 +197,32 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
       if (montant <= 0) {
         throw Exception('Montant de paiement invalide pour cette souscription.');
       }
-      await _paymentsService.confirm(
+      final res = await _paymentsService.confirm(
         subscriptionId: widget.subscriptionId,
         montant: montant,
         methodePaiement: _selectedMethod,
         age: widget.age,
       );
-      SubscriptionsService.clearSubscriptionsCache();
-      AttestationsService.clearUserAttestationsCache();
-      if (mounted) {
+      if (!mounted) return;
+      final status = (res['payment_status'] ?? '').toString().toLowerCase();
+      if (status == 'valide') {
+        // Paiement déjà validé (mode stub ou paiement existant) : attestation.
+        SubscriptionsService.clearSubscriptionsCache();
+        AttestationsService.clearUserAttestationsCache();
         setState(() => _loading = false);
         widget.onContinue();
+        return;
       }
+      if (status == 'echoue' || status == 'rembourse') {
+        setState(() {
+          _loading = false;
+          _error = 'Le paiement a été refusé. Vous pouvez réessayer.';
+        });
+        return;
+      }
+      // en_attente / en_cours : paiement externe (AfriPaie) à finaliser par
+      // l'utilisateur — push USSD sur son téléphone ou page de checkout.
+      _beginExternalPayment(res);
     } catch (e) {
       if (mounted) {
         String message = apiErrorToUserMessage(e);
@@ -208,6 +240,106 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
         });
       }
     }
+  }
+
+  /// Mode live : le backend a créé l'opération chez l'agrégateur (AfriPaie).
+  /// On ouvre la page de paiement si fournie, on affiche les instructions
+  /// (push USSD…) et on surveille le statut jusqu'à validation du webhook.
+  void _beginExternalPayment(Map<String, dynamic> res) {
+    final url = res['payment_url']?.toString();
+    final instructions = res['payment_instructions']?.toString();
+    setState(() {
+      _loading = false;
+      _paymentPending = true;
+      _pollTimedOut = false;
+      _pendingPaymentId = (res['payment_id'] as num?)?.toInt();
+      _pendingPaymentUrl = (url != null && url.isNotEmpty) ? url : null;
+      _pendingInstructions =
+          (instructions != null && instructions.isNotEmpty) ? instructions : null;
+    });
+    if (_pendingPaymentUrl != null) _openCheckout();
+    _startPolling();
+  }
+
+  /// Ouvre la page de paiement hébergée dans le navigateur in-app
+  /// (l'utilisateur revient dans l'app en la fermant).
+  Future<void> _openCheckout() async {
+    final url = _pendingPaymentUrl;
+    if (url == null) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    try {
+      await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+    } catch (_) {
+      try {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (_) {}
+    }
+  }
+
+  /// Interroge périodiquement le statut du paiement (~3 min max).
+  /// La lecture synchronise aussi l'état avec AfriPaie côté backend.
+  void _startPolling() {
+    _pollTimer?.cancel();
+    var attempts = 0;
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (timer) async {
+      if (!mounted || _pendingPaymentId == null) {
+        timer.cancel();
+        return;
+      }
+      if (++attempts > 45) {
+        timer.cancel();
+        if (mounted) setState(() => _pollTimedOut = true);
+        return;
+      }
+      await _checkPaymentStatus();
+    });
+  }
+
+  Future<void> _checkPaymentStatus() async {
+    final id = _pendingPaymentId;
+    if (id == null) return;
+    try {
+      final res = await _paymentsService.getStatus(id);
+      if (!mounted) return;
+      final st = (res['status'] ?? '').toString().toLowerCase();
+      if (st == 'valide') {
+        _pollTimer?.cancel();
+        SubscriptionsService.clearSubscriptionsCache();
+        AttestationsService.clearUserAttestationsCache();
+        setState(() {
+          _paymentPending = false;
+          _pendingPaymentId = null;
+          _pendingPaymentUrl = null;
+          _pendingInstructions = null;
+        });
+        widget.onContinue();
+      } else if (st == 'echoue' || st == 'rembourse') {
+        _pollTimer?.cancel();
+        setState(() {
+          _paymentPending = false;
+          _pendingPaymentId = null;
+          _pendingPaymentUrl = null;
+          _pendingInstructions = null;
+          _error =
+              'Le paiement a été refusé ou a échoué. Vous pouvez réessayer.';
+        });
+      }
+    } catch (_) {
+      // Erreur réseau ponctuelle : on réessaiera au prochain tick.
+    }
+  }
+
+  /// L'utilisateur abandonne l'attente — l'opération reste ouverte chez
+  /// l'agrégateur ; un nouveau « Payer maintenant » la reprendra.
+  void _cancelPending() {
+    _pollTimer?.cancel();
+    setState(() {
+      _paymentPending = false;
+      _pendingPaymentId = null;
+      _pendingPaymentUrl = null;
+      _pendingInstructions = null;
+    });
   }
 
   @override
@@ -347,6 +479,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
                 ],
               ),
             ),
+            if (_paymentPending) _buildPendingPaymentCard(),
             if (_error != null) ...[
               const SizedBox(height: 12),
               Container(
@@ -366,14 +499,14 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: _loading
+                onPressed: _loading || _paymentPending
                     ? null
                     : (_dossierState == 'to_submit'
                         ? (_acceptConditions ? _submitDossier : null)
                         : _dossierState == 'approved' ? _payNow
                         : null),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: AppColors.secondary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -385,11 +518,113 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
                         width: 24,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : Text(_dossierState == 'to_submit' ? 'Soumettre le dossier' : 'Payer maintenant'),
+                    : Text(
+                        _paymentPending
+                            ? 'Paiement en cours…'
+                            : (_dossierState == 'to_submit'
+                                ? 'Soumettre le dossier'
+                                : 'Payer maintenant'),
+                      ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Carte « Paiement en cours » : le paiement externe (AfriPaie) attend la
+  /// validation de l'utilisateur — push USSD sur son téléphone ou page de
+  /// checkout ouverte dans le navigateur.
+  Widget _buildPendingPaymentCard() {
+    final isMobileMoney = _selectedMethod.startsWith('mobile_money');
+    final defaultHint = isMobileMoney
+        ? 'Une demande de paiement a été envoyée sur votre téléphone. '
+            'Composez votre code secret Mobile Money pour valider.'
+        : 'Finalisez le paiement dans la page sécurisée qui vient de '
+            's\'ouvrir, puis revenez ici.';
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEDE9FE),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Paiement en cours de validation',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _pendingInstructions ?? defaultHint,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF352A42)),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _pollTimedOut
+                ? 'Le paiement prend plus de temps que prévu. Validez sur votre '
+                    'téléphone puis touchez « Vérifier maintenant ».'
+                : 'Cet écran se mettra à jour automatiquement dès que le '
+                    'paiement sera confirmé.',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (_pendingPaymentUrl != null)
+                TextButton.icon(
+                  onPressed: _openCheckout,
+                  icon: const Icon(Icons.open_in_new, size: 18),
+                  label: const Text('Page de paiement'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              TextButton.icon(
+                onPressed: _checkPaymentStatus,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Vérifier maintenant'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: _cancelPending,
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF64748B),
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Annuler'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -576,6 +811,25 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
                   child: Text('• $r', style: const TextStyle(fontSize: 12, color: Color(0xFF7C2D12))),
                 )),
           ],
+          const SizedBox(height: 12),
+          // Le dossier attend une validation humaine : l'utilisateur doit
+          // pouvoir quitter le tunnel et revenir au tableau de bord.
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: ElevatedButton.icon(
+              onPressed: () => context.go('/home'),
+              icon: const Icon(Icons.home_rounded, size: 20),
+              label: const Text('Retour à l\'accueil'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

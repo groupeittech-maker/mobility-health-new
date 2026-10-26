@@ -7,6 +7,7 @@ from app.models.user import User
 from app.models.souscription import Souscription
 from app.models.questionnaire import Questionnaire
 from app.models.notification import Notification
+from app.core.permissions import can_act_for_third_party
 from app.services.attestation_service import AttestationService
 from app.schemas.questionnaire import (
     QuestionnaireCreate,
@@ -27,10 +28,10 @@ async def create_short_questionnaire(
 ):
     """Créer ou mettre à jour un questionnaire court pour une souscription"""
     # Vérifier que la souscription existe et appartient à l'utilisateur
-    souscription = db.query(Souscription).filter(
-        Souscription.id == subscription_id,
-        Souscription.user_id == current_user.id
-    ).first()
+    query = db.query(Souscription).filter(Souscription.id == subscription_id)
+    if not can_act_for_third_party(current_user.role):
+        query = query.filter(Souscription.user_id == current_user.id)
+    souscription = query.first()
     
     if not souscription:
         raise HTTPException(
@@ -66,7 +67,7 @@ async def create_short_questionnaire(
     
     # Générer une notification
     notification = Notification(
-        user_id=current_user.id,
+        user_id=souscription.user_id,
         type_notification="questionnaire_completed",
         titre="Questionnaire court complété",
         message=f"Votre questionnaire court pour la souscription #{subscription_id} a été enregistré avec succès.",
@@ -88,7 +89,7 @@ async def create_short_questionnaire(
         try:
             from app.workers.tasks import schedule_questionnaire_long_reminder
             schedule_questionnaire_long_reminder.delay(
-                user_id=current_user.id,
+                user_id=souscription.user_id,
                 subscription_id=subscription_id,
                 questionnaire_id=questionnaire.id,
                 reminder_days=3  # Rappel dans 3 jours
@@ -112,10 +113,10 @@ async def create_long_questionnaire(
 ):
     """Créer ou mettre à jour un questionnaire long pour une souscription"""
     # Vérifier que la souscription existe et appartient à l'utilisateur
-    souscription = db.query(Souscription).filter(
-        Souscription.id == subscription_id,
-        Souscription.user_id == current_user.id
-    ).first()
+    query = db.query(Souscription).filter(Souscription.id == subscription_id)
+    if not can_act_for_third_party(current_user.role):
+        query = query.filter(Souscription.user_id == current_user.id)
+    souscription = query.first()
     
     if not souscription:
         raise HTTPException(
@@ -151,7 +152,7 @@ async def create_long_questionnaire(
     
     # Générer une notification
     notification = Notification(
-        user_id=current_user.id,
+        user_id=souscription.user_id,
         type_notification="questionnaire_completed",
         titre="Questionnaire long complété",
         message=f"Votre questionnaire long pour la souscription #{subscription_id} a été enregistré avec succès.",
@@ -173,10 +174,10 @@ async def create_administratif_questionnaire(
 ):
     """Créer ou mettre à jour un questionnaire administratif/technique pour une souscription"""
     # Vérifier que la souscription existe et appartient à l'utilisateur
-    souscription = db.query(Souscription).filter(
-        Souscription.id == subscription_id,
-        Souscription.user_id == current_user.id
-    ).first()
+    query = db.query(Souscription).filter(Souscription.id == subscription_id)
+    if not can_act_for_third_party(current_user.role):
+        query = query.filter(Souscription.user_id == current_user.id)
+    souscription = query.first()
     
     if not souscription:
         raise HTTPException(
@@ -212,7 +213,7 @@ async def create_administratif_questionnaire(
     
     # Générer une notification
     notification = Notification(
-        user_id=current_user.id,
+        user_id=souscription.user_id,
         type_notification="questionnaire_completed",
         titre="Questionnaire administratif complété",
         message=f"Votre questionnaire administratif/technique pour la souscription #{subscription_id} a été enregistré avec succès.",
@@ -234,10 +235,10 @@ async def create_medical_questionnaire(
 ):
     """Créer ou mettre à jour un questionnaire médical pour une souscription"""
     # Vérifier que la souscription existe et appartient à l'utilisateur
-    souscription = db.query(Souscription).filter(
-        Souscription.id == subscription_id,
-        Souscription.user_id == current_user.id
-    ).first()
+    query = db.query(Souscription).filter(Souscription.id == subscription_id)
+    if not can_act_for_third_party(current_user.role):
+        query = query.filter(Souscription.user_id == current_user.id)
+    souscription = query.first()
     
     if not souscription:
         raise HTTPException(
@@ -289,7 +290,7 @@ async def create_medical_questionnaire(
     
     # Générer une notification
     notification = Notification(
-        user_id=current_user.id,
+        user_id=souscription.user_id,
         type_notification="questionnaire_completed",
         titre="Questionnaire médical complété",
         message=f"Votre questionnaire médical pour la souscription #{subscription_id} a été enregistré avec succès.",
@@ -311,10 +312,10 @@ async def get_subscription_questionnaire(
 ):
     """Récupérer le questionnaire existant pour une souscription"""
     # Vérifier que la souscription existe et appartient à l'utilisateur
-    souscription = db.query(Souscription).filter(
-        Souscription.id == subscription_id,
-        Souscription.user_id == current_user.id
-    ).first()
+    query = db.query(Souscription).filter(Souscription.id == subscription_id)
+    if not can_act_for_third_party(current_user.role):
+        query = query.filter(Souscription.user_id == current_user.id)
+    souscription = query.first()
     
     if not souscription:
         raise HTTPException(

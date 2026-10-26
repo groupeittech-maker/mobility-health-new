@@ -20,17 +20,27 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 1100),
       vsync: this,
     );
-    _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
-    _scaleAnimation = Tween<double>(begin: 0.78, end: 1.0).animate(
+    _fadeAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.72, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.12),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
     _controller.forward();
     _navigateAfterReady();
@@ -46,7 +56,7 @@ class _SplashScreenState extends State<SplashScreen>
     final authFuture = _resolveDestination();
     await Future.wait([
       authFuture,
-      Future.delayed(const Duration(milliseconds: 900)),
+      Future.delayed(const Duration(milliseconds: 1100)),
     ]);
     if (!mounted) return;
     final dest = await authFuture;
@@ -83,28 +93,17 @@ class _SplashScreenState extends State<SplashScreen>
             builder: (context, child) {
               return Opacity(
                 opacity: _fadeAnimation.value,
-                child: Transform.scale(
-                  scale: _scaleAnimation.value,
-                  child: child,
+                child: SlideTransition(
+                  position: _slideAnimation,
+                  child: Transform.scale(
+                    scale: _scaleAnimation.value,
+                    child: child,
+                  ),
                 ),
               );
             },
-            child: const Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                MHLogoHeader(height: 72, compact: true),
-                SizedBox(height: 10),
-                Text(
-                  'MyMHC',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF4E267C),
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
+            // Le logo MyMHC contient déjà le nom — pas de texte doublon.
+            child: const MHOfficialLogo(height: 96),
           ),
         ),
       ),

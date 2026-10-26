@@ -133,6 +133,9 @@
             state.subscriberAge = computeAge(state.enfantVoyageur.dateNaissance);
             return state.subscriberAge;
         }
+        if (state.subscriberAge == null && state.tierUser && state.tierUser.date_naissance) {
+            state.subscriberAge = computeAge(state.tierUser.date_naissance);
+        }
         if (state.subscriberAge == null && state.user) {
             state.subscriberAge = computeAge(state.user.date_naissance);
         }
@@ -180,7 +183,16 @@
     async function loadUser() {
         try {
             state.user = await apiCall('/auth/me');
-            state.residenceCountryRaw = (state.user.pays_residence || '').trim();
+            if (state.forUserId) {
+                // Souscription pour un tiers : le voyageur est le compte cible.
+                try {
+                    state.tierUser = await apiCall(`/subscriptions/clients/${state.forUserId}`);
+                } catch (e2) { /* le backend garde la validation finale */ }
+                const base = state.tierUser || state.user;
+                state.residenceCountryRaw = (base.pays_residence || '').trim();
+            } else {
+                state.residenceCountryRaw = (state.user.pays_residence || '').trim();
+            }
             syncResidenceCountry();
         } catch (e) { /* le backend garde la validation finale */ }
     }
@@ -249,10 +261,21 @@
         sel.disabled = false;
     }
 
+    const MAX_TRIP_DAYS = 92;
+
     function updateDuree() {
         const depart = $('voyageDepart').value;
         const retour = $('voyageRetour').value;
         const el = $('voyageDuree');
+        // Date passée interdite (aujourd'hui autorisé) ; voyage limité à 92 jours.
+        const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+        $('voyageDepart').min = today;
+        $('voyageRetour').min = depart || today;
+        if (depart) {
+            const max = new Date(`${depart}T00:00:00`);
+            max.setDate(max.getDate() + MAX_TRIP_DAYS);
+            $('voyageRetour').max = new Date(max.getTime() - max.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+        }
         if (depart && retour) {
             const days = Math.round((new Date(retour) - new Date(depart)) / 86400000);
             el.value = days > 0 ? `${days} jours` : 'Calcul automatique';
@@ -311,18 +334,32 @@
                     <div style="font-weight:600;">${escapeHtml(m.nom)}</div>
                     <div class="mh-muted">Né(e) le ${fmtDateInput(m.dateNaissance)} · Passeport ${escapeHtml(m.numeroPasseport)} · Valide jusqu'au ${fmtDateInput(m.validitePasseport)}</div>
                 </div>
+                <button type="button" data-edit="${target}" title="Modifier">✏️</button>
                 <button type="button" class="mh-icon-danger" data-remove="${target}" title="Supprimer">🗑</button>
             </div>`;
         if (state.enfantVoyageur) coList.innerHTML = itemHtml(state.enfantVoyageur, 'enfant');
         state.mineurs.forEach((m, i) => { minList.innerHTML += itemHtml(m, `mineur-${i}`); });
     }
 
-    // Modal enfant — champ fichier conservé dans l'input jusqu'à validation
+    // Modal enfant — champ fichier conservé dans l'input jusqu'à validation.
+    // minorEditIndex : null = ajout, 'enfant' ou index numérique = modification.
     let minorTarget = null; // 'enfant' | 'mineur'
-    function openMinorModal(target) {
+    let minorEditIndex = null;
+    function openMinorModal(target, index = null) {
         minorTarget = target;
-        $('minorNom').value = ''; $('minorNaissance').value = '';
-        $('minorPasseport').value = ''; $('minorValidite').value = ''; $('minorPhoto').value = '';
+        minorEditIndex = index;
+        const existing = index === 'enfant'
+            ? state.enfantVoyageur
+            : (typeof index === 'number' ? state.mineurs[index] : null);
+        $('minorNom').value = existing?.nom || '';
+        $('minorNaissance').value = existing?.dateNaissance || '';
+        $('minorPasseport').value = existing?.numeroPasseport || '';
+        $('minorValidite').value = existing?.validitePasseport || '';
+        $('minorPhoto').value = '';
+        $('minorModalTitle').textContent = existing
+            ? 'Modifier les informations de l\u2019enfant'
+            : 'Informations de l\u2019enfant';
+        $('saveMinorBtn').textContent = existing ? 'Enregistrer' : 'Ajouter';
         $('minorModal').classList.add('open');
     }
     function closeMinorModal() { $('minorModal').classList.remove('open'); }
@@ -332,17 +369,33 @@
         const naissance = $('minorNaissance').value;
         const passeport = $('minorPasseport').value.trim();
         const validite = $('minorValidite').value;
-        const file = $('minorPhoto').files[0];
+        const existing = minorEditIndex === 'enfant'
+            ? state.enfantVoyageur
+            : (typeof minorEditIndex === 'number' ? state.mineurs[minorEditIndex] : null);
+        const file = $('minorPhoto').files[0] || (existing ? existing.file : null);
         if (!nom || !naissance || !passeport || !validite || !file) {
             showMessage('Tous les champs de l\'enfant sont requis (dont la photo du passeport).', 'error');
+            return;
+        }
+        // Passeport expiré : bloque la souscription (revue app).
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        if (new Date(validite + 'T00:00:00') < today) {
+            showMessage('La date de validité du passeport est dépassée : le passeport est expiré.', 'error');
             return;
         }
         const entry = { nom, dateNaissance: naissance, numeroPasseport: passeport, validitePasseport: validite, file };
         const label = minorTarget === 'enfant'
             ? `Passeport (enfant voyageur) — ${nom}`
             : `Passeport (enfant) — ${nom}`;
-        if (minorTarget === 'enfant') state.enfantVoyageur = entry;
-        else state.mineurs.push(entry);
+        if (existing) {
+            // Remplace l'entrée et son document associé.
+            state.documents = state.documents.filter((d) => d.file !== existing.file);
+            if (minorEditIndex === 'enfant') state.enfantVoyageur = entry;
+            else state.mineurs[minorEditIndex] = entry;
+        } else {
+            if (minorTarget === 'enfant') state.enfantVoyageur = entry;
+            else state.mineurs.push(entry);
+        }
         state.documents.push({ file, docType: 'passport', label });
         closeMinorModal();
         renderChildren();
@@ -384,9 +437,30 @@
             showMessage('Veuillez ajouter les informations de l\'enfant voyageur.', 'error');
             return;
         }
+        if (voyageurMode() === 'with_children' && !state.mineurs.length) {
+            showMessage('Veuillez ajouter les informations du ou des enfants mineurs accompagnants.', 'error');
+            return;
+        }
+        // Passeport expiré : bloque la poursuite (revue app).
+        const todayD = new Date(); todayD.setHours(0, 0, 0, 0);
+        const expiredPasseports = [];
+        (state.mineurs || []).forEach((m) => {
+            if (m.validitePasseport && new Date(m.validitePasseport + 'T00:00:00') < todayD) expiredPasseports.push(m.nom);
+        });
+        if (state.enfantVoyageur && new Date(state.enfantVoyageur.validitePasseport + 'T00:00:00') < todayD) {
+            expiredPasseports.push(state.enfantVoyageur.nom);
+        }
+        if (expiredPasseports.length) {
+            showMessage(`Le passeport de ${expiredPasseports[0]} est expiré. Corrigez les informations de l'enfant avant de continuer.`, 'error');
+            return;
+        }
 
         const dateDepart = $('voyageDepart').value;
         const dateRetour = $('voyageRetour').value;
+        if (dureeJours() > MAX_TRIP_DAYS) {
+            showMessage(`La durée du voyage est limitée à ${MAX_TRIP_DAYS} jours.`, 'error');
+            return;
+        }
         const btn = $('voyageContinueBtn');
         btn.disabled = true;
         btn.textContent = 'Enregistrement en cours...';
@@ -449,6 +523,7 @@
                     nombre_participants: 1,
                     notes: notesLines.join('\n'),
                     destination_country_id: paysId,
+                    ...(state.forUserId ? { user_id: state.forUserId } : {}),
                 }),
             });
             state.projetId = projet.id;
@@ -618,13 +693,15 @@
         const p = state.products.find((x) => x.id === productId);
         const q = state.devisParProduit[productId];
         if (!p) return;
-        $('productModalTitle').textContent = p.nom;
-        const garanties = (p.garanties || []).map((g) =>
-            `<tr><td>${escapeHtml(g.titre || g.nom || '')}</td><td>${escapeHtml(g.capitaux || g.montant || '')}</td></tr>`).join('');
-        const exclusions = (p.exclusions_generales || []).map((e) =>
-            `<li>${escapeHtml(e.titre || e.nom || e.libelle || e)}</li>`).join('');
+        $('productModalTitle').textContent = `${p.nom} — Conditions de couverture`;
+        // Tableaux officiels (js/garanties-officielles.js — DOCX revue app).
+        const garantiesHtml = typeof mhcRenderOfficialGaranties === 'function'
+            ? mhcRenderOfficialGaranties() : '';
+        const exclusionsHtml = typeof mhcRenderOfficialExclusions === 'function'
+            ? mhcRenderOfficialExclusions() : '';
         const taxesRows = (q?.taxes || []).map((t) =>
             `<tr><td>Taxe additionnelle (${escapeHtml(t.nom || t.code || '')})</td><td>${fmtMontant(t.montant)}</td></tr>`).join('');
+        const surprimeRow = `<tr><td>Surprime${q?.pct_surprime_applique ? ` (${q.pct_surprime_applique} %)` : ''}</td><td>${fmtMontant(q?.montant_surprime ?? 0)}</td></tr>`;
         $('productModalBody').innerHTML = `
             <p class="mh-muted">${escapeHtml(p.assureur || '')}</p>
             ${q ? `
@@ -640,16 +717,16 @@
             <div class="mh-sub-title">Décompte de la prime</div>
             <table class="mh-price-table">
                 <tr><td>Prime Nette</td><td>${fmtMontant(q.prime_assurance)}</td></tr>
+                ${surprimeRow}
                 <tr><td>Coût de Police</td><td>${fmtMontant(q.cout_police)}</td></tr>
                 ${q.taxes_total != null ? `<tr><td>Taxe</td><td>${fmtMontant(q.taxes_total)}</td></tr>` : ''}
                 ${taxesRows}
                 <tr class="total"><td>Prime Nette Totale</td><td>${fmtMontant(q.prix_applique)}</td></tr>
             </table>` : ''}
-            ${state.surprimesAge.length ? `
-            <div class="mh-sub-title">Surprimes par âge</div>
-            <table class="mh-price-table">${state.surprimesAge.map((s) => `<tr><td>${escapeHtml(s.tranche)}</td><td>+${s.pct}%</td></tr>`).join('')}</table>` : ''}
-            ${garanties ? `<div class="mh-sub-title">Garanties principales</div><table class="mh-price-table">${garanties}</table>` : ''}
-            ${exclusions ? `<div class="mh-sub-title">Exclusions générales</div><ul class="mh-muted">${exclusions}</ul>` : ''}
+            <div class="mh-sub-title">Conditions de couverture</div>
+            ${garantiesHtml}
+            <div class="mh-sub-title" style="margin-top:12px;">Exclusions générales</div>
+            ${exclusionsHtml}
             <div class="mh-check-row" style="margin-top:12px;">
                 <input type="checkbox" id="modalExclusionsRead">
                 <label for="modalExclusionsRead">J'ai lu les exclusions</label>
@@ -700,6 +777,7 @@
                     courtier_id: courtierId,
                     duree_jours: state.voyageData?.dureeJours,
                     age: age,
+                    ...(state.forUserId ? { user_id: state.forUserId } : {}),
                 }),
             });
             state.subscriptionId = sub.id;
@@ -743,6 +821,26 @@
         $('medicalContinueBtn').disabled = ineligible;
     }
 
+    /// Popup « dossier redirigé vers le service technique » (revue app) :
+    /// affichée au clic sur continuer dès qu'une réponse « Oui » (hors
+    /// question grossesse) est enregistrée.
+    function confirmTechService() {
+        return new Promise((resolve) => {
+            const modal = $('techServiceModal');
+            const done = (v) => {
+                $('techServiceContinueBtn').onclick = null;
+                $('techServiceBackBtn').onclick = null;
+                $('closeTechServiceModal').onclick = null;
+                modal.classList.remove('open');
+                resolve(v);
+            };
+            $('techServiceContinueBtn').onclick = () => done(true);
+            $('techServiceBackBtn').onclick = () => done(false);
+            $('closeTechServiceModal').onclick = () => done(false);
+            modal.classList.add('open');
+        });
+    }
+
     async function onMedicalContinue() {
         const a = state.medicalAnswers;
         if (a.enceinte === 'oui') {
@@ -757,6 +855,16 @@
         if (!$('declarationSante').checked) {
             showMessage('Veuillez accepter la déclaration santé.', 'error');
             return;
+        }
+        // Réponses « Oui » hors grossesse → orientation service technique.
+        const requiresTechnicalReview =
+            a.malade_souscription === 'oui' ||
+            a.malade_12_mois === 'oui' ||
+            a.maladie_chronique === 'oui' ||
+            a.voyage_medical === 'oui';
+        if (requiresTechnicalReview) {
+            const proceed = await confirmTechService();
+            if (!proceed) return;
         }
         const btn = $('medicalContinueBtn');
         btn.disabled = true;
@@ -896,7 +1004,35 @@
                 methode_paiement: methode,
             };
             if (age != null) body.age = age;
-            await apiCall('/payments/confirm', { method: 'POST', body: JSON.stringify(body) });
+            const response = await apiCall('/payments/confirm', { method: 'POST', body: JSON.stringify(body) });
+
+            // Paiement réel via AfriPaie — page hébergée : on quitte le wizard.
+            if (response && response.payment_url) {
+                showMessage('Redirection vers la page de paiement sécurisée…', 'info');
+                window.location.href = response.payment_url;
+                return;
+            }
+
+            // Push USSD envoyé : le client valide sur son téléphone.
+            if (response && (response.payment_status === 'en_cours' || response.payment_status === 'en_attente') && response.payment_id) {
+                showMessage(
+                    escapeHtml(response.payment_instructions || 'Une demande de paiement a été envoyée sur votre téléphone. Validez-la avec votre code.'),
+                    'info'
+                );
+                const outcome = await waitForPaymentConfirmation(response.payment_id);
+                if (outcome === true) {
+                    showStep(5);
+                    return;
+                }
+                if (outcome === null) {
+                    showMessage('Paiement toujours en cours. Vous serez notifié dès sa confirmation ; votre attestation apparaîtra alors ici.', 'info');
+                } else {
+                    showMessage('Le paiement a échoué ou expiré. Vous pouvez réessayer.', 'error');
+                }
+                return;
+            }
+
+            // Paiement validé immédiatement (stub / déjà payé).
             showStep(5);
         } catch (e) {
             showMessage(e.message || 'Erreur lors du paiement.', 'error');
@@ -904,6 +1040,21 @@
             btn.disabled = false;
             btn.textContent = 'Payer maintenant';
         }
+    }
+
+    // Interroge /payments/:id/status jusqu'à issue — le webhook AfriPaie met
+    // à jour le statut en parallèle. ~2 min max, par pas de 4 s.
+    async function waitForPaymentConfirmation(paymentId) {
+        const deadline = Date.now() + 120000;
+        while (Date.now() < deadline) {
+            try {
+                const s = await apiCall(`/payments/${paymentId}/status`);
+                if (s.status === 'valide' || s.subscription_status === 'active') return true;
+                if (s.status === 'echoue' || s.status === 'rembourse') return false;
+            } catch (_) { /* polling tolérant aux erreurs réseau */ }
+            await new Promise((r) => setTimeout(r, 4000));
+        }
+        return null;
     }
 
     // ---------- Étape 5 : Attestation ----------
@@ -993,6 +1144,7 @@
         $('voyageTransport').addEventListener('change', (e) => { state.transport = e.target.value; });
         $('voyageDepart').addEventListener('change', updateDuree);
         $('voyageRetour').addEventListener('change', updateDuree);
+        updateDuree();
         document.querySelectorAll('input[name="voyageur"]').forEach((r) => r.addEventListener('change', onVoyageurChange));
         $('addChildOnlyBtn').addEventListener('click', () => openMinorModal('enfant'));
         $('addMinorBtn').addEventListener('click', () => openMinorModal('mineur'));
@@ -1021,6 +1173,11 @@
             if (idx !== undefined) { state.documents.splice(parseInt(idx, 10), 1); renderDocs(); }
         });
         $('minorsList').addEventListener('click', (e) => {
+            const editKey = e.target.dataset?.edit;
+            if (editKey?.startsWith('mineur-')) {
+                openMinorModal('mineur', parseInt(editKey.split('-')[1], 10));
+                return;
+            }
             const key = e.target.dataset?.remove;
             if (key?.startsWith('mineur-')) {
                 const i = parseInt(key.split('-')[1], 10);
@@ -1031,6 +1188,10 @@
             }
         });
         $('childOnlyList').addEventListener('click', (e) => {
+            if (e.target.dataset?.edit === 'enfant') {
+                openMinorModal('enfant', 'enfant');
+                return;
+            }
             if (e.target.dataset?.remove === 'enfant') {
                 state.documents = state.documents.filter((d) => d.file !== state.enfantVoyageur.file);
                 state.enfantVoyageur = null;
@@ -1120,7 +1281,12 @@
         if (typeof requireAuth === 'function' && !(await requireAuth())) return;
         bindEvents();
         renderStepper();
-        const resumeId = new URLSearchParams(window.location.search).get('subscription_id');
+        const params = new URLSearchParams(window.location.search);
+        const resumeId = params.get('subscription_id');
+        const forUserId = parseInt(params.get('for_user_id') || '0', 10);
+        if (forUserId > 0) {
+            state.forUserId = forUserId;
+        }
         await loadUser();
         await loadDestinations();
         if (resumeId) {

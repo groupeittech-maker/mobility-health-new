@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
 from fastapi import status
 from pathlib import Path
 import logging
@@ -36,8 +37,8 @@ logger = logging.getLogger(__name__)
 logger.info("Utilisez 'alembic upgrade head' pour créer/mettre à jour les tables de la base de données")
 
 app = FastAPI(
-    title="Mobility Health API",
-    description="API for Mobility Health Platform",
+    title="Mobility Health Care API",
+    description="API for Mobility Health Care Platform",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -290,7 +291,9 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Gestionnaire pour les erreurs de validation"""
-    errors = exc.errors()
+    # exc.errors() peut contenir des objets non sérialisables (ex. ValueError dans ctx) —
+    # on passe par jsonable_encoder pour éviter le 500 "Object of type ValueError is not JSON serializable".
+    errors = jsonable_encoder(exc.errors())
     logger.warning("Validation error: %s", errors)
     # Message lisible pour le frontend (évite [object Object])
     parts = []
@@ -321,7 +324,7 @@ async def checkout_page():
 
 @app.get("/")
 async def root():
-    return {"message": "Mobility Health API", "version": "1.0.0"}
+    return {"message": "Mobility Health Care API", "version": "1.0.0"}
 
 
 async def _health_response():

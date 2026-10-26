@@ -1,6 +1,10 @@
-"""Constantes partagées pour la plateforme Mobility Health."""
+"""Constantes partagées pour la plateforme Mobility Health Care."""
 
 from decimal import Decimal
+
+# Durée maximale d'un voyage couvert (workflow MyMHC V3) : souscription,
+# modification et prorogation ne peuvent pas dépasser cette durée totale.
+MAX_TRIP_DAYS = 92
 
 HOSPITAL_STAY_ACTS = [
     "Consultation médicale",

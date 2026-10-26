@@ -13,12 +13,13 @@ from app.core.mhc_nomenclature import (
     country_code_from_name,
     format_attestation_number,
     format_avenant_annulation_number,
-    format_avenant_reemission_number,
-    format_avenant_suspension_number,
+    format_avenant_modification_number,
+    format_avenant_prorogation_number,
     format_bpcu_like_number,
     format_bph_number,
     format_police_number,
     format_quittance_number,
+    format_quittance_ristourne_number,
     format_simple_document_number,
     format_sinistre_number,
     parse_sinistre_order,
@@ -109,16 +110,22 @@ def allocate_quittance_number(db: Session, year: Optional[int] = None) -> str:
     return format_quittance_number(order)
 
 
-def allocate_avenant_suspension_number(db: Session, year: Optional[int] = None) -> str:
+def allocate_avenant_modification_number(db: Session, year: Optional[int] = None) -> str:
     year = year or datetime.utcnow().year
-    order = next_order(db, "avenant_suspension", year)
-    return format_avenant_suspension_number(order)
+    order = next_order(db, "avenant_modification", year)
+    return format_avenant_modification_number(order)
 
 
-def allocate_avenant_reemission_number(db: Session, year: Optional[int] = None) -> str:
+def allocate_avenant_prorogation_number(db: Session, year: Optional[int] = None) -> str:
     year = year or datetime.utcnow().year
-    order = next_order(db, "avenant_reemission", year)
-    return format_avenant_reemission_number(order)
+    order = next_order(db, "avenant_prorogation", year)
+    return format_avenant_prorogation_number(order)
+
+
+def allocate_quittance_ristourne_number(db: Session, year: Optional[int] = None) -> str:
+    year = year or datetime.utcnow().year
+    order = next_order(db, "quittance_ristourne", year)
+    return format_quittance_ristourne_number(order)
 
 
 def allocate_sinistre_number(

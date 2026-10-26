@@ -12,6 +12,9 @@ import '../../models/destination.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
 
+/// Durée maximale d'un voyage couvert (workflow MyMHC V3).
+const int kMaxTripDays = 92;
+
 /// Un mineur accompagnant (identité, passeport, photo du passeport en pièce jointe).
 class MineurEntry {
   const MineurEntry({
@@ -72,6 +75,18 @@ class VoyageFormData {
 }
 
 /// Étape 1 : Informations sur le voyage (destination, dates, transport, mineurs).
+/// Libellé de la pièce d'identité du souscripteur (obligatoire).
+const String kIdentityDocLabel = 'Pièce d’identité';
+
+/// Bouton « + Ajouter » compact : aligné sur la marge droite de la carte,
+/// à la même distance du bord que le titre de section à gauche.
+final ButtonStyle _addButtonStyle = TextButton.styleFrom(
+  padding: EdgeInsets.zero,
+  minimumSize: const Size(0, 36),
+  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  foregroundColor: AppColors.secondary,
+);
+
 class StepVoyageScreen extends StatefulWidget {
   const StepVoyageScreen({
     super.key,
@@ -446,7 +461,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                   },
                   _countryOptionsFiltered,
                   enabled: _hasResidenceCountry,
-                  emptyLabel: 'Renseignez d\'abord votre pays de résidence',
+                  emptyLabel: _loadingResidenceCountry
+                      ? 'Chargement...'
+                      : 'Renseignez d\'abord votre pays de résidence',
                   selectionError: _paysFieldError,
                 ),
                 if (_loadingResidenceCountry) ...[
@@ -465,7 +482,8 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       color: const Color(0xFF64748B),
                     ),
                   ),
-                ] else ...[
+                ] else if (_loadingResidenceCountry == false &&
+                    _residenceCountryRaw == null) ...[
                   const SizedBox(height: 6),
                   Text(
                     'Veuillez renseigner votre pays de residence dans votre profil avant de souscrire.',
@@ -509,17 +527,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
               _dropdown('Moyen de transport *', _transport, (v) => setState(() => _transport = v),
                   ['Avion', 'Train', 'Voiture', 'Bateau']),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _dateField('Date de départ', _dateDepart, (d) => setState(() => _dateDepart = d)),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _dateField('Date de retour', _dateRetour, (d) => setState(() => _dateRetour = d)),
-                  ),
-                ],
-              ),
+              _dateRangeField(),
               const SizedBox(height: 12),
               InputDecorator(
                 decoration: MHSurfaceCard.input(labelText: 'Durée du séjour'),
@@ -547,8 +555,19 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                   setState(() {
                     _voyagePourEnfant = v == 'child_only';
                     _avecMineurs = v == 'with_children';
-                    if (!_voyagePourEnfant) _enfantVoyageur = null;
-                    if (!_avecMineurs) _mineurs.clear();
+                    // Changer de « voyageur assuré » retire aussi les photos
+                    // de passeport des enfants qui ne voyagent plus.
+                    if (!_voyagePourEnfant && _enfantVoyageur != null) {
+                      final p = _enfantVoyageur!.photoPasseportPath;
+                      _documents.removeWhere((d) => d.path == p);
+                      _enfantVoyageur = null;
+                    }
+                    if (!_avecMineurs && _mineurs.isNotEmpty) {
+                      final paths =
+                          _mineurs.map((m) => m.photoPasseportPath).toSet();
+                      _documents.removeWhere((d) => paths.contains(d.path));
+                      _mineurs.clear();
+                    }
                   });
                 },
                 child: const Column(
@@ -589,15 +608,18 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Enfant voyageur',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.secondary,
+                    Expanded(
+                      child: Text(
+                        'Enfant voyageur',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.secondary,
+                        ),
                       ),
                     ),
                     if (_enfantVoyageur == null)
                       TextButton.icon(
+                        style: _addButtonStyle,
                         onPressed: _ajouterEnfantVoyageur,
                         icon: const Icon(Icons.add, size: 20),
                         label: const Text('Ajouter l\'enfant'),
@@ -636,6 +658,11 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                           ),
                         ),
                         IconButton(
+                          onPressed: () => _modifierEnfantVoyageur(),
+                          icon: const Icon(Icons.edit_outlined, color: AppColors.secondary, size: 22),
+                          tooltip: 'Modifier',
+                        ),
+                        IconButton(
                           onPressed: () => setState(() {
                             _documents.removeWhere((d) => d.path == _enfantVoyageur!.photoPasseportPath);
                             _enfantVoyageur = null;
@@ -653,14 +680,17 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Enfants accompagnés',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.secondary,
+                    Expanded(
+                      child: Text(
+                        'Enfants accompagnés',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.secondary,
+                        ),
                       ),
                     ),
                     TextButton.icon(
+                      style: _addButtonStyle,
                       onPressed: _ajouterMineur,
                       icon: const Icon(Icons.add, size: 20),
                       label: const Text('Ajouter un enfant'),
@@ -700,6 +730,11 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                             ),
                           ),
                           IconButton(
+                            onPressed: () => _modifierMineur(m),
+                            icon: const Icon(Icons.edit_outlined, color: AppColors.secondary, size: 22),
+                            tooltip: 'Modifier',
+                          ),
+                          IconButton(
                             onPressed: () => setState(() {
                               _documents.removeWhere((d) => d.path == m.photoPasseportPath);
                               _mineurs.remove(m);
@@ -723,7 +758,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Prenez une photo ou joignez vos documents (passeport, billet, etc.)',
+                'Prenez une photo ou joignez vos documents (pièce d’identité obligatoire, billet, etc.)',
                 style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
               ),
               const SizedBox(height: 12),
@@ -823,6 +858,51 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       );
                       return;
                     }
+                    if (_avecMineurs && _mineurs.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Veuillez ajouter les informations du ou des enfants mineurs accompagnants.',
+                          ),
+                          backgroundColor: AppColors.danger,
+                        ),
+                      );
+                      return;
+                    }
+                    // Un passeport expiré bloque la souscription.
+                    final today = DateUtils.dateOnly(DateTime.now());
+                    final passeports = <String, DateTime>{
+                      for (final m in _mineurs) m.nom: m.validitePasseport,
+                      if (_enfantVoyageur != null)
+                        _enfantVoyageur!.nom: _enfantVoyageur!.validitePasseport,
+                    };
+                    final expiredEntry = passeports.entries.where(
+                      (e) => DateUtils.dateOnly(e.value).isBefore(today),
+                    );
+                    if (expiredEntry.isNotEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Le passeport de ${expiredEntry.first.key} est expiré. '
+                            'Corrigez les informations de l\'enfant avant de continuer.',
+                          ),
+                          backgroundColor: AppColors.danger,
+                        ),
+                      );
+                      return;
+                    }
+                    if (!_voyagePourEnfant &&
+                        !_documents.any((d) => d.label == kIdentityDocLabel)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Ajoutez votre pièce d\'identité (obligatoire).',
+                          ),
+                          backgroundColor: AppColors.danger,
+                        ),
+                      );
+                      return;
+                    }
                     if (!_voyagePourEnfant &&
                         (_ecartePhotoPath == null || _ecartePhotoPath!.isEmpty)) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -860,7 +940,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                     ));
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: AppColors.secondary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -976,7 +1056,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
       children: [
         _docActionChip(
           icon: Icons.badge_outlined,
-          label: 'Passeport',
+          label: kIdentityDocLabel,
           docType: 'passport',
           theme: theme,
         ),
@@ -1095,7 +1175,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
   String _docTypeLabel(String docType) {
     switch (docType) {
       case 'passport':
-        return 'Passeport';
+        return kIdentityDocLabel;
       case 'travel_booking':
         return 'Billet / réservation';
       default:
@@ -1119,6 +1199,55 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
             path: result.photoPasseportPath,
             docType: 'passport',
             label: 'Passeport (enfant) — ${result.nom}',
+          ),
+        );
+      });
+    }
+  }
+
+  Future<void> _modifierMineur(MineurEntry existing) async {
+    final result = await showModalBottomSheet<MineurEntry>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _AjouterMineurSheet(initial: existing),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _documents.removeWhere((d) => d.path == existing.photoPasseportPath);
+        final index = _mineurs.indexOf(existing);
+        if (index >= 0) _mineurs[index] = result;
+        _documents.add(
+          VoyageDocEntry(
+            path: result.photoPasseportPath,
+            docType: 'passport',
+            label: 'Passeport (enfant) — ${result.nom}',
+          ),
+        );
+      });
+    }
+  }
+
+  Future<void> _modifierEnfantVoyageur() async {
+    final existing = _enfantVoyageur;
+    if (existing == null) return;
+    final result = await showModalBottomSheet<MineurEntry>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _AjouterMineurSheet(initial: existing),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _documents.removeWhere((d) => d.path == existing.photoPasseportPath);
+        _enfantVoyageur = result;
+        _documents.add(
+          VoyageDocEntry(
+            path: result.photoPasseportPath,
+            docType: 'passport',
+            label: 'Passeport (enfant voyageur) — ${result.nom}',
           ),
         );
       });
@@ -1227,28 +1356,56 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
     );
   }
 
-  Widget _dateField(String label, DateTime? value, ValueChanged<DateTime?> onChanged) {
+  /// « Date de départ & Date de retour » en une seule case : sélection de la
+  /// plage complète dans le calendrier natif (showDateRangePicker).
+  Widget _dateRangeField() {
+    String fmt(DateTime d) =>
+        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    final label = (_dateDepart != null && _dateRetour != null)
+        ? '${fmt(_dateDepart!)}  →  ${fmt(_dateRetour!)}'
+        : 'Sélectionner';
     return InkWell(
       onTap: () async {
-        final d = await showDatePicker(
+        final now = DateTime.now();
+        final picked = await showDateRangePicker(
           context: context,
-          initialDate: value ?? DateTime.now(),
-          firstDate: DateTime.now(),
-          lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+          initialDateRange: (_dateDepart != null && _dateRetour != null)
+              ? DateTimeRange(start: _dateDepart!, end: _dateRetour!)
+              : null,
+          firstDate: now,
+          lastDate: now.add(const Duration(days: 365 * 2)),
+          helpText: 'Dates de départ et de retour',
+          confirmText: 'Valider',
+          cancelText: 'Annuler',
+          saveText: 'Valider',
         );
-        if (d != null) onChanged(d);
+        if (picked != null) {
+          // Voyage limité à 92 jours (workflow MyMHC V3).
+          if (picked.end.difference(picked.start).inDays > kMaxTripDays) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('La durée du voyage est limitée à $kMaxTripDays jours.'),
+              backgroundColor: AppColors.danger,
+            ));
+            return;
+          }
+          setState(() {
+            _dateDepart = picked.start;
+            _dateRetour = picked.end;
+          });
+        }
       },
       child: InputDecorator(
         decoration: MHSurfaceCard.input(
-          labelText: label,
-          suffixIcon: const Icon(Icons.calendar_today, size: 20),
+          labelText: 'Date de départ & Date de retour',
+          suffixIcon: const Icon(Icons.date_range, size: 20),
         ),
         child: Text(
-          value != null
-              ? '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}'
-              : 'Sélectionner',
+          label,
           style: TextStyle(
-            color: value != null ? const Color(0xFF1E293B) : const Color(0xFF64748B),
+            color: (_dateDepart != null && _dateRetour != null)
+                ? const Color(0xFF1E293B)
+                : const Color(0xFF64748B),
           ),
         ),
       ),
@@ -1273,6 +1430,21 @@ class _DestinationSearchSheet extends StatefulWidget {
 class _DestinationSearchSheetState extends State<_DestinationSearchSheet> {
   late final TextEditingController _searchController;
   late List<String> _filtered;
+
+  /// Recherche insensible aux accents : « cote » trouve « Côte d'Ivoire ».
+  static String _normalizeSearch(String s) {
+    const accents = {
+      'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+      'à': 'a', 'â': 'a', 'ä': 'a',
+      'î': 'i', 'ï': 'i',
+      'ô': 'o', 'ö': 'o',
+      'ù': 'u', 'û': 'u', 'ü': 'u',
+      'ç': 'c', 'ñ': 'n',
+    };
+    var out = s.toLowerCase().trim();
+    accents.forEach((k, v) => out = out.replaceAll(k, v));
+    return out;
+  }
 
   @override
   void initState() {
@@ -1348,11 +1520,11 @@ class _DestinationSearchSheetState extends State<_DestinationSearchSheet> {
                     isDense: true,
                   ),
                   onChanged: (q) {
-                    final qq = q.trim().toLowerCase();
+                    final qq = _normalizeSearch(q);
                     setState(() {
                       _filtered = qq.isEmpty
                           ? List<String>.from(widget.options)
-                          : widget.options.where((o) => o.toLowerCase().contains(qq)).toList();
+                          : widget.options.where((o) => _normalizeSearch(o).contains(qq)).toList();
                     });
                   },
                 ),
@@ -1401,8 +1573,11 @@ class _DestinationSearchSheetState extends State<_DestinationSearchSheet> {
 }
 
 /// Formulaire « enfant accompagné » en bottom sheet (même approche que la recherche pays).
+/// [initial] pré-remplit le formulaire pour modifier un enfant existant.
 class _AjouterMineurSheet extends StatefulWidget {
-  const _AjouterMineurSheet();
+  const _AjouterMineurSheet({this.initial});
+
+  final MineurEntry? initial;
 
   @override
   State<_AjouterMineurSheet> createState() => _AjouterMineurSheetState();
@@ -1415,11 +1590,18 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
   DateTime? _validitePasseport;
   String? _photoPath;
 
+  bool get _isEditing => widget.initial != null;
+
   @override
   void initState() {
     super.initState();
-    _nomController = TextEditingController();
-    _passeportController = TextEditingController();
+    final existing = widget.initial;
+    _nomController = TextEditingController(text: existing?.nom ?? '');
+    _passeportController =
+        TextEditingController(text: existing?.numeroPasseport ?? '');
+    _dateNaissance = existing?.dateNaissance;
+    _validitePasseport = existing?.validitePasseport;
+    _photoPath = existing?.photoPasseportPath;
   }
 
   @override
@@ -1495,6 +1677,19 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
       );
       return;
     }
+    // Passeport expiré : bloque la suite de la souscription.
+    final today = DateUtils.dateOnly(DateTime.now());
+    if (DateUtils.dateOnly(_validitePasseport!).isBefore(today)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'La date de validité du passeport est dépassée : le passeport est expiré.',
+          ),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
     Navigator.of(context).pop(
       MineurEntry(
         nom: _nomController.text.trim(),
@@ -1545,7 +1740,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
             children: [
               Expanded(
                 child: Text(
-                  'Enfant accompagné',
+                  _isEditing ? 'Modifier l\'enfant' : 'Enfant accompagné',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: const Color(0xFF1E293B),
@@ -1662,7 +1857,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: _trySubmit,
-                child: const Text('Ajouter'),
+                child: Text(_isEditing ? 'Enregistrer' : 'Ajouter'),
               ),
             ],
           ),

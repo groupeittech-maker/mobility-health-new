@@ -1,6 +1,6 @@
 """
 Surprimes âge par défaut (% additionnels sur la prime de base 18–69 ans),
-alignés grille voyage + fiche tarifaire Mobility Health (FCFA).
+alignés grille voyage + fiche tarifaire Mobility Health Care (FCFA).
 
 Si les champs `surprime_*_pct` du produit sont NULL, ces valeurs s’appliquent.
 """

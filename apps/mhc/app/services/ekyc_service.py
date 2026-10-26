@@ -20,6 +20,14 @@ from app.models.souscription import Souscription
 from app.models.user import User
 
 
+_PRE_PAYMENT_STATUSES = {
+    StatutSouscription.EN_ATTENTE,
+    StatutSouscription.PENDING,
+    StatutSouscription.EN_ATTENTE_VALIDATION,
+    StatutSouscription.EN_ATTENTE_PAIEMENT,
+}
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -172,6 +180,19 @@ def _apply_result(
 
     if session.souscription_id:
         souscription = db.get(Souscription, session.souscription_id)
+        if souscription and result.status == "REJECTED" and souscription.statut in _PRE_PAYMENT_STATUSES:
+            # Échec ou incohérence eKYC : refus automatique, aucun paiement débité.
+            from app.services.subscription_decision_service import SubscriptionDecisionEngine
+
+            SubscriptionDecisionEngine._apply_reject(
+                souscription,
+                ["Identification (eKYC) échouée ou incohérente : souscription refusée automatiquement."],
+            )
+            SubscriptionDecisionEngine._notify_client_outcome(
+                db, souscription, approved=False,
+                notes="Identification (eKYC) échouée ou incohérente.",
+            )
+            db.flush()
         if souscription and result.is_verified:
             # Si la souscription est en attente de validation eKYC, on marque la
             # vérification d'identité comme terminée. La validation finale reste

@@ -7,9 +7,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const resendLink = document.getElementById('resendLink');
     const resendCooldown = document.getElementById('resendCooldown');
     
-    // Récupérer l'email depuis l'URL
+    // Récupérer l'email et le canal depuis l'URL
     const urlParams = new URLSearchParams(window.location.search);
     const email = urlParams.get('email');
+    const channel = (urlParams.get('channel') || 'email').trim().toLowerCase();
+    const channelLabel = { whatsapp: 'par WhatsApp', sms: 'par SMS', email: 'à votre adresse e-mail' }[channel] || 'à votre adresse e-mail';
+    const channelHint = document.getElementById('channelHint');
+    if (channelHint) {
+        channelHint.textContent = `Un code à 6 chiffres vous a été envoyé ${channelLabel}.`;
+    }
     
     if (!email) {
         showAlert('Email non fourni. Veuillez vous réinscrire.', 'error');
@@ -151,7 +157,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    email: email
+                    email: email,
+                    channel: channel
                 }),
             }).catch(error => {
                 console.error('Erreur réseau lors de la requête:', error);

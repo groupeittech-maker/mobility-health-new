@@ -22,7 +22,7 @@ class ApiConfig {
 
   static int get timeoutMs => int.tryParse(_env('API_TIMEOUT', '30000')) ?? 30000;
   static String get environment => _env('ENVIRONMENT', 'production');
-  static String get appName => _env('APP_NAME', 'Mobility Health');
+  static String get appName => _env('APP_NAME', 'Mobility Health Care');
   static String get appVersion => _env('APP_VERSION', '1.0.0');
 
   static bool get isProduction => environment.toLowerCase() == 'production';

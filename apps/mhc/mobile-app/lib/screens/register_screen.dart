@@ -43,6 +43,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _sexe = '';
   String? _paysResidence;
   String? _nationalite;
+  // Personne à contacter en cas d'urgence (sous « Nationalité »)
+  final _contactUrgenceNomController = TextEditingController();
+  final _contactUrgencePrenomController = TextEditingController();
+  final _contactUrgenceTelController = TextEditingController();
+  late CountryCode _contactUrgenceCountryCode;
   late CountryCode _phoneCountryCode;
   late CountryCode _whatsappCountryCode;
 
@@ -50,7 +55,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _contactUrgenceController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -70,6 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.initState();
     _phoneCountryCode = CountryCode.fromCountryCode('CG');
     _whatsappCountryCode = CountryCode.fromCountryCode('CG');
+    _contactUrgenceCountryCode = CountryCode.fromCountryCode('CG');
     _loadReferenceCountries();
   }
 
@@ -83,7 +88,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _contactUrgenceController.dispose();
+    _contactUrgenceNomController.dispose();
+    _contactUrgencePrenomController.dispose();
+    _contactUrgenceTelController.dispose();
     super.dispose();
   }
 
@@ -121,7 +128,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (_step > 0) {
       _goToStep(_step - 1);
     } else {
-      context.pop();
+      // Retour depuis « Créer votre compte » : toujours vers la page
+      // d'accueil de l'application (et non « Se connecter »).
+      context.go('/welcome');
     }
   }
 
@@ -139,7 +148,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     final email = _emailController.text.trim();
-    final contactRaw = _contactUrgenceController.text.trim();
+    final contactNom = _contactUrgenceNomController.text.trim();
+    final contactPrenom = _contactUrgencePrenomController.text.trim();
+    final contactTel = _contactUrgenceTelController.text.trim();
+    final contactUrgenceNom =
+        '$contactPrenom $contactNom'.trim();
     final fullName =
         '${_prenomController.text.trim()} ${_nomController.text.trim()}'.trim();
     final body = <String, dynamic>{
@@ -157,7 +170,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       'numero_whatsapp': _whatsappController.text.trim().isEmpty
           ? null
           : '${_whatsappCountryCode.dialCode ?? ''}${_whatsappController.text.trim().replaceAll(RegExp(r'[\s\-\.]'), '')}',
-      'contact_urgence': contactRaw.isEmpty ? null : contactRaw,
+      'nom_contact_urgence':
+          contactUrgenceNom.isEmpty ? null : contactUrgenceNom,
+      'contact_urgence': contactTel.isEmpty
+          ? null
+          : '${_contactUrgenceCountryCode.dialCode ?? ''}${contactTel.replaceAll(RegExp(r'[\s\-\.]'), '')}',
       'canal_verification': _canalVerification,
     };
 
@@ -296,6 +313,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Form(
         key: _formKeys[0],
+        // Validation par champ (et non par formulaire) : saisir un champ
+        // ne doit pas passer tous les autres en rouge « Requis ».
+        autovalidateMode: AutovalidateMode.disabled,
         child: Column(
           children: [
             const SizedBox(height: 8),
@@ -355,6 +375,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               hint: 'Sélectionnez votre nationalité',
             ),
             const SizedBox(height: 16),
+            _buildEmergencyContactSection(),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -369,6 +391,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Form(
         key: _formKeys[1],
+        // Validation par champ (et non par formulaire) : saisir un champ
+        // ne doit pas passer tous les autres en rouge « Requis ».
+        autovalidateMode: AutovalidateMode.disabled,
         child: Column(
           children: [
             const SizedBox(height: 8),
@@ -399,6 +424,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 const MhFieldLabel('Mot de passe'),
                 TextFormField(
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   validator: (v) {
@@ -429,6 +455,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 const MhFieldLabel('Confirmer le mot de passe'),
                 TextFormField(
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
                   validator: (v) {
@@ -455,17 +482,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            _buildTextField(
-              controller: _contactUrgenceController,
-              label: 'Personne à contacter en cas d’urgence',
-              hint: 'Ex. +242 05 123 45 67',
-              keyboardType: TextInputType.phone,
-            ),
             const SizedBox(height: 16),
           ],
         ),
       ),
+    );
+  }
+
+  /// « Personne à contacter en cas d'urgence » — placée sous « Nationalité »
+  /// (revue UI) : nom, prénom et numéro de téléphone du contact.
+  Widget _buildEmergencyContactSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const MhFieldLabel('Personne à contacter en cas d’urgence'),
+        const SizedBox(height: 2),
+        _buildTextField(
+          controller: _contactUrgenceNomController,
+          label: 'Nom',
+          hint: 'Nom du contact',
+        ),
+        const SizedBox(height: 10),
+        _buildTextField(
+          controller: _contactUrgencePrenomController,
+          label: 'Prénom',
+          hint: 'Prénom du contact',
+        ),
+        const SizedBox(height: 10),
+        _buildPhoneField(
+          controller: _contactUrgenceTelController,
+          countryCode: _contactUrgenceCountryCode,
+          onCountryChanged: (c) =>
+              setState(() => _contactUrgenceCountryCode = c),
+          label: 'Numéro à contacter',
+          hint: 'Numéro à contacter',
+          isRequired: false,
+        ),
+      ],
     );
   }
 
@@ -477,6 +530,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Form(
         key: _formKeys[2],
+        // Validation par champ (et non par formulaire) : saisir un champ
+        // ne doit pas passer tous les autres en rouge « Requis ».
+        autovalidateMode: AutovalidateMode.disabled,
         child: Column(
           children: [
             const SizedBox(height: 8),
@@ -679,6 +735,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       children: [
         MhFieldLabel(label),
         TextFormField(
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           controller: controller,
           keyboardType: keyboardType,
           validator: validator,
@@ -732,6 +789,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       children: [
         const MhFieldLabel('Genre'),
         DropdownButtonFormField<String>(
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           initialValue: _sexe.isEmpty ? null : _sexe,
           decoration: MHSurfaceCard.input(),
           hint: const Text('Sélectionnez votre genre'),
@@ -757,7 +815,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       children: [
         MhFieldLabel(label),
         InkWell(
-          onTap: (_isLoading || _loadingReferenceCountries)
+          onTap: _isLoading
               ? null
               : () async {
                   final selected =
@@ -796,6 +854,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           label: label,
           currentValue: currentValue,
           countries: _referenceCountries,
+          loading: _loadingReferenceCountries,
+          onRetry: () async {
+            await _loadReferenceCountries();
+            return _referenceCountries;
+          },
         ),
       ),
     );
@@ -808,6 +871,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required void Function(CountryCode) onCountryChanged,
     required String label,
     required bool isRequired,
+    String hint = 'Votre numéro',
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -843,6 +907,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               Expanded(
                 child: TextFormField(
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                   controller: controller,
                   keyboardType: TextInputType.phone,
                   validator: isRequired
@@ -850,12 +915,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ? 'Requis'
                           : null
                       : null,
-                  decoration: const InputDecoration(
-                    hintText: 'Votre numéro',
-                    hintStyle: TextStyle(color: AppColors.mutedText),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: const TextStyle(color: AppColors.mutedText),
                     border: InputBorder.none,
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 14),
                   ),
                   enabled: !_isLoading,
                 ),
@@ -928,11 +993,15 @@ class _CountrySearchPage extends StatefulWidget {
     required this.label,
     required this.currentValue,
     required this.countries,
+    this.loading = false,
+    this.onRetry,
   });
 
   final String label;
   final String? currentValue;
   final List<ReferenceCountryModel> countries;
+  final bool loading;
+  final Future<List<ReferenceCountryModel>> Function()? onRetry;
 
   @override
   State<_CountrySearchPage> createState() => _CountrySearchPageState();
@@ -940,12 +1009,14 @@ class _CountrySearchPage extends StatefulWidget {
 
 class _CountrySearchPageState extends State<_CountrySearchPage> {
   late final TextEditingController _searchController;
+  late List<ReferenceCountryModel> _countries;
   late List<ReferenceCountryModel> _filteredList;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _countries = List.from(widget.countries);
     _filteredList = List.from(widget.countries);
   }
 
@@ -955,14 +1026,30 @@ class _CountrySearchPageState extends State<_CountrySearchPage> {
     super.dispose();
   }
 
+  /// Recherche insensible aux accents : « cote » trouve « Côte d'Ivoire »,
+  /// « o » équivaut à « ô », etc.
+  static String _normalize(String s) {
+    const accents = {
+      'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+      'à': 'a', 'â': 'a', 'ä': 'a',
+      'î': 'i', 'ï': 'i',
+      'ô': 'o', 'ö': 'o',
+      'ù': 'u', 'û': 'u', 'ü': 'u',
+      'ç': 'c', 'ñ': 'n',
+    };
+    var out = s.toLowerCase().trim();
+    accents.forEach((k, v) => out = out.replaceAll(k, v));
+    return out;
+  }
+
   void _filterCountries(String query) {
-    final normalizedQuery = query.trim().toLowerCase();
+    final normalizedQuery = _normalize(query);
     setState(() {
       _filteredList = normalizedQuery.isEmpty
-          ? List.from(widget.countries)
-          : widget.countries
+          ? List.from(_countries)
+          : _countries
               .where((country) =>
-                  country.nom.toLowerCase().contains(normalizedQuery))
+                  _normalize(country.nom).contains(normalizedQuery))
               .toList();
     });
   }
@@ -990,10 +1077,33 @@ class _CountrySearchPageState extends State<_CountrySearchPage> {
               ),
               const SizedBox(height: 12),
               Expanded(
-                child: _filteredList.isEmpty
+                child: widget.loading && _countries.isEmpty
                     ? const Center(
-                        child: Text('Aucun résultat',
-                            style: TextStyle(color: Color(0xFF64748B))))
+                        child: CircularProgressIndicator(
+                            color: AppColors.secondary))
+                    : _filteredList.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('Aucun résultat',
+                                style: TextStyle(color: Color(0xFF64748B))),
+                            if (widget.onRetry != null)
+                              TextButton(
+                                onPressed: () async {
+                                  final refreshed = await widget.onRetry!();
+                                  if (!mounted) return;
+                                  setState(() {
+                                    _countries = refreshed;
+                                    _filteredList =
+                                        List.from(refreshed);
+                                  });
+                                },
+                                child: const Text('Recharger la liste'),
+                              ),
+                          ],
+                        ),
+                      )
                     : ListView.builder(
                         itemCount: _filteredList.length,
                         itemBuilder: (_, i) {

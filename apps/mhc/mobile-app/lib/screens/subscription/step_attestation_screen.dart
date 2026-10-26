@@ -206,7 +206,7 @@ class _StepAttestationScreenState extends State<StepAttestationScreen> {
                 child: ElevatedButton(
                   onPressed: widget.onDone,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: AppColors.secondary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

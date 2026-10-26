@@ -20,7 +20,7 @@ String apiErrorToUserMessage(Object e) {
       case 403:
         return 'Accès non autorisé.';
       case 422:
-        return 'Données invalides.';
+        return detailMessage ?? 'Données invalides.';
     }
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
@@ -52,9 +52,52 @@ String? _extractDetailMessage(DioException e) {
   if (detail is Map && detail['detail'] != null) {
     final d = detail['detail'];
     if (d is String && d.trim().isNotEmpty) return d;
-    if (d is List && d.isNotEmpty && d.first is String) return d.first as String;
+    if (d is List && d.isNotEmpty) {
+      final msg = pydanticDetailToMessage(d);
+      if (msg != null) return msg;
+      if (d.first is String) return d.first as String;
+    }
   }
   return null;
+}
+
+/// Convertit une liste d'erreurs FastAPI/Pydantic
+/// (`[{type, loc, msg, ...}]`) en message lisible en français.
+String? pydanticDetailToMessage(List detail) {
+  final msgs = detail
+      .whereType<Map>()
+      .map(_pydanticMsg)
+      .where((m) => m.isNotEmpty)
+      .toSet()
+      .toList();
+  return msgs.isEmpty ? null : msgs.join(' ; ');
+}
+
+const _fieldLabels = {
+  'username': 'Adresse e-mail',
+  'email': 'Adresse e-mail',
+  'password': 'Mot de passe',
+  'telephone': 'Téléphone',
+  'date_naissance': 'Date de naissance',
+};
+
+String _pydanticMsg(Map m) {
+  final loc = m['loc'];
+  final field = (loc is List && loc.isNotEmpty) ? loc.last.toString() : null;
+  final label = _fieldLabels[field] ?? field;
+  final msg = m['msg']?.toString() ?? '';
+  if (msg.contains('Field required') || m['type'] == 'missing') {
+    return label != null ? '$label : champ requis' : 'Champ requis';
+  }
+  if (msg.contains('valid email')) return 'Adresse e-mail invalide';
+  // Les validateurs métier renvoient déjà des messages en français
+  // (« Le mot de passe doit contenir… ») : on les affiche tels quels.
+  if (msg.startsWith('Value error, ')) {
+    final inner = msg.substring('Value error, '.length);
+    return inner.isNotEmpty ? inner : '';
+  }
+  if (msg.isEmpty) return '';
+  return label != null ? '$label : $msg' : msg;
 }
 
 const _certificateMessage =

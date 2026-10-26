@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/garanties_officielles.dart';
 import '../../core/utils/api_error_helper.dart';
 import '../../models/product.dart';
 import '../../models/subscription_quote.dart';
@@ -180,20 +181,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             const _SectionTitle('Décompte de la prime'),
             const SizedBox(height: 8),
             _TableQuoteBreakdown(line: q, currency: cur),
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Text(
-                'Règle appliquée : Taxe = ${widget.fraisSurPrimePct.toStringAsFixed(0)} % de (Prime Nette + Coût de Police).',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B)),
-              ),
-            ),
             const SizedBox(height: 20),
           ] else if (q != null) ...[
             const _SectionTitle('Montant du devis'),
@@ -207,17 +194,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             const SizedBox(height: 20),
           ],
-          if (widget.surprimesAge.isNotEmpty) ...[
-            const _SectionTitle('Surprimes par âge (référence)'),
-            const SizedBox(height: 8),
-            _TableSurprimesAge(rows: widget.surprimesAge),
-            const SizedBox(height: 20),
-          ],
-          const _SectionTitle('Garanties principales'),
-          _TableGaranties(garanties: p.garanties),
+          const _SectionTitle('Conditions de couverture'),
+          const SizedBox(height: 8),
+          const _OfficialGarantiesTable(),
           const SizedBox(height: 20),
           const _SectionTitle('Exclusions générales'),
-          _ExclusionsBlock(exclusions: p.exclusionsGenerales),
+          const SizedBox(height: 8),
+          const _OfficialExclusionsBlock(),
           const SizedBox(height: 16),
           CheckboxListTile(
             value: _readExclusions,
@@ -237,7 +220,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: ElevatedButton(
               onPressed: _readExclusions ? () => Navigator.of(context).pop(true) : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: AppColors.secondary,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Valider et revenir au choix du produit'),
@@ -292,7 +275,7 @@ class _TableKeyValue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const headerColor = AppColors.primary;
+    const headerColor = AppColors.secondary;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
@@ -351,7 +334,7 @@ class _TableQuoteBreakdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const headerColor = AppColors.primary;
+    const headerColor = AppColors.secondary;
     final taxRows = <List<String>>[];
     if (line.taxesTotal != null && line.taxesTotal! > 0) {
       for (final t in line.taxes ?? []) {
@@ -361,8 +344,16 @@ class _TableQuoteBreakdown extends StatelessWidget {
         }
       }
     }
+    final surprime = line.montantSurprime;
+    final surprimePct = line.pctSurprimeApplique;
     final rows = <List<String>>[
       ['Prime Nette', '${line.primeAssurance!.toStringAsFixed(0)} $currency'],
+      // « Surprime » toujours affichée sous Prime Nette (revue : dépend
+      // de l'âge de l'assuré — 0 F CFA quand aucune surprime).
+      [
+        'Surprime${surprimePct != null && surprimePct > 0 ? ' (${surprimePct.toStringAsFixed(surprimePct == surprimePct.roundToDouble() ? 0 : 1)} %)' : ''}',
+        '${(surprime ?? 0).toStringAsFixed(0)} $currency',
+      ],
       ['Coût de Police', '${(line.coutPolice ?? 0).toStringAsFixed(0)} $currency'],
       ['Taxe', '${line.fraisServices!.toStringAsFixed(0)} $currency'],
       ...taxRows,
@@ -439,74 +430,6 @@ class _TableQuoteBreakdown extends StatelessWidget {
   }
 }
 
-class _TableSurprimesAge extends StatelessWidget {
-  const _TableSurprimesAge({required this.rows});
-
-  final List<SurprimeAgeRow> rows;
-
-  @override
-  Widget build(BuildContext context) {
-    const headerColor = AppColors.primary;
-    if (rows.isEmpty) {
-      return const _SectionValue('Aucune surprime par âge renseignée.');
-    }
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Table(
-        columnWidths: const {
-          0: FlexColumnWidth(2),
-          1: FlexColumnWidth(1),
-        },
-        children: [
-          TableRow(
-            decoration: const BoxDecoration(color: headerColor),
-            children: [
-              _hCell('Tranche d’âge'),
-              _hCell('Surprime (%)'),
-            ],
-          ),
-          ...rows.asMap().entries.map((e) {
-            final r = e.value;
-            return TableRow(
-              decoration: BoxDecoration(
-                color: e.key.isEven ? Colors.white : const Color(0xFFF8FAFC),
-              ),
-              children: [
-                _cCell(r.tranche),
-                _cCell('${r.pct.toStringAsFixed(r.pct == r.pct.roundToDouble() ? 0 : 1)} %'),
-              ],
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _hCell(String t) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Text(
-          t,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
-      );
-
-  Widget _cCell(String t) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Text(
-          t,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B)),
-        ),
-      );
-}
-
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
 
@@ -525,202 +448,239 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _SectionValue extends StatelessWidget {
-  const _SectionValue(this.text);
-
-  final String text;
+class _OfficialGarantiesTable extends StatelessWidget {
+  const _OfficialGarantiesTable();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 14,
-          color: Color(0xFF1E293B),
-          height: 1.4,
-        ),
-      ),
-    );
-  }
-}
-
-class _TableGaranties extends StatelessWidget {
-  const _TableGaranties({this.garanties});
-
-  final List<Map<String, dynamic>>? garanties;
-
-  @override
-  Widget build(BuildContext context) {
-    const headerColor = AppColors.primary;
-    final rows = <List<String>>[];
-    final list = garanties ?? [];
-    for (final g in list) {
-      final nom = g['titre'] ??
-          g['nom'] ??
-          g['libelle'] ??
-          g['garantie'] ??
-          g['name'] ??
-          '—';
-      var capitaux = _str(g['capitaux']) ??
-          _str(g['montant_max']) ??
-          _str(g['plafond']) ??
-          _str(g['montant']);
-      if (capitaux == null || capitaux.isEmpty) {
-        capitaux = _str(g['description']) ??
-            _str(g['detail']) ??
-            _str(g['texte']) ??
-            _str(g['description_detail']) ??
-            _str(g['commentaire']);
-      }
-      rows.add([
-        nom.toString(),
-        (capitaux == null || capitaux.isEmpty) ? '—' : capitaux,
-      ]);
-    }
-    if (rows.isEmpty) {
-      return const _SectionValue('Aucune garantie définie.');
-    }
+    const headerColor = AppColors.secondary;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Table(
-        columnWidths: const {
-          0: FlexColumnWidth(1.4),
-          1: FlexColumnWidth(1.6),
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TableRow(
-            decoration: const BoxDecoration(color: headerColor),
-            children: [
-              _tableCell('Garantie', true),
-              _tableCell('Capitaux', true),
-            ],
-          ),
-          ...rows.asMap().entries.map((e) {
-            return TableRow(
-              decoration: BoxDecoration(
-                color: e.key.isEven ? Colors.white : const Color(0xFFF8FAFC),
-              ),
+          Container(
+            color: headerColor,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            child: const Row(
               children: [
-                _tableCell(e.value[0], false),
-                _tableCell(e.value[1], false),
-              ],
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  static String? _str(dynamic v) {
-    if (v == null) return null;
-    return v.toString();
-  }
-
-  Widget _tableCell(String text, bool isHeader) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: isHeader ? FontWeight.w600 : FontWeight.normal,
-          color: isHeader ? Colors.white : const Color(0xFF1E293B),
-          height: 1.25,
-        ),
-      ),
-    );
-  }
-}
-
-/// Exclusions : même logique que le web (`product-detail.js` / admin : `reference`+`exclusion`, ou anciens `cle`/`valeur`).
-class _ExclusionsBlock extends StatelessWidget {
-  const _ExclusionsBlock({this.exclusions});
-
-  final List<Map<String, dynamic>>? exclusions;
-
-  static String _normalizeLine(Map<String, dynamic> e) {
-    var ref = (e['reference'] ?? e['libelle'] ?? e['cle'] ?? '').toString().trim();
-    var exc = (e['exclusion'] ?? e['valeur'] ?? '').toString().trim();
-    if (ref.isEmpty) {
-      ref = (e['titre'] ?? e['nom'] ?? '').toString().trim();
-    }
-    if (exc.isEmpty) {
-      exc = (e['description'] ?? e['detail'] ?? '').toString().trim();
-    }
-    if (ref.isNotEmpty && exc.isNotEmpty) return '$ref — $exc';
-    if (ref.isNotEmpty) return ref;
-    if (exc.isNotEmpty) return exc;
-    return '';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const headerColor = AppColors.primary;
-    final lines = <String>[];
-    for (final raw in exclusions ?? const <Map<String, dynamic>>[]) {
-      final line = _normalizeLine(raw);
-      if (line.isNotEmpty) lines.add(line);
-    }
-    if (lines.isEmpty) {
-      return const _SectionValue('Aucune exclusion définie.');
-    }
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Table(
-        columnWidths: const {0: FlexColumnWidth(1)},
-        children: [
-          TableRow(
-            decoration: const BoxDecoration(color: headerColor),
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Text(
-                  'Exclusion',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'PRESTATIONS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          ...lines.asMap().entries.map((e) {
-            return TableRow(
-              decoration: BoxDecoration(
-                color: e.key.isEven ? Colors.white : const Color(0xFFF8FAFC),
-              ),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                Expanded(
+                  flex: 2,
                   child: Text(
-                    e.value,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF1E293B),
-                      height: 1.35,
+                    'PLAFONDS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
                     ),
                   ),
                 ),
               ],
-            );
-          }),
+            ),
+          ),
+          for (final cat in kCategoriesGarantiesOfficielles) ...[
+            Container(
+              width: double.infinity,
+              color: const Color(0xFFEDE7F6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    cat.titre,
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.secondary,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  if (cat.sousTitre != null)
+                    Text(
+                      cat.sousTitre!,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontStyle: FontStyle.italic,
+                        color: AppColors.secondary,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            for (final g in cat.lignes)
+              Container(
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Color(0xFFF1F5F9)),
+                  ),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        g.prestation,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF1E293B),
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        g.plafond,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.secondary,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Exclusions officielles : intro + IMPORTANT + limites + 19 paragraphes
+/// intégraux (source : TABLEAU DE GARANTIES & EXCLUSIONS).
+class _OfficialExclusionsBlock extends StatelessWidget {
+  const _OfficialExclusionsBlock();
+
+  static const _bodyStyle = TextStyle(
+    fontSize: 11.5,
+    color: Color(0xFF1E293B),
+    height: 1.4,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            color: AppColors.secondary,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: const Text(
+              'Exclusions',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final p in kIntroExclusionsOfficielles)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(p, style: _bodyStyle),
+                  ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3EEF9),
+                    borderRadius: BorderRadius.circular(6),
+                    border: const Border(
+                      left: BorderSide(color: AppColors.secondary, width: 3),
+                    ),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'IMPORTANT',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.secondary,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        kImportantExclusionsOfficielles,
+                        style: _bodyStyle,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Limites liées à la prise en charge par Mobility Health Care',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.secondary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                for (final p in kLimitesPriseEnChargeOfficielles)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(p, style: _bodyStyle),
+                  ),
+                const Divider(height: 24),
+                for (final ex in kExclusionsOfficielles)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Exclusion – ${ex.numero}  ${ex.titre}',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1E293B),
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(ex.texte, style: _bodyStyle),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );

@@ -61,11 +61,35 @@ function getSafeAccessToken() {
 // Fonction pour obtenir l'URL du dashboard selon le rôle (depuis login.js)
 function getDashboardUrlForRole(role) {
     const roleMap = {
-        'admin': 'admin-dashboard.html',
+        // Profils internes MHC → tableau de bord back-office unifié
+        'admin': 'bo-dashboard.html',
+        'superviseur_technique': 'bo-dashboard.html',
+        'superviseur_affaires_medicales': 'bo-dashboard.html',
+        'superviseur_comptable': 'bo-dashboard.html',
+        'production_agent': 'bo-dashboard.html',
+        'agent_conformite_production': 'bo-dashboard.html',
+        'agent_conformite_sinistre': 'bo-dashboard.html',
+        'agent_conformite_medical': 'bo-dashboard.html',
+        'agent_conformite_comptable': 'bo-dashboard.html',
+        'agent_medical_mhc': 'bo-dashboard.html',
+        'agent_sinistre_mh': 'bo-dashboard.html',
+        'agent_comptable_mh': 'bo-dashboard.html',
+        'assistant_souscription': 'courtier-production.html',
+        'medecin_referent_mh': 'bo-dashboard.html',
+        // Portails partenaires
         'doctor': 'doctor-dashboard.html',
         'hospital_admin': 'hospital-dashboard.html',
-        'finance_manager': 'finance-dashboard.html',
-        'sos_operator': 'sos-dashboard.html',
+        'medecin_hopital': 'hospital-doctor.html',
+        'agent_reception_hopital': 'hospital-reception.html',
+        'agent_comptable_hopital': 'hospital-invoices.html',
+        'agent_comptable_assureur': 'assureur-accounting.html',
+        'agent_comptable_courtier': 'accounting-portal.html',
+        'agent_production_assureur': 'assureur-production.html',
+        'agent_production_courtier': 'courtier-production.html',
+        'agent_sinistre_assureur': 'assureur-sinistres.html',
+        'agent_sinistre_courtier': 'courtier-sinistres.html',
+        'agent_medical_assureur': 'assureur-production.html',
+        'agent_verificateur_reassureur': 'reassureur-portal.html',
         'user': 'user-dashboard.html'
     };
     return roleMap[role] || 'index.html';

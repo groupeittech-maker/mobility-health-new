@@ -127,6 +127,7 @@ async function fillFormForEdit(c) {
     if ($('adresse')) $('adresse').value = c.adresse || '';
     if ($('formTitle')) $('formTitle').textContent = `Modifier ${c.nom}`;
     updateLogoPreview(c);
+    openCourtierModal();
 }
 
 function upsertCourtierLocal(saved) {
@@ -165,6 +166,16 @@ function resetForm() {
     if ($('adresse')) $('adresse').value = '';
     if ($('formTitle')) $('formTitle').textContent = 'Nouveau courtier';
     updateLogoPreview(null);
+}
+
+function openCourtierModal() {
+    const m = $('courtierModal');
+    if (m) m.classList.add('open');
+}
+
+function closeCourtierModal() {
+    const m = $('courtierModal');
+    if (m) m.classList.remove('open');
 }
 
 function courtierLogoUrl(courtier) {
@@ -232,6 +243,9 @@ function renderAssureursOptions() {
 }
 
 function renderList() {
+    const canEdit = window.MhPermissions
+        ? window.MhPermissions.can('comptes_intermediaires', 'edition')
+        : true;
     const q = $('searchInput').value.trim().toLowerCase();
     const aid = $('assureurFilter').value;
     const filtered = courtiers.filter((c) => {
@@ -240,11 +254,24 @@ function renderList() {
         return byName && byAss;
     });
     if (!filtered.length) {
-        $('listMount').innerHTML = '<p class="text-muted">Aucun courtier.</p>';
+        $('listMount').innerHTML = '<p class="text-muted" style="padding:1rem;">Aucun courtier.</p>';
         return;
     }
     $('listMount').innerHTML = `
-        <div class="courtiers-grid">
+        <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+            <thead>
+                <tr>
+                    <th>Courtier</th>
+                    <th>Pays</th>
+                    <th>Assureur</th>
+                    <th>Commission</th>
+                    <th>Téléphone</th>
+                    <th>Comptable courtier</th>
+                    <th>Adresse</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
             ${filtered
                 .map((c) => {
                     const assureur = assureurs.find((a) => a.id === c.assureur_id);
@@ -254,7 +281,7 @@ function renderList() {
                     const assureurNom = escapeHtml(assureur ? assureur.nom : (c.assureur_id || '—'));
                     const telephone = escapeHtml(c.telephone || '—');
                     const adresse = escapeHtml(c.adresse || '—');
-                    const commission = `${Number(c.commission_pct || 0).toFixed(2)}%`;
+                    const commission = `${Number(c.commission_pct || 0).toFixed(2)} %`;
                     const comptable = comptablesCourtiers.find((u) => Number(u.id) === Number(c.agent_comptable_id));
                     const comptableLabel = escapeHtml(
                         comptable
@@ -265,48 +292,27 @@ function renderList() {
                             : (c.agent_comptable_id ? `#${c.agent_comptable_id}` : 'Non affecté'),
                     );
                     const fallback = escapeHtml((c.nom || '?').trim().charAt(0).toUpperCase() || '?');
+                    const logo = logoUrl
+                        ? `<img src="${logoUrl}?_ts=${Date.now()}" alt="" style="width:26px;height:26px;border-radius:6px;object-fit:cover;">`
+                        : `<span style="display:inline-grid;place-items:center;width:26px;height:26px;border-radius:6px;background:#efeaf9;color:#4e267c;font-weight:700;font-size:.72rem;">${fallback}</span>`;
                     return `
-                        <article class="courtier-card">
-                            <div class="courtier-card__header">
-                                <div class="courtier-card__brand">
-                                    <div class="courtier-card__logo">
-                                        ${logoUrl
-                                            ? `<img src="${logoUrl}?_ts=${Date.now()}" alt="Logo ${nom}">`
-                                            : `<span>${fallback}</span>`}
-                                    </div>
-                                    <div class="courtier-card__identity">
-                                        <h4>${nom}</h4>
-                                        <p>${pays}</p>
-                                    </div>
-                                </div>
-                                <div class="courtier-card__commission">${commission}</div>
-                            </div>
-                            <div class="courtier-card__meta">
-                                <div class="courtier-card__meta-item">
-                                    <span>Assureur</span>
-                                    <strong>${assureurNom}</strong>
-                                </div>
-                                <div class="courtier-card__meta-item">
-                                    <span>Téléphone</span>
-                                    <strong>${telephone}</strong>
-                                </div>
-                                <div class="courtier-card__meta-item">
-                                    <span>Comptable courtier</span>
-                                    <strong>${comptableLabel}</strong>
-                                </div>
-                                <div class="courtier-card__meta-item courtier-card__meta-item--full">
-                                    <span>Adresse</span>
-                                    <strong>${adresse}</strong>
-                                </div>
-                            </div>
-                            <div class="courtier-card__actions">
-                                <button class="btn btn-sm btn-outline" data-edit="${c.id}">Modifier</button>
-                                <button class="btn btn-sm btn-danger" data-delete="${c.id}">Supprimer</button>
-                            </div>
-                        </article>`;
+                        <tr>
+                            <td><div style="display:flex;align-items:center;gap:.55rem;">${logo}<strong>${nom}</strong></div></td>
+                            <td>${pays}</td>
+                            <td>${assureurNom}</td>
+                            <td>${commission}</td>
+                            <td>${telephone}</td>
+                            <td>${comptableLabel}</td>
+                            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${adresse}">${adresse}</td>
+                            <td>
+                                ${canEdit ? `<button class="act" data-edit="${c.id}" style="color:#6c5ce7;font-size:.76rem;font-weight:600;background:none;border:none;cursor:pointer;margin-right:.6rem;">Modifier</button>
+                                <button class="act" data-delete="${c.id}" style="color:#c81e1e;font-size:.76rem;font-weight:600;background:none;border:none;cursor:pointer;">Supprimer</button>` : '—'}
+                            </td>
+                        </tr>`;
                 })
                 .join('')}
-        </div>`;
+            </tbody>
+        </table>`;
     document.querySelectorAll('[data-edit]').forEach((btn) => {
         btn.addEventListener('click', () => {
             const id = Number(btn.getAttribute('data-edit'));
@@ -349,7 +355,12 @@ async function refresh() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    $('newCourtierBtn').addEventListener('click', resetForm);
+    $('newCourtierBtn')?.addEventListener('click', () => { resetForm(); openCourtierModal(); });
+    $('courtierModalClose')?.addEventListener('click', closeCourtierModal);
+    $('courtierModalCancel')?.addEventListener('click', closeCourtierModal);
+    $('courtierModal')?.addEventListener('click', (e) => {
+        if (e.target === $('courtierModal')) closeCourtierModal();
+    });
     $('searchInput').addEventListener('input', renderList);
     $('assureurFilter').addEventListener('change', renderList);
     $('courtierForm').addEventListener('submit', async (e) => {
@@ -378,6 +389,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderList();
             showAlert('Courtier enregistré.', 'success');
             resetForm();
+            closeCourtierModal();
             await refresh();
         } catch (err) {
             if ((err.message || '').toLowerCase().includes('existe déjà')) {

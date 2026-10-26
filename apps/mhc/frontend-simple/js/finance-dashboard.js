@@ -1,13 +1,13 @@
-// Vérifier l'authentification et le rôle finance_manager
+// Vérifier l'authentification et la permission sur les flux financiers
 (async function() {
-    if (typeof requireRole === 'undefined') {
-        console.error('requireRole n\'est pas défini. Vérifiez que auth.js est chargé avant ce script.');
+    if (typeof requirePermission === 'undefined') {
+        console.error('requirePermission n\'est pas défini. Vérifiez que auth.js est chargé avant ce script.');
         window.location.href = 'login.html';
         return;
     }
-    const isValid = await requireRole('finance_manager', 'index.html');
+    const isValid = await requirePermission('encaissement_prime', 'consultation', 'bo-dashboard.html');
     if (!isValid) {
-        return; // requireRole() a déjà redirigé
+        return; // requirePermission() a déjà redirigé
     }
 })();
 

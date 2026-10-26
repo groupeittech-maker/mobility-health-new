@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inscription - Mobility Health</title>
+    <title>Inscription - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
         .password-strength {
@@ -143,6 +143,7 @@
 <body>
     <main class="auth-shell">
         <div class="auth-card">
+            <a href="login.html" style="display:inline-flex;align-items:center;gap:0.35rem;color:var(--secondary-color);text-decoration:none;font-size:0.9rem;font-weight:600;margin-bottom:0.5rem;">&#8592; Retour</a>
             <div class="auth-logo">
                 <img src="assets/logo_mobility_healthcare_officiel.png?v=3" alt="Mobility HealthCare">
             </div>
@@ -208,6 +209,22 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="canal_verification">Recevoir le code de vérification par <span style="color: var(--danger-color);">*</span></label>
+                    <select id="canal_verification" name="canal_verification" required>
+                        <option value="email" selected>📧 E-mail</option>
+                        <option value="whatsapp">💬 WhatsApp</option>
+                        <option value="sms">📱 SMS</option>
+                    </select>
+                    <small style="color: var(--secondary-color);">Le code à 6 chiffres vous sera envoyé sur ce canal.</small>
+                </div>
+
+                <div class="form-group" id="whatsappGroup" style="display:none;">
+                    <label for="numero_whatsapp">Numéro WhatsApp</label>
+                    <input type="tel" id="numero_whatsapp" name="numero_whatsapp" placeholder="+221 77 123 45 67" autocomplete="tel">
+                    <small style="color: var(--secondary-color);">Si différent de votre téléphone — sinon laissez vide.</small>
+                </div>
+
+                <div class="form-group">
                     <label for="pays_residence">Pays de résidence</label>
                     <div class="country-search-container">
                         <input type="text" id="pays_residence" name="pays_residence" class="country-search-input" placeholder="Rechercher un pays..." autocomplete="off">
@@ -223,8 +240,17 @@
                     </div>
                 </div>
 
+                <h3 class="form-section-title" style="margin-top:0.5rem;">Personne à contacter en cas d'urgence</h3>
                 <div class="form-group">
-                    <label for="contact_urgence">Personne à contacter en cas d'urgence</label>
+                    <label for="contact_urgence_nom">Nom</label>
+                    <input type="text" id="contact_urgence_nom" name="contact_urgence_nom" placeholder="Nom du contact" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="contact_urgence_prenom">Prénom</label>
+                    <input type="text" id="contact_urgence_prenom" name="contact_urgence_prenom" placeholder="Prénom du contact" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="contact_urgence">Numéro de téléphone</label>
                     <input type="tel" id="contact_urgence" name="contact_urgence" placeholder="Ex. +33 6 12 34 56 78" autocomplete="tel">
                     <small style="color: var(--secondary-color);">Numéro de téléphone de la personne à joindre en cas d'urgence</small>
                 </div>
@@ -263,7 +289,7 @@
         </div>
     </main>
 
-    <script src="js/api.js?v=20261007"></script>
+    <script src="js/api.js?v=20261013"></script>
     <script src="js/countries.js"></script>
     <script src="js/register.js?v=20260906-1"></script>
 </body>

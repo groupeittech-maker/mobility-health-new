@@ -26,6 +26,7 @@ class ProjetVoyageBase(BaseModel):
     mineurs: Optional[List[MineurEntry]] = None
     budget_estime: Optional[Decimal] = None
     questionnaire_type: QuestionnaireType = QuestionnaireType.LONG
+    user_id: Optional[int] = None  # voyageur cible — souscription pour un tiers
 
 
 class ProjetVoyageCreate(ProjetVoyageBase):

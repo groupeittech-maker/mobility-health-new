@@ -88,7 +88,7 @@
             }
         }
     </style>
-    <link rel="stylesheet" href="css/backoffice.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
 </head>
 <body data-backoffice>
     <nav class="navbar">
@@ -119,7 +119,7 @@
                 <p>Gérez les pays et villes de destination pris en charge par l'application.</p>
                 <p class="text-muted" style="max-width:52rem;">Le champ <strong>nom</strong> de chaque pays est celui affiché dans les formulaires de voyage et utilisé pour le rapprochement du devis lorsque l’identifiant pays n’est pas transmis. Après toute modification des noms, vérifiez les liaisons dans <a href="admin-tarification.html">Tarification</a> (zones <code>INTRA_AFRIQUE</code>, <code>RSA_MAGHREB</code>, <code>EXTRA_AFRIQUE</code>, <code>INTER_AFRIQUE</code>).</p>
             </div>
-            <button class="btn btn-primary" onclick="showCountryModal()">Ajouter un pays</button>
+            <button class="btn btn-primary" onclick="showCountryModal()" data-requires-permission="comptes_produits:edition">Ajouter un pays</button>
         </div>
 
         <div class="filter-section">
@@ -135,7 +135,7 @@
             <div class="countries-section">
                 <div class="section-header">
                     <h3>Pays de destination</h3>
-                    <button class="btn btn-sm btn-primary" onclick="showCountryModal()">+ Ajouter</button>
+                    <button class="btn btn-sm btn-primary" onclick="showCountryModal()" data-requires-permission="comptes_produits:edition">+ Ajouter</button>
                 </div>
                 <label for="searchCountries" class="sr-only">Rechercher un pays</label>
                 <input type="search" id="searchCountries" class="search-input" placeholder="Rechercher par nom ou code..." style="margin-bottom: 1rem; max-width: 100%;" aria-label="Rechercher dans les pays">
@@ -148,7 +148,7 @@
             <div class="cities-section">
                 <div class="section-header">
                     <h3>Villes</h3>
-                    <button class="btn btn-sm btn-primary" onclick="showCityModal()" id="addCityBtn" disabled>+ Ajouter</button>
+                    <button class="btn btn-sm btn-primary" onclick="showCityModal()" id="addCityBtn" disabled data-requires-permission="comptes_produits:edition">+ Ajouter</button>
                 </div>
                 <label for="searchCities" class="sr-only">Rechercher une ville</label>
                 <input type="search" id="searchCities" class="search-input" placeholder="Rechercher une ville..." style="margin-bottom: 1rem; max-width: 100%; display: none;" aria-label="Rechercher dans les villes">
@@ -237,6 +237,11 @@
                     </label>
                 </div>
                 <div class="form-group">
+                    <label for="cityMedecinConseil">Médecin-conseil (dossiers de cette ville)</label>
+                    <select id="cityMedecinConseil"></select>
+                    <small class="field-hint">Sinon hérite du médecin-conseil du pays.</small>
+                </div>
+                <div class="form-group">
                     <label for="cityNotes">Notes</label>
                     <textarea id="cityNotes" rows="3" maxlength="500" placeholder="Notes optionnelles"></textarea>
                 </div>
@@ -248,11 +253,11 @@
         </div>
     </div>
 
-    <script src="js/api.js?v=20261007"></script>
-    <script src="js/auth.js?v=2"></script>
-    <script src="js/admin-destinations.js?v=2"></script>
-    <script src="js/permissions.js?v=2"></script>
-    <script src="js/backoffice-nav.js?v=2"></script>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/admin-destinations.js?v=4"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
 </body>
 </html>
 

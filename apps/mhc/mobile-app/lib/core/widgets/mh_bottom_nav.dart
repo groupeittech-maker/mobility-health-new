@@ -22,36 +22,44 @@ class MhBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, -2)),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SafeArea(
-            top: false,
-            bottom: false,
-            child: SizedBox(
-              height: 64,
-              child: Row(
-                children: [
-                  _item(MhNavTab.accueil, Icons.home_rounded, 'Accueil'),
-                  _item(MhNavTab.souscription, Icons.verified_user_outlined, 'Souscription'),
-                  _sosItem(),
-                  _item(MhNavTab.teleconsultation, Icons.medical_services_outlined, 'Téléconsult.'),
-                  _item(MhNavTab.hopitaux, Icons.local_hospital_outlined, 'Hôpitaux'),
-                ],
+    // Barre « flottante » façon WhatsApp : pill arrondie détachée du bas,
+    // onglet actif surligné en lavande, bande MHC en dessous.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(32),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 16,
+                  offset: Offset(0, 6),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(32),
+              child: SizedBox(
+                height: 64,
+                child: Row(
+                  children: [
+                    _item(MhNavTab.accueil, Icons.home_rounded, 'Accueil'),
+                    _item(MhNavTab.souscription, Icons.verified_user_outlined, 'Souscription'),
+                    _sosItem(),
+                    _item(MhNavTab.teleconsultation, Icons.medical_services_outlined, 'Téléconsult.'),
+                    _item(MhNavTab.hopitaux, Icons.local_hospital_outlined, 'Hôpitaux'),
+                  ],
+                ),
               ),
             ),
           ),
-          const MhStripe(),
-          SizedBox(height: MediaQuery.of(context).padding.bottom),
-        ],
-      ),
+        ),
+        const MhStripe(),
+      ],
     );
   }
 
@@ -63,23 +71,27 @@ class MhBottomNav extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 24, color: AppColors.secondary),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFFEDE9FE)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Icon(icon, size: 24, color: AppColors.secondary),
+            ),
             const SizedBox(height: 3),
             Text(
               label,
-              style: const TextStyle(fontSize: 9.5, color: AppColors.secondary),
+              style: TextStyle(
+                fontSize: 9.5,
+                color: AppColors.secondary,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              height: 3,
-              width: selected ? 34 : 0,
-              decoration: BoxDecoration(
-                color: AppColors.secondary,
-                borderRadius: BorderRadius.circular(2),
-              ),
             ),
           ],
         ),

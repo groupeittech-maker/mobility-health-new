@@ -1,19 +1,25 @@
-/* UI des avenants de police (suspension / réémission) — côté assuré et assureur. */
+/* Actions sur une police (workflow MyMHC V3) : annulation, modification, prorogation.
+ * Une seule demande en cours par attestation : les autres actions sont désactivées
+ * tant qu'une modification / prorogation attend le paiement de son complément. */
 
-const AVENANT_STATUT_LABELS = {
-    demande: 'En attente de validation',
-    valide: 'Validée',
-    refuse: 'Refusée',
-    emis: 'Émis',
-};
 const AVENANT_TYPE_LABELS = {
-    suspension: 'Avenant de suspension',
-    reemission: 'Avenant de réémission',
     annulation: "Avenant d'annulation",
+    modification: 'Avenant de modification',
+    prorogation: 'Avenant de prorogation',
+};
+const AVENANT_STATUT_LABELS = {
+    attente_paiement: 'En attente du paiement du complément',
+    emis: 'Émis',
+    abandonne: 'Abandonné',
+};
+const RISTOURNE_STATUT_LABELS = { a_rembourser: 'Remboursement en cours', rembourse: 'Remboursé' };
+const ACTION_PAYMENT_TYPES = {
+    mobile_money_mtn: 'Mobile Money MTN',
+    mobile_money_airtel: 'Airtel Money',
+    carte_bancaire: 'Carte bancaire',
 };
 
-let _avenantCatalog = null;
-let _suspensionSubscription = null;
+let _policyState = { subscription: null, info: null, action: null, simulation: null, avenant: null };
 
 function _esc(s) {
     return String(s == null ? '' : s)
@@ -21,241 +27,319 @@ function _esc(s) {
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-async function loadAvenantCatalog() {
-    if (_avenantCatalog) return _avenantCatalog;
-    _avenantCatalog = await apiCall('/avenants/catalogue');
-    return _avenantCatalog;
+function _money(v, devise) {
+    const n = Number(v || 0);
+    return `${n.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} ${devise || 'FCFA'}`;
 }
 
-/* ------------------------- Côté assuré : demande ------------------------- */
+function _fmtDate(v) {
+    if (!v) return '—';
+    const d = new Date(v);
+    return isNaN(d) ? String(v) : d.toLocaleDateString('fr-FR');
+}
 
-async function showSuspensionModal(subscription) {
-    _suspensionSubscription = subscription;
-    const modal = document.getElementById('suspensionModal');
-    if (!modal) return;
-    const motifsBox = document.getElementById('suspensionMotifs');
-    const piecesBox = document.getElementById('suspensionPieces');
-    const autreGroup = document.getElementById('suspensionAutreGroup');
-    const autreInput = document.getElementById('suspensionMotifAutre');
-    const confirmBtn = document.getElementById('confirmSuspensionBtn');
+function _isoDay(v) {
+    const d = v ? new Date(v) : new Date();
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
 
-    if (autreInput) autreInput.value = '';
-    if (autreGroup) autreGroup.style.display = 'none';
+function _addDays(iso, days) {
+    const d = new Date(`${iso}T00:00:00`);
+    d.setDate(d.getDate() + days);
+    return _isoDay(d);
+}
 
+/* ------------------------------ Chargement ------------------------------ */
+
+async function renderPolicyActions(subscription, containerEl) {
+    _policyState.subscription = subscription;
+    let info;
     try {
-        const catalog = await loadAvenantCatalog();
-        motifsBox.innerHTML = Object.entries(catalog.motifs || {}).map(([key, label]) => `
-            <label style="display:flex;gap:0.5rem;align-items:flex-start;margin:0.3rem 0;text-align:left;">
-                <input type="checkbox" class="suspension-motif" value="${_esc(key)}" style="margin-top:0.2rem;flex:0 0 auto;">
-                <span style="flex:1;">${_esc(label)}</span>
-            </label>`).join('');
-        piecesBox.innerHTML = Object.entries(catalog.pieces || {}).map(([key, label]) => `
-            <label style="display:flex;gap:0.5rem;align-items:flex-start;margin:0.3rem 0;text-align:left;">
-                <input type="checkbox" class="suspension-piece" value="${_esc(key)}" style="margin-top:0.2rem;flex:0 0 auto;">
-                <span style="flex:1;">${_esc(label)}</span>
-            </label>`).join('');
-        // Afficher la zone « préciser » si « autre » est coché
-        motifsBox.querySelectorAll('.suspension-motif').forEach((cb) => {
-            cb.addEventListener('change', () => {
-                const autreChecked = motifsBox.querySelector('.suspension-motif[value="autre"]')?.checked;
-                if (autreGroup) autreGroup.style.display = autreChecked ? 'block' : 'none';
-            });
-        });
+        info = await apiCall(`/subscriptions/${subscription.id}/actions`);
     } catch (e) {
-        motifsBox.innerHTML = `<div class="alert alert-error">${_esc(e.message || 'Erreur de chargement des motifs')}</div>`;
+        console.warn('Actions police indisponibles :', e);
+        return;
     }
+    _policyState.info = info;
+    _renderActionButtons(info);
+    if (containerEl) containerEl.innerHTML = _sectionHtml(info);
+}
 
-    if (confirmBtn) {
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Envoyer la demande';
-        confirmBtn.onclick = submitSuspensionRequest;
-    }
+function _renderActionButtons(info) {
+    const buttons = {
+        annulation: document.getElementById('annulationBtn'),
+        modification: document.getElementById('modificationBtn'),
+        prorogation: document.getElementById('prorogationBtn'),
+    };
+    const statut = info.statut_souscription;
+    const visible = !['resiliee', 'refusee', 'expiree', 'en_attente', 'pending'].includes(statut);
+    Object.entries(buttons).forEach(([action, btn]) => {
+        if (!btn) return;
+        const state = info.actions[action] || {};
+        // L'annulation reste proposée avant paiement (validation en attente) ;
+        // modification et prorogation n'ont de sens que sur une police active.
+        const show = visible && (action === 'annulation' || statut === 'active');
+        btn.style.display = show ? 'inline-block' : 'none';
+        btn.disabled = !state.disponible;
+        btn.title = state.disponible ? '' : (state.motif || '');
+        btn.onclick = () => openPolicyActionModal(action);
+    });
+}
+
+function _sectionHtml(info) {
+    const pending = info.action_en_cours;
+    const pendingHtml = pending ? `
+        <div class="alert alert-info" style="margin-bottom:0.8rem;">
+            <strong>Demande en cours : ${_esc(AVENANT_TYPE_LABELS[pending.type_avenant] || pending.type_avenant)}</strong>
+            <div>Nouvelles dates : du ${_fmtDate(pending.nouvelle_date_debut)} au ${_fmtDate(pending.nouvelle_date_fin)}</div>
+            <div>Complément de prime à régler : <strong>${_money(pending.montant_ajustement)}</strong></div>
+            <div class="muted-text">Les autres actions sur cette attestation sont désactivées jusqu'à la clôture de la demande.</div>
+            <div style="margin-top:0.5rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
+                <button class="btn btn-primary btn-sm" onclick="openAvenantPaymentModal(${pending.id})">Payer le complément</button>
+                <button class="btn btn-outline btn-sm" onclick="abandonAvenant(${pending.id})">Renoncer à la demande</button>
+            </div>
+        </div>` : '';
+
+    const avenants = (info.avenants || []).filter((a) => a.statut !== 'attente_paiement');
+    const avenantRows = avenants.map((a) => `
+        <li class="card-item" style="margin-bottom:0.6rem;">
+            <strong>${_esc(AVENANT_TYPE_LABELS[a.type_avenant] || a.type_avenant)}</strong>
+            <div class="muted-text">${a.statut === 'emis' ? `N° ${_esc(a.numero)} • ` : ''}${_esc(AVENANT_STATUT_LABELS[a.statut] || a.statut)}</div>
+            ${a.type_avenant !== 'annulation' && a.statut === 'emis'
+                ? `<div class="muted-text">Couverture : du ${_fmtDate(a.nouvelle_date_debut)} au ${_fmtDate(a.nouvelle_date_fin)}</div>` : ''}
+            ${a.statut === 'emis' ? `<div style="margin-top:0.4rem;">
+                <a class="btn btn-outline btn-sm" href="#" onclick="return openPolicyPdf(event, '/avenants/${a.id}/download')">Télécharger l'avenant</a>
+            </div>` : ''}
+        </li>`).join('');
+
+    const ristourneRows = (info.ristournes || []).map((r) => `
+        <li class="card-item" style="margin-bottom:0.6rem;">
+            <strong>Remboursement de ${_money(r.montant_total, r.devise)}</strong>
+            <div class="muted-text">${_esc(RISTOURNE_STATUT_LABELS[r.statut] || r.statut)}${r.numero ? ` • Quittance N° ${_esc(r.numero)}` : ''}</div>
+            <div class="muted-text">${_esc(r.motif || '')}</div>
+            ${r.statut === 'rembourse' ? `<div style="margin-top:0.4rem;">
+                <a class="btn btn-outline btn-sm" href="#" onclick="return openPolicyPdf(event, '/ristournes/${r.id}/download')">Quittance de ristourne</a>
+            </div>` : ''}
+        </li>`).join('');
+
+    if (!pendingHtml && !avenantRows && !ristourneRows) return '';
+    return `
+        <div class="detail-section">
+            <h3>Actions sur la police</h3>
+            ${pendingHtml}
+            ${avenantRows ? `<ul style="list-style:none;padding:0;">${avenantRows}</ul>` : ''}
+            ${ristourneRows ? `<h4 style="margin-top:0.8rem;">Remboursements</h4><ul style="list-style:none;padding:0;">${ristourneRows}</ul>` : ''}
+        </div>`;
+}
+
+/* -------------------------------- Modale -------------------------------- */
+
+function _modal() { return document.getElementById('policyActionModal'); }
+
+function _openModal(title, subtitle, bodyHtml, actionsHtml) {
+    const modal = _modal();
+    if (!modal) return;
+    document.getElementById('policyActionTitle').textContent = title;
+    document.getElementById('policyActionSubtitle').textContent = subtitle || '';
+    document.getElementById('policyActionBody').innerHTML = bodyHtml;
+    document.getElementById('policyActionActions').innerHTML = actionsHtml;
     modal.classList.add('show');
     document.body.style.overflow = 'hidden';
-    modal.onclick = (e) => { if (e.target === modal) closeSuspensionModal(); };
+    modal.onclick = (e) => { if (e.target === modal) closePolicyActionModal(); };
 }
 
-function closeSuspensionModal() {
-    const modal = document.getElementById('suspensionModal');
-    if (modal) {
-        modal.classList.remove('show');
-        document.body.style.overflow = '';
+function closePolicyActionModal() {
+    const modal = _modal();
+    if (modal) modal.classList.remove('show');
+    document.body.style.overflow = '';
+    _policyState.action = null;
+    _policyState.simulation = null;
+}
+
+function openPolicyActionModal(action) {
+    const sub = _policyState.subscription;
+    const maxDays = (_policyState.info && _policyState.info.duree_max_jours) || 92;
+    const today = _isoDay();
+    const start = _isoDay(sub.date_debut);
+    const end = _isoDay(sub.date_fin);
+    _policyState.action = action;
+    _policyState.simulation = null;
+
+    const cancelBtn = '<button type="button" class="btn btn-secondary" onclick="closePolicyActionModal()">Fermer</button>';
+    const simulateBtn = '<button type="button" class="btn btn-primary" id="policySimulateBtn" onclick="simulatePolicyAction()">Calculer</button>';
+    const motif = `<div class="form-group"><label for="policyMotif">Motif (optionnel)</label>
+        <textarea id="policyMotif" rows="2" class="form-control"></textarea></div>`;
+
+    if (action === 'annulation') {
+        _openModal(
+            'Annuler la police',
+            "L'annulation est définitive. Elle n'est possible qu'avant la date d'effet de la police.",
+            `${motif}<div id="policySimulation"></div>`,
+            cancelBtn + simulateBtn,
+        );
+        simulatePolicyAction();
+    } else if (action === 'modification') {
+        _openModal(
+            'Modifier les dates de couverture',
+            `Avant la date d'effet uniquement. Durée totale maximale : ${maxDays} jours. La prime est recalculée au prorata.`,
+            `<div class="form-group"><label for="policyNewStart">Nouvelle date de début</label>
+                <input type="date" id="policyNewStart" class="form-control" min="${today}" value="${start}"></div>
+             <div class="form-group"><label for="policyNewEnd">Nouvelle date de fin</label>
+                <input type="date" id="policyNewEnd" class="form-control" min="${today}" value="${end}"></div>
+             ${motif}<div id="policySimulation"></div>`,
+            cancelBtn + simulateBtn,
+        );
+        const startInput = document.getElementById('policyNewStart');
+        const endInput = document.getElementById('policyNewEnd');
+        const syncMax = () => { endInput.max = _addDays(startInput.value || today, maxDays); };
+        startInput.addEventListener('change', syncMax);
+        syncMax();
+    } else {
+        _openModal(
+            'Prolonger la police',
+            `Jusqu'à la date de fin de couverture initiale. Durée totale maximale : ${maxDays} jours. Prime complémentaire au prorata.`,
+            `<div class="form-group"><label for="policyNewEnd">Nouvelle date de fin de couverture</label>
+                <input type="date" id="policyNewEnd" class="form-control" min="${_addDays(end, 1)}" max="${_addDays(start, maxDays)}" value="${_addDays(end, 1)}"></div>
+             ${motif}<div id="policySimulation"></div>`,
+            cancelBtn + simulateBtn,
+        );
     }
 }
 
-async function submitSuspensionRequest() {
-    const subscription = _suspensionSubscription;
-    if (!subscription) return;
-    const confirmBtn = document.getElementById('confirmSuspensionBtn');
-    const motifs = Array.from(document.querySelectorAll('.suspension-motif:checked')).map((c) => c.value);
-    const pieces = Array.from(document.querySelectorAll('.suspension-piece:checked')).map((c) => c.value);
-    const motifAutre = (document.getElementById('suspensionMotifAutre')?.value || '').trim();
+function _actionPayload(confirm) {
+    const payload = { confirmer: confirm, motif: (document.getElementById('policyMotif')?.value || '').trim() || null };
+    const startInput = document.getElementById('policyNewStart');
+    const endInput = document.getElementById('policyNewEnd');
+    if (startInput) payload.nouvelle_date_debut = startInput.value;
+    if (endInput) payload.nouvelle_date_fin = endInput.value;
+    return payload;
+}
 
-    if (!motifs.length) {
-        showAlert('Veuillez sélectionner au moins un motif.', 'error');
+async function simulatePolicyAction() {
+    const sub = _policyState.subscription;
+    const action = _policyState.action;
+    const box = document.getElementById('policySimulation');
+    try {
+        const res = await apiCall(`/subscriptions/${sub.id}/actions/${action}`, {
+            method: 'POST',
+            body: JSON.stringify(_actionPayload(false)),
+        });
+        _policyState.simulation = res;
+        const m = res.montants || {};
+        let summary;
+        if (action === 'annulation') {
+            summary = Number(m.total) > 0
+                ? `Montant remboursable : <strong>${_money(m.total)}</strong> (prime ${_money(m.prime)}, taxes ${_money(Number(m.taxes) + Number(m.frais_services))}). Le remboursement est traité séparément par Mobility Health Care.`
+                : "Aucun paiement n'a été effectué : aucun remboursement n'est dû.";
+            summary += `<label style="display:flex;gap:0.5rem;margin-top:0.6rem;"><input type="checkbox" id="policyConfirmCheck">
+                <span>Je confirme vouloir annuler définitivement cette police.</span></label>`;
+        } else if (res.nature_ajustement === 'complement') {
+            summary = `Complément de prime à régler : <strong>${_money(m.total)}</strong>. L'avenant sera émis après paiement.`;
+        } else if (res.nature_ajustement === 'remboursement') {
+            summary = `Remboursement partiel : <strong>${_money(m.total)}</strong>. L'avenant est émis immédiatement, le remboursement est traité séparément.`;
+        } else {
+            summary = "Aucun ajustement de prime : l'avenant est émis immédiatement.";
+        }
+        box.innerHTML = `<div class="alert alert-info">${summary}</div>`;
+        document.getElementById('policyActionActions').innerHTML = `
+            <button type="button" class="btn btn-secondary" onclick="closePolicyActionModal()">Fermer</button>
+            ${action !== 'annulation' ? '<button type="button" class="btn btn-outline" onclick="simulatePolicyAction()">Recalculer</button>' : ''}
+            <button type="button" class="btn ${action === 'annulation' ? 'btn-danger' : 'btn-primary'}" id="policyConfirmBtn" onclick="confirmPolicyAction()">Confirmer</button>`;
+    } catch (e) {
+        box.innerHTML = `<div class="alert alert-error">${_esc(e.message || 'Action impossible.')}</div>`;
+    }
+}
+
+async function confirmPolicyAction() {
+    const sub = _policyState.subscription;
+    const action = _policyState.action;
+    if (action === 'annulation' && !document.getElementById('policyConfirmCheck')?.checked) {
+        showAlert("Veuillez cocher la confirmation d'annulation.", 'error');
         return;
     }
-    if (motifs.includes('autre') && !motifAutre) {
-        showAlert('Veuillez préciser le motif « Autre ».', 'error');
-        return;
-    }
-    if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Envoi…'; }
+    const btn = document.getElementById('policyConfirmBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Envoi…'; }
     try {
-        await apiCall(`/subscriptions/${subscription.id}/avenant-suspension`, {
+        const res = await apiCall(`/subscriptions/${sub.id}/actions/${action}`, {
             method: 'POST',
-            body: JSON.stringify({ motifs, pieces, motif_autre: motifAutre || null }),
+            body: JSON.stringify(_actionPayload(true)),
         });
-        showAlert('Demande de suspension envoyée. En attente de validation de l\'assureur.', 'success');
-        closeSuspensionModal();
-        const holder = document.getElementById('avenantsSection');
-        if (holder) await loadAvenantsList(subscription.id, holder);
-    } catch (e) {
-        showAlert(e.message || 'Impossible d\'envoyer la demande de suspension.', 'error');
-    } finally {
-        if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Envoyer la demande'; }
-    }
-}
-
-/* --------------------- Liste des avenants (assuré) ---------------------- */
-
-async function loadAvenantsList(subscriptionId, containerEl) {
-    if (!containerEl) return;
-    try {
-        const avenants = await apiCall(`/subscriptions/${subscriptionId}/avenants`);
-        if (!avenants || !avenants.length) {
-            containerEl.innerHTML = '';
+        if (res.avenant && res.avenant.statut === 'attente_paiement') {
+            openAvenantPaymentModal(res.avenant.id, res.avenant.montant_ajustement);
             return;
         }
-        const rows = avenants.map((a) => {
-            const type = AVENANT_TYPE_LABELS[a.type_avenant] || a.type_avenant;
-            const statut = AVENANT_STATUT_LABELS[a.statut] || a.statut;
-            const canUpload = a.type_avenant === 'suspension' && a.statut === 'demande';
-            return `<li class="card-item" style="margin-bottom:0.6rem;">
-                <strong>${_esc(type)}</strong>
-                <div class="muted-text">N° ${_esc(a.numero)} • ${_esc(statut)}</div>
-                ${_fichiersHtml(a)}
-                <div style="margin-top:0.4rem;">
-                    <a class="btn btn-outline btn-sm" href="${API_BASE_URL}/avenants/${a.id}/download" target="_blank" rel="noopener" onclick="return openAvenantPdf(event, ${a.id})">Télécharger le PDF</a>
-                </div>
-                ${canUpload ? _uploadHtml(a.id) : ''}
-            </li>`;
-        }).join('');
-        containerEl.innerHTML = `
-            <div class="detail-section">
-                <h3>Avenants de la police</h3>
-                <ul style="list-style:none;padding:0;">${rows}</ul>
-            </div>`;
+        showAlert(action === 'annulation' ? 'Votre police est annulée.' : 'Avenant émis.', 'success');
+        closePolicyActionModal();
+        setTimeout(() => window.location.reload(), 800);
     } catch (e) {
-        containerEl.innerHTML = '';
+        showAlert(e.message || 'Action impossible.', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Confirmer'; }
     }
 }
 
-/* --------------------- Côté assureur : décision ------------------------ */
+/* ------------------------- Paiement du complément ------------------------ */
 
-async function renderAssureurSuspensions(containerId) {
-    const el = document.getElementById(containerId);
-    if (!el) return;
-    el.innerHTML = '<p class="muted">Chargement…</p>';
+function openAvenantPaymentModal(avenantId, montant) {
+    const pending = _policyState.info && _policyState.info.action_en_cours;
+    const amount = montant != null ? montant : (pending ? pending.montant_ajustement : null);
+    _policyState.avenant = avenantId;
+    const options = Object.entries(ACTION_PAYMENT_TYPES)
+        .map(([k, v]) => `<option value="${k}">${_esc(v)}</option>`).join('');
+    _openModal(
+        'Payer le complément de prime',
+        "L'avenant est émis dès confirmation du paiement. En cas d'échec, aucune modification n'est appliquée.",
+        `<div class="alert alert-info">Montant : <strong>${_money(amount)}</strong></div>
+         <div class="form-group"><label for="policyPaymentType">Moyen de paiement</label>
+            <select id="policyPaymentType" class="form-control">${options}</select></div>`,
+        `<button type="button" class="btn btn-secondary" onclick="closePolicyActionModal(); window.location.reload();">Plus tard</button>
+         <button type="button" class="btn btn-primary" id="policyPayBtn" onclick="payAvenant()">Payer</button>`,
+    );
+}
+
+async function payAvenant() {
+    const btn = document.getElementById('policyPayBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Paiement…'; }
     try {
-        const list = await apiCall('/avenants?type_avenant=suspension&statut=demande');
-        if (!list || !list.length) {
-            el.innerHTML = '<p class="muted">Aucune demande de suspension en attente.</p>';
+        const res = await apiCall(`/avenants/${_policyState.avenant}/payer`, {
+            method: 'POST',
+            body: JSON.stringify({ payment_type: document.getElementById('policyPaymentType').value, flow: 'checkout' }),
+        });
+        if (res.payment_url) {
+            window.location.href = res.payment_url;
             return;
         }
-        const items = list.map((a) => `
-            <li class="card-item" style="margin-bottom:0.6rem;">
-                <strong>Suspension ${_esc(a.numero)}</strong>
-                <div class="muted-text">Souscription #${_esc(a.souscription_id)} • Motifs : ${_esc((a.motifs || []).join(', '))}${a.motif_autre ? (' — ' + _esc(a.motif_autre)) : ''}</div>
-                <div class="muted-text">Pièces annoncées : ${_esc((a.pieces_jointes || []).join(', ') || '—')}</div>
-                ${_fichiersHtml(a)}
-                <div style="margin-top:0.4rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
-                    <button class="btn btn-primary btn-sm" onclick="decideSuspension(${a.id}, true, '${containerId}')">Valider</button>
-                    <button class="btn btn-outline btn-sm" onclick="decideSuspension(${a.id}, false, '${containerId}')">Refuser</button>
-                    <a class="btn btn-outline btn-sm" href="${API_BASE_URL}/avenants/${a.id}/download" target="_blank" rel="noopener" onclick="return openAvenantPdf(event, ${a.id})">PDF</a>
-                </div>
-            </li>`).join('');
-        el.innerHTML = `<ul style="list-style:none;padding:0;">${items}</ul>`;
-    } catch (e) {
-        el.innerHTML = `<div class="alert alert-error">${_esc(e.message || 'Erreur de chargement')}</div>`;
-    }
-}
-
-async function decideSuspension(avenantId, approve, containerId) {
-    if (!approve && !window.confirm('Refuser cette demande de suspension ?')) return;
-    try {
-        await apiCall(`/avenants/${avenantId}/suspension-decision`, {
-            method: 'POST',
-            body: JSON.stringify({ approve }),
-        });
-        showAlert(approve ? 'Suspension validée — police suspendue.' : 'Suspension refusée.', 'success');
-        renderAssureurSuspensions(containerId);
-    } catch (e) {
-        showAlert(e.message || 'Impossible de traiter la décision.', 'error');
-    }
-}
-
-/* --------------------- Pièces justificatives (upload) ------------------ */
-
-function _fichiersHtml(avenant) {
-    const fichiers = avenant.fichiers || [];
-    if (!fichiers.length) return '';
-    const links = fichiers.map((f, i) =>
-        `<a class="btn btn-outline btn-sm" href="#" onclick="return downloadAvenantPiece(event, ${avenant.id}, ${i})" style="margin:0.15rem;">📎 ${_esc(f.nom || ('pièce ' + (i + 1)))}</a>`
-    ).join('');
-    return `<div class="muted-text" style="margin-top:0.3rem;">Pièces jointes : ${links}</div>`;
-}
-
-function _uploadHtml(avenantId) {
-    return `<div style="margin-top:0.4rem;display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">
-        <input type="file" id="avenantPieceFile-${avenantId}" accept="application/pdf,image/*" style="font-size:0.85rem;">
-        <button class="btn btn-secondary btn-sm" onclick="uploadAvenantPiece(${avenantId})">Ajouter une pièce</button>
-    </div>`;
-}
-
-async function uploadAvenantPiece(avenantId) {
-    const input = document.getElementById(`avenantPieceFile-${avenantId}`);
-    const file = input && input.files && input.files[0];
-    if (!file) { showAlert('Sélectionnez un fichier.', 'error'); return; }
-    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-    const fd = new FormData();
-    fd.append('file', file);
-    try {
-        const res = await fetch(`${API_BASE_URL}/avenants/${avenantId}/pieces`, {
-            method: 'POST',
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-            body: fd,
-        });
-        if (!res.ok) {
-            let msg = 'Échec du téléversement.';
-            try { msg = (await res.json()).detail || msg; } catch (e) {}
-            throw new Error(msg);
+        if (res.avenant && res.avenant.statut === 'emis') {
+            showAlert('Paiement confirmé : avenant émis.', 'success');
+        } else {
+            showAlert('Paiement en cours de traitement. Vous serez notifié de sa confirmation.', 'info');
         }
-        showAlert('Pièce ajoutée.', 'success');
-        const params = new URLSearchParams(window.location.search);
-        const subId = parseInt(params.get('id'), 10);
-        const holder = document.getElementById('avenantsSection');
-        if (subId && holder) await loadAvenantsList(subId, holder);
+        closePolicyActionModal();
+        setTimeout(() => window.location.reload(), 800);
     } catch (e) {
-        showAlert(e.message || 'Échec du téléversement.', 'error');
+        showAlert(e.message || 'Le paiement a échoué.', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Payer'; }
     }
 }
 
-function downloadAvenantPiece(event, avenantId, index) {
-    event.preventDefault();
-    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-    fetch(`${API_BASE_URL}/avenants/${avenantId}/pieces/${index}/download`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-        .then((res) => { if (!res.ok) throw new Error('Fichier indisponible'); return res.blob(); })
-        .then((blob) => window.open(URL.createObjectURL(blob), '_blank', 'noopener'))
-        .catch((err) => showAlert(err.message || 'Impossible d\'ouvrir la pièce.', 'error'));
-    return false;
+async function abandonAvenant(avenantId) {
+    if (!window.confirm('Renoncer à cette demande ? Les autres actions seront de nouveau disponibles.')) return;
+    try {
+        await apiCall(`/avenants/${avenantId}/abandon`, { method: 'POST' });
+        showAlert('Demande abandonnée.', 'success');
+        setTimeout(() => window.location.reload(), 600);
+    } catch (e) {
+        showAlert(e.message || 'Impossible de renoncer à la demande.', 'error');
+    }
 }
 
-function openAvenantPdf(event, avenantId) {
+/* --------------------------------- PDF ---------------------------------- */
+
+function openPolicyPdf(event, path) {
     event.preventDefault();
     const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-    fetch(`${API_BASE_URL}/avenants/${avenantId}/download`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    fetch(`${API_BASE_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
         .then((res) => { if (!res.ok) throw new Error('PDF indisponible'); return res.blob(); })
         .then((blob) => window.open(URL.createObjectURL(blob), '_blank', 'noopener'))
-        .catch((err) => showAlert(err.message || 'Impossible d\'ouvrir le PDF.', 'error'));
+        .catch((err) => showAlert(err.message || "Impossible d'ouvrir le PDF.", 'error'));
     return false;
 }

@@ -23,10 +23,24 @@ from pydantic import BaseModel, Field, ConfigDict
 from app.services.attestation_service import AttestationService
 from app.services.finance_service import FinanceService
 from app.services.notification_service import NotificationService
-from app.services.payment_service import PaymentService
+from app.services.payment_service import (
+    PaymentService,
+    channel_for_payment_type,
+)
+from app.integrations.payment.webhook import (
+    EVENT_STATUS_MAP,
+    verify_signature as verify_afripaie_signature,
+)
+from app.core.config import settings
 from app.services.subscription_decision_service import SubscriptionDecisionEngine
 from app.services.prime_tarif_service import resolve_prime_tarif_detail
 from app.schemas.paiement import AccountingTransaction
+from app.core.permissions import (
+    F_ENCAISSEMENT_PRIME,
+    LEVEL_CONSULTATION,
+    can_act_for_third_party,
+    has_permission,
+)
 import json
 import uuid
 import logging
@@ -52,12 +66,23 @@ ACCOUNTANT_ROLES = {
 }
 
 
+def _role_str(current_user) -> str:
+    role = getattr(current_user, "role", "user")
+    if hasattr(role, "value"):
+        role = role.value
+    return str(role or "user")
+
+
 def require_accountant_role(current_user: User) -> User:
-    if current_user.role not in ACCOUNTANT_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions. Accounting role required.",
-        )
+    if current_user.role in ACCOUNTANT_ROLES:
+        return current_user
+    # Matrice de permissions : consultation de l'encaissement prime
+    if has_permission(_role_str(current_user), F_ENCAISSEMENT_PRIME, LEVEL_CONSULTATION):
+        return current_user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Not enough permissions. Accounting role required.",
+    )
 
 
 def _get_assureur_scope_for_accountant(db: Session, current_user: User) -> Optional[set[int]]:
@@ -101,12 +126,17 @@ class PaymentInitiateRequest(BaseModel):
     subscription_id: int
     amount: Decimal = Field(..., gt=0, description="Montant du paiement")
     payment_type: str = "carte_bancaire"
+    # "checkout" = page de paiement hébergée AfriPaie (web) ;
+    # "direct" = push USSD/OTP sur le téléphone du client (mobile money).
+    flow: str = "checkout"
 
 
 class PaymentInitiateResponse(BaseModel):
     payment_id: int
-    payment_url: str
+    payment_url: Optional[str] = None
     status: str
+    external_reference: Optional[str] = None
+    instructions: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -155,6 +185,9 @@ class PaymentCheckoutResponse(BaseModel):
     payment_id: Optional[int] = None
     payment_status: Optional[StatutPaiement] = None
     amount: Optional[Decimal] = None
+    payment_url: Optional[str] = None
+    external_reference: Optional[str] = None
+    payment_instructions: Optional[str] = None
     attestation_id: Optional[int] = None
     attestation_number: Optional[str] = None
     attestation_url: Optional[str] = None
@@ -179,6 +212,9 @@ class PaymentConfirmResponse(BaseModel):
     subscription_id: int
     subscription_status: str
     amount: Decimal
+    payment_url: Optional[str] = None
+    external_reference: Optional[str] = None
+    payment_instructions: Optional[str] = None
     attestation_id: Optional[int] = None
     attestation_number: Optional[str] = None
     attestation_url: Optional[str] = None
@@ -302,7 +338,7 @@ def process_payment_success(
                         <p><strong>Numéro de souscription:</strong> {subscription.numero_souscription}</p>
                         <p><strong>Montant payé:</strong> {payment.montant} FCFA</p>
                         {f'<p><a href="{attestation_url}">Télécharger votre attestation</a></p>' if attestation_url else ''}
-                        <p>Cordialement,<br>L'équipe Mobility Health</p>
+                        <p>Cordialement,<br>L'équipe Mobility Health Care</p>
                     </body>
                     </html>
                     """
@@ -320,7 +356,7 @@ def process_payment_success(
                     {f'Télécharger votre attestation: {attestation_url}' if attestation_url else ''}
                     
                     Cordialement,
-                    L'équipe Mobility Health
+                    L'équipe Mobility Health Care
                     """
                     
                     if user.email:
@@ -333,7 +369,7 @@ def process_payment_success(
                         )
                     
                     if user.telephone:
-                        sms_message = f"Votre attestation définitive {attestation_number} est prête. Montant: {payment.montant} FCFA. Mobility Health"
+                        sms_message = f"Votre attestation définitive {attestation_number} est prête. Montant: {payment.montant} FCFA. Mobility Health Care"
                         send_sms.delay(
                             to_phone=user.telephone,
                             message=sms_message,
@@ -362,13 +398,11 @@ async def initiate_payment(
     current_user: User = Depends(get_current_user)
 ):
     """Créer un nouveau paiement et renvoyer l'URL de paiement"""
-    # Vérifier que la souscription existe et appartient à l'utilisateur
-    subscription = db.query(Souscription).filter(
-        and_(
-            Souscription.id == request.subscription_id,
-            Souscription.user_id == current_user.id
-        )
-    ).first()
+    # Vérifier que la souscription existe et appartient à l'utilisateur (ou tiers autorisé)
+    query = db.query(Souscription).filter(Souscription.id == request.subscription_id)
+    if not can_act_for_third_party(current_user.role):
+        query = query.filter(Souscription.user_id == current_user.id)
+    subscription = query.first()
     
     if not subscription:
         raise HTTPException(
@@ -376,17 +410,60 @@ async def initiate_payment(
             detail="Subscription not found"
         )
     
+    # Souscription déjà payée/active : message explicite.
+    if subscription.statut == StatutSouscription.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Subscription already paid (souscription déjà payée)"
+        )
+
     # Vérifier que la souscription est prête à payer
     if subscription.statut != StatutSouscription.EN_ATTENTE_PAIEMENT:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La souscription n'est pas en attente de paiement"
         )
-    
+
+    # Mode live : le paiement part chez AfriPaie (page hébergée ou push USSD).
+    if settings.PAYMENT_SERVICE_MODE.lower() == "live" and channel_for_payment_type(request.payment_type):
+        payer = subscription.user if subscription.user_id != current_user.id else current_user
+        payment, info = PaymentService.initiate_payment_intent(
+            db=db,
+            user=payer,
+            subscription=subscription,
+            amount=request.amount,
+            payment_type=request.payment_type,
+            flow=request.flow,
+        )
+
+        log_transaction(
+            db=db,
+            payment_id=payment.id,
+            action="payment_initiated",
+            details={
+                "subscription_id": request.subscription_id,
+                "amount": float(request.amount),
+                "payment_type": request.payment_type,
+                "provider": "afripaie",
+                "external_reference": info.get("external_payment_id"),
+            },
+            user_id=current_user.id,
+            ip_address=http_request.client.host if http_request.client else None,
+            user_agent=http_request.headers.get("user-agent"),
+        )
+
+        return PaymentInitiateResponse(
+            payment_id=payment.id,
+            payment_url=info.get("checkout_url"),
+            status=payment.statut.value,
+            external_reference=info.get("external_payment_id"),
+            instructions=info.get("instructions"),
+        )
+
     # Créer le paiement
     payment = Paiement(
         souscription_id=request.subscription_id,
-        user_id=current_user.id,
+        user_id=subscription.user_id,
         montant=request.amount,
         type_paiement=request.payment_type,
         statut=StatutPaiement.EN_ATTENTE,
@@ -508,6 +585,136 @@ async def payment_webhook(
         return {"status": "pending", "message": "Payment is pending"}
 
 
+def _find_payment_for_afripaie_event(db: Session, data: Dict[str, Any]) -> Optional[Paiement]:
+    """Retrouve le Paiement MHC associé à un événement AfriPaie.
+
+    L'événement porte le paiement AfriPaie (`pay_…`) ; en parcours checkout la
+    référence stockée côté MHC est la session (`cs_…`). On tente donc, dans
+    l'ordre : id externe → metadata.payment_id → référence MHC-SUB-<id>-P<id>.
+    """
+    external_id = str(data.get("id") or "")
+    if external_id:
+        payment = db.query(Paiement).filter(Paiement.reference_externe == external_id).first()
+        if payment:
+            return payment
+
+    metadata = data.get("metadata") or {}
+    internal_id = metadata.get("payment_id")
+    if internal_id and str(internal_id).isdigit():
+        payment = db.query(Paiement).filter(Paiement.id == int(internal_id)).first()
+        if payment:
+            return payment
+
+    reference = str(data.get("reference") or "")
+    if reference.startswith("MHC-SUB-") and "-P" in reference:
+        try:
+            internal_id = int(reference.rsplit("-P", 1)[1])
+        except ValueError:
+            internal_id = 0
+        if internal_id:
+            return db.query(Paiement).filter(Paiement.id == internal_id).first()
+    return None
+
+
+@router.post("/webhooks/afripaie", status_code=status.HTTP_200_OK)
+async def afripaie_webhook(
+    http_request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """Réception des événements AfriPaie (payment.succeeded / failed / expired).
+
+    Signature vérifiée via l'en-tête `Afripaie-Signature` (HMAC-SHA256 sur
+    `t.<corps brut>`). La livraison est « au moins une fois » et sans ordre
+    garanti : on se fie à l'état courant du paiement, pas à la séquence.
+    """
+    raw_body = await http_request.body()
+
+    if settings.PAYMENT_SERVICE_MODE.lower() == "live":
+        if not verify_afripaie_signature(
+            raw_body,
+            http_request.headers.get("afripaie-signature"),
+            settings.PAYMENT_SERVICE_WEBHOOK_SECRET,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Signature webhook invalide",
+            )
+
+    try:
+        event = json.loads(raw_body or b"{}")
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Corps webhook illisible",
+        )
+
+    event_id = http_request.headers.get("afripaie-event-id") or event.get("id")
+    event_type = http_request.headers.get("afripaie-event-type") or event.get("type")
+    data = event.get("data") or {}
+
+    mapped_status = EVENT_STATUS_MAP.get(str(event_type or ""))
+    if not mapped_status:
+        return {"status": "ignored", "event": event_type}
+
+    payment = _find_payment_for_afripaie_event(db, data)
+    if not payment:
+        logger.warning(
+            "Webhook AfriPaie %s : aucun paiement MHC correspondant (ref=%s, id=%s)",
+            event_type, data.get("reference"), data.get("id"),
+        )
+        # 200 : faire réessayer un événement sans correspondance est inutile.
+        return {"status": "unmatched"}
+
+    # En parcours checkout, on avait stocké la session (cs_…) : on retient
+    # l'identifiant du paiement (pay_…) pour les lectures de statut suivantes.
+    external_payment_id = data.get("id")
+    if external_payment_id and payment.reference_externe != external_payment_id:
+        payment.reference_externe = external_payment_id
+        db.commit()
+
+    log_transaction(
+        db=db,
+        payment_id=payment.id,
+        action="afripaie_event",
+        details={
+            "event_id": event_id,
+            "event_type": event_type,
+            "external_reference": external_payment_id,
+            "afripaie_status": data.get("status"),
+        },
+    )
+
+    if mapped_status == "success":
+        # Idempotent : un événement rejoué ne retraite pas un paiement validé.
+        if payment.statut != StatutPaiement.VALIDE:
+            payment.statut = StatutPaiement.EN_COURS
+            db.commit()
+            background_tasks.add_task(
+                PaymentService.process_payment_success,
+                payment_id=payment.id,
+                subscription_id=payment.souscription_id,
+                generate_attestation=True,
+            )
+        return {"status": "processing", "message": "Payment is being processed"}
+
+    # failed / expired : un statut terminal ne doit pas écraser un paiement
+    # déjà validé (les événements peuvent arriver dans le désordre).
+    if payment.statut in {StatutPaiement.EN_ATTENTE, StatutPaiement.EN_COURS}:
+        payment.statut = StatutPaiement.ECHOUE
+        failure = data.get("failure") or {}
+        if failure.get("message"):
+            payment.notes = f"AfriPaie {event_type}: {failure.get('message')}"
+        db.commit()
+        log_transaction(
+            db=db,
+            payment_id=payment.id,
+            action="payment_failed",
+            details={"event_type": event_type, "external_reference": external_payment_id},
+        )
+    return {"status": mapped_status}
+
+
 @router.get("/{payment_id}/status", response_model=PaymentStatusResponse)
 async def get_payment_status(
     payment_id: int,
@@ -527,7 +734,13 @@ async def get_payment_status(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Payment not found"
         )
-    
+
+    # Mode live : synchroniser avec AfriPaie (la lecture fait avancer l'état
+    # côté agrégateur). Sert aussi de filet si le webhook a été manqué.
+    if settings.PAYMENT_SERVICE_MODE.lower() == "live" and payment.reference_externe:
+        PaymentService.sync_external_status(db, payment)
+        db.refresh(payment)
+
     subscription = db.query(Souscription).filter(
         Souscription.id == payment.souscription_id
     ).first()
@@ -883,6 +1096,45 @@ async def checkout_payment(
     # Le dossier est approuvé : créer le paiement et finaliser
     souscription.statut = StatutSouscription.EN_ATTENTE_PAIEMENT
 
+    # Mode live : encaissement réel via AfriPaie — l'attestation et
+    # l'activation seront déclenchées par le webhook payment.succeeded.
+    if settings.PAYMENT_SERVICE_MODE.lower() == "live" and channel_for_payment_type(request.payment_method.value):
+        db.commit()
+        paiement, info = PaymentService.initiate_payment_intent(
+            db=db,
+            user=current_user,
+            subscription=souscription,
+            amount=montant,
+            payment_type=request.payment_method.value,
+            flow="checkout",
+            description=f"Souscription {numero_souscription} — {produit.nom}",
+        )
+        log_transaction(
+            db=db,
+            payment_id=paiement.id,
+            action="checkout_completed",
+            details={
+                "subscription_id": souscription.id,
+                "amount": float(montant),
+                "payment_method": request.payment_method.value,
+                "provider": "afripaie",
+                "external_reference": info.get("external_payment_id"),
+            },
+            user_id=current_user.id,
+        )
+        return PaymentCheckoutResponse(
+            subscription_id=souscription.id,
+            numero_souscription=souscription.numero_souscription,
+            decision="approve",
+            reasons=[],
+            payment_id=paiement.id,
+            payment_status=paiement.statut,
+            amount=montant,
+            payment_url=info.get("checkout_url"),
+            external_reference=info.get("external_payment_id"),
+            payment_instructions=info.get("instructions"),
+        )
+
     paiement = Paiement(
         souscription_id=souscription.id,
         user_id=current_user.id,
@@ -991,15 +1243,13 @@ async def confirm_payment(
     Crée un paiement validé, active la souscription et génère une attestation définitive.
     TOUTES les demandes sont automatiquement validées (pas de vrai processeur de paiement).
     """
-    # Vérifier que la souscription existe et appartient à l'utilisateur
+    # Vérifier que la souscription existe et appartient à l'utilisateur (ou tiers autorisé)
     logger.info(f"Tentative de confirmation de paiement pour souscription_id={request.souscription_id}, user_id={current_user.id}")
     
-    souscription = db.query(Souscription).filter(
-        and_(
-            Souscription.id == request.souscription_id,
-            Souscription.user_id == current_user.id
-        )
-    ).first()
+    query = db.query(Souscription).filter(Souscription.id == request.souscription_id)
+    if not can_act_for_third_party(current_user.role):
+        query = query.filter(Souscription.user_id == current_user.id)
+    souscription = query.first()
     
     if not souscription:
         logger.warning(f"Souscription {request.souscription_id} non trouvée pour l'utilisateur {current_user.id}")
@@ -1087,7 +1337,105 @@ async def confirm_payment(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Le montant ({request.montant}) ne correspond pas au prix de la souscription ({souscription.prix_applique})"
         )
-    
+
+    # ------------------------------------------------------------------ #
+    # Mode live : encaissement réel via AfriPaie (pas d'auto-validation).  #
+    # La souscription ne passe ACTIVE qu'au retour webhook/statut success. #
+    # ------------------------------------------------------------------ #
+    afripaie_channel = channel_for_payment_type(request.methode_paiement)
+    if settings.PAYMENT_SERVICE_MODE.lower() == "live" and afripaie_channel:
+        # Un paiement externe encore ouvert ? On interroge AfriPaie.
+        pending_payment = (
+            db.query(Paiement)
+            .filter(
+                Paiement.souscription_id == souscription.id,
+                Paiement.statut.in_([StatutPaiement.EN_ATTENTE, StatutPaiement.EN_COURS]),
+                Paiement.reference_externe.isnot(None),
+            )
+            .order_by(Paiement.id.desc())
+            .first()
+        )
+        if pending_payment:
+            PaymentService.sync_external_status(db, pending_payment)
+            db.refresh(pending_payment)
+            db.refresh(souscription)
+
+            if pending_payment.statut == StatutPaiement.VALIDE:
+                from app.models.attestation import Attestation
+                attestation = db.query(Attestation).filter(
+                    and_(
+                        Attestation.souscription_id == souscription.id,
+                        Attestation.paiement_id == pending_payment.id,
+                        Attestation.type_attestation == "definitive",
+                    )
+                ).order_by(Attestation.created_at.desc()).first()
+                return PaymentConfirmResponse(
+                    payment_id=pending_payment.id,
+                    payment_status=pending_payment.statut.value,
+                    subscription_id=souscription.id,
+                    subscription_status=souscription.statut.value,
+                    amount=pending_payment.montant,
+                    attestation_id=attestation.id if attestation else None,
+                    attestation_number=attestation.numero_attestation if attestation else None,
+                    attestation_url=attestation.url_signee if attestation else None,
+                )
+
+            if pending_payment.statut in {StatutPaiement.EN_ATTENTE, StatutPaiement.EN_COURS}:
+                # Toujours en cours chez l'agrégateur : le client doit valider
+                # sur son téléphone ou terminer la page de paiement.
+                return PaymentConfirmResponse(
+                    payment_id=pending_payment.id,
+                    payment_status=pending_payment.statut.value,
+                    subscription_id=souscription.id,
+                    subscription_status=souscription.statut.value,
+                    amount=pending_payment.montant,
+                    external_reference=pending_payment.reference_externe,
+                )
+            # ECHOUE → on repart sur une nouvelle tentative ci-dessous.
+
+        # Nouvelle opération AfriPaie : push USSD direct si mobile money avec
+        # téléphone connu, sinon session de paiement hébergée.
+        payer = souscription.user if souscription.user_id != current_user.id else current_user
+        flow = (
+            "direct"
+            if afripaie_channel == "mobile_money" and getattr(payer, "telephone", None)
+            else "checkout"
+        )
+        paiement, info = PaymentService.initiate_payment_intent(
+            db=db,
+            user=payer,
+            subscription=souscription,
+            amount=request.montant,
+            payment_type=request.methode_paiement,
+            flow=flow,
+        )
+        log_transaction(
+            db=db,
+            payment_id=paiement.id,
+            action="payment_confirmed",
+            details={
+                "subscription_id": souscription.id,
+                "amount": float(request.montant),
+                "payment_method": request.methode_paiement,
+                "provider": "afripaie",
+                "flow": flow,
+                "external_reference": info.get("external_payment_id"),
+            },
+            user_id=current_user.id,
+            ip_address=http_request.client.host if http_request.client else None,
+            user_agent=http_request.headers.get("user-agent"),
+        )
+        return PaymentConfirmResponse(
+            payment_id=paiement.id,
+            payment_status=paiement.statut.value,
+            subscription_id=souscription.id,
+            subscription_status=souscription.statut.value,
+            amount=paiement.montant,
+            payment_url=info.get("checkout_url"),
+            external_reference=info.get("external_payment_id"),
+            payment_instructions=info.get("instructions"),
+        )
+
     # Convertir la méthode de paiement en TypePaiement
     try:
         type_paiement = TypePaiement(request.methode_paiement)
@@ -1101,7 +1449,7 @@ async def confirm_payment(
         # Créer le paiement avec statut VALIDE (toutes les demandes sont validées)
         paiement = Paiement(
             souscription_id=request.souscription_id,
-            user_id=current_user.id,
+            user_id=souscription.user_id,
             montant=request.montant,
             type_paiement=type_paiement,
             statut=StatutPaiement.VALIDE,

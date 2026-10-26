@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retour de paiement - Mobility Health Care</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <style>
+        .return-wrap { max-width: 560px; margin: 4rem auto; padding: 0 1rem; }
+        .return-card { text-align: center; }
+        .return-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+        .return-actions { margin-top: 1.5rem; display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    </style>
+</head>
+<body>
+    <div class="return-wrap">
+        <div class="mh-card return-card">
+            <div class="return-icon" id="returnIcon">⏳</div>
+            <h2 id="returnTitle">Vérification du paiement…</h2>
+            <p class="mh-muted" id="returnDetail">Nous confirmons votre paiement auprès de l'opérateur.</p>
+            <div class="return-actions">
+                <a class="btn btn-primary" id="dashboardLink" href="user-dashboard.html" style="display:none;">Voir mon tableau de bord</a>
+                <a class="btn btn-outline" id="retryLink" href="user-dashboard.html" style="display:none;">Retour</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script>
+        (function () {
+            'use strict';
+
+            var icon = document.getElementById('returnIcon');
+            var title = document.getElementById('returnTitle');
+            var detail = document.getElementById('returnDetail');
+            var dashboardLink = document.getElementById('dashboardLink');
+            var retryLink = document.getElementById('retryLink');
+
+            function setState(iconText, titleText, detailText) {
+                icon.textContent = iconText;
+                title.textContent = titleText;
+                detail.textContent = detailText;
+            }
+
+            function showLinks() {
+                dashboardLink.style.display = 'inline-block';
+                retryLink.style.display = 'inline-block';
+            }
+
+            async function pollStatus(paymentId) {
+                var deadline = Date.now() + 60000;
+                while (Date.now() < deadline) {
+                    try {
+                        var s = await apiCall('/payments/' + paymentId + '/status');
+                        if (s.status === 'valide' || s.subscription_status === 'active') {
+                            setState('✅', 'Paiement confirmé', 'Votre attestation d\'assurance est disponible sur votre tableau de bord.');
+                            showLinks();
+                            return;
+                        }
+                        if (s.status === 'echoue' || s.status === 'rembourse') {
+                            setState('❌', 'Paiement non abouti', 'Le paiement a échoué ou expiré. Vous pouvez réessayer depuis votre tableau de bord.');
+                            showLinks();
+                            return;
+                        }
+                    } catch (e) { /* on réessaie : polling tolérant */ }
+                    await new Promise(function (r) { setTimeout(r, 3500); });
+                }
+                setState('⏳', 'Paiement en cours de confirmation', 'La confirmation peut prendre quelques minutes. Vous serez notifié dès qu\'elle est reçue.');
+                showLinks();
+            }
+
+            document.addEventListener('DOMContentLoaded', async function () {
+                var params = new URLSearchParams(window.location.search);
+                var result = params.get('result');
+                var paymentId = params.get('payment_id');
+
+                if (result === 'cancel') {
+                    setState('↩️', 'Paiement annulé', 'Vous avez quitté la page de paiement. La souscription reste en attente.');
+                    showLinks();
+                    return;
+                }
+
+                var authenticated = await requireAuth();
+                if (!authenticated) {
+                    setState('🔒', 'Session requise', 'Connectez-vous pour vérifier l\'état de votre paiement.');
+                    retryLink.textContent = 'Se connecter';
+                    retryLink.href = 'login.html';
+                    retryLink.style.display = 'inline-block';
+                    return;
+                }
+
+                if (!paymentId) {
+                    setState('ℹ️', 'Retour de paiement', 'Aucun paiement à vérifier. Consultez votre tableau de bord.');
+                    showLinks();
+                    return;
+                }
+
+                await pollStatus(paymentId);
+            });
+        })();
+    </script>
+</body>
+</html>
