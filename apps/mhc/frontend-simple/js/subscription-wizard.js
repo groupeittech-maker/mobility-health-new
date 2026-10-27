@@ -53,7 +53,8 @@
         medicalPhotoFile: null,
         medicalPhotoDataUrl: null,
         // Étape 3
-        medicalAnswers: { malade_souscription: null, malade_12_mois: null, maladie_chronique: null, enceinte: null, voyage_medical: null },
+        medicalAnswers: { malade_souscription: null, malade_12_mois: null, maladie_chronique: null, enceinte: null, voyage_medical: null, activite_sportive_pro: null },
+        childMedicalAnswers: [], // un objet par enfant : {malade_12_mois, maladie_chronique, voyage_medical}
         // Étape 4 — eKYC (vérification d'identité avant paiement)
         ekycSessionId: null,
         ekycStatus: null,
@@ -174,6 +175,7 @@
         $('wizardBackRow').style.display = (n > 1 && !state.dossierLocked) ? 'block' : 'none';
         renderStepper();
         showMessage('');
+        if (n === 3) renderChildrenQuestionnaires();
         if (n === 4) initEkycStep();
         if (n === 5) syncDossierState();
         if (n === 6) loadAttestations();
@@ -851,6 +853,66 @@
         $('medicalContinueBtn').disabled = ineligible;
     }
 
+    // Champ motif affiché sous une question quand la réponse est « Oui »
+    // (un motif par réponse Oui, §4.1 étape 7).
+    const MOTIF_QUESTIONS = ['malade_souscription', 'malade_12_mois', 'maladie_chronique', 'voyage_medical', 'activite_sportive_pro'];
+
+    function syncMotifField(q) {
+        const wrap = $(`motifWrap_${q}`);
+        if (!wrap) return;
+        wrap.style.display = state.medicalAnswers[q] === 'oui' ? 'block' : 'none';
+    }
+
+    // ---------- Questionnaire santé par enfant (un par assuré, §4.1) ----------
+    const CHILD_MEDICAL_QUESTIONS = [
+        ['malade_12_mois', 'A-t-il(elle) été malade au cours des 12 derniers mois ?'],
+        ['maladie_chronique', 'Souffre-t-il(elle) d\'une maladie chronique ?'],
+        ['voyage_medical', 'Le voyage est-il prévu pour des raisons médicales ?'],
+    ];
+
+    function childAssures() {
+        if (voyageurMode() === 'child_only') return state.enfantVoyageur ? [state.enfantVoyageur] : [];
+        if (voyageurMode() === 'with_children') return state.mineurs || [];
+        return [];
+    }
+
+    function renderChildrenQuestionnaires() {
+        const container = $('childrenQuestionnaires');
+        const kids = childAssures();
+        state.childMedicalAnswers = kids.map(() => ({ malade_12_mois: null, maladie_chronique: null, voyage_medical: null }));
+        container.innerHTML = kids.map((m, i) => `
+            <div class="mh-card">
+                <div class="mh-sub-title">Santé de ${escapeHtml(`${m.prenom || ''} ${m.nom}`.trim())}</div>
+                ${CHILD_MEDICAL_QUESTIONS.map(([key, label], qi) => `
+                    <div class="form-group">
+                        <label>${qi + 1}. ${label}</label>
+                        <div class="mh-yesno" data-child="${i}" data-q="${key}">
+                            <button type="button" class="mh-chip" data-v="oui">Oui</button>
+                            <button type="button" class="mh-chip" data-v="non">Non</button>
+                        </div>
+                    </div>
+                    <div class="form-group" id="motifWrap_child_${i}_${key}" style="display:none;">
+                        <label for="motif_child_${i}_${key}">Précisez le motif *</label>
+                        <input type="text" id="motif_child_${i}_${key}" maxlength="500">
+                    </div>`).join('')}
+            </div>`).join('');
+    }
+
+    function bindChildChips() {
+        $('childrenQuestionnaires').addEventListener('click', (e) => {
+            const chip = e.target.closest('.mh-chip');
+            if (!chip) return;
+            const group = chip.closest('.mh-yesno');
+            const i = parseInt(group.dataset.child, 10);
+            const q = group.dataset.q;
+            if (isNaN(i) || !q) return;
+            state.childMedicalAnswers[i][q] = chip.dataset.v;
+            group.querySelectorAll('.mh-chip').forEach((c) => c.classList.toggle('selected', c.dataset.v === chip.dataset.v));
+            const wrap = $(`motifWrap_child_${i}_${q}`);
+            if (wrap) wrap.style.display = chip.dataset.v === 'oui' ? 'block' : 'none';
+        });
+    }
+
     /// Popup « dossier redirigé vers le service technique » (revue app) :
     /// affichée au clic sur continuer dès qu'une réponse « Oui » (hors
     /// question grossesse) est enregistrée.
@@ -882,16 +944,43 @@
             showMessage('Veuillez répondre à toutes les questions médicales.', 'error');
             return;
         }
+        // Un motif est requis pour chaque réponse « Oui » (principal).
+        for (const q of MOTIF_QUESTIONS) {
+            if (a[q] === 'oui' && !$(`motif_${q}`).value.trim()) {
+                showMessage('Veuillez préciser le motif de chaque réponse « Oui ».', 'error');
+                return;
+            }
+        }
+        // Toutes les questions de chaque enfant doivent être répondues, avec motif par « Oui ».
+        const kids = childAssures();
+        for (let i = 0; i < kids.length; i++) {
+            const answers = state.childMedicalAnswers[i] || {};
+            const label = `${kids[i].prenom || ''} ${kids[i].nom}`.trim() || `enfant ${i + 1}`;
+            if (CHILD_MEDICAL_QUESTIONS.some(([key]) => answers[key] == null)) {
+                showMessage(`Veuillez répondre à toutes les questions de santé pour ${label}.`, 'error');
+                return;
+            }
+            for (const [key] of CHILD_MEDICAL_QUESTIONS) {
+                if (answers[key] === 'oui' && !$(`motif_child_${i}_${key}`).value.trim()) {
+                    showMessage(`Veuillez préciser le motif de chaque réponse « Oui » pour ${label}.`, 'error');
+                    return;
+                }
+            }
+        }
         if (!$('declarationSante').checked) {
             showMessage('Veuillez accepter la déclaration santé.', 'error');
             return;
         }
-        // Réponses « Oui » hors grossesse → orientation service technique.
+        // Réponses « Oui » hors grossesse → orientation service technique
+        // (y compris une réponse d'un enfant : le dossier entier est revu).
         const requiresTechnicalReview =
             a.malade_souscription === 'oui' ||
             a.malade_12_mois === 'oui' ||
             a.maladie_chronique === 'oui' ||
-            a.voyage_medical === 'oui';
+            a.voyage_medical === 'oui' ||
+            a.activite_sportive_pro === 'oui' ||
+            state.childMedicalAnswers.some((ca) =>
+                ca && CHILD_MEDICAL_QUESTIONS.some(([key]) => ca[key] === 'oui'));
         if (requiresTechnicalReview) {
             const proceed = await confirmTechService();
             if (!proceed) return;
@@ -911,8 +1000,25 @@
                 maladie_chronique: a.maladie_chronique, maladieChronique: a.maladie_chronique,
                 enceinte: a.enceinte, pregnancy: a.enceinte,
                 voyage_medical: a.voyage_medical, voyageMedical: a.voyage_medical,
+                activite_sportive_pro: a.activite_sportive_pro, activiteSportivePro: a.activite_sportive_pro,
             };
             if (mois != null) { reponses.mois_grossesse = mois; reponses.moisGrossesse = mois; }
+            for (const q of MOTIF_QUESTIONS) {
+                const v = a[q] === 'oui' ? $(`motif_${q}`).value.trim() : '';
+                if (v) reponses[`${q}_precision`] = v;
+            }
+            if (kids.length) {
+                reponses.enfants = kids.map((m, i) => {
+                    const answers = state.childMedicalAnswers[i] || {};
+                    const childReponses = {};
+                    for (const [key] of CHILD_MEDICAL_QUESTIONS) {
+                        childReponses[key] = answers[key];
+                        const motif = $(`motif_child_${i}_${key}`).value.trim();
+                        if (motif) childReponses[`${key}_precision`] = motif;
+                    }
+                    return { nom: `${m.prenom || ''} ${m.nom}`.trim(), reponses: childReponses };
+                });
+            }
             if (state.medicalPhotoDataUrl) {
                 reponses.photo_medicale = state.medicalPhotoDataUrl;
                 reponses.photoMedicale = state.medicalPhotoDataUrl;
@@ -928,7 +1034,7 @@
             showMessage(e.message || 'Erreur lors de l\'envoi du questionnaire.', 'error');
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Continuer vers le paiement';
+            btn.textContent = 'Continuer';
         }
     }
 
@@ -1339,13 +1445,15 @@
         document.querySelectorAll('.mh-yesno').forEach((group) => {
             group.addEventListener('click', (e) => {
                 const v = e.target.dataset?.v;
-                if (!v) return;
+                if (!v || group.dataset.child !== undefined) return; // groupes enfant : délégation dédiée
                 const q = group.dataset.q;
                 state.medicalAnswers[q] = v;
                 group.querySelectorAll('.mh-chip').forEach((c) => c.classList.toggle('selected', c.dataset.v === v));
+                syncMotifField(q);
                 updatePregnancyState();
             });
         });
+        bindChildChips();
         $('moisGrossesse').addEventListener('input', updatePregnancyState);
         $('medicalContinueBtn').addEventListener('click', onMedicalContinue);
 

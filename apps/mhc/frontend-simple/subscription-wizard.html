@@ -397,20 +397,27 @@
             <div class="mh-card">
                 <div class="mh-sub-title">Questions de santé</div>
                 <div class="form-group"><label>1. Êtes-vous malade au moment de la souscription ?</label><div class="mh-yesno" data-q="malade_souscription"><button type="button" class="mh-chip" data-v="oui">Oui</button><button type="button" class="mh-chip" data-v="non">Non</button></div></div>
+                <div class="form-group" id="motifWrap_malade_souscription" style="display:none;"><label for="motif_malade_souscription">Précisez le motif *</label><input type="text" id="motif_malade_souscription" maxlength="500"></div>
                 <div class="form-group"><label>2. Avez-vous été malade au cours des 12 derniers mois ?</label><div class="mh-yesno" data-q="malade_12_mois"><button type="button" class="mh-chip" data-v="oui">Oui</button><button type="button" class="mh-chip" data-v="non">Non</button></div></div>
+                <div class="form-group" id="motifWrap_malade_12_mois" style="display:none;"><label for="motif_malade_12_mois">Précisez le motif *</label><input type="text" id="motif_malade_12_mois" maxlength="500"></div>
                 <div class="form-group"><label>3. Souffrez-vous d'une maladie chronique ?</label><div class="mh-yesno" data-q="maladie_chronique"><button type="button" class="mh-chip" data-v="oui">Oui</button><button type="button" class="mh-chip" data-v="non">Non</button></div></div>
+                <div class="form-group" id="motifWrap_maladie_chronique" style="display:none;"><label for="motif_maladie_chronique">Précisez le motif *</label><input type="text" id="motif_maladie_chronique" maxlength="500"></div>
                 <div class="form-group"><label>4. Êtes-vous enceinte au moment de la souscription ?</label><div class="mh-yesno" data-q="enceinte"><button type="button" class="mh-chip" data-v="oui">Oui</button><button type="button" class="mh-chip" data-v="non">Non</button></div></div>
                 <div class="form-group" id="moisGrossesseWrap" style="display:none;"><label for="moisGrossesse">De combien de mois ?</label><input type="number" id="moisGrossesse" min="1" max="9" step="1"></div>
                 <div class="form-group"><label>5. Faites-vous un voyage à but médical ?</label><div class="mh-yesno" data-q="voyage_medical"><button type="button" class="mh-chip" data-v="oui">Oui</button><button type="button" class="mh-chip" data-v="non">Non</button></div></div>
+                <div class="form-group" id="motifWrap_voyage_medical" style="display:none;"><label for="motif_voyage_medical">Précisez le motif *</label><input type="text" id="motif_voyage_medical" maxlength="500"></div>
+                <div class="form-group"><label>6. Pratiquez-vous une activité sportive à titre professionnel ?</label><div class="mh-yesno" data-q="activite_sportive_pro"><button type="button" class="mh-chip" data-v="oui">Oui</button><button type="button" class="mh-chip" data-v="non">Non</button></div></div>
+                <div class="form-group" id="motifWrap_activite_sportive_pro" style="display:none;"><label for="motif_activite_sportive_pro">Précisez le motif *</label><input type="text" id="motif_activite_sportive_pro" maxlength="500"></div>
                 <div class="mh-notice danger" id="pregnancyNotice" style="display:none;">Vous n'êtes pas éligible pour être assuré par nos services (grossesse de plus de 5 mois).</div>
             </div>
+            <!-- Questionnaire de santé de chaque enfant assuré (un par voyageur, §4.1) -->
+            <div id="childrenQuestionnaires"></div>
             <div class="mh-card">
                 <div class="mh-check-row"><input type="checkbox" id="declarationSante"><label for="declarationSante">Je déclare que les informations fournies sont exactes et complètes.</label></div>
             </div>
-            <button type="button" class="btn btn-primary" id="medicalContinueBtn" style="width:100%; padding:14px;">Continuer vers le paiement</button>
+            <button type="button" class="btn btn-primary" id="medicalContinueBtn" style="width:100%; padding:14px;">Continuer</button>
         </section>
 
-        <!-- ===== Étape 4 : Paiement ===== -->
         <!-- ===== Étape 4 : Vérification d'identité (eKYC) ===== -->
         <section class="wizard-step" id="step-ekyc">
             <h3 class="mh-section-title">Vérification d'identité</h3>
@@ -489,7 +496,7 @@
             </div>
         </section>
 
-        <!-- ===== Étape 5 : Attestation ===== -->
+        <!-- ===== Étape 6 : Attestation ===== -->
         <section class="wizard-step" id="step-attestation">
             <h3 class="mh-section-title">Attestation</h3>
             <div id="attestationsLoading" class="loading"><div class="spinner"></div></div>
