@@ -8,9 +8,13 @@ from app.core.enums import StatutProjetVoyage, QuestionnaireType
 class MineurEntry(BaseModel):
     """Enfant mineur assuré rattaché au voyage (kit MyMHC)."""
     nom: str
+    prenom: Optional[str] = None
     date_naissance: Optional[str] = None  # Format ISO: YYYY-MM-DD
+    nationalite: Optional[str] = None
     numero_passeport: Optional[str] = None
     validite_passeport: Optional[str] = None  # Format ISO: YYYY-MM-DD
+    lien_parente: Optional[str] = None  # facultatif
+    enfant_id: Optional[int] = None  # profil enfant enregistré sur le compte
 
 
 class ProjetVoyageBase(BaseModel):

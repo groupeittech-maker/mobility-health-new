@@ -73,6 +73,15 @@ class Settings(BaseSettings):
     # sauf si ces options sont activées.
     ANNULATION_REMBOURSE_COUT_POLICE: bool = False
     ANNULATION_REMBOURSE_FRAIS_SERVICES: bool = False
+
+    # Sécurité des connexions (workflow V3 §3.2)
+    LOGIN_MAX_ATTEMPTS: int = 5
+    LOGIN_LOCKOUT_MINUTES: int = 15
+    # Demande d'informations complémentaires (§4.2) : délai de réponse et rappel.
+    INFO_REQUEST_DELAY_HOURS: int = 48
+    INFO_REQUEST_REMINDER_HOURS: int = 24
+    # Documents consultables après la fin du contrat (§5), puis masqués.
+    DOCUMENTS_RETENTION_DAYS: int = 365
     
     # Email (SMTP) — mode "stub" court-circuite l'envoi (tests, dev sans SMTP)
     EMAIL_DELIVERY_MODE: str = "live"

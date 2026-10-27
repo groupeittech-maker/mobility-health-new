@@ -1,10 +1,11 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
+import hashlib
 import random
 import string
 import logging
 from urllib.parse import quote_plus
 from types import SimpleNamespace
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -86,6 +87,74 @@ def _revoke_all_refresh_tokens(redis, user_id) -> None:
     """Révoque toutes les sessions de l'utilisateur (logout, reset mot de passe)."""
     redis.delete(f"{_REFRESH_TOKEN_SET_PREFIX}:{user_id}")
     redis.delete(f"{_LEGACY_REFRESH_TOKEN_PREFIX}:{user_id}")
+
+
+def _safe_revoke_refresh_tokens(user_id) -> None:
+    try:
+        redis = get_redis()
+        if redis is not None:
+            _revoke_all_refresh_tokens(redis, user_id)
+    except Exception as exc:
+        logger.warning("Révocation des refresh tokens impossible (user %s): %s", user_id, exc)
+
+
+def _as_datetime(value):
+    """Les requêtes SQL brutes renvoient une chaîne sous SQLite."""
+    if value is None or isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
+def _device_fingerprint(request: Request) -> str:
+    """Identifiant d'appareil : en-tête X-Device-Id (app mobile), sinon empreinte du User-Agent."""
+    device = (request.headers.get("x-device-id") or "").strip()
+    if device:
+        return device[:128]
+    user_agent = request.headers.get("user-agent") or ""
+    return "ua:" + hashlib.sha256(user_agent.encode("utf-8")).hexdigest()[:32]
+
+
+def bump_session_version(db: Session, user_id: int) -> int:
+    """Ferme toutes les sessions ouvertes (jetons d'accès et de rafraîchissement)."""
+    db.execute(
+        text("UPDATE users SET session_version = COALESCE(session_version, 0) + 1 WHERE id = :id"),
+        {"id": user_id},
+    )
+    db.commit()
+    _safe_revoke_refresh_tokens(user_id)
+    row = db.execute(text("SELECT COALESCE(session_version, 0) AS sv FROM users WHERE id = :id"), {"id": user_id}).fetchone()
+    return int(row.sv) if row else 0
+
+
+def _notify_new_device_login(email: str, full_name: str | None) -> None:
+    from app.services.email_delivery import dispatch_email
+
+    name = full_name or email
+    body_text = (
+        f"Bonjour {name},\n\nUne connexion à votre compte MyMHC vient d'avoir lieu depuis un nouvel appareil. "
+        "La session ouverte sur l'appareil précédent a été fermée.\n\n"
+        "Si vous n'êtes pas à l'origine de cette connexion, changez immédiatement votre mot de passe "
+        "(ou utilisez « Mot de passe oublié »).\n\nMobility Health Care"
+    )
+    try:
+        dispatch_email(
+            to_email=email,
+            subject="MyMHC — Connexion depuis un nouvel appareil",
+            body_html="<p>" + body_text.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>",
+            body_text=body_text,
+        )
+    except Exception as exc:
+        logger.warning("E-mail « nouvel appareil » non envoyé à %s: %s", email, exc)
+
+
+def _check_session_version(payload: dict, row) -> bool:
+    """Les jetons émis avant une fermeture de session (nouvel appareil, révocation) sont refusés."""
+    if "sv" not in payload:
+        return True
+    return int(payload.get("sv") or 0) == int(getattr(row, "sv", 0) or 0)
 
 
 def _is_pending_email_verification(user: User) -> bool:
@@ -416,12 +485,19 @@ def get_current_user(
                date_naissance, telephone, numero_whatsapp, sexe, validite_passeport,
                COALESCE(CAST(role AS TEXT), 'user') AS role_str,
                pays_residence, nationalite, numero_passeport,
-               nom_contact_urgence, contact_urgence
+               nom_contact_urgence, contact_urgence,
+               COALESCE(session_version, 0) AS sv
         FROM users WHERE username = :u LIMIT 1
     """)
     row = db.execute(q, {"u": username}).fetchone()
     if not row:
         raise credentials_exception
+    if not _check_session_version(payload, row):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session fermée (connexion depuis un autre appareil ou révocation). Reconnectez-vous.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     if not row.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -473,11 +549,12 @@ def get_current_user_optional(
                date_naissance, telephone, numero_whatsapp, sexe, validite_passeport,
                COALESCE(CAST(role AS TEXT), 'user') AS role_str,
                pays_residence, nationalite, numero_passeport,
-               nom_contact_urgence, contact_urgence
+               nom_contact_urgence, contact_urgence,
+               COALESCE(session_version, 0) AS sv
         FROM users WHERE username = :u LIMIT 1
     """)
     row = db.execute(q, {"u": username}).fetchone()
-    if not row or not row.is_active:
+    if not row or not row.is_active or not _check_session_version(payload, row):
         return None
     role_str = (row.role_str or "user").lower().strip()
     return SimpleNamespace(
@@ -547,7 +624,10 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
                 if existing.email == user_data.email:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Cet email est déjà enregistré",
+                        detail=(
+                            "Cet e-mail est déjà utilisé. Connectez-vous ou utilisez "
+                            "« Mot de passe oublié » pour récupérer votre compte."
+                        ),
                     )
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -622,6 +702,7 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
@@ -631,9 +712,11 @@ async def login(
     """
     # Récupérer l'utilisateur en SQL brut pour éviter LookupError sur la colonne role (enum)
     q = text("""
-        SELECT id, username, email, hashed_password, is_active, validation_inscription,
+        SELECT id, username, email, full_name, hashed_password, is_active, validation_inscription,
                COALESCE(email_verified, false) AS email_verified,
-               COALESCE(CAST(role AS TEXT), 'user') AS role_str
+               COALESCE(CAST(role AS TEXT), 'user') AS role_str,
+               COALESCE(failed_login_attempts, 0) AS failed_attempts,
+               locked_until, COALESCE(session_version, 0) AS sv, last_device_id
         FROM users
         WHERE username = :u OR email = :u
         LIMIT 1
@@ -655,6 +738,17 @@ async def login(
     role_value = (row.role_str or "user").lower().strip()
     requires_email_verification = role_value == Role.USER.value
 
+    locked_until = _as_datetime(row.locked_until)
+    if locked_until and locked_until > datetime.utcnow():
+        remaining = max(1, int((locked_until - datetime.utcnow()).total_seconds() // 60) + 1)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"Compte temporairement bloqué après plusieurs mots de passe erronés. Réessayez dans {remaining} min "
+                "ou utilisez « Mot de passe oublié »."
+            ),
+        )
+
     if not hashed_password:
         logger.error(f"Utilisateur {form_data.username} n'a pas de mot de passe hashé")
         raise HTTPException(
@@ -671,11 +765,33 @@ async def login(
         )
     if not password_valid:
         logger.warning(f"Tentative de connexion avec un mot de passe incorrect pour l'utilisateur: {form_data.username}")
+        attempts = int(row.failed_attempts or 0) + 1
+        if attempts >= settings.LOGIN_MAX_ATTEMPTS:
+            db.execute(
+                text("UPDATE users SET failed_login_attempts = 0, locked_until = :t WHERE id = :id"),
+                {"t": datetime.utcnow() + timedelta(minutes=settings.LOGIN_LOCKOUT_MINUTES), "id": user_id},
+            )
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"Trop de mots de passe erronés : compte bloqué pendant {settings.LOGIN_LOCKOUT_MINUTES} minutes. "
+                    "Utilisez « Mot de passe oublié » pour récupérer votre accès."
+                ),
+            )
+        db.execute(text("UPDATE users SET failed_login_attempts = :n WHERE id = :id"), {"n": attempts, "id": user_id})
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    if row.failed_attempts or row.locked_until:
+        db.execute(
+            text("UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = :id"),
+            {"id": user_id},
+        )
+        db.commit()
     if not is_active:
         if validation_inscription == "rejected":
             detail_msg = "Votre inscription a été refusée. Veuillez contacter le service client."
@@ -711,13 +827,24 @@ async def login(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Server configuration error"
             )
+        # Assuré (MyMHC) : une seule session ; un nouvel appareil ferme la précédente
+        # et déclenche un e-mail de notification.
+        session_version = int(row.sv or 0)
+        if role_value == Role.USER.value:
+            device = _device_fingerprint(request)
+            previous_device = row.last_device_id
+            if previous_device and previous_device != device:
+                session_version = bump_session_version(db, user_id)
+                _notify_new_device_login(row.email, row.full_name)
+            db.execute(text("UPDATE users SET last_device_id = :d WHERE id = :id"), {"d": device, "id": user_id})
+            db.commit()
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": username, "role": role_value},
+            data={"sub": username, "role": role_value, "sv": session_version},
             expires_delta=access_token_expires
         )
         refresh_token = create_refresh_token(
-            data={"sub": username, "role": role_value}
+            data={"sub": username, "role": role_value, "sv": session_version}
         )
         try:
             redis = get_redis()
@@ -766,12 +893,20 @@ async def refresh_token(
     username: str = payload.get("sub")
     if not username:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
-    q = text("SELECT id, username, is_active, COALESCE(CAST(role AS TEXT), 'user') AS role_str FROM users WHERE username = :u LIMIT 1")
+    q = text(
+        "SELECT id, username, is_active, COALESCE(CAST(role AS TEXT), 'user') AS role_str, "
+        "COALESCE(session_version, 0) AS sv FROM users WHERE username = :u LIMIT 1"
+    )
     row = db.execute(q, {"u": username}).fetchone()
     if not row or not row.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive"
+        )
+    if not _check_session_version(payload, row):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session fermée (connexion depuis un autre appareil ou révocation). Reconnectez-vous.",
         )
     user_id, username, is_active, role_str = row.id, row.username, row.is_active, (row.role_str or "user").lower().strip()
     try:
@@ -788,11 +923,12 @@ async def refresh_token(
         logger.warning(f"Redis non disponible lors de la vérification du refresh token: {redis_init_error}")
     minutes = getattr(settings, "ACCESS_TOKEN_EXPIRE_MINUTES", 30)
     days = getattr(settings, "REFRESH_TOKEN_EXPIRE_DAYS", 7)
+    token_claims = {"sub": username, "role": role_str, "sv": int(row.sv or 0)}
     access_token = create_access_token(
-        data={"sub": username, "role": role_str},
+        data=token_claims,
         expires_delta=timedelta(minutes=minutes)
     )
-    new_refresh_token = create_refresh_token(data={"sub": username, "role": role_str})
+    new_refresh_token = create_refresh_token(data=token_claims)
     try:
         redis = get_redis()
         if redis is not None:
@@ -830,6 +966,74 @@ async def logout(
     except Exception as redis_init_error:
         logger.warning(f"Redis non disponible lors du logout: {redis_init_error}")
     return {"message": "Successfully logged out"}
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
+
+
+@router.post("/change-password", response_model=Token)
+async def change_password(
+    body: ChangePasswordRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Changer son mot de passe : ancien, nouveau et confirmation (§3.2).
+
+    Les autres sessions sont fermées ; de nouveaux jetons sont renvoyés pour l'appareil courant.
+    """
+    row = db.execute(text("SELECT hashed_password FROM users WHERE id = :id"), {"id": current_user.id}).fetchone()
+    if not row or not verify_password(body.current_password, row.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Le mot de passe actuel est incorrect.")
+    if body.new_password != body.confirm_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La confirmation ne correspond pas au nouveau mot de passe.")
+    if body.new_password == body.current_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Le nouveau mot de passe doit être différent de l'actuel.")
+    is_valid, error_message = UserService.validate_password(body.new_password)
+    if not is_valid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_message)
+    db.execute(
+        text("UPDATE users SET hashed_password = :h WHERE id = :id"),
+        {"h": get_password_hash(body.new_password), "id": current_user.id},
+    )
+    db.commit()
+    sv = bump_session_version(db, current_user.id)
+    if current_user.role == Role.USER.value:
+        db.execute(
+            text("UPDATE users SET last_device_id = :d WHERE id = :id"),
+            {"d": _device_fingerprint(request), "id": current_user.id},
+        )
+        db.commit()
+    claims = {"sub": current_user.username, "role": current_user.role, "sv": sv}
+    refresh = create_refresh_token(data=claims)
+    try:
+        redis = get_redis()
+        if redis is not None:
+            _store_refresh_token(redis, current_user.id, refresh, settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60)
+    except Exception as exc:
+        logger.warning("Stockage refresh token impossible après changement de mot de passe: %s", exc)
+    return {
+        "access_token": create_access_token(
+            data=claims, expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        ),
+        "refresh_token": refresh,
+        "token_type": "bearer",
+    }
+
+
+@router.post("/sessions/revoke-all")
+async def revoke_all_sessions(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Téléphone perdu : ferme à distance toutes les sessions, y compris celle-ci (§3.2)."""
+    bump_session_version(db, current_user.id)
+    db.execute(text("UPDATE users SET last_device_id = NULL WHERE id = :id"), {"id": current_user.id})
+    db.commit()
+    return {"message": "Toutes les sessions ont été fermées. Reconnectez-vous."}
 
 
 class FcmTokenUpdate(BaseModel):

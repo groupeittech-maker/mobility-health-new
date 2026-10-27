@@ -23,11 +23,14 @@ class AvenantService {
   }
 
   /// `confirm = false` : simulation (montants) sans modifier la police.
+  /// Modification (avenant 107) : changement de destination dans la même zone
+  /// tarifaire, dates et prime inchangées (règle du workflow V3 §6).
   Future<Map<String, dynamic>> submitAction(
     int subscriptionId,
     String action, {
     required bool confirm,
-    DateTime? nouvelleDateDebut,
+    int? destinationCountryId,
+    String? destinationVille,
     DateTime? nouvelleDateFin,
     String? motif,
   }) async {
@@ -37,7 +40,9 @@ class AvenantService {
       '/subscriptions/$subscriptionId/actions/$action',
       body: {
         'confirmer': confirm,
-        if (nouvelleDateDebut != null) 'nouvelle_date_debut': day(nouvelleDateDebut),
+        if (destinationCountryId != null) 'destination_country_id': destinationCountryId,
+        if (destinationVille != null && destinationVille.trim().isNotEmpty)
+          'destination_ville': destinationVille.trim(),
         if (nouvelleDateFin != null) 'nouvelle_date_fin': day(nouvelleDateFin),
         if (motif != null && motif.trim().isNotEmpty) 'motif': motif.trim(),
       },

@@ -284,6 +284,18 @@ def calculate_distance(lat1: Decimal, lon1: Decimal, lat2: Decimal, lon2: Decima
     return R * c
 
 
+def _hospital_in_destination(db: Session, souscription: Souscription) -> Optional[Hospital]:
+    """Établissement actif du pays de destination de la police (SOS sans géolocalisation)."""
+    projet = getattr(souscription, "projet_voyage", None)
+    pays = getattr(getattr(projet, "destination_country", None), "nom", None) if projet else None
+    query = db.query(Hospital).filter(Hospital.est_actif == True)  # noqa: E712
+    if pays:
+        match = query.filter(func.lower(Hospital.pays) == pays.lower()).first()
+        if match:
+            return match
+    return query.first()
+
+
 def find_nearest_hospital(latitude: Decimal, longitude: Decimal, db: Session) -> Optional[Hospital]:
     """Trouver l'hôpital le plus proche"""
     hospitals = db.query(Hospital).filter(Hospital.est_actif == True).all()
@@ -595,6 +607,14 @@ async def trigger_sos(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Une attestation définitive est requise pour déclencher une alerte SOS (validation production en attente).",
         )
+    if souscription.date_debut and souscription.date_debut.date() > datetime.utcnow().date():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Votre couverture n'a pas encore commencé (début le "
+                f"{souscription.date_debut:%d/%m/%Y}) : les nouvelles demandes d'assistance sont bloquées jusque-là."
+            ),
+        )
 
     # Générer un numéro d'alerte unique
     numero_alerte = f"ALERT-{uuid.uuid4().hex[:8].upper()}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
@@ -616,8 +636,12 @@ async def trigger_sos(
     db.commit()
     db.refresh(alerte)
     
-    # Trouver l'hôpital le plus proche
-    hospital = find_nearest_hospital(alerte_data.latitude, alerte_data.longitude, db)
+    # Trouver l'hôpital le plus proche ; sans géolocalisation, un établissement
+    # du pays de destination couvert par la police.
+    if alerte_data.latitude is not None and alerte_data.longitude is not None:
+        hospital = find_nearest_hospital(alerte_data.latitude, alerte_data.longitude, db)
+    else:
+        hospital = _hospital_in_destination(db, souscription)
     
     # Trouver un agent sinistre disponible (SOS_OPERATOR ou AGENT_SINISTRE_MH)
     agent_sinistre = db.query(User).filter(
@@ -741,8 +765,9 @@ async def trigger_sos(
         "sinistre_id": sinistre.id,
         "numero_alerte": numero_alerte,
         "numero_sinistre": None,
-        "latitude": float(alerte.latitude),
-        "longitude": float(alerte.longitude),
+        "latitude": float(alerte.latitude) if alerte.latitude is not None else None,
+        "longitude": float(alerte.longitude) if alerte.longitude is not None else None,
+        "adresse": alerte.adresse,
         "description": alerte.description,
         "priorite": alerte.priorite,
         "timestamp": datetime.utcnow().isoformat(),
@@ -767,8 +792,9 @@ async def trigger_sos(
                 "sinistre_id": sinistre.id,
                 "numero_alerte": numero_alerte,
                 "numero_sinistre": None,
-                "latitude": float(alerte.latitude),
-                "longitude": float(alerte.longitude),
+                "latitude": float(alerte.latitude) if alerte.latitude is not None else None,
+                "longitude": float(alerte.longitude) if alerte.longitude is not None else None,
+                "adresse": alerte.adresse,
                 "description": alerte.description,
                 "priorite": alerte.priorite,
                 "timestamp": datetime.utcnow().isoformat(),

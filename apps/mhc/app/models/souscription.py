@@ -72,6 +72,15 @@ class Souscription(Base, TimestampMixin):
     demande_resiliation_notes = Column(Text, nullable=True)
     demande_resiliation_par_agent = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     demande_resiliation_date_traitement = Column(DateTime, nullable=True)
+
+    # Informations complémentaires demandées par MHC (workflow V3 §4.2) :
+    # réponse attendue sous 48 h, rappel avant échéance, refus automatique sinon.
+    info_demandee_at = Column(DateTime, nullable=True, index=True)
+    info_demandee_message = Column(Text, nullable=True)
+    info_demandee_par = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    info_rappel_envoye_at = Column(DateTime, nullable=True)
+    info_reponse = Column(Text, nullable=True)
+    info_reponse_at = Column(DateTime, nullable=True)
     
     # Relations
     user = relationship("User", foreign_keys=[user_id], back_populates="souscriptions")

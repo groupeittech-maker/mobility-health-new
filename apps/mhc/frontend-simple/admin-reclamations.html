@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Réclamations - Back Office</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
+</head>
+<body data-backoffice>
+    <main class="container">
+        <div class="dashboard-header">
+            <h2>Réclamations des assurés</h2>
+        </div>
+
+        <div class="dashboard-section">
+            <div class="table-toolbar">
+                <div class="toolbar-actions">
+                    <select id="reclamationStatusFilter" class="form-control" style="max-width:260px;">
+                        <option value="">Tous les statuts</option>
+                        <option value="recue">Reçues</option>
+                        <option value="en_analyse">En cours d'analyse</option>
+                        <option value="infos_requises">Informations requises</option>
+                        <option value="traitee">Traitées</option>
+                        <option value="cloturee">Clôturées</option>
+                    </select>
+                    <input type="text" id="reclamationSearch" placeholder="Rechercher par référence, objet ou assuré…" class="search-input">
+                </div>
+            </div>
+        </div>
+
+        <div id="reclamationsTableContainer">
+            <div class="loading"><div class="spinner"></div></div>
+        </div>
+    </main>
+
+    <div class="bo-modal-backdrop" id="reclamationModal">
+        <div class="bo-modal" style="max-width:720px;">
+            <div class="bo-modal-head">
+                <h3 id="reclamationModalTitle">Réclamation</h3>
+                <button type="button" class="bo-modal-close" id="reclamationModalClose">&times;</button>
+            </div>
+            <div id="reclamationModalBody"></div>
+            <div id="reclamationModalActions" style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
+        </div>
+    </div>
+
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/admin-reclamations.js?v=1"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
+</body>
+</html>

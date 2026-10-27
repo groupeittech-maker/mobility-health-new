@@ -42,6 +42,9 @@ class ApiClient {
     if (token != null && token.isNotEmpty && options.headers['Authorization'] == null) {
       options.headers['Authorization'] = 'Bearer $token';
     }
+    if (options.headers['X-Device-Id'] == null) {
+      options.headers['X-Device-Id'] = await _storage.getDeviceId();
+    }
     handler.next(options);
   }
 
@@ -155,6 +158,12 @@ class ApiClient {
   /// DELETE
   Future<void> delete(String path) async {
     await _dio.delete(path);
+  }
+
+  /// DELETE avec corps JSON (ex. suppression de compte : mot de passe + confirmation).
+  Future<T> deleteWithBody<T>(String path, {dynamic body, T Function(dynamic)? fromJson}) async {
+    final response = await _dio.delete<dynamic>(path, data: body);
+    return _decode<T>(response.data, fromJson);
   }
 
   /// POST multipart (upload fichier)

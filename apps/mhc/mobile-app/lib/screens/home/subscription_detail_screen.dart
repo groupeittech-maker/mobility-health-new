@@ -263,6 +263,12 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                       padding: const EdgeInsets.only(top: 12),
                       child: _pendingDossierCard(s),
                     ),
+                  if (s.infoDemandeeMessage != null &&
+                      s.infoDemandeeMessage!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: _infoRequestCard(s),
+                    ),
                   const SizedBox(height: 20),
                   MedecinConseilCard(
                     assignments: _medecinConseil,
@@ -527,6 +533,103 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
         ],
       ),
     );
+  }
+
+  /// Carte « MHC vous demande des précisions » (§4.2) : réponse sous 48 h,
+  /// faute de quoi le dossier est refusé automatiquement.
+  Widget _infoRequestCard(SubscriptionModel s) {
+    return MHSurfaceCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.help_outline, color: Colors.orange.shade700),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'MHC vous demande des précisions',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.secondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            s.infoDemandeeMessage!,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF334155), height: 1.4),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Répondez sous 48 h : sans réponse, votre dossier sera refusé automatiquement.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _evaluating ? null : () => _replyToInfoRequest(s),
+              icon: const Icon(Icons.reply, size: 18),
+              label: const Text('Répondre'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _replyToInfoRequest(SubscriptionModel s) async {
+    final ctrl = TextEditingController();
+    final reponse = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Votre réponse'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            hintText: 'Précisez les informations demandées…',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          FilledButton(
+            onPressed: () {
+              final v = ctrl.text.trim();
+              if (v.isNotEmpty) Navigator.pop(ctx, v);
+            },
+            child: const Text('Envoyer'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (reponse == null) return;
+    setState(() => _evaluating = true);
+    try {
+      await _subscriptionsService.submitInfoResponse(s.id, reponse);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Réponse transmise à MHC.'),
+        backgroundColor: AppColors.success,
+      ));
+      await _load();
+    } catch (e) {
+      if (mounted) _showErrorSnackBar(e);
+    } finally {
+      if (mounted) setState(() => _evaluating = false);
+    }
   }
 
   Future<void> _submitForDecision() async {

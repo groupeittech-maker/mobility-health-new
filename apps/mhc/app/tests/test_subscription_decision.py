@@ -53,6 +53,8 @@ def _subscription():
         validation_medicale=None,
         validation_technique=None,
         validation_finale=None,
+        validation_finale_notes=None,
+        validation_finale_date=None,
     )
 
 

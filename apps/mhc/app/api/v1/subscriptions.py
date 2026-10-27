@@ -1349,3 +1349,26 @@ async def evaluate_subscription(
         risk_score=result.risk_score,
         statut=souscription.statut.value,
     )
+
+class InfoResponseBody(BaseModel):
+    reponse: str
+
+
+@router.post("/{subscription_id}/info-response", response_model=SouscriptionResponse)
+async def respond_to_info_request(
+    subscription_id: int,
+    body: InfoResponseBody,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Réponse de l'assuré à une demande d'informations complémentaires (§4.2)."""
+    from app.services.subscription_lifecycle import respond_info
+
+    souscription = (
+        db.query(Souscription)
+        .filter(Souscription.id == subscription_id, Souscription.user_id == current_user.id)
+        .first()
+    )
+    if not souscription:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Souscription non trouvée")
+    return respond_info(db, souscription, body.reponse)

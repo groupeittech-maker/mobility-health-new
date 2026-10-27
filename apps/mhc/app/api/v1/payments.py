@@ -712,6 +712,8 @@ async def afripaie_webhook(
             action="payment_failed",
             details={"event_type": event_type, "external_reference": external_payment_id},
         )
+        if payment.souscription is not None:
+            PaymentService._notify_payment_in_app(payment.user_id, payment.souscription, success=False)
     return {"status": mapped_status}
 
 

@@ -172,6 +172,32 @@ def _validate_trip_window(
         )
 
 
+def _validate_minors(mineurs, date_depart: Optional[datetime]) -> None:
+    """Le principal assuré souscrit pour lui-même et ses enfants de moins de 18 ans,
+    jamais pour un autre adulte (workflow V3 §1 et §4.1)."""
+    reference = (date_depart or datetime.utcnow()).date()
+    for mineur in mineurs or []:
+        raw = getattr(mineur, "date_naissance", None)
+        if not raw:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Date de naissance obligatoire pour l'enfant {mineur.nom}.",
+            )
+        try:
+            born = datetime.strptime(str(raw)[:10], "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Date de naissance de l'enfant invalide (AAAA-MM-JJ).")
+        age = reference.year - born.year - ((reference.month, reference.day) < (born.month, born.day))
+        if born > reference or age >= 18:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"{mineur.nom} doit avoir moins de 18 ans à la date de départ : "
+                    "une souscription ne peut pas couvrir un autre adulte."
+                ),
+            )
+
+
 def _validate_destination_country(
     db: Session,
     current_user: User,
@@ -250,7 +276,8 @@ async def create_projet_voyage(
             detail="La date de retour doit être postérieure à la date de départ"
         )
     _validate_trip_window(projet_data.date_depart, projet_data.date_retour)
-    
+    _validate_minors(projet_data.mineurs, projet_data.date_depart)
+
     # Souscription pour un tiers : la validation pays de résidence concerne le voyageur cible.
     _role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
     target_user_id = getattr(projet_data, 'user_id', None)
@@ -363,6 +390,8 @@ async def update_projet_voyage(
         date_retour,
         start_for_duration=date_depart,
     )
+    if projet_data.mineurs is not None:
+        _validate_minors(projet_data.mineurs, date_depart)
 
     destination_country_id = (
         projet_data.destination_country_id

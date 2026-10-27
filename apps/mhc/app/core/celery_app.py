@@ -81,6 +81,11 @@ celery_app.conf.update(
             "schedule": crontab(hour=8, minute=0),  # Tous les jours à 8h (J-2 et veille)
             "options": {"queue": "reminders"},
         },
+        "subscription-lifecycle": {
+            "task": "app.workers.tasks.process_subscription_lifecycle",
+            "schedule": crontab(minute="*/30"),  # Demandes d'infos 48 h + expiration des polices
+            "options": {"queue": "default"},
+        },
         "retry-failed-tasks": {
             "task": "app.workers.tasks.retry_failed_tasks",
             "schedule": crontab(minute="*/10"),  # Toutes les 10 minutes

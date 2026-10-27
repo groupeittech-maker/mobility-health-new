@@ -154,56 +154,38 @@ class _SosScreenState extends State<SosScreen> {
 
     setState(() => _sending = true);
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled && mounted) {
-        setState(() => _sending = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Activez la localisation dans les paramètres du téléphone.'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
-        return;
-      }
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        if (mounted) {
-          setState(() => _sending = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Autorisez l\'accès à la position pour envoyer l\'alerte SOS.'),
-              backgroundColor: AppColors.danger,
-            ),
-          );
-        }
-        return;
-      }
       Position? position;
+      // La géolocalisation est facultative : en cas d'échec ou de refus,
+      // l'assuré saisit une adresse manuelle (workflow V3 §7).
       try {
-        position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.medium,
-        );
+        if (await Geolocator.isLocationServiceEnabled()) {
+          LocationPermission permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+          }
+          if (permission != LocationPermission.denied &&
+              permission != LocationPermission.deniedForever) {
+            position = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.medium,
+            );
+          }
+        }
       } catch (_) {
         position = null;
       }
 
-      if (position == null && mounted) {
-        setState(() => _sending = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Impossible d\'obtenir la position. Vérifiez les autorisations.'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
-        return;
+      String? adresse;
+      if (position == null) {
+        if (mounted) setState(() => _sending = false);
+        adresse = await _askManualAddress();
+        if (adresse == null || !mounted) return;
+        setState(() => _sending = true);
       }
 
       await _sosService.triggerSos(
-        latitude: position!.latitude,
-        longitude: position.longitude,
+        latitude: position?.latitude,
+        longitude: position?.longitude,
+        adresse: adresse,
         description: null,
         priorite: 'normale',
       );
@@ -230,6 +212,54 @@ class _SosScreenState extends State<SosScreen> {
         );
       }
     }
+  }
+
+  /// Adresse manuelle quand la position GPS est indisponible.
+  Future<String?> _askManualAddress() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Position indisponible'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Impossible d\'obtenir votre position. Indiquez où vous vous trouvez pour que les secours vous localisent.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Adresse ou repère *',
+                hintText: 'Ex. : Hôtel du Lac, entrée principale, Yaoundé',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isEmpty) return;
+              Navigator.of(ctx).pop(value);
+            },
+            child: const Text('Envoyer l\'alerte'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
   }
 
   @override

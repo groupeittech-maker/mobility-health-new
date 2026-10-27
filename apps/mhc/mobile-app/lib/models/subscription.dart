@@ -24,6 +24,9 @@ class SubscriptionModel {
   final String? demandeResiliation;
   final DateTime? demandeResiliationDate;
   final String? demandeResiliationNotes;
+  /// Demande d'informations MHC en attente (§4.2 : réponse sous 48 h).
+  final String? infoDemandeeMessage;
+  final DateTime? infoDemandeeAt;
 
   SubscriptionModel({
     required this.id,
@@ -104,6 +107,10 @@ class SubscriptionModel {
           ? DateTime.tryParse(json['demande_resiliation_date'].toString())
           : null,
       demandeResiliationNotes: json['demande_resiliation_notes'] as String?,
+      infoDemandeeMessage: json['info_demandee_message'] as String?,
+      infoDemandeeAt: json['info_demandee_at'] != null
+          ? DateTime.tryParse(json['info_demandee_at'].toString())
+          : null,
     );
   }
 }

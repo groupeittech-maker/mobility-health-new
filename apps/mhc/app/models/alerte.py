@@ -12,8 +12,9 @@ class Alerte(Base, TimestampMixin):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     souscription_id = Column(Integer, ForeignKey("souscriptions.id", ondelete="SET NULL"), nullable=True, index=True)
     numero_alerte = Column(String(100), unique=True, nullable=False, index=True)
-    latitude = Column(Numeric(10, 8), nullable=False)  # Coordonnées GPS
-    longitude = Column(Numeric(11, 8), nullable=False)
+    # Coordonnées GPS (absentes si la géolocalisation est indisponible : adresse saisie).
+    latitude = Column(Numeric(10, 8), nullable=True)
+    longitude = Column(Numeric(11, 8), nullable=True)
     adresse = Column(String(500), nullable=True)  # Adresse textuelle si disponible
     description = Column(Text, nullable=True)  # Description de l'urgence
     statut = Column(String(20), default="en_attente", nullable=False, index=True)  # en_attente, en_cours, resolue, annulee

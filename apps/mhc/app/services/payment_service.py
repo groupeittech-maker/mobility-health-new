@@ -262,6 +262,44 @@ class PaymentService:
         return None
 
     @staticmethod
+    def _notify_payment_in_app(
+        user_id: Optional[int],
+        subscription: Souscription,
+        *,
+        success: bool,
+        montant: Any = None,
+        documents_ready: bool = False,
+    ) -> None:
+        """Notification de paiement (succès / échec) dans l'application, sans e-mail ni SMS."""
+        if not user_id:
+            return
+        try:
+            from app.services.notification_service import NotificationService
+
+            if success:
+                titre = "Paiement confirmé"
+                message = f"Votre paiement de {montant} XAF pour la souscription #{subscription.numero_souscription} est confirmé."
+                if documents_ready:
+                    message += " Vos documents (attestation, cartes, quittance) sont disponibles."
+            else:
+                titre = "Paiement en attente"
+                message = (
+                    f"Le paiement de la souscription #{subscription.numero_souscription} n'a pas abouti. "
+                    "Vous pouvez réessayer depuis le détail de la souscription."
+                )
+            NotificationService.create_notification(
+                user_id=user_id,
+                type_notification="payment_success" if success else "payment_failed",
+                titre=titre,
+                message=message,
+                lien_relation_id=subscription.id,
+                lien_relation_type="souscription",
+                send_immediately=False,
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.warning("Notification de paiement impossible (souscription %s): %s", subscription.id, exc)
+
+    @staticmethod
     def process_payment_success(
         payment_id: int,
         subscription_id: int,
@@ -379,64 +417,14 @@ class PaymentService:
             db.commit()
             logger.info("Payment %s processed. Attestation: %s", payment_id, attestation_number)
 
-            if generate_attestation and attestation_number:
-                try:
-                    from app.workers.tasks import send_email, send_sms
-
-                    user = db.query(User).filter(User.id == payment.user_id).first()
-                    if user:
-                        display_name = user.full_name or user.username
-                        email_subject = f"Attestation d'assurance - {attestation_number}"
-                        email_body_html = f"""
-                        <html>
-                        <body>
-                            <h2>Votre attestation d'assurance est prête</h2>
-                            <p>Bonjour {display_name},</p>
-                            <p>Votre paiement a été validé avec succès. Votre attestation définitive et votre quittance sont disponibles.</p>
-                            <p><strong>Numéro d'attestation:</strong> {attestation_number}</p>
-                            <p><strong>Numéro de souscription:</strong> {subscription.numero_souscription}</p>
-                            <p><strong>Montant payé:</strong> {payment.montant} FCFA</p>
-                            {f'<p><a href="{attestation_url}">Télécharger votre attestation</a></p>' if attestation_url else ''}
-                            <p>Cordialement,<br>L'équipe Mobility Health Care</p>
-                        </body>
-                        </html>
-                        """
-                        email_body_text = f"""
-                        Votre attestation d'assurance est prête
-
-                        Bonjour {display_name},
-
-                        Votre paiement a été validé avec succès. Votre attestation définitive et votre quittance sont disponibles.
-
-                        Numéro d'attestation: {attestation_number}
-                        Numéro de souscription: {subscription.numero_souscription}
-                        Montant payé: {payment.montant} FCFA
-
-                        {f'Télécharger votre attestation: {attestation_url}' if attestation_url else ''}
-
-                        Cordialement,
-                        L'équipe Mobility Health Care
-                        """
-                        if user.email:
-                            send_email.delay(
-                                to_email=user.email,
-                                subject=email_subject,
-                                body_html=email_body_html,
-                                body_text=email_body_text,
-                                user_id=user.id,
-                            )
-                        if user.telephone:
-                            sms_message = (
-                                f"Votre attestation {attestation_number} est prête. "
-                                f"Montant: {payment.montant} FCFA. Mobility Health Care"
-                            )
-                            send_sms.delay(
-                                to_phone=user.telephone,
-                                message=sms_message,
-                                user_id=user.id,
-                            )
-                except Exception as e:
-                    logger.error("Error queuing email/SMS for attestation: %s", e)
+            # Confirmation de paiement dans l'application uniquement (workflow V3 §8.2).
+            PaymentService._notify_payment_in_app(
+                payment.user_id,
+                subscription,
+                success=True,
+                montant=payment.montant,
+                documents_ready=bool(generate_attestation and attestation_number),
+            )
 
             return attestation_number
 

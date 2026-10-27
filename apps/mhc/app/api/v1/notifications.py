@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.api.v1.auth import get_current_user
 from app.models.user import User
 from app.models.notification import Notification
+from app.core.notification_categories import is_essential, notification_category
 from app.models.sinistre import Sinistre
 from app.models.questionnaire import Questionnaire
 from app.models.souscription import Souscription
@@ -86,6 +87,8 @@ class NotificationResponse(BaseModel):
     created_at: datetime
     # Renseigné quand lien_relation_type == sinistre (navigation app mobile → /sos/{alerte_id})
     alerte_id: int | None = None
+    categorie: str | None = None
+    essentielle: bool = False
 
     class Config:
         from_attributes = True
@@ -110,6 +113,8 @@ def _notification_to_response(db: Session, n: Notification) -> NotificationRespo
         lien_relation_type=n.lien_relation_type,
         created_at=n.created_at,
         alerte_id=alerte_id,
+        categorie=notification_category(n.type_notification),
+        essentielle=is_essential(n.type_notification),
     )
 
 

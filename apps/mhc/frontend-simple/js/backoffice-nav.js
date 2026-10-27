@@ -68,6 +68,7 @@
                 { section: 'Gestion' },
                 { label: 'Production', href: 'admin-subscriptions.html', feature: 'production' },
                 { label: 'Coordination des avenants', href: 'admin-subscriptions.html#avenants', feature: 'production' },
+                { label: 'Réclamations', href: 'admin-reclamations.html', feature: 'production' },
                 { label: 'Sinistres', href: 'sinistre-invoices.html', feature: 'sinistres' },
                 { section: 'Paramétrage' },
                 { label: 'Produits & garanties', href: 'admin-products.html', feature: 'comptes_produits', minLevel: 'edition' },
@@ -122,6 +123,7 @@
             children: [
                 { section: 'Comptes internes' },
                 { label: 'Utilisateurs MHC', href: 'admin-users.html', feature: 'comptes_utilisateurs', minLevel: 'edition' },
+                { label: 'Modifications de profil', href: 'admin-profile-changes.html', feature: 'comptes_utilisateurs' },
                 { label: 'Médecins-conseil', href: 'admin-users.html?role=medecin_referent_mh', feature: 'comptes_medecins_conseil' },
                 { section: 'Partenaires' },
                 { label: 'Assureurs', href: 'admin-assureurs.html', feature: 'comptes_assureurs' },

@@ -44,6 +44,8 @@ from app.api.v1 import (
     medical_workflow,
     finance_outbound,
     messaging,
+    profile,
+    reclamations,
     reassureur_portal,
     ops_modules,
     sinistre_detail,
@@ -147,6 +149,8 @@ async def api_root():
 
 
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+# Avant /users : les routes /users/me/enfants ne doivent pas être capturées par /users/{user_id}.
+api_router.include_router(profile.router, tags=["profil"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(products.router, prefix="/products", tags=["products"])
 api_router.include_router(admin_products.router, prefix="/admin/products", tags=["admin-products"])
@@ -202,3 +206,4 @@ api_router.include_router(ops_modules.router, prefix="/ops", tags=["ops-modules"
 api_router.include_router(sinistre_detail.router, prefix="/sinistre-detail", tags=["sinistre-detail"])
 api_router.include_router(bo_dashboard.router, prefix="/admin", tags=["bo-dashboard"])
 api_router.include_router(messaging.router, prefix="/messaging", tags=["messaging"])
+api_router.include_router(reclamations.router, tags=["reclamations"])

@@ -13,8 +13,10 @@ class AnnulationRequest(BaseModel):
 
 
 class ModificationRequest(BaseModel):
-    nouvelle_date_debut: date
-    nouvelle_date_fin: date
+    """Nouvelle destination dans la même zone tarifaire ; dates inchangées."""
+
+    destination_country_id: int
+    destination_ville: Optional[str] = None
     confirmer: bool = False
     motif: Optional[str] = None
 
@@ -51,6 +53,7 @@ class AvenantResponse(BaseModel):
     montant_ajustement: Optional[Decimal] = None
     nature_ajustement: Optional[str] = None
     paiement_id: Optional[int] = None
+    payload: Optional[Dict[str, Any]] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -113,3 +116,6 @@ class PolicyActionResult(BaseModel):
     payment_status: Optional[str] = None
     payment_url: Optional[str] = None
     payment_instructions: Optional[Any] = None
+    ancienne_destination: Optional[str] = None
+    nouvelle_destination: Optional[str] = None
+    zone_tarifaire: Optional[str] = None

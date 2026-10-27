@@ -150,6 +150,21 @@ class SubscriptionsService {
     return data;
   }
 
+  /// Réponse de l'assuré à une demande d'informations MHC
+  /// (POST /subscriptions/:id/info-response — délai 48 h, workflow V3 §4.2).
+  Future<Map<String, dynamic>> submitInfoResponse(
+    int subscriptionId,
+    String reponse,
+  ) async {
+    final data = await _api.post<Map<String, dynamic>>(
+      '/subscriptions/$subscriptionId/info-response',
+      body: {'reponse': reponse.trim()},
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+    clearSubscriptionsCache();
+    return data;
+  }
+
   /// Supprimer un brouillon / une souscription « à payer » (DELETE /subscriptions/:id).
   Future<void> deleteSubscription(int subscriptionId) async {
     await _api.delete('/subscriptions/$subscriptionId');
@@ -497,18 +512,20 @@ class SosService {
   }
 
   /// Déclencher une alerte SOS (comme sur l’application web).
+  /// La géolocalisation est facultative : en son absence, l'assuré saisit une
+  /// adresse manuelle (workflow V3 §7 — SOS possible sans géolocalisation).
   Future<Map<String, dynamic>> triggerSos({
-    required double latitude,
-    required double longitude,
+    double? latitude,
+    double? longitude,
     String? adresse,
     String? description,
     String priorite = 'normale',
     int? souscriptionId,
   }) async {
     final body = <String, dynamic>{
-      'latitude': latitude,
-      'longitude': longitude,
       'priorite': priorite,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
       if (adresse != null && adresse.isNotEmpty) 'adresse': adresse,
       if (description != null && description.isNotEmpty) 'description': description,
       if (souscriptionId != null) 'souscription_id': souscriptionId,

@@ -8,6 +8,7 @@ from app.models.notification import Notification
 from app.models.user import User
 from app.workers.tasks import send_notification_multi_channel
 import logging
+from app.core.notification_categories import is_essential
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,15 @@ class NotificationService:
             db.commit()
             db.refresh(notification)
             
+            # Notifications non essentielles désactivées par l'assuré : conservées
+            # dans l'application, pas d'envoi push (sécurité / urgences toujours envoyées).
+            if send_immediately and not is_essential(type_notification):
+                from app.models.user import User
+
+                prefs = db.query(User.notifications_non_essentielles).filter(User.id == user_id).scalar()
+                if prefs is False:
+                    send_immediately = False
+
             # Envoyer immédiatement si demandé
             if send_immediately:
                 if channels is None:

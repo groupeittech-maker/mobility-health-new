@@ -1033,11 +1033,15 @@ function renderReviewCard(item) {
                         <input type="radio" name="decision-${item.attestation_id}" value="reject">
                         Refuser
                     </label>
+                    <label>
+                        <input type="radio" name="decision-${item.attestation_id}" value="info">
+                        Demander des informations
+                    </label>
                 </div>
                 <textarea
                     id="comment-${item.attestation_id}"
                     rows="3"
-                    placeholder="Commentaire (obligatoire en cas de refus)"
+                    placeholder="Commentaire (obligatoire en cas de refus ou de demande d'informations)"
                 ></textarea>
                 <div class="review-action-buttons">
                     <button
@@ -1840,7 +1844,8 @@ function openProductionDetailModal(attestationId) {
     actions.innerHTML = `
         <button type="button" class="btn btn-secondary btn-sm" id="productionDetailCloseBtn">Fermer</button>
         ${isPending ? `
-            <textarea id="productionDetailComment" rows="2" placeholder="Commentaire (obligatoire en cas de refus)" style="width: 100%; margin: 0.5rem 0;"></textarea>
+            <textarea id="productionDetailComment" rows="2" placeholder="Commentaire (obligatoire en cas de refus ou de demande d'informations)" style="width: 100%; margin: 0.5rem 0;"></textarea>
+            <button type="button" class="btn btn-outline btn-sm" id="productionDetailInfoBtn" data-attestation-id="${item.attestation_id}">Demander des informations</button>
             <button type="button" class="btn btn-danger btn-sm" id="productionDetailRejectBtn" data-attestation-id="${item.attestation_id}">Refuser</button>
             <button type="button" class="btn btn-success btn-sm" id="productionDetailApproveBtn" data-attestation-id="${item.attestation_id}">Approuver</button>
         ` : ''}
@@ -1861,6 +1866,27 @@ function openProductionDetailModal(attestationId) {
             const attId = item.attestation_id;
             closeProductionDetailModal();
             await submitProductionDecisionFromModal(attId, true, null);
+        };
+        document.getElementById('productionDetailInfoBtn').onclick = async () => {
+            const message = document.getElementById('productionDetailComment')?.value?.trim();
+            if (!message) {
+                if (typeof showAlert === 'function') showAlert('Précisez les informations demandées à l’assuré.', 'error');
+                return;
+            }
+            const subscriptionId = item.souscription_id || item.subscription_id;
+            try {
+                await apiCall(`/admin/subscriptions/${subscriptionId}/request-info`, {
+                    method: 'POST',
+                    body: JSON.stringify({ message }),
+                });
+                if (typeof showAlert === 'function') {
+                    showAlert("Demande d'informations envoyée. Sans réponse sous 48 h, le dossier sera refusé.", 'success');
+                }
+                closeProductionDetailModal();
+                await loadReviewItems();
+            } catch (error) {
+                if (typeof showAlert === 'function') showAlert(error.message || 'Demande impossible.', 'error');
+            }
         };
     }
     overlay.hidden = false;
@@ -3419,6 +3445,10 @@ async function submitReviewDecision(attestationId) {
         showAlert('Merci de préciser un commentaire en cas de refus.', 'error');
         return;
     }
+    if (decisionInput.value === 'info' && !comment) {
+        showAlert('Précisez les informations demandées à l’assuré.', 'error');
+        return;
+    }
 
     const submitBtn = document.getElementById(`submit-${attestationId}`);
     if (submitBtn) {
@@ -3427,6 +3457,29 @@ async function submitReviewDecision(attestationId) {
     }
 
     try {
+        // « Demander des informations » (§4.2) : l'assuré a 48 h pour répondre,
+        // faute de quoi le dossier est refusé automatiquement.
+        if (decisionInput.value === 'info') {
+            const pools = [
+                window._productionReviewItems,
+                window._medicalReviewItems,
+                window._decisionDossierItems,
+            ];
+            let item = null;
+            for (const pool of pools) {
+                item = (pool || []).find((i) => i.attestation_id === attestationId);
+                if (item) break;
+            }
+            const subscriptionId = item && (item.souscription_id || item.subscription_id);
+            if (!subscriptionId) throw new Error('Souscription introuvable pour ce dossier.');
+            await apiCall(`/admin/subscriptions/${subscriptionId}/request-info`, {
+                method: 'POST',
+                body: JSON.stringify({ message: comment }),
+            });
+            showAlert('Demande d\'informations envoyée. Sans réponse sous 48 h, le dossier sera refusé.', 'success');
+            await loadReviewItems();
+            return;
+        }
         await attestationsAPI.createValidation(attestationId, {
             type_validation: reviewContext.type,
             est_valide: decisionInput.value === 'approve',

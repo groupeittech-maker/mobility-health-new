@@ -6,9 +6,10 @@ Règles :
 - annulation (avenant 102) : avant la date d'effet, même pendant une
   validation en attente ; confirmation explicite ; si la police est payée,
   une ristourne est enregistrée « à rembourser » (suivie séparément) ;
-- modification (avenant 107) : avant la date d'effet, nouvelles dates libres
-  (début ≥ aujourd'hui, durée ≤ 92 jours) ; prime recalculée au prorata :
-  complément à payer, ou remboursement partiel (ristourne) ;
+- modification (avenant 107) : avant l'expiration, y compris pendant le séjour ;
+  changement de destination dans la même zone tarifaire, durée restante et date
+  d'expiration inchangées, sans supplément ni remboursement ; appliquée après
+  confirmation de l'assuré, avenant généré immédiatement ;
 - prorogation (avenant 108) : jusqu'à la date de fin initiale, durée totale
   ≤ 92 jours ; prime complémentaire au prorata, encaissée dans l'application.
   Échec de paiement = ni confirmation ni document.
@@ -306,11 +307,8 @@ def _blocker(db: Session, souscription: Souscription, action: str, today: date) 
     if statut != StatutSouscription.ACTIVE:
         return "Action disponible uniquement sur une police payée et validée."
     if action == TYPE_MODIFICATION:
-        if debut is None or today >= debut:
-            return (
-                "La modification n'est possible qu'avant le jour d'entrée en vigueur de la police ; "
-                "utilisez la prorogation pour prolonger une police en cours."
-            )
+        if fin is None or today > fin:
+            return "La modification n'est possible qu'avant l'expiration de la police."
         return None
     if action == TYPE_PROROGATION:
         if fin is None or today > fin:
@@ -421,66 +419,110 @@ def _validate_period(souscription: Souscription, debut: date, fin: date) -> int:
     return days
 
 
+def _tariff_zone(db: Session, souscription: Souscription, destination_country_id: Optional[int]) -> Optional[str]:
+    """Zone tarifaire du parcours pays de résidence → destination."""
+    if not destination_country_id:
+        return None
+    from app.services.prime_tarif_service import resolve_residence_country_id_for_pricing
+    from app.services.voyage_premium_calculator import resolve_voyage_tariff_zone_code
+
+    user = souscription.user or db.query(User).filter(User.id == souscription.user_id).first()
+    residence_id = resolve_residence_country_id_for_pricing(
+        db, None, souscription.projet_voyage, getattr(user, "pays_residence", None)
+    )
+    return resolve_voyage_tariff_zone_code(db, residence_id, destination_country_id, None)
+
+
+def _destination_display(projet: Optional[ProjetVoyage], country, ville: Optional[str] = None) -> str:
+    nom = getattr(country, "nom", None) or (getattr(projet, "destination", None) if projet else None) or "—"
+    return f"{ville.strip()}, {nom}" if ville and ville.strip() else str(nom)
+
+
 def request_modification(
     db: Session,
     souscription: Souscription,
     actor: Optional[User],
     *,
-    nouvelle_date_debut: Any,
-    nouvelle_date_fin: Any,
+    destination_country_id: Optional[int],
+    destination_ville: Optional[str] = None,
     confirm: bool,
     motif: Optional[str] = None,
     today: Optional[date] = None,
 ) -> ActionResult:
+    """Modification (107) : nouvelle destination dans la même zone tarifaire.
+
+    La période de couverture (durée restante, date d'expiration) est inchangée et
+    aucun ajustement de prime n'est appliqué. Sur confirmation, l'avenant est émis.
+    """
+    from app.models.destination import DestinationCountry
+
     day = _today(today)
     _ensure_allowed(db, souscription, TYPE_MODIFICATION, day)
-    debut, fin = _as_date(nouvelle_date_debut), _as_date(nouvelle_date_fin)
-    if debut is None or fin is None:
-        raise AvenantError("Les nouvelles dates de début et de fin sont obligatoires.")
-    if debut < day:
-        raise AvenantError("La nouvelle date de début ne peut pas être dans le passé.")
-    new_days = _validate_period(souscription, debut, fin)
-    if debut == _as_date(souscription.date_debut) and fin == _as_date(souscription.date_fin):
-        raise AvenantError("Les nouvelles dates sont identiques aux dates actuelles.")
+    if not destination_country_id:
+        raise AvenantError("La nouvelle destination est obligatoire.")
+    pays = db.query(DestinationCountry).filter(DestinationCountry.id == destination_country_id).first()
+    if pays is None:
+        raise AvenantError("Destination inconnue.")
+    projet = souscription.projet_voyage
+    ancien_pays_id = getattr(projet, "destination_country_id", None) if projet else None
+    ancienne = _destination_display(projet, getattr(projet, "destination_country", None) if projet else None)
+    ville = (destination_ville or "").strip() or None
+    if ancien_pays_id == pays.id and (not ville or (projet and (projet.destination or "").strip().lower() == ville.lower())):
+        raise AvenantError("La nouvelle destination est identique à la destination actuelle.")
 
-    old_days = _coverage_days(souscription)
-    old = _prorata(souscription, old_days, old_days)
-    new = _prorata(souscription, new_days, old_days)
-    delta = Montants(new.prime - old.prime, Decimal("0"), new.frais_services - old.frais_services, new.taxes - old.taxes)
-    nature = NATURE_COMPLEMENT if delta.total > 0 else NATURE_REMBOURSEMENT if delta.total < 0 else NATURE_AUCUN
-    montants = delta if delta.total >= 0 else delta.negate()
+    zone_initiale = _tariff_zone(db, souscription, ancien_pays_id)
+    zone_nouvelle = _tariff_zone(db, souscription, pays.id)
+    if not zone_initiale or not zone_nouvelle or zone_initiale != zone_nouvelle:
+        raise AvenantError(
+            "La nouvelle destination doit appartenir à la même zone tarifaire que la destination initiale "
+            f"({zone_initiale or 'zone inconnue'}). Pour une autre zone, une nouvelle souscription est requise."
+        )
+    nouvelle = _destination_display(projet, pays, ville)
+    montants = Montants()
     if not confirm:
-        return ActionResult(souscription, montants=montants, nature=nature, simulation=True)
+        return ActionResult(souscription, montants=montants, nature=NATURE_AUCUN, simulation=True,
+                            payment_info={"ancienne_destination": ancienne, "nouvelle_destination": nouvelle,
+                                          "zone_tarifaire": zone_nouvelle})
 
+    now = datetime.utcnow()
     avenant = Avenant(
         souscription_id=souscription.id,
         type_avenant=TYPE_MODIFICATION,
-        numero=_provisional_number(),
-        statut=STATUT_ATTENTE_PAIEMENT,
+        numero=_allocate_number(db, TYPE_MODIFICATION),
+        statut=STATUT_EMIS,
         motif_autre=(motif or "").strip() or None,
+        date_effet=now,
+        date_echeance=souscription.date_fin,
         date_debut_initiale=souscription.date_debut,
         date_fin_initiale=souscription.date_fin,
-        nouvelle_date_debut=_as_datetime(debut),
-        nouvelle_date_fin=_as_datetime(fin),
-        montant_ajustement=montants.total,
-        nature_ajustement=nature,
-        payload={"delta": delta.as_payload()},
+        nouvelle_date_debut=souscription.date_debut,
+        nouvelle_date_fin=souscription.date_fin,
+        montant_ajustement=Decimal("0"),
+        nature_ajustement=NATURE_AUCUN,
+        payload={
+            "ancienne_destination": ancienne,
+            "ancien_destination_country_id": ancien_pays_id,
+            "nouvelle_destination": nouvelle,
+            "destination_country_id": pays.id,
+            "zone_tarifaire": zone_nouvelle,
+        },
         created_by_id=getattr(actor, "id", None),
     )
     db.add(avenant)
+    if projet is not None:
+        projet.destination_country_id = pays.id
+        projet.destination = ville or pays.nom
     db.flush()
-    ristourne = None
-    if nature != NATURE_COMPLEMENT:
-        # Remboursement ou ajustement nul : la modification s'applique dès
-        # la validation ; le remboursement est suivi séparément (quittance 120).
-        _apply_avenant(db, avenant)
-        if nature == NATURE_REMBOURSEMENT:
-            ristourne = _create_ristourne(
-                db, souscription, avenant, _original_payment(db, souscription), montants,
-                motif=f"Modification des dates de couverture (avenant {avenant.numero})",
-            )
-    db.flush()
-    return ActionResult(souscription, avenant=avenant, ristourne=ristourne, montants=montants, nature=nature)
+    _regenerate_attestation(db, souscription, None)
+    _notify(
+        souscription,
+        "Avenant de modification émis",
+        f"La destination de votre police {souscription.numero_souscription} est désormais : {nouvelle}. "
+        "Les dates de couverture sont inchangées.",
+    )
+    return ActionResult(souscription, avenant=avenant, montants=montants, nature=NATURE_AUCUN,
+                        payment_info={"ancienne_destination": ancienne, "nouvelle_destination": nouvelle,
+                                      "zone_tarifaire": zone_nouvelle})
 
 
 # ---------------------------------------------------------------------------
@@ -681,10 +723,7 @@ def expire_stale_pending(db: Session, today: Optional[date] = None) -> int:
         souscription = avenant.souscription
         if souscription is None:
             continue
-        if avenant.type_avenant == TYPE_MODIFICATION:
-            expired = day >= _as_date(souscription.date_debut)
-        else:
-            expired = day > _as_date(souscription.date_fin)
+        expired = day > _as_date(souscription.date_fin)
         if expired:
             abandon_pending(db, avenant, "Complément non réglé dans le délai autorisé.")
             count += 1
@@ -805,15 +844,14 @@ def build_avenant_pdf(db: Session, avenant: Avenant) -> BytesIO:
     if avenant.type_avenant == TYPE_ANNULATION:
         return generate_avenant_annulation(souscription, user, avenant.numero, date_annulation=avenant.date_effet, **common)
     if avenant.type_avenant == TYPE_MODIFICATION:
+        payload = avenant.payload or {}
         return generate_avenant_modification(
             souscription, user, avenant.numero,
-            date_debut_initiale=avenant.date_debut_initiale,
-            date_fin_initiale=avenant.date_fin_initiale,
-            nouvelle_date_debut=avenant.nouvelle_date_debut,
-            nouvelle_date_fin=avenant.nouvelle_date_fin,
-            montant_ajustement=avenant.montant_ajustement,
-            nature_ajustement=avenant.nature_ajustement,
-            date_emission=avenant.updated_at or avenant.created_at,
+            ancienne_destination=payload.get("ancienne_destination"),
+            nouvelle_destination=payload.get("nouvelle_destination"),
+            zone_tarifaire=payload.get("zone_tarifaire"),
+            date_effet=avenant.date_effet,
+            date_emission=avenant.created_at,
             **common,
         )
     if avenant.type_avenant == TYPE_PROROGATION:

@@ -14,8 +14,9 @@ class WorkflowStepSummary(BaseModel):
 
 
 class AlerteBase(BaseModel):
-    latitude: Decimal
-    longitude: Decimal
+    # Facultatives : le SOS part même sans géolocalisation (position saisie à la main).
+    latitude: Optional[Decimal] = None
+    longitude: Optional[Decimal] = None
     adresse: Optional[str] = None
     description: Optional[str] = None
     priorite: str = "normale"

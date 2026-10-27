@@ -401,7 +401,16 @@ class SubscriptionDecisionEngine:
     """Décision automatique d'acceptation / refus / revue d'une souscription."""
 
     @staticmethod
-    def evaluate(
+    def evaluate(db: Session, souscription: Souscription, **kwargs) -> DecisionResult:
+        """Évalue le dossier ; un refus automatique est notifié à l'assuré (sans détail
+        médical : le motif et l'horodatage sont consultables dans la souscription)."""
+        result = SubscriptionDecisionEngine._evaluate(db, souscription, **kwargs)
+        if result.decision == "reject" and souscription.statut == StatutSouscription.REFUSEE:
+            SubscriptionDecisionEngine._notify_client_outcome(db, souscription, approved=False)
+        return result
+
+    @staticmethod
+    def _evaluate(
         db: Session,
         souscription: Souscription,
         *,
@@ -755,6 +764,9 @@ class SubscriptionDecisionEngine:
 
         if not approved:
             souscription.statut = StatutSouscription.REFUSEE
+            if notes and not souscription.validation_finale_notes:
+                souscription.validation_finale_notes = notes
+            souscription.validation_finale_date = souscription.validation_finale_date or now
             SubscriptionDecisionEngine._notify_client_outcome(
                 db, souscription, approved=False, notes=notes
             )
@@ -808,13 +820,14 @@ class SubscriptionDecisionEngine:
                     "par la revue. Vous pouvez procéder au paiement."
                 )
             else:
-                titre = "Dossier refusé"
+                # Notification simple, sans détail médical : motif et horodatage
+                # sont affichés dans le détail de la souscription (§8.2).
+                titre = "Souscription refusée"
                 message = (
-                    f"Votre souscription #{souscription.numero_souscription} a été refusée "
-                    "après revue. Contactez le service client pour plus d'informations."
+                    f"Votre souscription #{souscription.numero_souscription} a été refusée. "
+                    "Le motif est consultable dans le détail de la souscription. "
+                    "Aucun paiement n'ayant été effectué, aucun remboursement n'est à prévoir."
                 )
-                if notes:
-                    message += f" Motif : {notes}"
             NotificationService.create_notification(
                 user_id=souscription.user_id,
                 type_notification="souscription_decision_result",

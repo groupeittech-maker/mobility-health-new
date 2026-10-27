@@ -17,13 +17,18 @@ class MedicalFormData {
 
 /// Étape « Questionnaire » (kit) : Oui/Non + « veuillez préciser » uniquement
 /// pour une réponse positive pertinente, attestation d'exactitude.
+/// [mineurs] : prénom/nom de chaque enfant déclaré au voyage — chacun répond
+/// à son propre questionnaire (workflow V3 §4.3), transmis dans
+/// `reponses['enfants']` et analysé par le moteur de décision.
 class StepMedicalScreen extends StatefulWidget {
   const StepMedicalScreen({
     super.key,
     required this.onContinue,
+    this.mineurs = const [],
   });
 
   final void Function(MedicalFormData data) onContinue;
+  final List<String> mineurs;
 
   @override
   State<StepMedicalScreen> createState() => _StepMedicalScreenState();
@@ -47,6 +52,25 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
   bool _declarationSante = false;
   String? _error;
 
+  /// Réponses médicales par enfant : clé = index dans [widget.mineurs].
+  final List<Map<String, String?>> _childAnswers = [];
+  final List<Map<String, TextEditingController>> _childPrecisions = [];
+
+  static const _childQuestions = [
+    ('malade_12_mois', 'A-t-il(elle) été malade au cours des 12 derniers mois ?'),
+    ('maladie_chronique', 'Souffre-t-il(elle) d\'une maladie chronique ?'),
+    ('voyage_medical', 'Le voyage est-il prévu pour des raisons médicales ?'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    for (var i = 0; i < widget.mineurs.length; i++) {
+      _childAnswers.add({for (final (key, _) in _childQuestions) key: null});
+      _childPrecisions.add({for (final (key, _) in _childQuestions) key: TextEditingController()});
+    }
+  }
+
   bool get _pregnancyIneligible {
     if (_enceinte != 'oui') return false;
     final months = int.tryParse(_moisGrossesseController.text.trim());
@@ -60,6 +84,11 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
     _maladieChroniquePrec.dispose();
     _moisGrossesseController.dispose();
     _activitePrec.dispose();
+    for (final m in _childPrecisions) {
+      for (final c in m.values) {
+        c.dispose();
+      }
+    }
     super.dispose();
   }
 
@@ -84,6 +113,14 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
         _activite == null) {
       setState(() => _error = 'Veuillez répondre à toutes les questions médicales.');
       return;
+    }
+    for (var i = 0; i < widget.mineurs.length; i++) {
+      final answered = _childAnswers[i];
+      if (_childQuestions.any((q) => answered[q.$1] == null)) {
+        setState(() => _error =
+            'Répondez à toutes les questions pour ${widget.mineurs[i]}.');
+        return;
+      }
     }
     if (_enceinte == 'oui') {
       final months = int.tryParse(_moisGrossesseController.text.trim());
@@ -175,6 +212,20 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
       'voyageMedical': _voyageMedical,
       'activite_sportive_pro': _activite,
       'activiteSportivePro': _activite,
+      if (widget.mineurs.isNotEmpty)
+        'enfants': [
+          for (var i = 0; i < widget.mineurs.length; i++)
+            {
+              'nom': widget.mineurs[i],
+              'reponses': {
+                for (final (key, _) in _childQuestions)
+                  if (_childAnswers[i][key] != null) key: _childAnswers[i][key],
+                for (final (key, _) in _childQuestions)
+                  if (_childPrecisions[i][key]!.text.trim().isNotEmpty)
+                    '${key}_precision': _childPrecisions[i][key]!.text.trim(),
+              },
+            },
+        ],
       if (prec(_maladeSouscriptionPrec) != null)
         'malade_souscription_precision': prec(_maladeSouscriptionPrec),
       if (prec(_malade12MoisPrec) != null)
@@ -332,6 +383,51 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                   ],
                 ),
               ),
+              for (var i = 0; i < widget.mineurs.length; i++) ...[
+                const SizedBox(height: 16),
+                MHSurfaceCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.child_care_outlined,
+                              color: AppColors.secondary, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Questionnaire de ${widget.mineurs[i]}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.secondary,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      for (var q = 0; q < _childQuestions.length; q++) ...[
+                        _yesNoRow(
+                          '${q + 1}. ${_childQuestions[q].$2}',
+                          _childAnswers[i][_childQuestions[q].$1],
+                          (v) => setState(() {
+                            _childAnswers[i][_childQuestions[q].$1] = v;
+                            if (v != 'oui') {
+                              _childPrecisions[i][_childQuestions[q].$1]!.clear();
+                            }
+                          }),
+                        ),
+                        if (_childAnswers[i][_childQuestions[q].$1] == 'oui')
+                          _preciserField(
+                              _childPrecisions[i][_childQuestions[q].$1]!),
+                        const SizedBox(height: 12),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               MHSurfaceCard(
                 padding: const EdgeInsets.all(16),

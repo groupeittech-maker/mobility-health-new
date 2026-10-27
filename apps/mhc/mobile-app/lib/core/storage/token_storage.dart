@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -9,6 +11,8 @@ class TokenStorage {
   static const _userIdKey = 'user_id';
   static const _userRoleKey = 'user_role';
   static const _userNameKey = 'user_name';
+  static const _deviceIdKey = 'device_id';
+  String? _deviceIdCache;
 
   /// [resetOnError] : efface le stockage si le Keystore Android ne peut plus déchiffrer
   /// (réinstall, changement de signature debug, restauration backup incompatible).
@@ -69,6 +73,26 @@ class TokenStorage {
 
   Future<String?> getUserRole() async => _safeRead(_userRoleKey);
   Future<String?> getUserName() async => _safeRead(_userNameKey);
+
+  /// Identifiant stable de l'appareil : une nouvelle connexion sur un autre
+  /// appareil ferme les sessions précédentes (workflow MyMHC V3 §3.2).
+  Future<String> getDeviceId() async {
+    final cached = _deviceIdCache;
+    if (cached != null) return cached;
+    final stored = await _safeRead(_deviceIdKey);
+    if (stored != null && stored.isNotEmpty) {
+      _deviceIdCache = stored;
+      return stored;
+    }
+    final rng = Random.secure();
+    final suffix = List<int>.generate(8, (_) => rng.nextInt(256))
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join();
+    final id = 'dev-${DateTime.now().microsecondsSinceEpoch.toRadixString(16)}-$suffix';
+    await _safeWrite(_deviceIdKey, id);
+    _deviceIdCache = id;
+    return id;
+  }
 
   Future<void> clearAll() async {
     await _safeDeleteAll();

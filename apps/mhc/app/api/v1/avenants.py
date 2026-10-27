@@ -101,6 +101,9 @@ def _result(result: ActionResult) -> PolicyActionResult:
         payment_status=getattr(getattr(paiement, "statut", None), "value", None),
         payment_url=result.payment_info.get("checkout_url"),
         payment_instructions=result.payment_info.get("instructions"),
+        ancienne_destination=result.payment_info.get("ancienne_destination"),
+        nouvelle_destination=result.payment_info.get("nouvelle_destination"),
+        zone_tarifaire=result.payment_info.get("zone_tarifaire"),
     )
 
 
@@ -160,12 +163,13 @@ async def request_modification(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Modification des dates avant la date d'effet (avenant 107). `confirmer=false` : simulation."""
+    """Modification avant expiration (avenant 107) : destination dans la même zone tarifaire,
+    dates inchangées, sans ajustement de prime. `confirmer=false` : simulation."""
     sous = _owned_souscription(db, subscription_id, current_user)
     return _run(
         db, avenant_service.request_modification, sous, current_user,
-        nouvelle_date_debut=body.nouvelle_date_debut,
-        nouvelle_date_fin=body.nouvelle_date_fin,
+        destination_country_id=body.destination_country_id,
+        destination_ville=body.destination_ville,
         confirm=body.confirmer,
         motif=body.motif,
     )

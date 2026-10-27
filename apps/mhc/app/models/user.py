@@ -70,6 +70,19 @@ class User(Base, TimestampMixin):
     # Fraude avérée dans l'historique du client : refus automatique des souscriptions.
     fraude_signalee = Column(Boolean, default=False, nullable=False, server_default="false")
     fraude_motif = Column(Text, nullable=True)
+    # Adresse physique : modifiable directement, sans validation MHC.
+    adresse = Column(Text, nullable=True)
+    # Sécurité (workflow V3 §3.2) : blocage après N échecs, session unique par appareil.
+    failed_login_attempts = Column(Integer, default=0, nullable=False, server_default="0")
+    locked_until = Column(DateTime, nullable=True)
+    session_version = Column(Integer, default=0, nullable=False, server_default="0")
+    last_device_id = Column(String(128), nullable=True)
+    # Paramètres (§3.4) : langue de l'interface, langue des nouveaux documents, notifications.
+    langue = Column(String(5), default="fr", nullable=False, server_default="fr")
+    langue_documents = Column(String(5), default="fr", nullable=False, server_default="fr")
+    notifications_non_essentielles = Column(Boolean, default=True, nullable=False, server_default="true")
+    # Suppression de compte demandée par l'assuré : compte désactivé, données conservées.
+    deleted_at = Column(DateTime, nullable=True)
 
     # Relations
     role_obj = relationship("RoleModel", back_populates="users", foreign_keys=[role_id])

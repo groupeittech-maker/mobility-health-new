@@ -103,3 +103,6 @@ IDENTIFIANTS_TEST.md
 apps/mhc/celerybeat-schedule
 apps/mhc/mobile-app/releases/
 apps/mhc/mobile-app/*.mp4
+
+# Captures de démonstration à la racine mobile-app
+apps/mhc/mobile-app/*.png

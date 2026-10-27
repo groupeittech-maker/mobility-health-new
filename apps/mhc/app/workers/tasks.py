@@ -659,6 +659,20 @@ def send_subscription_deletion_reminders():
         db.close()
 
 
+@celery_app.task(name="app.workers.tasks.process_subscription_lifecycle")
+def process_subscription_lifecycle():
+    """Demandes d'informations (rappel / refus à 48 h) et passage des polices terminées en « Expirée »."""
+    from app.services.subscription_lifecycle import expire_ended_policies, process_info_requests
+
+    db = SessionLocal()
+    try:
+        result = process_info_requests(db)
+        result["expired"] = expire_ended_policies(db)
+        return result
+    finally:
+        db.close()
+
+
 @celery_app.task(name="app.workers.tasks.process_questionnaire_reminders")
 def process_questionnaire_reminders():
     """

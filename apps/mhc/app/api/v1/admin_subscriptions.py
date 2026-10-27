@@ -344,37 +344,40 @@ async def validate_medical(
         notes=validation.notes,
     )
 
-    # Notifier l'utilisateur du résultat
-    from app.models.notification import Notification
-    from app.models.user import User
-    user = db.query(User).filter(User.id == souscription.user_id).first()
-
-    if user:
-        if result.decision == "reject":
-            message = f"📋 Informations:\n• Votre prise en charge pour la souscription #{souscription.numero_souscription} a été refusée par le médecin référent MH."
-            if validation.notes:
-                message += f"\n• Motif du refus: {validation.notes}"
-            else:
-                message += "\n• Veuillez contacter le service client pour plus d'informations."
-        else:
-            message = f"📋 Informations:\n• Votre prise en charge pour la souscription #{souscription.numero_souscription} a été validée par le médecin référent MH.\n• Votre dossier est en cours de traitement."
-            if validation.notes:
-                message += f"\n• Notes du médecin: {validation.notes}"
-
-        notification = Notification(
-            user_id=user.id,
-            type_notification="medical_validation_result",
-            titre="Résultat de la validation médicale",
-            message=message,
-            lien_relation_id=souscription.id,
-            lien_relation_type="souscription"
-        )
-        db.add(notification)
-
+    # Le client est notifié par le moteur (refus / approbation finale), sans
+    # détail médical dans l'aperçu : motif consultable dans la souscription.
     db.commit()
     db.refresh(souscription)
 
     return souscription
+
+
+class InfoRequestBody(BaseModel):
+    message: str
+
+
+@router.post("/{subscription_id}/request-info", response_model=SouscriptionResponse)
+async def request_additional_info(
+    subscription_id: int,
+    body: InfoRequestBody,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([
+        Role.DOCTOR, Role.MEDICAL_REVIEWER, Role.MEDECIN_REFERENT_MH,
+        Role.AGENT_MEDICAL_MHC, Role.SUPERVISEUR_AFFAIRES_MEDICALES, Role.PRODUCTION_AGENT,
+    ]))
+):
+    """Demander des informations complémentaires à l'assuré (§4.2).
+
+    Notification immédiate, rappel avant 48 h ; sans réponse dans le délai, le
+    dossier est refusé automatiquement (motif + horodatage)."""
+    from app.services.subscription_lifecycle import request_info
+
+    souscription = db.query(Souscription).filter(Souscription.id == subscription_id).first()
+    if not souscription:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Souscription non trouvée")
+    if not medecin_can_review(db, current_user, souscription):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ce dossier n'est pas dans votre périmètre géographique")
+    return request_info(db, souscription, body.message, current_user.id)
 
 
 @router.post("/{subscription_id}/approve_final", response_model=SouscriptionResponse)

@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 import '../models/subscription.dart';
 import 'api_services.dart';
 
@@ -13,10 +15,15 @@ class SosEligibilityService {
     final subs = results[0]! as List<SubscriptionModel>;
     final atts = results[1]! as List<Map<String, dynamic>>;
 
-    // Même logique que l’API POST /sos/trigger : dernière souscription active (created_at desc).
+    // Même logique que l’API POST /sos/trigger : dernière souscription active
+    // (created_at desc) dont la couverture a commencé — avant la date d'effet,
+    // les demandes d'assistance sont bloquées (workflow V3 §7).
+    final today = DateUtils.dateOnly(DateTime.now());
     SubscriptionModel? latestActive;
     for (final s in subs) {
       if (s.statut != 'active') continue;
+      if (DateUtils.dateOnly(s.dateDebut).isAfter(today)) continue;
+      if (s.dateFin != null && DateUtils.dateOnly(s.dateFin!).isBefore(today)) continue;
       if (latestActive == null || s.createdAt.isAfter(latestActive.createdAt)) {
         latestActive = s;
       }

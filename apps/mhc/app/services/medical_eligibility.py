@@ -32,9 +32,13 @@ def parse_pregnancy_months(reponses: Mapping[str, Any]) -> int | None:
 
 
 def validate_medical_eligibility(reponses: Mapping[str, Any] | None) -> None:
-    """Bloque la souscription si grossesse > 5 mois révolus."""
+    """Bloque la souscription si grossesse > 5 mois révolus (principal et chaque enfant :
+    réponses par assuré dans `enfants: [{nom, reponses: {...}}]`)."""
     if not reponses:
         return
+    for enfant in reponses.get("enfants") or []:
+        if isinstance(enfant, Mapping) and isinstance(enfant.get("reponses"), Mapping):
+            validate_medical_eligibility(enfant["reponses"])
     enceinte = str(
         _first_value(reponses, "enceinte", "pregnancy") or ""
     ).strip().lower()

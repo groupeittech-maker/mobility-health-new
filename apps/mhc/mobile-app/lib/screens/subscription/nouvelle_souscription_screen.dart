@@ -649,7 +649,12 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
                       index: _currentStep - 1,
                       children: [
                         StepVoyageScreen(onContinue: _onVoyageContinue),
-                        StepMedicalScreen(onContinue: _onMedicalContinue),
+                        StepMedicalScreen(
+                          onContinue: _onMedicalContinue,
+                          mineurs: (_voyageData?.mineurs ?? const [])
+                              .map((m) => m.nom)
+                              .toList(),
+                        ),
                         StepProduitScreen(
                           products: _products,
                           canalDistribution: _canalDistribution,

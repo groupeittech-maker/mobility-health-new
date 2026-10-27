@@ -3,13 +3,16 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/api_error_helper.dart';
+import '../../models/destination.dart';
 import '../../models/subscription.dart';
+import '../../services/api_services.dart';
 import '../../services/avenant_service.dart';
 import '../pdf_viewer_screen.dart';
 
-/// Actions sur une police (workflow MyMHC V3) : annuler, modifier les dates,
-/// prolonger. Une seule demande en cours par attestation : tant qu'un
-/// complément de prime est attendu, les autres actions sont désactivées.
+/// Actions sur une police (workflow MyMHC V3) : annuler, changer de
+/// destination (même zone tarifaire), prolonger. Une seule demande en cours
+/// par attestation : tant qu'un complément de prime est attendu, les autres
+/// actions sont désactivées.
 class PolicyActionsSection extends StatefulWidget {
   const PolicyActionsSection({
     super.key,
@@ -103,24 +106,38 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
   Future<void> _openActionSheet(String action) async {
     final s = widget.subscription;
     final maxDays = (_info?['duree_max_jours'] as num?)?.toInt() ?? 92;
-    final today = DateUtils.dateOnly(DateTime.now());
-    DateTime start = DateUtils.dateOnly(s.dateDebut);
     DateTime end = DateUtils.dateOnly(s.dateFin ?? s.dateDebut);
     if (action == 'prorogation') end = end.add(const Duration(days: 1));
     final motifCtrl = TextEditingController();
+    final villeCtrl = TextEditingController();
+    List<DestinationCountryModel> countries = const [];
+    DestinationCountryModel? destination;
     Map<String, dynamic>? simulation;
     String? error;
     var busy = false;
     var confirmed = false;
 
+    if (action == 'modification') {
+      try {
+        countries = await DestinationsService().getDestinationCountries();
+      } catch (_) {
+        if (mounted) {
+          _snack('Liste des destinations indisponible.', error: true);
+        }
+        return;
+      }
+    }
+
     final titles = {
       'annulation': 'Annuler la police',
-      'modification': 'Modifier les dates de couverture',
+      'modification': 'Changer de destination',
       'prorogation': 'Prolonger la police',
     };
     final hints = {
       'annulation': "L'annulation est définitive et n'est possible qu'avant la date d'effet.",
-      'modification': "Avant la date d'effet uniquement. Durée totale maximale : $maxDays jours. Prime recalculée au prorata.",
+      'modification': "Changement de destination dans la même zone tarifaire, "
+          "jusqu'à l'expiration de la police. Dates et prime inchangées : "
+          "aucun supplément ni remboursement.",
       'prorogation': "Jusqu'à la date de fin initiale. Durée totale maximale : $maxDays jours. Prime complémentaire au prorata.",
     };
 
@@ -133,7 +150,8 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
         final res = await _service.submitAction(
           s.id, action,
           confirm: false,
-          nouvelleDateDebut: action == 'modification' ? start : null,
+          destinationCountryId: action == 'modification' ? destination?.id : null,
+          destinationVille: action == 'modification' ? villeCtrl.text : null,
           nouvelleDateFin: action == 'annulation' ? null : end,
         );
         setSheet(() => simulation = res);
@@ -153,7 +171,8 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
         final res = await _service.submitAction(
           s.id, action,
           confirm: true,
-          nouvelleDateDebut: action == 'modification' ? start : null,
+          destinationCountryId: action == 'modification' ? destination?.id : null,
+          destinationVille: action == 'modification' ? villeCtrl.text : null,
           nouvelleDateFin: action == 'annulation' ? null : end,
           motif: motifCtrl.text,
         );
@@ -201,6 +220,7 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
       );
     }
 
+    if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -221,36 +241,45 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
                 const SizedBox(height: 4),
                 Text(hints[action]!, style: const TextStyle(fontSize: 13, color: AppColors.mutedText)),
                 const SizedBox(height: 12),
-                if (action == 'modification')
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.flight_takeoff),
-                    title: const Text('Nouvelle date de début'),
-                    subtitle: Text(_date(start)),
-                    onTap: () async {
-                      final d = await pick(ctx, start, today, today.add(const Duration(days: 365)));
-                      if (d != null) {
-                        setSheet(() {
-                          start = d;
-                          if (!end.isAfter(start)) end = start.add(const Duration(days: 1));
-                          if (end.difference(start).inDays > maxDays) end = start.add(Duration(days: maxDays));
-                          simulation = null;
-                        });
-                      }
-                    },
+                if (action == 'modification') ...[
+                  DropdownButtonFormField<DestinationCountryModel>(
+                    initialValue: destination,
+                    decoration: const InputDecoration(
+                      labelText: 'Nouvelle destination *',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: countries
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c.nom)))
+                        .toList(),
+                    onChanged: (v) => setSheet(() {
+                      destination = v;
+                      simulation = null;
+                    }),
                   ),
-                if (action != 'annulation')
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: villeCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Ville (optionnel)',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setSheet(() => simulation = null),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Destination actuelle : ${s.projetVoyage?.destinationDisplay ?? s.projetVoyage?.destination ?? '—'}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.mutedText),
+                  ),
+                ],
+                if (action == 'prorogation')
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.flight_land),
-                    title: Text(action == 'prorogation' ? 'Nouvelle date de fin de couverture' : 'Nouvelle date de fin'),
+                    title: const Text('Nouvelle date de fin de couverture'),
                     subtitle: Text(_date(end)),
                     onTap: () async {
-                      final first = action == 'prorogation'
-                          ? DateUtils.dateOnly(s.dateFin ?? s.dateDebut).add(const Duration(days: 1))
-                          : start.add(const Duration(days: 1));
-                      final base = action == 'prorogation' ? DateUtils.dateOnly(s.dateDebut) : start;
-                      final last = base.add(Duration(days: maxDays));
+                      final first = DateUtils.dateOnly(s.dateFin ?? s.dateDebut).add(const Duration(days: 1));
+                      final last = DateUtils.dateOnly(s.dateDebut).add(Duration(days: maxDays));
                       if (last.isBefore(first)) return;
                       final d = await pick(ctx, end, first, last);
                       if (d != null) {
@@ -312,6 +341,8 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
         );
       }),
     );
+    motifCtrl.dispose();
+    villeCtrl.dispose();
   }
 
   Future<void> _openPaymentSheet(int avenantId, dynamic montant) async {
@@ -511,7 +542,7 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
           ),
         if (showButtons) ...[
           if (statut == 'active') ...[
-            actionButton('modification', 'Modifier les dates', Icons.edit_calendar_outlined),
+            actionButton('modification', 'Changer de destination', Icons.flight_takeoff_outlined),
             actionButton('prorogation', 'Prolonger', Icons.update),
           ],
           actionButton('annulation', 'Annuler la police', Icons.cancel_outlined, danger: true),

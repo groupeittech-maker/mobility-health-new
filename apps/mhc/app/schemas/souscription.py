@@ -68,6 +68,10 @@ class SouscriptionResponse(SouscriptionBase):
     demande_resiliation_notes: Optional[str] = None
     demande_resiliation_par_agent: Optional[int] = None
     demande_resiliation_date_traitement: Optional[datetime] = None
+    info_demandee_at: Optional[datetime] = None
+    info_demandee_message: Optional[str] = None
+    info_reponse: Optional[str] = None
+    info_reponse_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     

@@ -3,7 +3,7 @@ import logging
 import random
 import string
 from typing import List, Union, Optional
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, text
@@ -119,6 +119,10 @@ class UserUpdate(BaseModel):
 
 class UserPasswordReset(BaseModel):
     new_password: str
+
+
+# Champs qu'un assuré peut modifier lui-même via PUT /users/{id} (workflow V3 §3.3).
+SELF_EDITABLE_FIELDS = {"numero_whatsapp", "nom_contact_urgence", "contact_urgence"}
 
 
 class UserResponse(BaseModel):
@@ -309,11 +313,19 @@ async def get_my_attestations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Obtenir toutes les attestations associées à l'utilisateur connecté."""
+    """Obtenir toutes les attestations associées à l'utilisateur connecté.
+
+    Après la fin du contrat, les documents restent visibles pendant
+    DOCUMENTS_RETENTION_DAYS puis sont masqués (archivage interne).
+    """
+    from app.core.config import settings
+
+    horizon = datetime.utcnow() - timedelta(days=settings.DOCUMENTS_RETENTION_DAYS)
     attestations = (
         db.query(Attestation)
         .join(Souscription, Attestation.souscription_id == Souscription.id)
         .filter(Souscription.user_id == current_user.id)
+        .filter(or_(Souscription.date_fin.is_(None), Souscription.date_fin >= horizon))
         .order_by(Attestation.created_at.desc())
         .all()
     )
@@ -367,10 +379,122 @@ async def update_my_profile_photo(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Image invalide")
     if not raw or len(raw) > _MAX_PROFILE_PHOTO_BYTES:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Image trop volumineuse (5 Mo maximum)")
-    current_user.photo_profil = payload.data_url
-    db.add(current_user)
+    db.query(User).filter(User.id == current_user.id).update(
+        {User.photo_profil: payload.data_url}, synchronize_session=False
+    )
     db.commit()
     return None
+
+
+class UserSettings(BaseModel):
+    """Paramètres MyMHC (§3.4)."""
+    langue: str | None = None
+    langue_documents: str | None = None
+    notifications_non_essentielles: bool | None = None
+
+
+SUPPORTED_LANGUAGES = {"fr", "en", "es", "pt", "ar"}
+
+
+def _settings_payload(user: User) -> dict:
+    return {
+        "langue": user.langue or "fr",
+        "langue_documents": user.langue_documents or user.langue or "fr",
+        "notifications_non_essentielles": bool(user.notifications_non_essentielles),
+        "langues_disponibles": sorted(SUPPORTED_LANGUAGES),
+    }
+
+
+@router.get("/me/settings")
+async def get_my_settings(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return _settings_payload(db.query(User).filter(User.id == current_user.id).first())
+
+
+@router.put("/me/settings")
+async def update_my_settings(
+    body: UserSettings,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Langue de l'interface, langue des nouveaux documents (les documents existants
+    conservent leur langue) et notifications non essentielles (les notifications de
+    sécurité et d'urgence restent toujours actives)."""
+    user = db.query(User).filter(User.id == current_user.id).first()
+    for field in ("langue", "langue_documents"):
+        value = getattr(body, field)
+        if value is None:
+            continue
+        value = value.strip().lower()
+        if value not in SUPPORTED_LANGUAGES:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Langue non prise en charge : {value}")
+        setattr(user, field, value)
+    if body.notifications_non_essentielles is not None:
+        user.notifications_non_essentielles = body.notifications_non_essentielles
+    db.commit()
+    db.refresh(user)
+    return _settings_payload(user)
+
+
+class AddressUpdate(BaseModel):
+    adresse: str | None = None
+
+
+@router.put("/me/address")
+async def update_my_address(
+    body: AddressUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Adresse physique : modification directe, sans validation MHC (§3.3)."""
+    db.query(User).filter(User.id == current_user.id).update(
+        {User.adresse: (body.adresse or "").strip() or None}, synchronize_session=False
+    )
+    db.commit()
+    return {"adresse": (body.adresse or "").strip() or None}
+
+
+class AccountDeletionRequest(BaseModel):
+    password: str
+    confirmation: str
+
+
+@router.delete("/me", status_code=status.HTTP_200_OK)
+async def delete_my_account(
+    body: AccountDeletionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Suppression du compte par l'assuré (§3.4).
+
+    Confirmation renforcée (mot de passe + saisie « SUPPRIMER »). Le compte est
+    désactivé et toutes les sessions fermées ; les assurances actives ne sont pas
+    résiliées et les données légalement/contractuellement requises sont conservées.
+    """
+    from app.api.v1.auth import bump_session_version
+    from app.core.security import verify_password
+
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if (body.confirmation or "").strip().upper() != "SUPPRIMER":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Saisissez « SUPPRIMER » pour confirmer.")
+    if not verify_password(body.password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Mot de passe incorrect.")
+    active = (
+        db.query(Souscription)
+        .filter(Souscription.user_id == user.id, Souscription.statut == "active")
+        .count()
+    )
+    user.is_active = False
+    user.deleted_at = datetime.utcnow()
+    user.fcm_registration_token = None
+    db.commit()
+    bump_session_version(db, user.id)
+    message = "Votre compte a été supprimé."
+    if active:
+        message += (
+            f" Vos {active} assurance(s) active(s) restent valables jusqu'à leur échéance ; "
+            "contactez MHC pour toute question."
+        )
+    return {"message": message, "assurances_actives": active}
 
 
 @router.get("/search/{username}", response_model=UserResponse)
@@ -732,17 +856,32 @@ async def update_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+    target_role = _role_value(getattr(user, "role", None))
+    update_data = user_update.dict(exclude_unset=True)
     if current_user.id != user_id:
-        target_role = _role_value(getattr(user, "role", None))
         new_role = _role_value(getattr(user_update.role, "value", user_update.role)) if getattr(user_update, "role", None) is not None else target_role
         if not (_can_manage_account(current_user, target_role) and _can_manage_account(current_user, new_role)):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not enough permissions"
             )
-    
+    elif not _can_manage_account(current_user, target_role):
+        # Modification de son propre compte : uniquement les coordonnées libres.
+        # Rôle / activation / rattachements interdits ; l'identité passe par une
+        # demande validée par MHC, l'e-mail et le téléphone par un code de vérification.
+        forbidden = set(update_data) - SELF_EDITABLE_FIELDS
+        if forbidden:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Ces informations ne sont pas modifiables directement : "
+                    f"{', '.join(sorted(forbidden))}. Nom, date de naissance, nationalité, pays de résidence "
+                    "et pièce d'identité passent par une demande de modification validée par MHC ; "
+                    "e-mail et téléphone par un code de vérification."
+                ),
+            )
+
     # Update fields
-    update_data = user_update.dict(exclude_unset=True)
     for field, value in update_data.items():
         if field in ("date_naissance", "validite_passeport"):
             # Colonnes Date : accepter le format ISO YYYY-MM-DD envoyé par l'app

@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
+import '../../core/i18n/app_strings.dart';
 import '../../core/utils/api_error_helper.dart';
 import '../../core/widgets/mh_app_bar.dart';
 import '../../core/widgets/mh_logo_header.dart';
@@ -215,21 +216,23 @@ class _MhAccountDrawerState extends State<MhAccountDrawer> {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _item(Icons.person_outline, 'Profil',
+                _item(Icons.person_outline, tr(context, 'profile'),
                     () => _go(() => context.push('/profile'))),
-                _item(Icons.credit_card, 'Mes cartes',
+                _item(Icons.child_care_outlined, tr(context, 'children'),
+                    () => _go(() => context.push('/enfants'))),
+                _item(Icons.credit_card, tr(context, 'my_cards'),
                     () => _go(() => context.push('/ecards'))),
-                _item(Icons.description_outlined, 'Attestations',
+                _item(Icons.description_outlined, tr(context, 'attestations'),
                     () => _go(() => context.push('/attestations'))),
                 _item(
                   Icons.payments_outlined,
-                  'Paiements',
+                  tr(context, 'payments'),
                   () => _pushPage(const SubscriptionsFilteredScreen(
                       filter: SubscriptionsFilter.pending)),
                 ),
                 _item(
                   Icons.history,
-                  'Historique',
+                  tr(context, 'history'),
                   () => _pushPage(const Scaffold(
                     backgroundColor: Colors.transparent,
                     appBar: MhAppBar(title: 'Historique', showBell: false),
@@ -239,13 +242,17 @@ class _MhAccountDrawerState extends State<MhAccountDrawer> {
                     ),
                   )),
                 ),
-                _item(Icons.public, 'Réseau MHC',
+                _item(Icons.public, tr(context, 'mhc_network'),
                     () => _go(() => context.push('/reseau'))),
-                _item(Icons.shield_outlined, 'Sécurité',
-                    () => _go(() => context.push('/forgot-password'))),
+                _item(Icons.report_gmailerrorred_outlined, tr(context, 'complaints'),
+                    () => _go(() => context.push('/reclamations'))),
+                _item(Icons.shield_outlined, tr(context, 'security'),
+                    () => _go(() => context.push('/security'))),
+                _item(Icons.settings_outlined, tr(context, 'settings'),
+                    () => _go(() => context.push('/settings'))),
                 _item(
                   Icons.help_outline,
-                  'Aide',
+                  tr(context, 'help'),
                   () => _go(() => launchUrl(
                         Uri.parse('https://mobilityhealth-care.com'),
                         mode: LaunchMode.externalApplication,
@@ -254,7 +261,7 @@ class _MhAccountDrawerState extends State<MhAccountDrawer> {
                 const Divider(height: 16),
                 _item(
                   Icons.logout,
-                  'Déconnexion',
+                  tr(context, 'logout'),
                   () async {
                     final router = GoRouter.of(context);
                     final auth = context.read<AuthProvider>();

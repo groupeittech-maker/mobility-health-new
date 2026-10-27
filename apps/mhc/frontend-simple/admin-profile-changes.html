@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modifications de profil - Back Office</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/backoffice.css?v=8">
+</head>
+<body data-backoffice>
+    <main class="container">
+        <div class="dashboard-header">
+            <h2>Demandes de modification de profil</h2>
+        </div>
+
+        <div class="dashboard-section">
+            <div class="table-toolbar">
+                <div class="toolbar-actions">
+                    <select id="profileChangeStatusFilter" class="form-control" style="max-width:240px;">
+                        <option value="pending">En attente</option>
+                        <option value="approved">Validées</option>
+                        <option value="rejected">Refusées</option>
+                        <option value="">Toutes</option>
+                    </select>
+                </div>
+            </div>
+            <p class="text-muted small">Les informations d'identité (nom, date de naissance, pièce d'identité,
+                nationalité, pays de résidence) ne sont appliquées qu'après validation. La pièce jointe
+                est consultable avant décision.</p>
+        </div>
+
+        <div id="profileChangesTableContainer">
+            <div class="loading"><div class="spinner"></div></div>
+        </div>
+    </main>
+
+    <div class="bo-modal-backdrop" id="profileChangeModal">
+        <div class="bo-modal" style="max-width:640px;">
+            <div class="bo-modal-head">
+                <h3 id="profileChangeTitle">Demande</h3>
+                <button type="button" class="bo-modal-close" id="profileChangeModalClose">&times;</button>
+            </div>
+            <div id="profileChangeBody"></div>
+            <div id="profileChangeActions" style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
+        </div>
+    </div>
+
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=3"></script>
+    <script src="js/admin-profile-changes.js?v=1"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=5"></script>
+</body>
+</html>

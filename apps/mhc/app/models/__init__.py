@@ -46,6 +46,8 @@ from app.models.mhc_care_document import MhcCareDocument
 from app.models.ekyc_session import EkycSession
 from app.models.avenant import Avenant
 from app.models.ristourne import Ristourne
+from app.models.reclamation import Reclamation, ReclamationEvent
+from app.models.profile_change import EnfantBeneficiaire, ProfileChangeRequest
 from app.models.sinistre_attachment import SinistreAttachment
 from app.models.parametre_pays_assureur import ParametrePaysAssureur, TaxePaysAssureur
 from app.models.tarification import (

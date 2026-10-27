@@ -656,23 +656,22 @@ def generate_avenant_modification(
     *,
     traveler_info: Optional[dict[str, Any]] = None,
     minors_info: Optional[list[dict[str, Any]]] = None,
-    date_debut_initiale: Any = None,
-    date_fin_initiale: Any = None,
-    nouvelle_date_debut: Any = None,
-    nouvelle_date_fin: Any = None,
-    montant_ajustement: Any = None,
-    nature_ajustement: Optional[str] = None,
+    ancienne_destination: Optional[str] = None,
+    nouvelle_destination: Optional[str] = None,
+    zone_tarifaire: Optional[str] = None,
+    date_effet: Any = None,
     date_emission: Any = None,
+    **_legacy: Any,
 ) -> BytesIO:
-    """Avenant de modification de police (code 107) — modèle MHC."""
+    """Avenant de modification de police (code 107) — workflow MyMHC V3 §6.
+
+    Modification avant expiration (y compris pendant le séjour), dans la même zone
+    tarifaire : durée et date d'expiration inchangées, sans supplément ni remboursement.
+    """
     from app.services.pdf_service import _build_logo_header_flowable
 
     styles = _styles()
     emitted = date_emission or datetime.utcnow()
-    nature = {
-        "complement": "COMPLÉMENT",
-        "remboursement": "REMBOURSEMENT",
-    }.get(nature_ajustement or "", "AUCUN AJUSTEMENT")
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.4 * cm, rightMargin=1.4 * cm, topMargin=1.2 * cm, bottomMargin=1.4 * cm)
@@ -686,33 +685,34 @@ def generate_avenant_modification(
     ))
     story.append(Spacer(1, 0.12 * cm))
     story.append(_info_grid(
-        ["DATE DE DÉBUT INITIALE", "DATE DE FIN INITIALE", "NOUVELLE DATE DE DÉBUT", "NOUVELLE DATE DE FIN"],
-        [_fmt_date(date_debut_initiale), _fmt_date(date_fin_initiale), _fmt_date(nouvelle_date_debut), _fmt_date(nouvelle_date_fin)],
-        styles, col_width=4.5 * cm,
+        ["PÉRIODE DE COUVERTURE (INCHANGÉE)", "DATE D'EFFET DE LA MODIFICATION", "ZONE TARIFAIRE"],
+        [
+            f"De {_fmt_date(souscription.date_debut)} à {_fmt_date(souscription.date_fin)}",
+            _fmt_date(date_effet or emitted),
+            zone_tarifaire or "—",
+        ],
+        styles,
     ))
     story.extend(_voyageurs_section(styles, souscription, user, traveler_info, minors_info))
-    story.append(Paragraph("2 MODALITÉS DE LA MODIFICATION", styles["section"]))
+    story.append(Paragraph("2 OBJET DE LA MODIFICATION", styles["section"]))
     story.append(_info_grid(
-        ["MONTANT DE L'AJUSTEMENT", "NATURE DE L'AJUSTEMENT (COMPLÉMENT / REMBOURSEMENT)"],
-        [_money(montant_ajustement or 0), nature],
-        styles, col_width=9 * cm,
+        ["DESTINATION INITIALE", "NOUVELLE DESTINATION", "AJUSTEMENT DE PRIME"],
+        [ancienne_destination or "—", nouvelle_destination or _destination_label(souscription), "AUCUN"],
+        styles,
     ))
     story.append(Spacer(1, 0.2 * cm))
     story.append(Paragraph(
-        "Le présent avenant a pour objet de modifier les dates de couverture du contrat mentionné ci-dessus, avant sa "
-        "date de prise d'effet initiale, à la demande de l'assuré principal. La nouvelle date de début peut être "
-        "antérieure ou postérieure à la date initiale, et la durée totale de couverture peut elle-même être allongée ou "
-        "raccourcie. Le montant de la prime est recalculé en conséquence et fait l'objet, selon le cas, d'un complément "
-        "à régler ou d'un remboursement partiel.",
+        "Le présent avenant a pour objet de modifier, à la demande de l'assuré principal, la destination couverte par "
+        "le contrat mentionné ci-dessus. La nouvelle destination relève de la même zone tarifaire que la destination "
+        "initiale : la durée de couverture restante et la date d'expiration du contrat demeurent inchangées et la "
+        "modification ne donne lieu à aucun supplément ni remboursement de prime.",
         styles["body"],
     ))
     story.append(Spacer(1, 0.12 * cm))
     story.append(Paragraph(
-        "Cette modification est initiée depuis le compte MyMHC de l'assuré principal, via l'option dédiée disponible sur "
-        "la police concernée, et fait l'objet d'une validation avant génération du présent avenant. Elle ne peut être "
-        "sollicitée qu'avant le jour où la police entre en vigueur ; une fois la police active, toute demande relative aux "
-        "dates ou à la durée de couverture relève d'un autre avenant. Le présent avenant ne prend effet qu'une fois "
-        "l'ajustement de prime réglé, par paiement du complément dû ou validation du remboursement applicable.",
+        "Cette modification peut être demandée avant l'expiration de la police, y compris pendant le séjour, depuis le "
+        "compte MyMHC de l'assuré principal. Elle est appliquée après confirmation de l'assuré ; toutes les autres "
+        "conditions du contrat restent inchangées.",
         styles["body"],
     ))
     story.extend(_signatures(styles))

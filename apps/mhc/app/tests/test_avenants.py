@@ -114,78 +114,93 @@ class TestAnnulation:
             avenant_service.request_annulation(db, sous, test_user, confirm=True)
 
 
-class TestModification:
-    def test_longer_period_requires_complement_then_emits_107(self, db, test_user, test_product, _no_side_effects):
-        sous = _souscription(db, test_user, test_product)
-        result = avenant_service.request_modification(
-            db, sous, test_user, nouvelle_date_debut=TODAY + timedelta(days=10),
-            nouvelle_date_fin=TODAY + timedelta(days=30), confirm=True,
-        )
-        db.commit()
-        avenant = result.avenant
-        assert result.nature == "complement"
-        assert avenant.montant_ajustement == Decimal("12000")  # (10000 + 1000 + 1000) × 20/10 − 12000
-        assert avenant.statut == "attente_paiement"
-        assert avenant.numero.startswith("PROV-")
-        # Règle exclusive : les deux autres actions sont bloquées.
-        assert _actions(db, sous) == {"annulation": False, "modification": False, "prorogation": False}
-        with pytest.raises(AvenantError):
-            avenant_service.build_avenant_pdf(db, avenant)
+def _countries(db, monkeypatch, zones=None):
+    """Trois pays de destination : FR et BE en EXTRA_AFRIQUE, SN en INTRA_AFRIQUE."""
+    from app.models.destination import DestinationCountry
 
-        avenant_service.start_avenant_payment(db, avenant, test_user, payment_type="mobile_money_mtn")
+    rows = {}
+    for code, nom in (("FR", "France"), ("BE", "Belgique"), ("SN", "Sénégal")):
+        country = db.query(DestinationCountry).filter(DestinationCountry.code == code).first()
+        if country is None:
+            country = DestinationCountry(code=code, nom=nom, est_actif=True)
+            db.add(country)
+            db.flush()
+        rows[code] = country
+    zones = zones or {"FR": "EXTRA_AFRIQUE", "BE": "EXTRA_AFRIQUE", "SN": "INTRA_AFRIQUE"}
+    by_id = {rows[c].id: z for c, z in zones.items()}
+    monkeypatch.setattr(avenant_service, "_tariff_zone", lambda db, sous, cid: by_id.get(cid))
+    db.commit()
+    return rows
+
+
+def _with_destination(db, sous, country):
+    from app.models.projet_voyage import ProjetVoyage
+
+    projet = ProjetVoyage(
+        user_id=sous.user_id, titre="Voyage", destination=country.nom, destination_country_id=country.id,
+        date_depart=sous.date_debut, date_retour=sous.date_fin,
+    )
+    db.add(projet)
+    db.flush()
+    sous.projet_voyage_id = projet.id
+    db.commit()
+    db.refresh(sous)
+    return projet
+
+
+class TestModification:
+    """Règle du PDF (§6) : destination dans la même zone tarifaire, dates inchangées, sans ajustement."""
+
+    def test_same_zone_destination_emits_107_without_adjustment(self, db, test_user, test_product, monkeypatch, _no_side_effects):
+        countries = _countries(db, monkeypatch)
+        sous = _souscription(db, test_user, test_product, start=-3, end=10)  # pendant le séjour
+        _with_destination(db, sous, countries["FR"])
+        debut, fin, prix = sous.date_debut, sous.date_fin, sous.prix_applique
+
+        simulation = avenant_service.request_modification(
+            db, sous, test_user, destination_country_id=countries["BE"].id, confirm=False,
+        )
+        assert simulation.simulation and simulation.montants.total == 0
+        assert simulation.payment_info["nouvelle_destination"] == "Belgique"
+
+        result = avenant_service.request_modification(
+            db, sous, test_user, destination_country_id=countries["BE"].id, destination_ville="Bruxelles", confirm=True,
+        )
         db.commit()
         db.refresh(sous)
-        assert avenant.statut == "emis"
-        assert avenant.numero.endswith("-107")
-        assert avenant.paiement.statut == StatutPaiement.VALIDE
-        assert sous.date_fin.date() == TODAY + timedelta(days=30)
-        assert sous.prix_applique == Decimal("25000")
-        assert _no_side_effects["attestations"] == 1  # nouvelle version de l'attestation
+        avenant = result.avenant
+        assert avenant.statut == "emis" and avenant.numero.endswith("-107")
+        assert avenant.nature_ajustement == "aucun" and avenant.montant_ajustement == 0
+        assert (sous.date_debut, sous.date_fin, sous.prix_applique) == (debut, fin, prix)
+        assert sous.projet_voyage.destination_country_id == countries["BE"].id
+        assert sous.projet_voyage.destination == "Bruxelles"
+        assert avenant.payload["ancienne_destination"] == "France"
+        assert _no_side_effects["attestations"] == 1
         assert avenant_service.build_avenant_pdf(db, avenant).read()[:4] == b"%PDF"
+        # Avenant émis immédiatement : aucune demande en cours, les actions restent disponibles.
         assert _actions(db, sous)["prorogation"] is True
 
-    def test_shorter_period_applies_immediately_with_ristourne(self, db, test_user, test_product, test_admin):
+    def test_other_tariff_zone_refused(self, db, test_user, test_product, monkeypatch):
+        countries = _countries(db, monkeypatch)
         sous = _souscription(db, test_user, test_product)
-        result = avenant_service.request_modification(
-            db, sous, test_user, nouvelle_date_debut=TODAY + timedelta(days=12),
-            nouvelle_date_fin=TODAY + timedelta(days=17), confirm=True,
-        )
-        db.commit()
-        assert result.nature == "remboursement"
-        assert result.avenant.statut == "emis" and result.avenant.numero.endswith("-107")
-        assert sous.date_debut.date() == TODAY + timedelta(days=12)
-        ristourne = result.ristourne
-        assert ristourne.montant_total == Decimal("6000")
-        assert ristourne.montant_prime == Decimal("5000")
-        assert ristourne.montant_taxes == Decimal("1000")
+        _with_destination(db, sous, countries["FR"])
+        with pytest.raises(AvenantError, match="même zone tarifaire"):
+            avenant_service.request_modification(db, sous, test_user, destination_country_id=countries["SN"].id, confirm=False)
 
-        with pytest.raises(AvenantError):
-            avenant_service.build_ristourne_pdf(db, ristourne)
-        avenant_service.confirm_ristourne(db, ristourne, test_admin, moyen_remboursement="mobile_money")
-        db.commit()
-        assert ristourne.statut == "rembourse"
-        assert ristourne.numero.endswith("-120")
-        assert ristourne.paiement.montant_rembourse == Decimal("6000")
-        assert avenant_service.build_ristourne_pdf(db, ristourne).read()[:4] == b"%PDF"
-        with pytest.raises(AvenantError):
-            avenant_service.confirm_ristourne(db, ristourne, test_admin, moyen_remboursement="virement")
-
-    @pytest.mark.parametrize(
-        "debut,fin",
-        [(-1, 10), (10, 10 + 93), (15, 12)],
-        ids=["debut-passe", "plus-de-92-jours", "fin-avant-debut"],
-    )
-    def test_invalid_periods(self, db, test_user, test_product, debut, fin):
+    def test_identical_destination_refused(self, db, test_user, test_product, monkeypatch):
+        countries = _countries(db, monkeypatch)
         sous = _souscription(db, test_user, test_product)
-        with pytest.raises(AvenantError):
-            avenant_service.request_modification(
-                db, sous, test_user, nouvelle_date_debut=TODAY + timedelta(days=debut),
-                nouvelle_date_fin=TODAY + timedelta(days=fin), confirm=False,
-            )
+        _with_destination(db, sous, countries["FR"])
+        with pytest.raises(AvenantError, match="identique"):
+            avenant_service.request_modification(db, sous, test_user, destination_country_id=countries["FR"].id, confirm=False)
 
-    def test_modification_refused_once_policy_started(self, db, test_user, test_product):
+    def test_modification_refused_after_expiry(self, db, test_user, test_product):
+        sous = _souscription(db, test_user, test_product, start=-20, end=-1)
+        assert _actions(db, sous)["modification"] is False
+
+    def test_modification_available_during_stay(self, db, test_user, test_product):
         sous = _souscription(db, test_user, test_product, start=-2, end=8)
-        assert _actions(db, sous) == {"annulation": False, "modification": False, "prorogation": True}
+        assert _actions(db, sous) == {"annulation": False, "modification": True, "prorogation": True}
 
 
 class TestProrogation:
@@ -226,12 +241,11 @@ class TestProrogation:
         db.commit()
         assert all(_actions(db, sous).values())
 
-        second = avenant_service.request_modification(
-            db, sous, test_user, nouvelle_date_debut=TODAY + timedelta(days=10),
-            nouvelle_date_fin=TODAY + timedelta(days=25), confirm=True,
+        second = avenant_service.request_prorogation(
+            db, sous, test_user, nouvelle_date_fin=TODAY + timedelta(days=25), confirm=True,
         ).avenant
         db.commit()
-        assert avenant_service.expire_stale_pending(db, today=TODAY + timedelta(days=10)) == 1
+        assert avenant_service.expire_stale_pending(db, today=TODAY + timedelta(days=21)) == 1
         assert second.statut == "abandonne"
 
 
@@ -263,23 +277,21 @@ class TestPolicyActionsApi:
             assert r.json()["actions"]["modification"]["disponible"] is True
             assert r.json()["duree_max_jours"] == 92
 
-            body = {
-                "nouvelle_date_debut": str(TODAY + timedelta(days=10)),
-                "nouvelle_date_fin": str(TODAY + timedelta(days=30)),
-            }
-            r = client.post(base + "/actions/modification", json=body)
+            body = {"nouvelle_date_fin": str(TODAY + timedelta(days=30))}
+            r = client.post(base + "/actions/prorogation", json=body)
             assert r.status_code == 200, r.text
             assert r.json()["simulation"] is True
             assert Decimal(r.json()["montants"]["total"]) == Decimal("12000")
             assert db.query(Avenant).count() == 0
 
-            r = client.post(base + "/actions/modification", json={**body, "confirmer": True})
+            r = client.post(base + "/actions/prorogation", json={**body, "confirmer": True})
             assert r.status_code == 200, r.text
             avenant_id = r.json()["avenant"]["id"]
 
             r = client.get(base + "/actions")
             assert r.json()["action_en_cours"]["id"] == avenant_id
             assert r.json()["actions"]["annulation"]["disponible"] is False
+            assert r.json()["actions"]["modification"]["disponible"] is False
             r = client.post(base + "/actions/annulation", json={"confirmer": True})
             assert r.status_code == 400
 

@@ -105,7 +105,9 @@ function _sectionHtml(info) {
         <li class="card-item" style="margin-bottom:0.6rem;">
             <strong>${_esc(AVENANT_TYPE_LABELS[a.type_avenant] || a.type_avenant)}</strong>
             <div class="muted-text">${a.statut === 'emis' ? `N° ${_esc(a.numero)} • ` : ''}${_esc(AVENANT_STATUT_LABELS[a.statut] || a.statut)}</div>
-            ${a.type_avenant !== 'annulation' && a.statut === 'emis'
+            ${a.type_avenant === 'modification' && a.statut === 'emis' && a.payload && a.payload.nouvelle_destination
+                ? `<div class="muted-text">Destination : ${_esc(a.payload.ancienne_destination || '—')} → ${_esc(a.payload.nouvelle_destination)}</div>` : ''}
+            ${a.type_avenant === 'prorogation' && a.statut === 'emis'
                 ? `<div class="muted-text">Couverture : du ${_fmtDate(a.nouvelle_date_debut)} au ${_fmtDate(a.nouvelle_date_fin)}</div>` : ''}
             ${a.statut === 'emis' ? `<div style="margin-top:0.4rem;">
                 <a class="btn btn-outline btn-sm" href="#" onclick="return openPolicyPdf(event, '/avenants/${a.id}/download')">Télécharger l'avenant</a>
@@ -180,20 +182,32 @@ function openPolicyActionModal(action) {
         simulatePolicyAction();
     } else if (action === 'modification') {
         _openModal(
-            'Modifier les dates de couverture',
-            `Avant la date d'effet uniquement. Durée totale maximale : ${maxDays} jours. La prime est recalculée au prorata.`,
-            `<div class="form-group"><label for="policyNewStart">Nouvelle date de début</label>
-                <input type="date" id="policyNewStart" class="form-control" min="${today}" value="${start}"></div>
-             <div class="form-group"><label for="policyNewEnd">Nouvelle date de fin</label>
-                <input type="date" id="policyNewEnd" class="form-control" min="${today}" value="${end}"></div>
+            'Changer de destination',
+            "La nouvelle destination doit être dans la même zone tarifaire que la destination initiale. "
+            + "Les dates de couverture et la prime sont inchangées : aucun supplément ni remboursement. "
+            + "L'avenant de modification est émis immédiatement.",
+            `<div class="form-group"><label for="policyNewDestination">Nouvelle destination</label>
+                <select id="policyNewDestination" class="form-control"><option value="">Chargement…</option></select></div>
+             <div class="form-group"><label for="policyNewVille">Ville (optionnel)</label>
+                <input type="text" id="policyNewVille" class="form-control" placeholder="Ex. : Bruxelles"></div>
              ${motif}<div id="policySimulation"></div>`,
             cancelBtn + simulateBtn,
         );
-        const startInput = document.getElementById('policyNewStart');
-        const endInput = document.getElementById('policyNewEnd');
-        const syncMax = () => { endInput.max = _addDays(startInput.value || today, maxDays); };
-        startInput.addEventListener('change', syncMax);
-        syncMax();
+        apiCall('/destinations/countries?actif_seulement=true')
+            .then((countries) => {
+                const select = document.getElementById('policyNewDestination');
+                if (!select) return;
+                const currentId = sub.projet_voyage && sub.projet_voyage.destination_country_id;
+                select.innerHTML = '<option value="">— Choisir —</option>'
+                    + (countries || [])
+                        .filter((c) => c.id !== currentId)
+                        .map((c) => `<option value="${c.id}">${_esc(c.nom)}</option>`)
+                        .join('');
+            })
+            .catch(() => {
+                const select = document.getElementById('policyNewDestination');
+                if (select) select.innerHTML = '<option value="">Destinations indisponibles</option>';
+            });
     } else {
         _openModal(
             'Prolonger la police',
@@ -208,9 +222,11 @@ function openPolicyActionModal(action) {
 
 function _actionPayload(confirm) {
     const payload = { confirmer: confirm, motif: (document.getElementById('policyMotif')?.value || '').trim() || null };
-    const startInput = document.getElementById('policyNewStart');
+    const destInput = document.getElementById('policyNewDestination');
+    const villeInput = document.getElementById('policyNewVille');
     const endInput = document.getElementById('policyNewEnd');
-    if (startInput) payload.nouvelle_date_debut = startInput.value;
+    if (destInput) payload.destination_country_id = destInput.value ? Number(destInput.value) : null;
+    if (villeInput && villeInput.value.trim()) payload.destination_ville = villeInput.value.trim();
     if (endInput) payload.nouvelle_date_fin = endInput.value;
     return payload;
 }
@@ -238,7 +254,11 @@ async function simulatePolicyAction() {
         } else if (res.nature_ajustement === 'remboursement') {
             summary = `Remboursement partiel : <strong>${_money(m.total)}</strong>. L'avenant est émis immédiatement, le remboursement est traité séparément.`;
         } else {
-            summary = "Aucun ajustement de prime : l'avenant est émis immédiatement.";
+            const info = res.payment_info || {};
+            const dest = info.nouvelle_destination
+                ? `Nouvelle destination : <strong>${_esc(info.nouvelle_destination)}</strong> (zone ${_esc(info.zone_tarifaire || '')}). `
+                : '';
+            summary = `${dest}Dates et prime inchangées : aucun ajustement. L'avenant est émis immédiatement.`;
         }
         box.innerHTML = `<div class="alert alert-info">${summary}</div>`;
         document.getElementById('policyActionActions').innerHTML = `
