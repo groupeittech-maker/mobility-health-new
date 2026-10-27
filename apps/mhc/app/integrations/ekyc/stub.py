@@ -33,6 +33,7 @@ class EkycStubClient:
         customer_reference: str,
         flow: str,
         metadata: Dict[str, Any] | None = None,
+        otp_destination: str | None = None,
     ) -> EkycSessionResponse:
         session_id = f"KYC-STUB-{uuid.uuid4().hex[:12].upper()}"
         now = datetime.now(timezone.utc)

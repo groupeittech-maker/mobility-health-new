@@ -54,11 +54,17 @@ def create_session(
     if souscription:
         meta["mhc_souscription_id"] = souscription.id
 
+    # Le numéro de téléphone déclaré par MHC devient la destination OTP
+    # imposée : l'utilisateur ne peut pas substituer un autre numéro, l'OTP
+    # prouve donc le contrôle du téléphone connu de MHC.
+    otp_destination = (user.telephone or user.numero_whatsapp or "").strip() or None
+
     client = get_ekyc_client()
     response = client.create_session(
         customer_reference=customer_ref,
         flow=flow,
         metadata=meta,
+        otp_destination=otp_destination,
     )
 
     session = EkycSession(

@@ -27,6 +27,13 @@ class EkycSessionRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(
         default=None, description="Données opaques renvoyées telles quelles"
     )
+    otp_destination: Optional[str] = Field(
+        default=None,
+        description=(
+            "Numéro/email déclaré par le tenant — l'utilisateur ne peut pas "
+            "substituer une autre destination pour l'OTP"
+        ),
+    )
 
 
 class EkycSessionResponse(BaseModel):

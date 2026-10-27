@@ -91,11 +91,13 @@ class EkycLiveClient(BaseServiceClient):
         customer_reference: str,
         flow: str,
         metadata: Dict[str, Any] | None = None,
+        otp_destination: str | None = None,
     ) -> EkycSessionResponse:
         payload = EkycSessionRequest(
             customer_reference=customer_reference,
             flow=flow,
             metadata=metadata,
+            otp_destination=otp_destination,
         ).model_dump(mode="json", exclude_none=True)
         data = self._request("POST", "/v1/kyc/sessions", json=payload)
         return EkycSessionResponse.model_validate(data)

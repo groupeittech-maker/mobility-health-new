@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'core/widgets/mh_states.dart';
 import 'screens/ekyc_nfc_screen.dart';
+import 'screens/ekyc_verification_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/home/attestations_screen.dart';
 import 'screens/home/ecards_screen.dart';
@@ -173,6 +174,17 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/attestations',
       builder: (context, state) => const AttestationsScreen(),
+    ),
+    // Hub eKYC : crée la session Trusdy via le backend MHC, ouvre le
+    // parcours web hébergé ou la lecture NFC native.
+    // Entry: /ekyc-verification?subscription=<id optionnel>
+    GoRoute(
+      path: '/ekyc-verification',
+      builder: (context, state) {
+        final sub =
+            int.tryParse(state.uri.queryParameters['subscription'] ?? '');
+        return EkycVerificationScreen(souscriptionId: sub);
+      },
     ),
     // Lecture NFC du passeport dans un parcours eKYC Trusdy.
     // Entry: /ekyc-nfc?url=<verification_url encodé>
