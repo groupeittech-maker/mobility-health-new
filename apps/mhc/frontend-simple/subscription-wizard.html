@@ -362,7 +362,12 @@
                 <input type="file" id="docFileInput" accept=".jpg,.jpeg,.png,.pdf" style="display:none;">
                 <div id="docsList"></div>
             </div>
-            <button type="button" class="btn btn-primary" id="voyageContinueBtn" style="width:100%; padding:14px;">Continuer vers le choix du produit</button>
+            <div class="mh-card">
+                <div class="mh-sub-title">Photo pour l'e-carte (obligatoire — pour un voyage « enfant seul », la photo de l'enfant est utilisée)</div>
+                <input type="file" id="ecardPhotoInput" accept="image/*">
+                <div id="ecardPhotoPreview" style="margin-top:8px;"></div>
+            </div>
+            <button type="button" class="btn btn-primary" id="voyageContinueBtn" style="width:100%; padding:14px;">Continuer vers le questionnaire</button>
         </section>
 
         <!-- ===== Étape 2 : Produit ===== -->
@@ -380,14 +385,11 @@
             <div id="productsLoading" class="loading" style="display:none;"><div class="spinner"></div></div>
             <div id="productsList"></div>
             <div class="mh-card">
-                <div class="mh-sub-title">Photo pour l'e-carte (obligatoire)</div>
-                <input type="file" id="ecardPhotoInput" accept="image/*">
-                <div id="ecardPhotoPreview" style="margin-top:8px;"></div>
-                <div class="mh-sub-title" style="margin-top:16px;">Déclarations et consentements</div>
+                <div class="mh-sub-title">Déclarations et consentements</div>
                 <div class="mh-check-row"><input type="checkbox" id="consentCG"><label for="consentCG">J'ai lu et j'accepte les conditions générales.</label></div>
                 <div class="mh-check-row"><input type="checkbox" id="consentExclusions" disabled><label for="consentExclusions">J'ai lu et j'accepte les exclusions. <span class="mh-muted">(ouvrez « Voir les détails » d'un produit pour activer)</span></label></div>
             </div>
-            <button type="button" class="btn btn-primary" id="produitContinueBtn" style="width:100%; padding:14px;" disabled>Continuer vers les formulaires</button>
+            <button type="button" class="btn btn-primary" id="produitContinueBtn" style="width:100%; padding:14px;" disabled>Continuer vers la vérification d'identité</button>
         </section>
 
         <!-- ===== Étape 3 : Médical ===== -->
@@ -527,7 +529,8 @@
             <div class="form-group"><label for="minorParente">Lien de parenté (facultatif)</label><input type="text" id="minorParente" placeholder="Ex. : fille, fils"></div>
             <div class="form-group"><label for="minorPasseport">Numéro de passeport *</label><input type="text" id="minorPasseport"></div>
             <div class="form-group"><label for="minorValidite">Validité du passeport (expiration) *</label><input type="date" id="minorValidite"></div>
-            <div class="form-group"><label for="minorPhoto">Photo du passeport *</label><input type="file" id="minorPhoto" accept="image/*,.pdf"></div>
+            <div class="form-group"><label for="minorPhoto">Copie de la pièce d'identité (passeport) *</label><input type="file" id="minorPhoto" accept="image/*,.pdf"></div>
+            <div class="form-group"><label for="minorPortrait">Photo individuelle de l'enfant (visage visible) *</label><input type="file" id="minorPortrait" accept="image/*"></div>
             <div class="form-actions">
                 <button type="button" class="btn btn-secondary" id="cancelMinorBtn">Annuler</button>
                 <button type="button" class="btn btn-primary" id="saveMinorBtn">Ajouter</button>

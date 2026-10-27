@@ -13,7 +13,7 @@
 (function () {
     'use strict';
 
-    const STEPS = ['Voyage', 'Produit', 'Médical', 'Identité', 'Paiement', 'Attestation'];
+    const STEPS = ['Voyage', 'Questionnaire', 'Assurance', 'Identité', 'Paiement', 'Attestation'];
     const PAYMENT_METHODS = ['carte_bancaire', 'mobile_money_mtn', 'mobile_money_orange', 'virement'];
 
     const state = {
@@ -53,9 +53,10 @@
         exclusionsRead: false,
         medicalPhotoFile: null,
         medicalPhotoDataUrl: null,
-        // Étape 3
+        // Étape 2 — Questionnaire (soumis après création de la souscription, ordre mobile)
         medicalAnswers: { malade_souscription: null, malade_12_mois: null, maladie_chronique: null, enceinte: null, voyage_medical: null, activite_sportive_pro: null },
         childMedicalAnswers: [], // un objet par enfant : {malade_12_mois, maladie_chronique, voyage_medical}
+        pendingMedicalReponses: null,
         // Étape 4 — eKYC (vérification d'identité avant paiement)
         ekycSessionId: null,
         ekycStatus: null,
@@ -171,12 +172,12 @@
     function showStep(n) {
         state.currentStep = n;
         document.querySelectorAll('.wizard-step').forEach((s) => s.classList.remove('active'));
-        const ids = ['', 'step-voyage', 'step-produit', 'step-medical', 'step-ekyc', 'step-paiement', 'step-attestation'];
+        const ids = ['', 'step-voyage', 'step-medical', 'step-produit', 'step-ekyc', 'step-paiement', 'step-attestation'];
         $(ids[n]).classList.add('active');
         $('wizardBackRow').style.display = (n > 1 && !state.dossierLocked) ? 'block' : 'none';
         renderStepper();
         showMessage('');
-        if (n === 3) renderChildrenQuestionnaires();
+        if (n === 2) { renderChildrenQuestionnaires(); renderMedicalPhotoSummary(); }
         if (n === 4) initEkycStep();
         if (n === 5) syncDossierState();
         if (n === 6) loadAttestations();
@@ -310,11 +311,11 @@
         $('childOnlyBlock').style.display = mode === 'child_only' ? 'block' : 'none';
         $('withChildrenBlock').style.display = mode === 'with_children' ? 'block' : 'none';
         if (mode !== 'child_only' && state.enfantVoyageur) {
-            state.documents = state.documents.filter((d) => d.file !== state.enfantVoyageur.file);
+            state.documents = state.documents.filter((d) => d.file !== state.enfantVoyageur.file && d.file !== state.enfantVoyageur.portrait);
             state.enfantVoyageur = null;
         }
         if (mode !== 'with_children' && state.mineurs.length) {
-            const files = new Set(state.mineurs.map((m) => m.file));
+            const files = new Set(state.mineurs.flatMap((m) => [m.file, m.portrait]).filter(Boolean));
             state.documents = state.documents.filter((d) => !files.has(d.file));
             state.mineurs = [];
         }
@@ -371,6 +372,7 @@
         $('minorPasseport').value = existing?.numeroPasseport || '';
         $('minorValidite').value = existing?.validitePasseport || '';
         $('minorPhoto').value = '';
+        $('minorPortrait').value = '';
         $('minorModalTitle').textContent = existing
             ? 'Modifier les informations de l\u2019enfant'
             : 'Informations de l\u2019enfant';
@@ -398,6 +400,15 @@
         $('minorSavedWrap').style.display = kids.length ? 'block' : 'none';
     }
 
+    function fileToDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result);
+            r.onerror = reject;
+            r.readAsDataURL(file);
+        });
+    }
+
     async function dataUrlToFile(dataUrl, filename) {
         const resp = await fetch(dataUrl);
         const blob = await resp.blob();
@@ -416,14 +427,20 @@
         $('minorPasseport').value = kid.numero_piece || '';
         $('minorValidite').value = kid.validite_piece || '';
         $('minorPhoto').value = '';
-        state.pendingSavedEnfant = { id: kid.id, file: null };
+        $('minorPortrait').value = '';
+        state.pendingSavedEnfant = { id: kid.id, file: null, portraitFile: null };
         if (kid.copie_piece_data_url) {
             try {
                 state.pendingSavedEnfant.file = await dataUrlToFile(kid.copie_piece_data_url, 'piece_enfant');
             } catch (_) { /* l'utilisateur re-sélectionnera le fichier manuellement */ }
         }
-        if (!state.pendingSavedEnfant.file) {
-            showMessage('Profil chargé — veuillez joindre à nouveau la copie de la pièce.', 'info');
+        if (kid.photo_data_url) {
+            try {
+                state.pendingSavedEnfant.portraitFile = await dataUrlToFile(kid.photo_data_url, 'portrait_enfant');
+            } catch (_) { /* idem */ }
+        }
+        if (!state.pendingSavedEnfant.file || !state.pendingSavedEnfant.portraitFile) {
+            showMessage('Profil chargé — veuillez joindre les documents manquants.', 'info');
         }
     }
 
@@ -441,8 +458,11 @@
         const file = $('minorPhoto').files[0]
             || (state.pendingSavedEnfant && state.pendingSavedEnfant.file)
             || (existing ? existing.file : null);
-        if (!nom || !naissance || !nationalite || !passeport || !validite || !file) {
-            showMessage('Tous les champs de l\'enfant sont requis (nom, naissance, nationalité, passeport et sa photo).', 'error');
+        const portrait = $('minorPortrait').files[0]
+            || (state.pendingSavedEnfant && state.pendingSavedEnfant.portraitFile)
+            || (existing ? existing.portrait : null);
+        if (!nom || !naissance || !nationalite || !passeport || !validite || !file || !portrait) {
+            showMessage('Tous les champs de l\'enfant sont requis : identité, copie de la pièce et photo individuelle.', 'error');
             return;
         }
         // Passeport expiré : bloque la souscription (revue app).
@@ -453,15 +473,19 @@
         }
         const entry = {
             nom, prenom: prenom || null, nationalite, lienParente: lienParente || null,
-            dateNaissance: naissance, numeroPasseport: passeport, validitePasseport: validite, file,
+            dateNaissance: naissance, numeroPasseport: passeport, validitePasseport: validite,
+            file, portrait,
             enfantId: (state.pendingSavedEnfant && state.pendingSavedEnfant.id) || (existing ? existing.enfantId : null),
         };
         const label = minorTarget === 'enfant'
             ? `Passeport (enfant voyageur) — ${nom}`
             : `Passeport (enfant) — ${nom}`;
+        const portraitLabel = minorTarget === 'enfant'
+            ? `Photo enfant (voyageur) — ${nom}`
+            : `Photo enfant — ${nom}`;
         if (existing) {
-            // Remplace l'entrée et son document associé.
-            state.documents = state.documents.filter((d) => d.file !== existing.file);
+            // Remplace l'entrée et ses documents associés.
+            state.documents = state.documents.filter((d) => d.file !== existing.file && d.file !== existing.portrait);
             if (minorEditIndex === 'enfant') state.enfantVoyageur = entry;
             else state.mineurs[minorEditIndex] = entry;
         } else {
@@ -469,6 +493,7 @@
             else state.mineurs.push(entry);
         }
         state.documents.push({ file, docType: 'passport', label });
+        state.documents.push({ file: portrait, docType: 'photo_enfant', label: portraitLabel });
         closeMinorModal();
         renderChildren();
         renderDocs();
@@ -531,6 +556,12 @@
         const dateRetour = $('voyageRetour').value;
         if (dureeJours() > MAX_TRIP_DAYS) {
             showMessage(`La durée du voyage est limitée à ${MAX_TRIP_DAYS} jours.`, 'error');
+            return;
+        }
+        // Photo e-carte obligatoire sauf voyage « enfant seul » (portrait de l'enfant utilisé).
+        if (!state.medicalPhotoDataUrl &&
+            !(voyageurMode() === 'child_only' && state.enfantVoyageur && state.enfantVoyageur.portrait)) {
+            showMessage('Veuillez joindre la photo pour l\'e-carte.', 'error');
             return;
         }
         const btn = $('voyageContinueBtn');
@@ -634,7 +665,7 @@
             showMessage(e.message || 'Erreur lors de la création du voyage.', 'error');
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Continuer vers le choix du produit';
+            btn.textContent = 'Continuer vers le questionnaire';
         }
     }
 
@@ -767,7 +798,9 @@
     let selectedProductId = null;
 
     function updateProduitContinueState() {
-        const ok = selectedProductId && state.medicalPhotoDataUrl && $('consentCG').checked && $('consentExclusions').checked;
+        const hasIdPhoto = state.medicalPhotoDataUrl ||
+            (voyageurMode() === 'child_only' && state.enfantVoyageur && state.enfantVoyageur.portrait);
+        const ok = selectedProductId && hasIdPhoto && $('consentCG').checked && $('consentExclusions').checked;
         $('produitContinueBtn').disabled = !ok;
         document.querySelectorAll('.mh-product-card').forEach((card) => {
             card.classList.toggle('selected', parseInt(card.dataset.productId, 10) === selectedProductId);
@@ -838,6 +871,12 @@
         btn.textContent = 'Création du dossier...';
         showMessage('');
         try {
+            // Dossier repris : la souscription existe déjà — on ne la recrée pas.
+            if (state.subscriptionId) {
+                await submitMedicalAnswers();
+                showStep(4);
+                return;
+            }
             const age = await voyageurAge();
             let courtierId = null;
             if (state.canalDistribution === 'courtier') {
@@ -874,13 +913,15 @@
             state.fraisServices = sub.frais_services;
             state.taxesTotal = sub.taxes_total;
             state.taxes = sub.taxes;
-            renderMedicalPhotoSummary();
-            showStep(3);
+            // La souscription existe : on soumet le questionnaire médical
+            // (collecté à l'étape précédente) avant de passer à l'identité.
+            await submitMedicalAnswers();
+            showStep(4);
         } catch (e) {
             showMessage(e.message || 'Erreur lors de la création de la souscription.', 'error');
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Continuer vers les formulaires';
+            btn.textContent = 'Continuer vers la vérification d\'identité';
             updateProduitContinueState();
         }
     }
@@ -1074,23 +1115,37 @@
                     return { nom: `${m.prenom || ''} ${m.nom}`.trim(), reponses: childReponses };
                 });
             }
-            if (state.medicalPhotoDataUrl) {
-                reponses.photo_medicale = state.medicalPhotoDataUrl;
-                reponses.photoMedicale = state.medicalPhotoDataUrl;
-                reponses.photo_identity = state.medicalPhotoDataUrl;
+            // Voyage « enfant seul » : l'e-carte porte la photo de l'enfant.
+            let idPhoto = state.medicalPhotoDataUrl;
+            if (voyageurMode() === 'child_only' && state.enfantVoyageur?.portrait) {
+                try { idPhoto = await fileToDataUrl(state.enfantVoyageur.portrait); } catch (_) { /* photo adulte conservée */ }
+            }
+            if (idPhoto) {
+                reponses.photo_medicale = idPhoto;
+                reponses.photoMedicale = idPhoto;
+                reponses.photo_identity = idPhoto;
             }
 
-            await apiCall(`/subscriptions/${state.subscriptionId}/questionnaire/medical`, {
-                method: 'POST',
-                body: JSON.stringify(reponses),
-            });
-            showStep(4);
+            // Ordre mobile : le questionnaire est conservé et soumis après la
+            // création de la souscription (elle exige un subscriptionId).
+            state.pendingMedicalReponses = reponses;
+            showStep(3);
         } catch (e) {
-            showMessage(e.message || 'Erreur lors de l\'envoi du questionnaire.', 'error');
+            showMessage(e.message || 'Erreur lors de la préparation du questionnaire.', 'error');
         } finally {
             btn.disabled = false;
             btn.textContent = 'Continuer';
         }
+    }
+
+    async function submitMedicalAnswers() {
+        const reponses = state.pendingMedicalReponses;
+        if (!reponses || !state.subscriptionId) return;
+        await apiCall(`/subscriptions/${state.subscriptionId}/questionnaire/medical`, {
+            method: 'POST',
+            body: JSON.stringify(reponses),
+        });
+        state.pendingMedicalReponses = null;
     }
 
     // ---------- Étape 4 : Vérification d'identité (eKYC) ----------
@@ -1398,6 +1453,7 @@
             const sub = await apiCall(`/subscriptions/${subscriptionId}`);
             state.subscriptionId = sub.id;
             state.projetId = sub.projet_voyage_id;
+            if (sub.produit_assurance_id) selectedProductId = sub.produit_assurance_id;
             // Reconstituer les données du voyage (enfants, dates…) pour rendre
             // les questionnaires par enfant et le récapitulatif à la reprise.
             try {
@@ -1434,7 +1490,7 @@
             state.taxesTotal = sub.taxes_total;
             state.taxes = sub.taxes;
             if (sub.statut !== 'en_attente') lockDossier();
-            showStep(sub.statut === 'en_attente' ? 3 : 5);
+            showStep(sub.statut === 'en_attente' ? 2 : 5);
         } catch (e) {
             showMessage(e.message || 'Impossible de reprendre ce dossier.', 'error');
             showStep(1);
@@ -1507,7 +1563,7 @@
             if (key?.startsWith('mineur-')) {
                 const i = parseInt(key.split('-')[1], 10);
                 const m = state.mineurs[i];
-                state.documents = state.documents.filter((d) => d.file !== m.file);
+                state.documents = state.documents.filter((d) => d.file !== m.file && d.file !== m.portrait);
                 state.mineurs.splice(i, 1);
                 renderChildren(); renderDocs();
             }
@@ -1518,7 +1574,7 @@
                 return;
             }
             if (e.target.dataset?.remove === 'enfant') {
-                state.documents = state.documents.filter((d) => d.file !== state.enfantVoyageur.file);
+                state.documents = state.documents.filter((d) => d.file !== state.enfantVoyageur.file && d.file !== state.enfantVoyageur.portrait);
                 state.enfantVoyageur = null;
                 renderChildren(); renderDocs();
             }

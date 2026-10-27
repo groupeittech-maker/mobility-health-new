@@ -31,6 +31,7 @@ class MineurEntry {
     required this.numeroPasseport,
     required this.validitePasseport,
     required this.photoPasseportPath,
+    this.photoPortraitPath,
   });
   final String nom;
   final String? prenom;
@@ -41,6 +42,7 @@ class MineurEntry {
   final String numeroPasseport;
   final DateTime validitePasseport;
   final String photoPasseportPath;
+  final String? photoPortraitPath;
 }
 
 /// Pièce justificative (chemin local + type pour l'API).
@@ -676,7 +678,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                         ),
                         IconButton(
                           onPressed: () => setState(() {
-                            _documents.removeWhere((d) => d.path == _enfantVoyageur!.photoPasseportPath);
+                            _documents.removeWhere((d) =>
+                                d.path == _enfantVoyageur!.photoPasseportPath ||
+                                d.path == _enfantVoyageur!.photoPortraitPath);
                             _enfantVoyageur = null;
                           }),
                           icon: const Icon(Icons.delete_outline, color: AppColors.danger, size: 22),
@@ -748,7 +752,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                           ),
                           IconButton(
                             onPressed: () => setState(() {
-                              _documents.removeWhere((d) => d.path == m.photoPasseportPath);
+                              _documents.removeWhere((d) =>
+                                  d.path == m.photoPasseportPath ||
+                                  d.path == m.photoPortraitPath);
                               _mineurs.remove(m);
                             }),
                             icon: const Icon(Icons.delete_outline, color: AppColors.danger, size: 22),
@@ -947,7 +953,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       documents: _documents.isNotEmpty ? List.from(_documents) : null,
                       isChildOnly: _voyagePourEnfant,
                       ecartePhotoPath: _voyagePourEnfant
-                          ? (_ecartePhotoPath ?? _enfantVoyageur?.photoPasseportPath)
+                          ? (_ecartePhotoPath ?? _enfantVoyageur?.photoPortraitPath ?? _enfantVoyageur?.photoPasseportPath)
                           : _ecartePhotoPath,
                     ));
                   },
@@ -1213,6 +1219,15 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
             label: 'Passeport (enfant) — ${result.nom}',
           ),
         );
+        if (result.photoPortraitPath != null) {
+          _documents.add(
+            VoyageDocEntry(
+              path: result.photoPortraitPath!,
+              docType: 'photo_enfant',
+              label: 'Photo enfant — ${result.nom}',
+            ),
+          );
+        }
       });
     }
   }
@@ -1227,7 +1242,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
     );
     if (result != null && mounted) {
       setState(() {
-        _documents.removeWhere((d) => d.path == existing.photoPasseportPath);
+        _documents.removeWhere((d) =>
+            d.path == existing.photoPasseportPath ||
+            d.path == existing.photoPortraitPath);
         final index = _mineurs.indexOf(existing);
         if (index >= 0) _mineurs[index] = result;
         _documents.add(
@@ -1237,6 +1254,15 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
             label: 'Passeport (enfant) — ${result.nom}',
           ),
         );
+        if (result.photoPortraitPath != null) {
+          _documents.add(
+            VoyageDocEntry(
+              path: result.photoPortraitPath!,
+              docType: 'photo_enfant',
+              label: 'Photo enfant — ${result.nom}',
+            ),
+          );
+        }
       });
     }
   }
@@ -1253,7 +1279,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
     );
     if (result != null && mounted) {
       setState(() {
-        _documents.removeWhere((d) => d.path == existing.photoPasseportPath);
+        _documents.removeWhere((d) =>
+            d.path == existing.photoPasseportPath ||
+            d.path == existing.photoPortraitPath);
         _enfantVoyageur = result;
         _documents.add(
           VoyageDocEntry(
@@ -1262,6 +1290,15 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
             label: 'Passeport (enfant voyageur) — ${result.nom}',
           ),
         );
+        if (result.photoPortraitPath != null) {
+          _documents.add(
+            VoyageDocEntry(
+              path: result.photoPortraitPath!,
+              docType: 'photo_enfant',
+              label: 'Photo enfant (voyageur) — ${result.nom}',
+            ),
+          );
+        }
       });
     }
   }
@@ -1284,6 +1321,15 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
             label: 'Passeport (enfant voyageur) — ${result.nom}',
           ),
         );
+        if (result.photoPortraitPath != null) {
+          _documents.add(
+            VoyageDocEntry(
+              path: result.photoPortraitPath!,
+              docType: 'photo_enfant',
+              label: 'Photo enfant (voyageur) — ${result.nom}',
+            ),
+          );
+        }
       });
     }
   }
@@ -1604,6 +1650,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
   DateTime? _dateNaissance;
   DateTime? _validitePasseport;
   String? _photoPath;
+  String? _portraitPath;
   int? _enfantId;
   List<Map<String, dynamic>> _savedEnfants = const [];
   bool _loadingEnfants = false;
@@ -1627,6 +1674,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
     _dateNaissance = existing?.dateNaissance;
     _validitePasseport = existing?.validitePasseport;
     _photoPath = existing?.photoPasseportPath;
+    _portraitPath = existing?.photoPortraitPath;
   }
 
   @override
@@ -1685,10 +1733,24 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
         _photoPath = null;
       }
     }
+    final portraitUrl = (e['photo_data_url'] ?? '').toString();
+    if (portraitUrl.startsWith('data:')) {
+      try {
+        final bytes = base64Decode(portraitUrl.split(',').last);
+        final ext = portraitUrl.contains('image/png') ? 'png' : 'jpg';
+        final dir = await getTemporaryDirectory();
+        final f = File(
+            '${dir.path}/portrait_enfant_${_enfantId ?? DateTime.now().millisecondsSinceEpoch}.$ext');
+        await f.writeAsBytes(bytes, flush: true);
+        _portraitPath = f.path;
+      } catch (_) {
+        _portraitPath = null;
+      }
+    }
     if (mounted) setState(() {});
   }
 
-  Future<void> _pickPassportPhoto(String source) async {
+  Future<void> _pickPhoto(String source, {required bool portrait}) async {
     String? path;
     if (source == 'camera') {
       final picker = ImagePicker();
@@ -1700,16 +1762,18 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
       path = xfile?.path;
     } else if (source == 'file') {
       final pick = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+        type: portrait ? FileType.image : FileType.custom,
+        allowedExtensions: portrait ? null : ['jpg', 'jpeg', 'png', 'pdf'],
         withData: false,
       );
       path = pick?.files.single.path;
     }
-    if (path != null && mounted) setState(() => _photoPath = path);
+    if (path != null && mounted) {
+      setState(() => portrait ? _portraitPath = path : _photoPath = path);
+    }
   }
 
-  Future<void> _showPhotoSheet() async {
+  Future<void> _showPhotoSheet({bool portrait = false}) async {
     final source = await showModalBottomSheet<String>(
       context: context,
       builder: (sheetCtx) => SafeArea(
@@ -1735,7 +1799,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
         ),
       ),
     );
-    if (source != null) await _pickPassportPhoto(source);
+    if (source != null) await _pickPhoto(source, portrait: portrait);
   }
 
   void _trySubmit() {
@@ -1744,11 +1808,12 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
         _nationaliteController.text.trim().isEmpty ||
         _passeportController.text.trim().isEmpty ||
         _validitePasseport == null ||
-        _photoPath == null) {
+        _photoPath == null ||
+        _portraitPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Veuillez remplir tous les champs obligatoires : nom, naissance, nationalité, passeport et sa photo.',
+            'Veuillez remplir tous les champs obligatoires : identité, copie de la pièce et photo individuelle.',
           ),
           backgroundColor: AppColors.danger,
         ),
@@ -1781,6 +1846,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
         numeroPasseport: _passeportController.text.trim(),
         validitePasseport: _validitePasseport!,
         photoPasseportPath: _photoPath!,
+        photoPortraitPath: _portraitPath,
       ),
     );
   }
@@ -1963,7 +2029,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Photo du passeport *',
+                  'Copie de la pièce d\'identité (passeport) *',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: AppColors.secondary,
@@ -1971,14 +2037,36 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: _showPhotoSheet,
+                  onPressed: () => _showPhotoSheet(),
                   icon: const Icon(Icons.add_photo_alternate_outlined, size: 20),
-                  label: Text(_photoPath == null ? 'Ajouter la photo' : 'Changer la photo'),
+                  label: Text(_photoPath == null ? 'Ajouter la copie' : 'Changer la copie'),
                 ),
                 if (_photoPath != null) ...[
                   const SizedBox(height: 6),
                   Text(
                     _photoPath!.split(RegExp(r'[/\\]')).last,
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Text(
+                  'Photo individuelle de l\'enfant (visage visible) *',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.secondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _showPhotoSheet(portrait: true),
+                  icon: const Icon(Icons.face_retouching_natural, size: 20),
+                  label: Text(_portraitPath == null ? 'Ajouter la photo' : 'Changer la photo'),
+                ),
+                if (_portraitPath != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    _portraitPath!.split(RegExp(r'[/\\]')).last,
                     style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                     overflow: TextOverflow.ellipsis,
                   ),

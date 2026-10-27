@@ -48,6 +48,7 @@ ALLOWED_DOCUMENT_TYPES = {
     "residence_permit",
     "travel_booking",
     "photo_identity",  # Photo d'identité pour l'e-carte
+    "photo_enfant",    # Photo individuelle d'un enfant assuré (visage visible)
     "other",
 }
 
