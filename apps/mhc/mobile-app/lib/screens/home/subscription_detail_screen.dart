@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../core/widgets/mh_surface_card.dart';
@@ -512,6 +513,20 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
             style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
           ),
           const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => context.push('/ekyc-verification?subscription=${s.id}'),
+              icon: const Icon(Icons.verified_user_outlined, size: 18),
+              label: const Text('Vérifier mon identité (eKYC)'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.secondary,
+                side: const BorderSide(color: AppColors.secondary),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(

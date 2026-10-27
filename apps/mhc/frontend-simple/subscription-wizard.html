@@ -411,6 +411,49 @@
         </section>
 
         <!-- ===== Étape 4 : Paiement ===== -->
+        <!-- ===== Étape 4 : Vérification d'identité (eKYC) ===== -->
+        <section class="wizard-step" id="step-ekyc">
+            <h3 class="mh-section-title">Vérification d'identité</h3>
+            <div class="mh-card">
+                <p class="mh-muted" style="margin-bottom:1rem;">
+                    Avant le paiement, votre identité doit être vérifiée via notre plateforme sécurisée eKYC
+                    (document d'identité, photo et code envoyé sur votre téléphone déclaré à MyMHC).
+                    Une vérification échouée ou incohérente entraîne le refus automatique du dossier.
+                </p>
+                <div id="ekycIntro">
+                    <button type="button" class="btn btn-primary" id="ekycStartBtn" style="width:100%; padding:14px;">
+                        Lancer la vérification d'identité
+                    </button>
+                </div>
+                <div id="ekycInProgress" class="mh-notice info" style="display:none;">
+                    <p><strong>Vérification en cours.</strong> Une page sécurisée s'est ouverte dans un nouvel onglet.
+                    Terminez-la puis revenez ici.</p>
+                    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.75rem;">
+                        <button type="button" class="btn btn-outline btn-sm" id="ekycReopenBtn">Rouvrir la page de vérification</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="ekycCheckBtn">J'ai terminé — vérifier le statut</button>
+                    </div>
+                </div>
+                <div id="ekycReview" class="mh-notice warn" style="display:none;">
+                    <p><strong>Vérification en cours d'analyse.</strong> Votre identité est en cours de revue.
+                    Vous pouvez poursuivre ; le dossier sera refusé automatiquement si la vérification échoue.</p>
+                    <button type="button" class="btn btn-outline btn-sm" id="ekycReviewCheckBtn" style="margin-top:0.5rem;">Actualiser le statut</button>
+                </div>
+                <div id="ekycVerified" class="mh-notice" style="display:none; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.4); color:#047857;">
+                    <p><strong>Identité vérifiée.</strong> Vous pouvez poursuivre vers le paiement.</p>
+                </div>
+                <div id="ekycRejected" class="mh-notice danger" style="display:none;">
+                    <p><strong>Vérification d'identité échouée ou incohérente.</strong>
+                    Le dossier est refusé automatiquement — aucun paiement n'est débité.</p>
+                    <ul id="ekycRejectReasons"></ul>
+                    <button type="button" class="btn btn-outline btn-sm" id="ekycRetryBtn" style="margin-top:0.5rem;">Réessayer la vérification</button>
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary" id="ekycContinueBtn" style="width:100%; padding:14px; display:none;">
+                Continuer vers le paiement
+            </button>
+        </section>
+
+        <!-- ===== Étape 5 : Paiement ===== -->
         <section class="wizard-step" id="step-paiement">
             <h3 class="mh-section-title">Paiement</h3>
             <div id="paiementLoading" class="loading"><div class="spinner"></div></div>
@@ -464,7 +507,10 @@
                 <button type="button" class="close" id="closeMinorModal">&times;</button>
             </div>
             <div class="form-group"><label for="minorNom">Nom de l'enfant *</label><input type="text" id="minorNom"></div>
+            <div class="form-group"><label for="minorPrenom">Prénom(s) de l'enfant</label><input type="text" id="minorPrenom"></div>
             <div class="form-group"><label for="minorNaissance">Date de naissance *</label><input type="date" id="minorNaissance"></div>
+            <div class="form-group"><label for="minorNationalite">Nationalité *</label><input type="text" id="minorNationalite"></div>
+            <div class="form-group"><label for="minorParente">Lien de parenté (facultatif)</label><input type="text" id="minorParente" placeholder="Ex. : fille, fils"></div>
             <div class="form-group"><label for="minorPasseport">Numéro de passeport *</label><input type="text" id="minorPasseport"></div>
             <div class="form-group"><label for="minorValidite">Validité du passeport (expiration) *</label><input type="date" id="minorValidite"></div>
             <div class="form-group"><label for="minorPhoto">Photo du passeport *</label><input type="file" id="minorPhoto" accept="image/*,.pdf"></div>

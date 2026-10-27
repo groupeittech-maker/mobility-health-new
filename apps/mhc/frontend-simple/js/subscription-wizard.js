@@ -13,7 +13,7 @@
 (function () {
     'use strict';
 
-    const STEPS = ['Voyage', 'Produit', 'Médical', 'Paiement', 'Attestation'];
+    const STEPS = ['Voyage', 'Produit', 'Médical', 'Identité', 'Paiement', 'Attestation'];
     const PAYMENT_METHODS = ['carte_bancaire', 'mobile_money_mtn', 'mobile_money_orange', 'virement'];
 
     const state = {
@@ -54,7 +54,12 @@
         medicalPhotoDataUrl: null,
         // Étape 3
         medicalAnswers: { malade_souscription: null, malade_12_mois: null, maladie_chronique: null, enceinte: null, voyage_medical: null },
-        // Étape 4
+        // Étape 4 — eKYC (vérification d'identité avant paiement)
+        ekycSessionId: null,
+        ekycStatus: null,
+        ekycVerificationUrl: null,
+        ekycPollTimer: null,
+        // Étape 5
         dossierState: 'to_submit', // to_submit | in_review | approved | refused
         dossierLocked: false,
         decisionReasons: [],
@@ -164,13 +169,14 @@
     function showStep(n) {
         state.currentStep = n;
         document.querySelectorAll('.wizard-step').forEach((s) => s.classList.remove('active'));
-        const ids = ['', 'step-voyage', 'step-produit', 'step-medical', 'step-paiement', 'step-attestation'];
+        const ids = ['', 'step-voyage', 'step-produit', 'step-medical', 'step-ekyc', 'step-paiement', 'step-attestation'];
         $(ids[n]).classList.add('active');
         $('wizardBackRow').style.display = (n > 1 && !state.dossierLocked) ? 'block' : 'none';
         renderStepper();
         showMessage('');
-        if (n === 4) syncDossierState();
-        if (n === 5) loadAttestations();
+        if (n === 4) initEkycStep();
+        if (n === 5) syncDossierState();
+        if (n === 6) loadAttestations();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -352,7 +358,10 @@
             ? state.enfantVoyageur
             : (typeof index === 'number' ? state.mineurs[index] : null);
         $('minorNom').value = existing?.nom || '';
+        $('minorPrenom').value = existing?.prenom || '';
         $('minorNaissance').value = existing?.dateNaissance || '';
+        $('minorNationalite').value = existing?.nationalite || '';
+        $('minorParente').value = existing?.lienParente || '';
         $('minorPasseport').value = existing?.numeroPasseport || '';
         $('minorValidite').value = existing?.validitePasseport || '';
         $('minorPhoto').value = '';
@@ -366,15 +375,18 @@
 
     function saveMinor() {
         const nom = $('minorNom').value.trim();
+        const prenom = $('minorPrenom').value.trim();
         const naissance = $('minorNaissance').value;
+        const nationalite = $('minorNationalite').value.trim();
+        const lienParente = $('minorParente').value.trim();
         const passeport = $('minorPasseport').value.trim();
         const validite = $('minorValidite').value;
         const existing = minorEditIndex === 'enfant'
             ? state.enfantVoyageur
             : (typeof minorEditIndex === 'number' ? state.mineurs[minorEditIndex] : null);
         const file = $('minorPhoto').files[0] || (existing ? existing.file : null);
-        if (!nom || !naissance || !passeport || !validite || !file) {
-            showMessage('Tous les champs de l\'enfant sont requis (dont la photo du passeport).', 'error');
+        if (!nom || !naissance || !nationalite || !passeport || !validite || !file) {
+            showMessage('Tous les champs de l\'enfant sont requis (nom, naissance, nationalité, passeport et sa photo).', 'error');
             return;
         }
         // Passeport expiré : bloque la souscription (revue app).
@@ -383,7 +395,10 @@
             showMessage('La date de validité du passeport est dépassée : le passeport est expiré.', 'error');
             return;
         }
-        const entry = { nom, dateNaissance: naissance, numeroPasseport: passeport, validitePasseport: validite, file };
+        const entry = {
+            nom, prenom: prenom || null, nationalite, lienParente: lienParente || null,
+            dateNaissance: naissance, numeroPasseport: passeport, validitePasseport: validite, file,
+        };
         const label = minorTarget === 'enfant'
             ? `Passeport (enfant voyageur) — ${nom}`
             : `Passeport (enfant) — ${nom}`;
@@ -487,6 +502,9 @@
                         'Pour un tiers: oui',
                         '=== INFORMATIONS DU TIERS (BÉNÉFICIAIRE) ===',
                         `Nom du tiers: ${child.nom}`,
+                        ...(child.prenom ? [`Prénom(s) du tiers: ${child.prenom}`] : []),
+                        ...(child.nationalite ? [`Nationalité du tiers: ${child.nationalite}`] : []),
+                        ...(child.lienParente ? [`Lien de parenté: ${child.lienParente}`] : []),
                         `Date de naissance du tiers: ${fmtDateInput(child.dateNaissance)}`,
                         `Numéro de passeport du tiers: ${child.numeroPasseport}`,
                         `Date d'expiration du passeport du tiers: ${fmtDateInput(child.validitePasseport)}`,
@@ -494,7 +512,7 @@
                     );
                 } else {
                     notesLines.push('Mineurs accompagnés: ' + mineurs
-                        .map((m) => `${m.nom} (né(e) le ${fmtDateInput(m.dateNaissance)}); passeport ${m.numeroPasseport}; validité ${fmtDateInput(m.validitePasseport)}`)
+                        .map((m) => `${m.nom}${m.prenom ? ' ' + m.prenom : ''} (né(e) le ${fmtDateInput(m.dateNaissance)}${m.nationalite ? ', ' + m.nationalite : ''}); passeport ${m.numeroPasseport}; validité ${fmtDateInput(m.validitePasseport)}`)
                         .join('; '));
                 }
             }
@@ -523,6 +541,18 @@
                     nombre_participants: 1,
                     notes: notesLines.join('\n'),
                     destination_country_id: paysId,
+                    ...(mineurs && mineurs.length ? {
+                        mineurs: mineurs.map((m) => ({
+                            nom: m.nom,
+                            ...(m.prenom ? { prenom: m.prenom } : {}),
+                            ...(m.nationalite ? { nationalite: m.nationalite } : {}),
+                            ...(m.lienParente ? { lien_parente: m.lienParente } : {}),
+                            ...(m.enfantId ? { enfant_id: m.enfantId } : {}),
+                            date_naissance: m.dateNaissance,
+                            numero_passeport: m.numeroPasseport,
+                            validite_passeport: m.validitePasseport,
+                        })),
+                    } : {}),
                     ...(state.forUserId ? { user_id: state.forUserId } : {}),
                 }),
             });
@@ -902,7 +932,71 @@
         }
     }
 
-    // ---------- Étape 4 : Paiement ----------
+    // ---------- Étape 4 : Vérification d'identité (eKYC) ----------
+    function renderEkycState() {
+        const s = state.ekycStatus;
+        $('ekycIntro').style.display = s ? 'none' : 'block';
+        $('ekycInProgress').style.display = (s === 'CREATED' || s === 'IN_PROGRESS' || s === 'PROCESSING') ? 'block' : 'none';
+        $('ekycReview').style.display = s === 'REVIEW' ? 'block' : 'none';
+        $('ekycVerified').style.display = s === 'VERIFIED' ? 'block' : 'none';
+        $('ekycRejected').style.display = (s === 'REJECTED' || s === 'EXPIRED') ? 'block' : 'none';
+        // VERIFIED → suite directe ; REVIEW → suite possible (refus auto géré côté serveur si échec final).
+        $('ekycContinueBtn').style.display = (s === 'VERIFIED' || s === 'REVIEW') ? 'block' : 'none';
+    }
+
+    async function pollEkycStatus() {
+        if (!state.ekycSessionId) return;
+        try {
+            const r = await apiCall(`/ekyc/sessions/${state.ekycSessionId}`);
+            state.ekycStatus = r.status;
+            if (r.status === 'REJECTED' && r.reasons && r.reasons.length) {
+                $('ekycRejectReasons').innerHTML = r.reasons.map((x) => `<li>${escapeHtml(x)}</li>`).join('');
+            }
+        } catch (_) { /* session expirée côté client : on propose de relancer */ }
+        renderEkycState();
+    }
+
+    async function startEkycSession() {
+        const btn = $('ekycStartBtn');
+        btn.disabled = true;
+        btn.textContent = 'Ouverture de la vérification…';
+        showMessage('');
+        try {
+            const r = await apiCall('/ekyc/sessions', {
+                method: 'POST',
+                body: JSON.stringify({ souscription_id: state.subscriptionId }),
+            });
+            state.ekycSessionId = r.session_id;
+            state.ekycVerificationUrl = r.verification_url;
+            state.ekycStatus = r.status || 'CREATED';
+            if (r.verification_url) window.open(r.verification_url, '_blank', 'noopener');
+            renderEkycState();
+            // Polling doux tant que la session n'est pas terminale.
+            if (state.ekycPollTimer) clearInterval(state.ekycPollTimer);
+            state.ekycPollTimer = setInterval(async () => {
+                await pollEkycStatus();
+                if (['VERIFIED', 'REJECTED', 'EXPIRED', 'REVIEW'].includes(state.ekycStatus)) {
+                    clearInterval(state.ekycPollTimer);
+                    state.ekycPollTimer = null;
+                }
+            }, 5000);
+        } catch (e) {
+            showMessage(e.message || 'Impossible de démarrer la vérification d\'identité.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Lancer la vérification d\'identité';
+        }
+    }
+
+    function initEkycStep() {
+        // Reprendre l'état connu de la session si on revient sur l'étape.
+        renderEkycState();
+        if (state.ekycSessionId && !['VERIFIED', 'REJECTED', 'EXPIRED'].includes(state.ekycStatus)) {
+            pollEkycStatus();
+        }
+    }
+
+    // ---------- Étape 5 : Paiement ----------
     function renderPaiementState() {
         $('paiementLoading').style.display = 'none';
         $('paiementContent').style.display = 'block';
@@ -1021,7 +1115,7 @@
                 );
                 const outcome = await waitForPaymentConfirmation(response.payment_id);
                 if (outcome === true) {
-                    showStep(5);
+                    showStep(6);
                     return;
                 }
                 if (outcome === null) {
@@ -1033,7 +1127,7 @@
             }
 
             // Paiement validé immédiatement (stub / déjà payé).
-            showStep(5);
+            showStep(6);
         } catch (e) {
             showMessage(e.message || 'Erreur lors du paiement.', 'error');
         } finally {
@@ -1109,7 +1203,7 @@
             state.taxesTotal = sub.taxes_total;
             state.taxes = sub.taxes;
             if (sub.statut !== 'en_attente') lockDossier();
-            showStep(sub.statut === 'en_attente' ? 3 : 4);
+            showStep(sub.statut === 'en_attente' ? 3 : 5);
         } catch (e) {
             showMessage(e.message || 'Impossible de reprendre ce dossier.', 'error');
             showStep(1);
@@ -1259,6 +1353,19 @@
         $('submitDossierBtn').addEventListener('click', submitDossier);
         $('checkStatusBtn').addEventListener('click', () => syncDossierState(true));
         $('payNowBtn').addEventListener('click', payNow);
+        // Étape eKYC
+        $('ekycStartBtn').addEventListener('click', startEkycSession);
+        $('ekycCheckBtn').addEventListener('click', pollEkycStatus);
+        $('ekycReviewCheckBtn').addEventListener('click', pollEkycStatus);
+        $('ekycReopenBtn').addEventListener('click', () => {
+            if (state.ekycVerificationUrl) window.open(state.ekycVerificationUrl, '_blank', 'noopener');
+        });
+        $('ekycRetryBtn').addEventListener('click', () => {
+            state.ekycSessionId = null;
+            state.ekycStatus = null;
+            renderEkycState();
+        });
+        $('ekycContinueBtn').addEventListener('click', () => showStep(5));
 
         // Étape 5
         $('attestationsList').addEventListener('click', (e) => {
