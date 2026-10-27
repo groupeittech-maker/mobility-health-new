@@ -13,7 +13,7 @@
     --accent-color: #14AE98;
     --accent-gradient: linear-gradient(135deg, #4e267c 0%, #14AE98 100%);
     --soft-gradient: linear-gradient(135deg, #14AE98 0%, #6fd4c8 100%);
-    --wallpaper-image: url('../assets/wallpaper-brand.jpg');
+    --wallpaper-image: url('../assets/wallpaper-chevrons.png');
     --success-color: #10b981;
     --danger-color: #ef4444;
     --warning-color: #f59e0b;
@@ -54,7 +54,7 @@ body {
     color: var(--dark-text);
     background-color: #ffffff;
     background-image: var(--wallpaper-image);
-    background-size: 420px auto;
+    background-size: 560px auto;
     background-repeat: repeat;
     background-attachment: fixed;
     background-position: center top;
@@ -346,11 +346,11 @@ body {
 .form-group textarea {
     width: 100%;
     padding: 0.875rem 1.125rem;
-    border: 1.5px solid var(--border-color);
+    border: 1.5px solid transparent;
     border-radius: 10px;
     font-size: 0.9375rem;
     transition: all 0.2s ease;
-    background-color: #ffffff;
+    background-color: #eef1f8;
     font-family: 'Inter', sans-serif;
     color: var(--dark-text);
 }
@@ -365,10 +365,9 @@ body {
 }
 
 
-/* Auth layout */
+/* Auth layout — aligné sur l'écran de connexion mobile (carte blanche sur wallpaper) */
 .auth-shell {
     min-height: 100vh;
-    background: radial-gradient(circle at 20% 20%, rgba(78, 38, 124, 0.08), transparent 55%), radial-gradient(circle at 80% 0%, rgba(20, 174, 152, 0.1), transparent 45%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -378,25 +377,11 @@ body {
 .auth-card {
     width: min(480px, 96%);
     background: var(--card-bg);
-    padding: 3rem;
-    border-radius: 32px;
-    box-shadow: 0 35px 65px rgba(15, 23, 42, 0.18);
+    padding: 2.5rem;
+    border-radius: 16px;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14);
     position: relative;
     overflow: hidden;
-}
-
-.auth-card::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(135deg, rgba(20, 174, 152, 0.35), rgba(78, 38, 124, 0.35));
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask-composite: exclude;
-    pointer-events: none;
 }
 
 .auth-card h2 {

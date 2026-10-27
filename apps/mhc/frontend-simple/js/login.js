@@ -46,11 +46,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         togglePasswordBtn.addEventListener('click', function() {
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
-                togglePasswordBtn.textContent = '🙈';
+                togglePasswordBtn.innerHTML = window.MH_EYE_OFF_ICON || '🙈';
                 togglePasswordBtn.title = 'Masquer le mot de passe';
             } else {
                 passwordInput.type = 'password';
-                togglePasswordBtn.textContent = '👁️';
+                togglePasswordBtn.innerHTML = window.MH_EYE_ICON || '👁️';
                 togglePasswordBtn.title = 'Afficher le mot de passe';
             }
         });
