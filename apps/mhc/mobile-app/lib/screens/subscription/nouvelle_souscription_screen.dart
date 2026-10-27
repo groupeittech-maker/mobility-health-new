@@ -327,6 +327,9 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
             'Pour un tiers: oui',
             '=== INFORMATIONS DU TIERS (BÉNÉFICIAIRE) ===',
             'Nom du tiers: ${child.nom}',
+            if (child.prenom != null) 'Prénom(s) du tiers: ${child.prenom}',
+            if (child.nationalite != null) 'Nationalité du tiers: ${child.nationalite}',
+            if (child.lienParente != null) 'Lien de parenté: ${child.lienParente}',
             'Date de naissance du tiers: ${fmtDate(child.dateNaissance)}',
             'Numéro de passeport du tiers: ${child.numeroPasseport}',
             'Date d\'expiration du passeport du tiers: ${fmtDate(child.validitePasseport)}',
@@ -337,7 +340,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
             'Mineurs accompagnés: ${data.mineurs!
                 .map(
                   (m) =>
-                      '${m.nom} (né(e) le ${fmtDate(m.dateNaissance)}); passeport ${m.numeroPasseport}; validité ${fmtDate(m.validitePasseport)}',
+                      '${m.nom}${m.prenom != null ? ' ${m.prenom}' : ''} (né(e) le ${fmtDate(m.dateNaissance)}${m.nationalite != null ? ', ${m.nationalite}' : ''}); passeport ${m.numeroPasseport}; validité ${fmtDate(m.validitePasseport)}',
                 )
                 .join('; ')}',
           );
@@ -356,6 +359,10 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
                 .map(
                   (m) => {
                     'nom': m.nom,
+                    if (m.prenom != null) 'prenom': m.prenom,
+                    if (m.nationalite != null) 'nationalite': m.nationalite,
+                    if (m.lienParente != null) 'lien_parente': m.lienParente,
+                    if (m.enfantId != null) 'enfant_id': m.enfantId,
                     'date_naissance':
                         m.dateNaissance.toIso8601String().substring(0, 10),
                     'numero_passeport': m.numeroPasseport,

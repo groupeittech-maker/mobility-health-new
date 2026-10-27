@@ -257,6 +257,7 @@ def _serialize_enfant(e: EnfantBeneficiaire) -> dict[str, Any]:
         "a_photo": bool(e.photo),
         "a_copie_piece": bool(e.copie_piece),
         "photo_data_url": e.photo,
+        "copie_piece_data_url": e.copie_piece,
     }
 
 

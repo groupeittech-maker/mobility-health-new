@@ -23,7 +23,6 @@ document.addEventListener('DOMContentLoaded', function() {
             let html = '<div style="display: grid; gap: 1rem; margin-top: 1rem;">';
             
             attestations.forEach(attestation => {
-                const date = new Date(attestation.created_at).toLocaleDateString('fr-FR');
                 const typeLabel = attestation.type_attestation === 'provisoire' ? 'Provisoire' : 'Définitive';
                 const badgeClass = attestation.type_attestation === 'provisoire' ? 'badge-provisoire' : 'badge-definitive';
                 
@@ -34,7 +33,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span class="badge ${badgeClass}">${typeLabel}</span>
                         </div>
                         <p><strong>Numéro:</strong> ${attestation.numero_attestation}</p>
-                        <p><strong>Date d'émission:</strong> ${date}</p>
                         <button class="btn btn-primary" onclick="viewAttestation(${attestation.id})" style="margin-top: 1rem;">
                             Voir l'attestation
                         </button>

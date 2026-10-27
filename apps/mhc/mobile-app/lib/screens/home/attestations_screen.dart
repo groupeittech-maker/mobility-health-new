@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -261,10 +260,7 @@ class _AttestationCard extends StatelessWidget {
     final id = attestation['id'] as int? ?? 0;
     final numero = attestation['numero_attestation'] as String? ?? '—';
     final type = attestation['type_attestation'] as String? ?? '—';
-    final created = attestation['created_at'] as String?;
-    final dateStr = created != null
-        ? DateFormat('dd/MM/yyyy').format(DateTime.tryParse(created) ?? DateTime.now())
-        : '—';
+    // Workflow V3 §5 : ne pas afficher la date de génération des documents.
     final isDefinitive = type.toLowerCase() == 'definitive' || type.toLowerCase() == 'définitive';
     final typeLabel = isDefinitive ? 'Définitive' : (type.toLowerCase().contains('provis') ? 'Provisoire' : type);
     final url = attestation['carte_numerique_url'] ?? attestation['carteNumeriqueUrl'];
@@ -310,10 +306,6 @@ class _AttestationCard extends StatelessWidget {
                         runSpacing: 6,
                         children: [
                           _TypeChip(label: typeLabel, definitive: isDefinitive),
-                          Text(
-                            dateStr,
-                            style: theme.textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
-                          ),
                         ],
                       ),
                     ],

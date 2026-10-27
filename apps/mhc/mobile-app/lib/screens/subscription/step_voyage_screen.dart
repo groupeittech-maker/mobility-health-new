@@ -1,14 +1,18 @@
+import 'dart:convert' show base64Decode;
+import 'dart:io' show File;
 import 'dart:math' show max, min;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
 import '../../core/widgets/mh_surface_card.dart';
 import '../../core/widgets/mh_text_highlight.dart';
 import '../../models/destination.dart';
+import '../../services/account_service.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
 
@@ -19,12 +23,20 @@ const int kMaxTripDays = 92;
 class MineurEntry {
   const MineurEntry({
     required this.nom,
+    this.prenom,
+    this.nationalite,
+    this.lienParente,
+    this.enfantId,
     required this.dateNaissance,
     required this.numeroPasseport,
     required this.validitePasseport,
     required this.photoPasseportPath,
   });
   final String nom;
+  final String? prenom;
+  final String? nationalite;
+  final String? lienParente;
+  final int? enfantId;
   final DateTime dateNaissance;
   final String numeroPasseport;
   final DateTime validitePasseport;
@@ -1585,10 +1597,16 @@ class _AjouterMineurSheet extends StatefulWidget {
 
 class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
   late final TextEditingController _nomController;
+  late final TextEditingController _prenomController;
+  late final TextEditingController _nationaliteController;
+  late final TextEditingController _parenteController;
   late final TextEditingController _passeportController;
   DateTime? _dateNaissance;
   DateTime? _validitePasseport;
   String? _photoPath;
+  int? _enfantId;
+  List<Map<String, dynamic>> _savedEnfants = const [];
+  bool _loadingEnfants = false;
 
   bool get _isEditing => widget.initial != null;
 
@@ -1596,7 +1614,14 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
   void initState() {
     super.initState();
     final existing = widget.initial;
+    _enfantId = existing?.enfantId;
+    if (!_isEditing) _loadSavedEnfants();
     _nomController = TextEditingController(text: existing?.nom ?? '');
+    _prenomController = TextEditingController(text: existing?.prenom ?? '');
+    _nationaliteController =
+        TextEditingController(text: existing?.nationalite ?? '');
+    _parenteController =
+        TextEditingController(text: existing?.lienParente ?? '');
     _passeportController =
         TextEditingController(text: existing?.numeroPasseport ?? '');
     _dateNaissance = existing?.dateNaissance;
@@ -1607,8 +1632,60 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
   @override
   void dispose() {
     _nomController.dispose();
+    _prenomController.dispose();
+    _nationaliteController.dispose();
+    _parenteController.dispose();
     _passeportController.dispose();
     super.dispose();
+  }
+
+  /// §4.3 : réutiliser un profil enfant enregistré sans ressaisie.
+  Future<void> _loadSavedEnfants() async {
+    setState(() => _loadingEnfants = true);
+    try {
+      final list = await EnfantsService.instance.list();
+      if (mounted) {
+        setState(() => _savedEnfants =
+            list.where((e) => e['actif'] != false).toList());
+      }
+    } catch (_) {
+      // Profils indisponibles : saisie manuelle normale.
+    } finally {
+      if (mounted) setState(() => _loadingEnfants = false);
+    }
+  }
+
+  DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    return DateTime.tryParse(v.toString().substring(0, 10));
+  }
+
+  Future<void> _applySavedEnfant(Map<String, dynamic> e) async {
+    _enfantId = e['id'] as int?;
+    _nomController.text = (e['nom'] ?? '').toString();
+    _prenomController.text = (e['prenom'] ?? '').toString();
+    _nationaliteController.text = (e['nationalite'] ?? '').toString();
+    _parenteController.text = (e['lien_parente'] ?? '').toString();
+    _passeportController.text = (e['numero_piece'] ?? '').toString();
+    _dateNaissance = _parseDate(e['date_naissance']);
+    _validitePasseport = _parseDate(e['validite_piece']);
+    // La copie de la pièce enregistrée est un data URL : on la réécrit dans un
+    // fichier temporaire pour la joindre au dossier de souscription.
+    final dataUrl = (e['copie_piece_data_url'] ?? '').toString();
+    if (dataUrl.startsWith('data:')) {
+      try {
+        final bytes = base64Decode(dataUrl.split(',').last);
+        final ext = dataUrl.contains('image/png') ? 'png' : 'jpg';
+        final dir = await getTemporaryDirectory();
+        final f = File(
+            '${dir.path}/piece_enfant_${_enfantId ?? DateTime.now().millisecondsSinceEpoch}.$ext');
+        await f.writeAsBytes(bytes, flush: true);
+        _photoPath = f.path;
+      } catch (_) {
+        _photoPath = null;
+      }
+    }
+    if (mounted) setState(() {});
   }
 
   Future<void> _pickPassportPhoto(String source) async {
@@ -1664,13 +1741,14 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
   void _trySubmit() {
     if (_nomController.text.trim().isEmpty ||
         _dateNaissance == null ||
+        _nationaliteController.text.trim().isEmpty ||
         _passeportController.text.trim().isEmpty ||
         _validitePasseport == null ||
         _photoPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Veuillez remplir tous les champs obligatoires, y compris la photo du passeport.',
+            'Veuillez remplir tous les champs obligatoires : nom, naissance, nationalité, passeport et sa photo.',
           ),
           backgroundColor: AppColors.danger,
         ),
@@ -1690,9 +1768,15 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
       );
       return;
     }
+    String? opt(TextEditingController c) =>
+        c.text.trim().isEmpty ? null : c.text.trim();
     Navigator.of(context).pop(
       MineurEntry(
         nom: _nomController.text.trim(),
+        prenom: opt(_prenomController),
+        nationalite: opt(_nationaliteController),
+        lienParente: opt(_parenteController),
+        enfantId: _enfantId,
         dateNaissance: _dateNaissance!,
         numeroPasseport: _passeportController.text.trim(),
         validitePasseport: _validitePasseport!,
@@ -1762,9 +1846,52 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (_savedEnfants.isNotEmpty) ...[
+                  DropdownButtonFormField<int>(
+                    initialValue: _enfantId,
+                    decoration: MHSurfaceCard.input(
+                        labelText:
+                            'Enfant enregistré (réutilise son profil)'),
+                    items: [
+                      const DropdownMenuItem<int>(
+                        value: null,
+                        child: Text('— Nouvel enfant —'),
+                      ),
+                      ..._savedEnfants.map(
+                        (e) => DropdownMenuItem<int>(
+                          value: e['id'] as int?,
+                          child: Text(
+                            '${e['prenom'] ?? ''} ${e['nom'] ?? ''}'.trim(),
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: (id) {
+                      final e = _savedEnfants
+                          .firstWhere((x) => x['id'] == id, orElse: () => {});
+                      if (e.isNotEmpty) {
+                        _applySavedEnfant(e);
+                      } else {
+                        setState(() => _enfantId = null);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ] else if (_loadingEnfants)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: LinearProgressIndicator(minHeight: 2),
+                  ),
                 TextField(
                   controller: _nomController,
                   decoration: MHSurfaceCard.input(labelText: 'Nom de l\'enfant *'),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _prenomController,
+                  decoration:
+                      MHSurfaceCard.input(labelText: 'Prénom(s) de l\'enfant'),
                   textCapitalization: TextCapitalization.words,
                 ),
                 const SizedBox(height: 16),
@@ -1789,6 +1916,21 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
                       ),
                     ),
                   ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _nationaliteController,
+                  decoration:
+                      MHSurfaceCard.input(labelText: 'Nationalité *'),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _parenteController,
+                  decoration: MHSurfaceCard.input(
+                      labelText: 'Lien de parenté (facultatif)',
+                      hintText: 'Ex. : fille, fils'),
+                  textCapitalization: TextCapitalization.words,
                 ),
                 const SizedBox(height: 16),
                 TextField(
