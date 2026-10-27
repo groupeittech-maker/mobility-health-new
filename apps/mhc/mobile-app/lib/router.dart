@@ -2,16 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/widgets/mh_states.dart';
+import 'screens/ekyc_nfc_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/home/attestations_screen.dart';
 import 'screens/home/ecards_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/home/notifications_screen.dart';
+import 'screens/home/reclamations_screen.dart';
 import 'screens/home/reseau_mhc_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/profile/change_destination_screen.dart';
+import 'screens/profile/enfants_screen.dart';
 import 'screens/profile/mon_profil_screen.dart';
+import 'screens/profile/profile_change_screen.dart';
 import 'screens/profile/profile_edit_screens.dart';
+import 'screens/profile/security_screen.dart';
+import 'screens/profile/settings_screen.dart';
 import 'screens/referent/referent_dossier_detail_screen.dart';
 import 'screens/referent/referent_invoice_detail_screen.dart';
 import 'screens/referent/referent_notifications_screen.dart';
@@ -111,6 +117,26 @@ final appRouter = GoRouter(
       builder: (context, state) => const ChangeDestinationScreen(),
     ),
     GoRoute(
+      path: '/profile/change-request',
+      builder: (context, state) => const ProfileChangeScreen(),
+    ),
+    GoRoute(
+      path: '/security',
+      builder: (context, state) => const SecurityScreen(),
+    ),
+    GoRoute(
+      path: '/settings',
+      builder: (context, state) => const SettingsScreen(),
+    ),
+    GoRoute(
+      path: '/enfants',
+      builder: (context, state) => const EnfantsScreen(),
+    ),
+    GoRoute(
+      path: '/reclamations',
+      builder: (context, state) => const ReclamationsScreen(),
+    ),
+    GoRoute(
       path: '/referent',
       builder: (context, state) {
         final tab = int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0;
@@ -147,6 +173,18 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/attestations',
       builder: (context, state) => const AttestationsScreen(),
+    ),
+    // Lecture NFC du passeport dans un parcours eKYC Trusdy.
+    // Entry: /ekyc-nfc?url=<verification_url encodé>
+    GoRoute(
+      path: '/ekyc-nfc',
+      builder: (context, state) {
+        final url = state.uri.queryParameters['url'] ?? '';
+        if (url.isEmpty) {
+          return const Scaffold(body: MhNotFoundView());
+        }
+        return EkycNfcScreen(verificationUrl: url);
+      },
     ),
   ],
 );

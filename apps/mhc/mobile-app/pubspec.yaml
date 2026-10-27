@@ -55,6 +55,13 @@ dependencies:
   # Navigation
   go_router: ^13.0.0
 
+  # eKYC — lecture NFC du passeport électronique (ICAO 9303, BAC)
+  # dmrtd n'est pas publié sur pub.dev : dépendance git épinglée sur un tag.
+  dmrtd:
+    git:
+      url: https://github.com/ZeroPass/dmrtd.git
+      ref: v2.0.0
+
   # Error Handling & Logging
   logger: ^2.0.2+1
 
