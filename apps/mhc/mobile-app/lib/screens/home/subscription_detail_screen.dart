@@ -151,6 +151,15 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
     }
   }
 
+  void _showErrorSnackBar(Object e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Erreur : ${apiErrorToUserMessage(e)}'),
+        backgroundColor: AppColors.danger,
+      ),
+    );
+  }
+
   Future<void> _downloadEcard(int id, String numero) async {
     setState(() => _downloadingId = 'ecard-$id');
     try {

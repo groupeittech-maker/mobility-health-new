@@ -47,9 +47,14 @@ Créer une session pour un assuré.
 {
   "customer_reference": "MHC-USER-12345",
   "flow": "TRAVEL_INSURANCE",
-  "metadata": {"subscription_id": "SUB-123"}
+  "metadata": {"subscription_id": "SUB-123"},
+  "otp_destination": "+225 07 07 07 07 07"
 }
 ```
+
+- `otp_destination` (optionnel) — numéro ou email déclaré par MHC. Quand il est
+  fourni, l'utilisateur final ne peut pas substituer une autre destination :
+  l'OTP prouve alors le contrôle du numéro connu de MHC.
 
 **Response (`201`) :**
 ```json
@@ -97,6 +102,24 @@ Résultat minimisé (statut, checks, identité utile, raisons).
 ```
 
 **Statuts possibles :** `CREATED`, `IN_PROGRESS`, `PROCESSING`, `VERIFIED`, `REJECTED`, `REVIEW`, `EXPIRED`.
+Les checks portent en outre `RETRY` : un défaut de capture invite à une nouvelle photo (budget borné), sans rejet ni revue définitive immédiats.
+
+## API de la session utilisateur final
+
+Ces endpoints consomment le **jeton de session** présent dans
+`verification_url` (`?token=…`, retiré de l'URL côté navigateur) — jamais le
+jeton tenant. Base : `/v1/verification/{session_id}`.
+
+| Endpoint | Rôle |
+|---|---|
+| `GET /context` | Étapes, documents acceptés, consentement requis, destination OTP masquée |
+| `POST /consent` | Enregistre le consentement (version contrôlée serveur) |
+| `POST /document` | Recto (+ `file_verso` pour les cartes TD1/TD2) |
+| `POST /selfie` | Photo du visage |
+| `POST /otp/send` / `POST /otp/verify` | OTP vers la destination déclarée |
+| `POST /nfc` | **Données de puce eMRTD** — `{ef_com, ef_sod, dg1?, dg2?}` en base64. Verdict : `VALID` → PASSED, `INVALID` → FAILED (rejet), `INDETERMINATE` → REVIEW |
+| `POST /transfer` + `POST /transfer/exchange` | Code QR à usage unique pour continuer un parcours desktop sur mobile |
+| `GET /status` | Checks + statut courant |
 
 ### `POST /v1/kyc/sessions/{session_id}/documents`
 

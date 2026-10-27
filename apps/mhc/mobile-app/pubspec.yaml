@@ -61,6 +61,8 @@ dependencies:
     git:
       url: https://github.com/ZeroPass/dmrtd.git
       ref: v2.0.0
+  # Scan MRZ hors-ligne pour pré-remplir les clés BAC (aucun envoi cloud).
+  google_mlkit_text_recognition: ^0.15.0
 
   # Error Handling & Logging
   logger: ^2.0.2+1

@@ -51,6 +51,8 @@ class SubscriptionModel {
     this.demandeResiliation,
     this.demandeResiliationDate,
     this.demandeResiliationNotes,
+    this.infoDemandeeMessage,
+    this.infoDemandeeAt,
   });
 
   bool get isActive => statut == 'active';

@@ -4,6 +4,7 @@ import '../core/constants/app_colors.dart';
 import '../core/widgets/mh_app_bar.dart';
 import '../core/widgets/mh_surface_card.dart';
 import '../services/ekyc_service.dart';
+import '../services/mrz_scan_service.dart';
 import '../services/passport_nfc_service.dart';
 
 /// Lecture NFC du passeport électronique dans un parcours eKYC Trusdy.
@@ -24,6 +25,8 @@ class EkycNfcScreen extends StatefulWidget {
 class _EkycNfcScreenState extends State<EkycNfcScreen> {
   final _nfc = PassportNfcService();
   final _ekyc = EkycService();
+  final _mrzScanner = MrzScanService();
+  bool _scanningMrz = false;
 
   final _docNumberCtrl = TextEditingController();
   DateTime? _birthDate;
@@ -71,6 +74,33 @@ class _EkycNfcScreenState extends State<EkycNfcScreen> {
       _docNumberCtrl.text.trim().length >= 6 &&
       _birthDate != null &&
       _expiryDate != null;
+
+  /// Photographie la zone MRZ et pré-remplit les trois clés BAC — la saisie
+  /// manuelle reste possible si le scan échoue.
+  Future<void> _scanMrz() async {
+    setState(() {
+      _scanningMrz = true;
+      _error = null;
+    });
+    try {
+      final result = await _mrzScanner.scanFromCamera();
+      if (result != null && mounted) {
+        setState(() {
+          _docNumberCtrl.text = result.documentNumber;
+          _birthDate = result.birthDate;
+          _expiryDate = result.expiryDate;
+        });
+      }
+    } on MrzScanException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = 'Scan impossible : $e — saisissez les champs à la main.');
+      }
+    } finally {
+      if (mounted) setState(() => _scanningMrz = false);
+    }
+  }
 
   Future<void> _readAndSubmit() async {
     final session = _session;
@@ -141,6 +171,14 @@ class _EkycNfcScreenState extends State<EkycNfcScreen> {
                     style: TextStyle(color: AppColors.mutedText, height: 1.35),
                   ),
                   const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: _scanningMrz ? null : _scanMrz,
+                    icon: const Icon(Icons.document_scanner_outlined),
+                    label: Text(_scanningMrz
+                        ? 'Analyse du MRZ…'
+                        : 'Scanner la zone MRZ avec la caméra'),
+                  ),
+                  const SizedBox(height: 8),
                   TextField(
                     controller: _docNumberCtrl,
                     textCapitalization: TextCapitalization.characters,

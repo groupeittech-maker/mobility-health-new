@@ -68,23 +68,47 @@ class PassportNfcService {
       }
 
       final passport = Passport(nfc);
+      final docNumber =
+          keys.documentNumber.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
       final accessKey = DBAKey(
-        keys.documentNumber.toUpperCase().replaceAll(' ', ''),
+        docNumber,
         keys.birthDate,
         keys.expiryDate,
+        paceMode: true, // les mêmes données MRZ servent pour BAC et PACE
       );
 
-      // Session BAC — la grande majorité des passeports eMRTD la supporte.
-      // (PACE via EF.CardAccess : à ajouter pour les puces qui n'ont plus BAC.)
+      // PACE d'abord quand la puce l'annonce (EF.CardAccess), BAC en repli —
+      // c'est l'ordre recommandé par l'ICAO et le comportement des lecteurs
+      // officiels. Certaines puces récentes n'offrent plus BAC du tout.
+      var sessionOpened = false;
+      EfCardAccess? cardAccess;
       try {
-        onProgress?.call(15, 'Ouverture du canal sécurisé (BAC)…');
-        await passport.startSession(accessKey);
+        cardAccess = await passport.readEfCardAccess();
       } catch (_) {
-        throw const PassportNfcException(
-          'BAC_FAILED',
-          'Vérifiez le numéro de document et les dates — '
-              'la puce refuse les clés de lecture.',
-        );
+        cardAccess = null; // pas de PACE sur cette puce
+      }
+      if (cardAccess != null) {
+        try {
+          onProgress?.call(15, 'Ouverture du canal sécurisé (PACE)…');
+          await passport.startSessionPACE(accessKey, cardAccess);
+          sessionOpened = true;
+        } catch (_) {
+          // PACE refusé — certaines puces l'annoncent mais n'ont que BAC.
+          sessionOpened = false;
+        }
+      }
+      if (!sessionOpened) {
+        try {
+          onProgress?.call(15, 'Ouverture du canal sécurisé (BAC)…');
+          await passport.startSession(accessKey);
+          sessionOpened = true;
+        } catch (_) {
+          throw const PassportNfcException(
+            'BAC_FAILED',
+            'Vérifiez le numéro de document et les dates — '
+                'la puce refuse les clés de lecture.',
+          );
+        }
       }
 
       onProgress?.call(35, 'Lecture EF.COM…');
