@@ -40,6 +40,7 @@
         residenceCountryCode: null,
         mineurs: [],          // {nom, dateNaissance, numeroPasseport, validitePasseport, file}
         enfantVoyageur: null, // même structure
+        savedEnfants: null,   // profils enfants enregistrés (GET /users/me/enfants, §4.3)
         documents: [],        // {file, docType, label}
         // Étape 2
         products: null,
@@ -356,9 +357,12 @@
     function openMinorModal(target, index = null) {
         minorTarget = target;
         minorEditIndex = index;
+        loadSavedEnfants();
         const existing = index === 'enfant'
             ? state.enfantVoyageur
             : (typeof index === 'number' ? state.mineurs[index] : null);
+        state.pendingSavedEnfant = null;
+        $('minorSaved').value = '';
         $('minorNom').value = existing?.nom || '';
         $('minorPrenom').value = existing?.prenom || '';
         $('minorNaissance').value = existing?.dateNaissance || '';
@@ -375,6 +379,54 @@
     }
     function closeMinorModal() { $('minorModal').classList.remove('open'); }
 
+    // ---------- Profils enfants enregistrés (§4.3 : réajout sans ressaisie) ----------
+    async function loadSavedEnfants() {
+        if (state.savedEnfants !== null) { populateSavedEnfants(); return; }
+        try {
+            state.savedEnfants = await apiCall('/users/me/enfants');
+        } catch (_) {
+            state.savedEnfants = [];
+        }
+        populateSavedEnfants();
+    }
+
+    function populateSavedEnfants() {
+        const sel = $('minorSaved');
+        const kids = state.savedEnfants || [];
+        sel.innerHTML = '<option value="">— Nouvel enfant —</option>' +
+            kids.map((k) => `<option value="${k.id}">${escapeHtml(`${k.prenom || ''} ${k.nom}`.trim())}</option>`).join('');
+        $('minorSavedWrap').style.display = kids.length ? 'block' : 'none';
+    }
+
+    async function dataUrlToFile(dataUrl, filename) {
+        const resp = await fetch(dataUrl);
+        const blob = await resp.blob();
+        const ext = (blob.type.split('/')[1] || 'bin').replace('jpeg', 'jpg');
+        return new File([blob], `${filename}.${ext}`, { type: blob.type });
+    }
+
+    async function applySavedEnfant(enfantId) {
+        const kid = (state.savedEnfants || []).find((k) => String(k.id) === String(enfantId));
+        if (!kid) { state.pendingSavedEnfant = null; return; }
+        $('minorNom').value = kid.nom || '';
+        $('minorPrenom').value = kid.prenom || '';
+        $('minorNaissance').value = kid.date_naissance || '';
+        $('minorNationalite').value = kid.nationalite || '';
+        $('minorParente').value = kid.lien_parente || '';
+        $('minorPasseport').value = kid.numero_piece || '';
+        $('minorValidite').value = kid.validite_piece || '';
+        $('minorPhoto').value = '';
+        state.pendingSavedEnfant = { id: kid.id, file: null };
+        if (kid.copie_piece_data_url) {
+            try {
+                state.pendingSavedEnfant.file = await dataUrlToFile(kid.copie_piece_data_url, 'piece_enfant');
+            } catch (_) { /* l'utilisateur re-sélectionnera le fichier manuellement */ }
+        }
+        if (!state.pendingSavedEnfant.file) {
+            showMessage('Profil chargé — veuillez joindre à nouveau la copie de la pièce.', 'info');
+        }
+    }
+
     function saveMinor() {
         const nom = $('minorNom').value.trim();
         const prenom = $('minorPrenom').value.trim();
@@ -386,7 +438,9 @@
         const existing = minorEditIndex === 'enfant'
             ? state.enfantVoyageur
             : (typeof minorEditIndex === 'number' ? state.mineurs[minorEditIndex] : null);
-        const file = $('minorPhoto').files[0] || (existing ? existing.file : null);
+        const file = $('minorPhoto').files[0]
+            || (state.pendingSavedEnfant && state.pendingSavedEnfant.file)
+            || (existing ? existing.file : null);
         if (!nom || !naissance || !nationalite || !passeport || !validite || !file) {
             showMessage('Tous les champs de l\'enfant sont requis (nom, naissance, nationalité, passeport et sa photo).', 'error');
             return;
@@ -400,6 +454,7 @@
         const entry = {
             nom, prenom: prenom || null, nationalite, lienParente: lienParente || null,
             dateNaissance: naissance, numeroPasseport: passeport, validitePasseport: validite, file,
+            enfantId: (state.pendingSavedEnfant && state.pendingSavedEnfant.id) || (existing ? existing.enfantId : null),
         };
         const label = minorTarget === 'enfant'
             ? `Passeport (enfant voyageur) — ${nom}`
@@ -1103,9 +1158,51 @@
     }
 
     // ---------- Étape 5 : Paiement ----------
+    // Récapitulatif avant paiement (§4.1 étape 8) : personnes assurées,
+    // destination, dates, réponses santé et montant total.
+    function renderRecap() {
+        const box = $('recapCard');
+        if (!box) return;
+        const kids = childAssures();
+        const personnes = [
+            `${(state.tierUser || state.user || {}).prenom || ''} ${(state.tierUser || state.user || {}).nom || (state.tierUser || state.user || {}).full_name || ''}`.trim()
+                || 'Assuré principal',
+            ...kids.map((m) => `${m.prenom || ''} ${m.nom}`.trim() || 'Enfant'),
+        ];
+        const answerLabel = (v) => (v === 'oui' ? 'Oui' : v === 'non' ? 'Non' : '—');
+        const principalAnswers = [
+            ['Malade à la souscription', 'malade_souscription'],
+            ['Malade (12 derniers mois)', 'malade_12_mois'],
+            ['Maladie chronique', 'maladie_chronique'],
+            ['Enceinte', 'enceinte'],
+            ['Voyage médical', 'voyage_medical'],
+            ['Activité sportive pro', 'activite_sportive_pro'],
+        ].map(([label, key]) => {
+            const motif = ($(`motif_${key}`) || {}).value;
+            return `${label} : ${answerLabel(state.medicalAnswers[key])}${state.medicalAnswers[key] === 'oui' && motif ? ` (« ${escapeHtml(motif.trim())} »)` : ''}`;
+        });
+        const childBlocks = kids.map((m, i) => {
+            const answers = state.childMedicalAnswers[i] || {};
+            const parts = CHILD_MEDICAL_QUESTIONS.map(([key]) => {
+                const motif = ($(`motif_child_${i}_${key}`) || {}).value;
+                return `${answerLabel(answers[key])}${answers[key] === 'oui' && motif ? ` (« ${escapeHtml(motif.trim())} »)` : ''}`;
+            });
+            return `<div><strong>${escapeHtml(`${m.prenom || ''} ${m.nom}`.trim())}</strong> — ${parts.join(' · ')}</div>`;
+        });
+        box.innerHTML = `
+            <div class="mh-sub-title">Récapitulatif de souscription</div>
+            <div class="mh-muted" style="margin-bottom:6px;"><strong>Assurés :</strong> ${escapeHtml(personnes.join(', '))}</div>
+            <div class="mh-muted" style="margin-bottom:6px;"><strong>Destination :</strong> ${escapeHtml(`${state.voyageData?.destinationCityName || ''}${state.voyageData?.destinationCountryName ? ', ' + state.voyageData.destinationCountryName : ''}`)}</div>
+            <div class="mh-muted" style="margin-bottom:6px;"><strong>Dates :</strong> ${escapeHtml(fmtDateInput((state.voyageData?.dateDepart || '').slice(0, 10)))} → ${escapeHtml(fmtDateInput((state.voyageData?.dateRetour || '').slice(0, 10)))} (${state.voyageData?.dureeJours || '?'} jours)</div>
+            <div class="mh-muted" style="margin-bottom:6px;"><strong>Réponses santé :</strong> ${escapeHtml(principalAnswers.join(' · '))}${state.medicalAnswers.enceinte === 'oui' ? ` (${escapeHtml($('moisGrossesse').value)} mois)` : ''}</div>
+            ${childBlocks.join('')}
+            <div style="margin-top:8px;"><strong>Total :</strong> ${fmtMontant(state.montant)}</div>`;
+    }
+
     function renderPaiementState() {
         $('paiementLoading').style.display = 'none';
         $('paiementContent').style.display = 'block';
+        renderRecap();
         $('payStateSubmit').style.display = state.dossierState === 'to_submit' ? 'block' : 'none';
         $('payStateReview').style.display = state.dossierState === 'in_review' ? 'block' : 'none';
         $('payStateApproved').style.display = state.dossierState === 'approved' ? 'block' : 'none';
@@ -1301,6 +1398,34 @@
             const sub = await apiCall(`/subscriptions/${subscriptionId}`);
             state.subscriptionId = sub.id;
             state.projetId = sub.projet_voyage_id;
+            // Reconstituer les données du voyage (enfants, dates…) pour rendre
+            // les questionnaires par enfant et le récapitulatif à la reprise.
+            try {
+                const projet = await apiCall(`/voyages/${sub.projet_voyage_id}`);
+                const kids = (projet.mineurs || []).map((m) => ({
+                    nom: m.nom, prenom: m.prenom || null, nationalite: m.nationalite || null,
+                    lienParente: m.lien_parente || null, dateNaissance: m.date_naissance,
+                    numeroPasseport: m.numero_passeport, validitePasseport: m.validite_passeport,
+                    enfantId: m.enfant_id || null, file: null,
+                }));
+                const childOnly = kids.length === 1 && /Pour un tiers\s*:\s*oui/i.test(projet.notes || '');
+                if (childOnly) {
+                    state.enfantVoyageur = kids[0];
+                    const radio = $('voyageurChildOnly'); if (radio) radio.checked = true;
+                } else if (kids.length) {
+                    state.mineurs = kids;
+                    const radio = $('voyageurWithChildren'); if (radio) radio.checked = true;
+                }
+                state.voyageData = {
+                    destinationCityName: projet.destination || null,
+                    destinationCountryName: null,
+                    dateDepart: projet.date_depart,
+                    dateRetour: projet.date_retour,
+                    dureeJours: (projet.date_depart && projet.date_retour)
+                        ? Math.round((new Date(projet.date_retour) - new Date(projet.date_depart)) / 86400000)
+                        : null,
+                };
+            } catch (_) { /* reprise dégradée : questionnaires enfants masqués */ }
             state.montant = sub.prix_applique > 0 ? sub.prix_applique
                 : (sub.prime_assurance || 0) + (sub.cout_police || 0) + (sub.frais_services || 0) + (sub.taxes_total || 0);
             state.primeAssurance = sub.prime_assurance;
@@ -1454,6 +1579,10 @@
             });
         });
         bindChildChips();
+        $('minorSaved').addEventListener('change', (e) => {
+            if (e.target.value) applySavedEnfant(e.target.value);
+            else state.pendingSavedEnfant = null;
+        });
         $('moisGrossesse').addEventListener('input', updatePregnancyState);
         $('medicalContinueBtn').addEventListener('click', onMedicalContinue);
 
