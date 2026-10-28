@@ -93,9 +93,12 @@ class _EkycVerificationScreenState extends State<EkycVerificationScreen> {
   Future<void> _openHostedFlow() async {
     final url = _session?.verificationUrl;
     if (url == null) return;
+    // Navigateur système (Chrome/Safari) : le mode in-app bloque getUserMedia
+    // et les interactions tactile sont erratiques — le parcours eKYC a besoin
+    // de la caméra, donc toujours dans le vrai navigateur.
     await launchUrl(
       Uri.parse(url),
-      mode: LaunchMode.inAppBrowserView,
+      mode: LaunchMode.externalApplication,
     );
     _poll();
   }

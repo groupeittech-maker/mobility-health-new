@@ -226,7 +226,7 @@ class _EkycNfcScreenState extends State<EkycNfcScreen> {
                         final url = widget.verificationUrl;
                         if (url.isNotEmpty) {
                           launchUrl(Uri.parse(url),
-                              mode: LaunchMode.inAppBrowserView);
+                              mode: LaunchMode.externalApplication);
                         }
                       },
                       icon: const Icon(Icons.open_in_browser, size: 18),
