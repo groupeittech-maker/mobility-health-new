@@ -1490,7 +1490,21 @@
             state.taxesTotal = sub.taxes_total;
             state.taxes = sub.taxes;
             if (sub.statut !== 'en_attente') lockDossier();
-            showStep(sub.statut === 'en_attente' ? 2 : 5);
+            // Souscription voyage : l'étape eKYC (4) ne se saute pas — un
+            // dossier repris passe par la vérification si elle n'est pas
+            // encore VERIFIED.
+            if (sub.statut === 'en_attente') {
+                showStep(2);
+            } else if (sub.projet_voyage_id) {
+                let ekycOk = false;
+                try {
+                    const latest = await apiCall(`/ekyc/sessions/by-souscription/${sub.id}`);
+                    ekycOk = latest && latest.is_verified === true;
+                } catch (_) { /* pas de session → étape eKYC à faire */ }
+                showStep(ekycOk ? 5 : 4);
+            } else {
+                showStep(5);
+            }
         } catch (e) {
             showMessage(e.message || 'Impossible de reprendre ce dossier.', 'error');
             showStep(1);
