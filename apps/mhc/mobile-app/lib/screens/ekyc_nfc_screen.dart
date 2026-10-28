@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/constants/app_colors.dart';
 import '../core/widgets/mh_app_bar.dart';
@@ -213,9 +214,25 @@ class _EkycNfcScreenState extends State<EkycNfcScreen> {
             const SizedBox(height: 12),
             if (_error != null)
               MHSurfaceCard(
-                child: Text(
-                  _error!,
-                  style: const TextStyle(color: AppColors.danger),
+                child: Column(
+                  children: [
+                    Text(
+                      _error!,
+                      style: const TextStyle(color: AppColors.danger),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () {
+                        final url = widget.verificationUrl;
+                        if (url.isNotEmpty) {
+                          launchUrl(Uri.parse(url),
+                              mode: LaunchMode.inAppBrowserView);
+                        }
+                      },
+                      icon: const Icon(Icons.open_in_browser, size: 18),
+                      label: const Text('Continuer sans NFC dans le navigateur'),
+                    ),
+                  ],
                 ),
               ),
             if (_result != null) _resultCard(_result!),
