@@ -101,12 +101,12 @@ def get_or_create_for_souscription(
         .order_by(EkycSession.created_at.desc())
         .first()
     )
-    if (
-        latest is not None
-        and latest.status in _NON_TERMINAL_STATUSES
-        and (latest.expires_at is None or latest.expires_at > _now())
-    ):
-        return latest
+    if latest is not None and latest.status in _NON_TERMINAL_STATUSES:
+        expires = latest.expires_at
+        if expires is not None and expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if expires is None or expires > _now():
+            return latest
     return create_session(db, user=user, souscription=souscription, flow="TRAVEL_INSURANCE")
 
 
