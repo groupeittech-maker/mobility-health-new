@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../core/network/api_client.dart';
 
 /// Session eKYC côté MHC : création (par le backend, tenant Trusdy) et
@@ -8,12 +10,14 @@ class EkycSession {
   final String status;
   final String verificationUrl;
   final DateTime? expiresAt;
+  final bool isVerified;
 
   const EkycSession({
     required this.sessionId,
     required this.status,
     required this.verificationUrl,
     this.expiresAt,
+    this.isVerified = false,
   });
 }
 
@@ -56,6 +60,28 @@ class EkycSessionService {
           ? DateTime.tryParse(data['expires_at'].toString())
           : null,
     );
+  }
+
+  /// Dernière session liée à une souscription — 404 → null (aucune).
+  Future<EkycSession?> getLatestForSouscription(int souscriptionId) async {
+    try {
+      final data = await _api.get<Map<String, dynamic>>(
+        '/ekyc/sessions/by-souscription/$souscriptionId',
+        fromJson: (d) => d as Map<String, dynamic>,
+      );
+      return EkycSession(
+        sessionId: data['session_id'] as String,
+        status: data['status'] as String? ?? 'CREATED',
+        verificationUrl: (data['verification_url'] as String?) ?? '',
+        expiresAt: data['expires_at'] != null
+            ? DateTime.tryParse(data['expires_at'].toString())
+            : null,
+        isVerified: data['is_verified'] == true,
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
   }
 
   /// État courant — le backend rapatrie le résultat Trusdy au passage.

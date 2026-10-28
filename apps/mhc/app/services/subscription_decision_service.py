@@ -485,9 +485,11 @@ class SubscriptionDecisionEngine:
         if getattr(user, "fraude_signalee", False):
             reasons.append("Fraude détectée dans l'historique du client : souscription refusée automatiquement.")
             return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
+        # Échec eKYC → REVIEW manuelle (décision produit) : le dossier part en
+        # revue production, jamais en refus automatique.
         if _ekyc_rejected(db, souscription):
-            reasons.append("Identification (eKYC) échouée ou incohérente : souscription refusée automatiquement.")
-            return SubscriptionDecisionEngine._apply_reject(souscription, reasons)
+            review_steps.add("production")
+            reasons.append("Identification (eKYC) échouée ou incohérente : revue production requise")
 
         age = _voyageur_age(user, admin_questionnaire, questionnaire, project, voyageur_age, voyageur_date_naissance)
 

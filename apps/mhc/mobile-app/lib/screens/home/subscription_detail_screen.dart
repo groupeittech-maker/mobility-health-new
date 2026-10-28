@@ -9,6 +9,7 @@ import '../../models/medecin_conseil.dart';
 import '../../models/subscription.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
+import '../../services/ekyc_session_service.dart';
 import '../../services/medecin_conseil_service.dart';
 import '../../widgets/medecin_conseil_card.dart';
 import 'policy_actions_section.dart';
@@ -37,6 +38,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
   List<Map<String, dynamic>> _attestations = [];
   List<MedecinConseilAssignment> _medecinConseil = [];
   bool _medecinConseilFromCache = false;
+  EkycSession? _ekycSession;
   Map<String, dynamic>? _user;
   bool _loading = true;
   String? _error;
@@ -81,6 +83,15 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
             await _subscriptionsService.getSubscription(_subscription.id);
       } catch (_) {}
       final att = await _attestationsService.getSubscriptionAttestations(_subscription.id);
+      // Souscription voyage : la session eKYC (auto-créée par le backend)
+      // pilote le CTA « Vérifier mon identité » — jamais bloquant si
+      // l'endpoint est indisponible.
+      if (_subscription.projetVoyageId != null) {
+        try {
+          _ekycSession = await EkycSessionService.instance
+              .getLatestForSouscription(_subscription.id);
+        } catch (_) {}
+      }
       final cachedConseil = await _medecinConseilService.loadCached();
       final cachedForSub = cachedConseil
           .where((item) => item.souscriptionId == _subscription.id)
@@ -272,6 +283,11 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: _pendingDossierCard(s),
+                    ),
+                  if (s.projetVoyageId != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: _ekycCard(s),
                     ),
                   if (s.infoDemandeeMessage != null &&
                       s.infoDemandeeMessage!.isNotEmpty)
@@ -475,6 +491,78 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  /// Carte eKYC sur souscription voyage : visible tant que la dernière
+  /// session n'est pas VERIFIED (ou si aucune session n'existe encore) —
+  /// la session auto-créée par le backend est reprise par le CTA.
+  Widget _ekycCard(SubscriptionModel s) {
+    final verified = _ekycSession?.isVerified == true;
+    if (verified) {
+      return MHSurfaceCard(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(Icons.verified_user, color: Colors.green.shade600),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text('Identité vérifiée (eKYC)',
+                  style: TextStyle(fontWeight: FontWeight.w500)),
+            ),
+          ],
+        ),
+      );
+    }
+    final status = _ekycSession?.status;
+    return MHSurfaceCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.badge_outlined, color: AppColors.secondary),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Vérification d\'identité requise',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            status == 'REVIEW' || status == 'REJECTED'
+                ? 'Votre vérification est en revue manuelle — vous serez notifié du résultat.'
+                : 'Votre souscription nécessite une vérification d\'identité. Quelques minutes suffisent.',
+            style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
+          ),
+          if (status != 'REVIEW' && status != 'REJECTED') ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => context
+                    .push('/ekyc-verification?subscription=${s.id}')
+                    .then((_) => _load()),
+                icon: const Icon(Icons.verified_user_outlined, size: 18),
+                label: Text(
+                  _ekycSession == null
+                      ? 'Vérifier mon identité (eKYC)'
+                      : 'Reprendre la vérification',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.secondary,
+                  side: const BorderSide(color: AppColors.secondary),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 

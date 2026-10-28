@@ -39,10 +39,14 @@ def create_ekyc_session(
                 detail="Souscription invalide ou non autorisée",
             )
 
-    session = ekyc_service.create_session(
+    session = ekyc_service.get_or_create_for_souscription(
         db,
         user=current_user,
         souscription=souscription,
+    ) if souscription else ekyc_service.create_session(
+        db,
+        user=current_user,
+        souscription=None,
         flow="TRAVEL_INSURANCE",
     )
 
@@ -52,6 +56,35 @@ def create_ekyc_session(
         verification_url=session.verification_url,
         expires_at=session.expires_at.isoformat() if session.expires_at else None,
     )
+
+
+@router.get("/ekyc/sessions/by-souscription/{souscription_id}")
+def get_latest_ekyc_for_souscription(
+    souscription_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Dernière session eKYC liée à une souscription — utilisée par le CTA
+    « Vérifier mon identité » du détail de souscription (mode pilote :
+    visible tant que le dernier verdict n'est pas VERIFIED)."""
+    souscription = db.get(Souscription, souscription_id)
+    if souscription is None or souscription.user_id != current_user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Souscription non autorisée")
+    session = (
+        db.query(EkycSession)
+        .filter(EkycSession.souscription_id == souscription_id)
+        .order_by(EkycSession.created_at.desc())
+        .first()
+    )
+    if session is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Aucune session eKYC")
+    return {
+        "session_id": session.session_id,
+        "status": session.status,
+        "verification_url": session.verification_url,
+        "is_verified": session.status == "VERIFIED",
+        "expires_at": session.expires_at.isoformat() if session.expires_at else None,
+    }
 
 
 @router.get("/ekyc/sessions/{session_id}")

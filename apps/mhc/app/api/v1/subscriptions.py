@@ -381,7 +381,15 @@ async def start_subscription(
     souscription.produit_assurance = produit
     if projet:
         souscription.projet_voyage = projet
-    
+
+    # Produit voyage : la session eKYC est déclenchée automatiquement (le
+    # CTA "Vérifier mon identité" la reprend côté mobile). Échec silencieux —
+    # la souscription ne doit jamais dépendre de la disponibilité eKYC.
+    if target_user is not None:
+        from app.services import ekyc_service
+
+        ekyc_service.auto_create_for_voyage(db, user=target_user, souscription=souscription)
+
     return souscription
 
 

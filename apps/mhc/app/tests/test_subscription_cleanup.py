@@ -70,7 +70,10 @@ class TestReminders:
 
 
 class TestEkycRefusal:
-    def test_rejected_ekyc_refuses_unpaid_subscription(self, db, test_user, test_product, monkeypatch):
+    def test_rejected_ekyc_goes_to_production_review_not_auto_reject(
+        self, db, test_user, test_product, monkeypatch
+    ):
+        """Politique produit : échec eKYC → REVIEW manuelle, jamais refus auto."""
         monkeypatch.setattr(SubscriptionDecisionEngine, "_notify_client_outcome", staticmethod(lambda *a, **k: None))
         sous = _sous(db, test_user, test_product, start_offset_days=10, statut=StatutSouscription.EN_ATTENTE)
         db.add(EkycSession(
@@ -79,9 +82,9 @@ class TestEkycRefusal:
         ))
         db.commit()
         result = SubscriptionDecisionEngine.evaluate(db, sous)
-        assert result.decision == "reject"
-        assert sous.statut == StatutSouscription.REFUSEE
-        assert "eKYC" in sous.validation_finale_notes
+        assert result.decision == "review"
+        assert sous.statut == StatutSouscription.EN_ATTENTE_VALIDATION
+        assert "production" in result.review_steps
 
 
 class TestTripWindow:

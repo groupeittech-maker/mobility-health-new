@@ -86,6 +86,47 @@ def create_session(
     return session
 
 
+_NON_TERMINAL_STATUSES = {"CREATED", "PENDING", "IN_PROGRESS", "OTP_SENT"}
+
+
+def get_or_create_for_souscription(
+    db: Session, *, user: User, souscription: Souscription
+) -> EkycSession:
+    """Idempotent per souscription: a pending session is reused (the user
+    resumes where they stopped); a terminal or expired one spawns a fresh
+    attempt."""
+    latest = (
+        db.query(EkycSession)
+        .filter(EkycSession.souscription_id == souscription.id)
+        .order_by(EkycSession.created_at.desc())
+        .first()
+    )
+    if (
+        latest is not None
+        and latest.status in _NON_TERMINAL_STATUSES
+        and (latest.expires_at is None or latest.expires_at > _now())
+    ):
+        return latest
+    return create_session(db, user=user, souscription=souscription, flow="TRAVEL_INSURANCE")
+
+
+def auto_create_for_voyage(db: Session, *, user: User, souscription: Souscription) -> EkycSession | None:
+    """Trigger eKYC automatically after a travel-insurance subscription.
+    Fail-soft: the ekyc platform being down must never break subscription
+    creation — the session is retried when the user taps the CTA."""
+    if not souscription.projet_voyage_id:
+        return None
+    try:
+        return get_or_create_for_souscription(db, user=user, souscription=souscription)
+    except Exception as exc:  # noqa: BLE001 — availability must not block the journey
+        from logging import getLogger
+
+        getLogger(__name__).warning(
+            "eKYC auto-session failed for souscription %s: %s", souscription.id, exc
+        )
+        return None
+
+
 def poll_result(db: Session, session: EkycSession) -> EkycResultResponse:
     """Interroge eKYC et met à jour la session locale."""
     client = get_ekyc_client()
@@ -186,17 +227,19 @@ def _apply_result(
 
     if session.souscription_id:
         souscription = db.get(Souscription, session.souscription_id)
-        if souscription and result.status == "REJECTED" and souscription.statut in _PRE_PAYMENT_STATUSES:
-            # Échec ou incohérence eKYC : refus automatique, aucun paiement débité.
-            from app.services.subscription_decision_service import SubscriptionDecisionEngine
-
-            SubscriptionDecisionEngine._apply_reject(
-                souscription,
-                ["Identification (eKYC) échouée ou incohérente : souscription refusée automatiquement."],
-            )
-            SubscriptionDecisionEngine._notify_client_outcome(
-                db, souscription, approved=False,
-                notes="Identification (eKYC) échouée ou incohérente.",
+        if (
+            souscription
+            and result.status in ("REJECTED", "REVIEW")
+            and souscription.statut in _PRE_PAYMENT_STATUSES
+        ):
+            # Échec ou indétermination eKYC → REVIEW MANUELLE (décision
+            # produit) : le dossier part en revue production, jamais en
+            # refus automatique. Aucun paiement n'est débité.
+            if souscription.statut != StatutSouscription.EN_ATTENTE_VALIDATION:
+                souscription.statut = StatutSouscription.EN_ATTENTE_VALIDATION
+            souscription.validation_technique = "pending"
+            souscription.validation_technique_notes = (
+                f"Vérification d'identité {result.status} : revue manuelle requise"
             )
             db.flush()
         if souscription and result.is_verified:
