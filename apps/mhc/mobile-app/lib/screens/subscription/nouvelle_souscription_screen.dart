@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/constants/app_colors.dart';
@@ -12,6 +13,7 @@ import '../../models/product.dart';
 import '../../models/subscription_quote.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
+import '../../services/ekyc_session_service.dart';
 import 'subscription_stepper.dart';
 import 'step_voyage_screen.dart';
 import 'step_produit_screen.dart';
@@ -125,6 +127,19 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
         _currentStep = 4;
         _dossierLocked = sub.statut != 'en_attente';
       });
+      // Souscription voyage reprise : la vérification d'identité est
+      // proposée tant qu'elle n'est pas VERIFIED.
+      if (sub.projetVoyageId != null && mounted) {
+        bool ekycOk = false;
+        try {
+          final latest = await EkycSessionService.instance
+              .getLatestForSouscription(sub.id);
+          ekycOk = latest?.isVerified == true;
+        } catch (_) {}
+        if (!ekycOk && mounted) {
+          context.push('/ekyc-verification?subscription=${sub.id}');
+        }
+      }
     } catch (e) {
       if (mounted) _showErrorSnackBar(e);
     }
@@ -540,6 +555,11 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
           _taxes = sub.taxes;
           _currentStep = 4;
         });
+        // Vérification d'identité : la session eKYC a été auto-créée par le
+        // backend à la souscription voyage — on ouvre le parcours, puis le
+        // retour ramène sur l'étape Paiement (non bloquant, verdict en tâche
+        // de fond via webhook).
+        context.push('/ekyc-verification?subscription=${sub.id}');
       }
     } catch (e) {
       if (mounted) {
