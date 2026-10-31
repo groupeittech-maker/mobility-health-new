@@ -471,7 +471,8 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
 
     Widget actionButton(String key, String label, IconData icon, {bool danger = false}) {
       final state = _action(key);
-      final enabled = state['disponible'] == true;
+      // Pendant une demande en cours, les autres actions sont grisées (§6).
+      final enabled = state['disponible'] == true && pending == null;
       final motif = state['motif']?.toString();
       return Padding(
         padding: const EdgeInsets.only(top: 8),

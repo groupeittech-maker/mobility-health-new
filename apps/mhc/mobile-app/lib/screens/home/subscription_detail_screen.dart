@@ -322,7 +322,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                             const SizedBox(width: 8),
                             const Expanded(
                               child: Text(
-                                'Demande de résiliation en cours de traitement.',
+                                'Annulation en cours de traitement.',
                                 style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                               ),
                             ),

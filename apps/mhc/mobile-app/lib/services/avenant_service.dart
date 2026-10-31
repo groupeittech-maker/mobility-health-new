@@ -31,6 +31,7 @@ class AvenantService {
     required bool confirm,
     int? destinationCountryId,
     String? destinationVille,
+    DateTime? nouvelleDateDebut,
     DateTime? nouvelleDateFin,
     String? motif,
   }) async {
@@ -43,6 +44,7 @@ class AvenantService {
         if (destinationCountryId != null) 'destination_country_id': destinationCountryId,
         if (destinationVille != null && destinationVille.trim().isNotEmpty)
           'destination_ville': destinationVille.trim(),
+        if (nouvelleDateDebut != null) 'nouvelle_date_debut': day(nouvelleDateDebut),
         if (nouvelleDateFin != null) 'nouvelle_date_fin': day(nouvelleDateFin),
         if (motif != null && motif.trim().isNotEmpty) 'motif': motif.trim(),
       },
