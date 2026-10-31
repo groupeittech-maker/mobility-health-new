@@ -25,6 +25,7 @@ CATEGORIES = {
     "etablissement_partenaire": "Établissement partenaire",
     "decision_couverture": "Décision de couverture",
     "paiement_remboursement": "Paiement / remboursement",
+    "modification_infos": "Modification de mes informations personnelles",
     "application": "Application MyMHC",
     "autre": "Autre",
 }
@@ -215,6 +216,15 @@ def contest(db: Session, reclamation: Reclamation, user, motif: str) -> Reclamat
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La contestation est possible une fois la réclamation traitée.",
         )
+    # Contestation possible uniquement dans le mois qui suit la clôture (§3.11).
+    ref = reclamation.cloturee_at or reclamation.traitee_at
+    if ref is not None:
+        ref_date = ref.date() if hasattr(ref, "date") else ref
+        if (datetime.utcnow().date() - ref_date).days > 31:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Le délai de contestation (1 mois après la clôture) est dépassé.",
+            )
     return create_reclamation(
         db,
         user,

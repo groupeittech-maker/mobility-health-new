@@ -12,6 +12,7 @@ class UserModel {
   final String? nationalite;
   final String? numeroPasseport;
   final String? validitePasseport;
+  final String? adresse;
   final String? nomContactUrgence;
   final String? contactUrgence;
   final bool isActive;
@@ -32,6 +33,7 @@ class UserModel {
     this.nationalite,
     this.numeroPasseport,
     this.validitePasseport,
+    this.adresse,
     this.nomContactUrgence,
     this.contactUrgence,
     required this.isActive,
@@ -59,6 +61,7 @@ class UserModel {
       nationalite: json['nationalite'] as String?,
       numeroPasseport: json['numero_passeport'] as String?,
       validitePasseport: json['validite_passeport']?.toString(),
+      adresse: json['adresse'] as String?,
       nomContactUrgence: json['nom_contact_urgence'] as String?,
       contactUrgence: json['contact_urgence'] as String?,
       isActive: json['is_active'] as bool? ?? true,

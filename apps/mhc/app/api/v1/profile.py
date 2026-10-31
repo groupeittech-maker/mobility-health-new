@@ -236,6 +236,7 @@ class EnfantBody(BaseModel):
     prenom: Optional[str] = None
     date_naissance: str
     nationalite: Optional[str] = None
+    pays_residence: Optional[str] = None
     numero_piece: Optional[str] = None
     validite_piece: Optional[str] = None
     lien_parente: Optional[str] = None
@@ -250,6 +251,7 @@ def _serialize_enfant(e: EnfantBeneficiaire) -> dict[str, Any]:
         "prenom": e.prenom,
         "date_naissance": e.date_naissance.isoformat() if e.date_naissance else None,
         "nationalite": e.nationalite,
+        "pays_residence": e.pays_residence,
         "numero_piece": e.numero_piece,
         "numero_piece_masque": mask_document_number(e.numero_piece),
         "validite_piece": e.validite_piece.isoformat() if e.validite_piece else None,
@@ -279,10 +281,14 @@ def _apply_enfant(enfant: EnfantBeneficiaire, body: EnfantBody) -> None:
     age = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
     if born > today or age >= 18:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Un enfant bénéficiaire doit avoir moins de 18 ans.")
+    lien = (body.lien_parente or "").strip()
+    if not lien:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Le lien de parenté est obligatoire.")
     enfant.nom = body.nom.strip()
     enfant.prenom = (body.prenom or "").strip() or None
     enfant.date_naissance = born
     enfant.nationalite = (body.nationalite or "").strip() or None
+    enfant.pays_residence = (body.pays_residence or "").strip() or None
     enfant.numero_piece = (body.numero_piece or "").strip() or None
     enfant.validite_piece = _parse_date(body.validite_piece, "Validité de la pièce") if body.validite_piece else None
     enfant.lien_parente = (body.lien_parente or "").strip() or None
@@ -301,6 +307,19 @@ async def list_my_children(db: Session = Depends(get_db), current_user=Depends(g
         .order_by(EnfantBeneficiaire.date_naissance.desc())
         .all()
     )
+    # À 18 ans l'enfant sort automatiquement de la liste (sans effet sur les polices émises).
+    today = date.today()
+    changed = False
+    for e in rows:
+        if e.date_naissance:
+            born = e.date_naissance
+            age = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+            if age >= 18:
+                e.actif = False
+                changed = True
+    if changed:
+        db.commit()
+        rows = [e for e in rows if e.actif]
     return [_serialize_enfant(e) for e in rows]
 
 

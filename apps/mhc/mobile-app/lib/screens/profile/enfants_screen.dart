@@ -6,7 +6,9 @@ import '../../core/utils/api_error_helper.dart';
 import '../../core/widgets/mh_app_bar.dart';
 import '../../core/widgets/mh_states.dart';
 import '../../core/widgets/mh_surface_card.dart';
+import '../../models/destination.dart';
 import '../../services/account_service.dart';
+import '../../services/api_services.dart';
 
 /// Enfants bénéficiaires (< 18 ans) enregistrés sur le compte (workflow V3 §4.3).
 /// Le questionnaire médical de la souscription distingue chaque enfant.
@@ -129,7 +131,7 @@ class _EnfantsScreenState extends State<EnfantsScreen> {
                     children: [
                       const Text(
                         'Enregistrez vos enfants mineurs pour les ajouter rapidement '
-                        'à vos polices. Chaque enfant répond à son propre questionnaire médical.',
+                        'à vos polices.',
                         style: TextStyle(fontSize: 12, color: AppColors.mutedText, height: 1.45),
                       ),
                       const SizedBox(height: 14),
@@ -202,8 +204,6 @@ class _EnfantFormState extends State<_EnfantForm> {
       TextEditingController(text: widget.enfant?['nom']?.toString() ?? '');
   late final TextEditingController _prenomCtrl =
       TextEditingController(text: widget.enfant?['prenom']?.toString() ?? '');
-  late final TextEditingController _nationaliteCtrl =
-      TextEditingController(text: widget.enfant?['nationalite']?.toString() ?? '');
   late final TextEditingController _pieceCtrl =
       TextEditingController(text: widget.enfant?['numero_piece']?.toString() ?? '');
   late final TextEditingController _lienCtrl =
@@ -212,19 +212,26 @@ class _EnfantFormState extends State<_EnfantForm> {
   DateTime? _validite;
   bool _saving = false;
   String? _error;
+  String? _nationalite;
+  String? _paysResidence;
+  List<ReferenceCountryModel> _countries = [];
 
   @override
   void initState() {
     super.initState();
     _naissance = DateTime.tryParse(widget.enfant?['date_naissance']?.toString() ?? '');
     _validite = DateTime.tryParse(widget.enfant?['validite_piece']?.toString() ?? '');
+    _nationalite = widget.enfant?['nationalite']?.toString();
+    _paysResidence = widget.enfant?['pays_residence']?.toString();
+    DestinationsService().getReferenceCountries().then((list) {
+      if (mounted) setState(() => _countries = list);
+    }).ignore();
   }
 
   @override
   void dispose() {
     _nomCtrl.dispose();
     _prenomCtrl.dispose();
-    _nationaliteCtrl.dispose();
     _pieceCtrl.dispose();
     _lienCtrl.dispose();
     super.dispose();
@@ -252,6 +259,10 @@ class _EnfantFormState extends State<_EnfantForm> {
       setState(() => _error = 'Nom et date de naissance sont obligatoires.');
       return;
     }
+    if (_lienCtrl.text.trim().isEmpty) {
+      setState(() => _error = 'Le lien de parenté est obligatoire.');
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
@@ -261,7 +272,8 @@ class _EnfantFormState extends State<_EnfantForm> {
         'nom': _nomCtrl.text,
         'dateNaissance': _day(_naissance!),
         'prenom': _prenomCtrl.text,
-        'nationalite': _nationaliteCtrl.text,
+        'nationalite': _nationalite,
+        'paysResidence': _paysResidence,
         'numeroPiece': _pieceCtrl.text,
         'lienParente': _lienCtrl.text,
         if (_validite != null) 'validitePiece': _day(_validite!),
@@ -274,6 +286,7 @@ class _EnfantFormState extends State<_EnfantForm> {
           dateNaissance: args['dateNaissance'] as String,
           prenom: args['prenom'] as String?,
           nationalite: args['nationalite'] as String?,
+          paysResidence: args['paysResidence'] as String?,
           numeroPiece: args['numeroPiece'] as String?,
           validitePiece: args['validitePiece'] as String?,
           lienParente: args['lienParente'] as String?,
@@ -284,6 +297,7 @@ class _EnfantFormState extends State<_EnfantForm> {
           dateNaissance: args['dateNaissance'] as String,
           prenom: args['prenom'] as String?,
           nationalite: args['nationalite'] as String?,
+          paysResidence: args['paysResidence'] as String?,
           numeroPiece: args['numeroPiece'] as String?,
           validitePiece: args['validitePiece'] as String?,
           lienParente: args['lienParente'] as String?,
@@ -337,9 +351,22 @@ class _EnfantFormState extends State<_EnfantForm> {
                 if (d != null) setState(() => _naissance = d);
               },
             ),
-            TextField(
-              controller: _nationaliteCtrl,
+            DropdownButtonFormField<String>(
+              value: _countries.any((c) => c.nom == _nationalite) ? _nationalite : null,
               decoration: MHSurfaceCard.input(labelText: 'Nationalité'),
+              items: _countries
+                  .map((c) => DropdownMenuItem(value: c.nom, child: Text(c.nom)))
+                  .toList(),
+              onChanged: (v) => setState(() => _nationalite = v),
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              value: _countries.any((c) => c.nom == _paysResidence) ? _paysResidence : null,
+              decoration: MHSurfaceCard.input(labelText: 'Pays de résidence'),
+              items: _countries
+                  .map((c) => DropdownMenuItem(value: c.nom, child: Text(c.nom)))
+                  .toList(),
+              onChanged: (v) => setState(() => _paysResidence = v),
             ),
             const SizedBox(height: 10),
             TextField(
@@ -362,7 +389,7 @@ class _EnfantFormState extends State<_EnfantForm> {
             TextField(
               controller: _lienCtrl,
               decoration: MHSurfaceCard.input(
-                labelText: 'Lien de parenté',
+                labelText: 'Lien de parenté *',
                 hintText: 'Ex. : fils, fille, pupille',
               ),
             ),

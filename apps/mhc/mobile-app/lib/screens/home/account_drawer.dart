@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/mh_layout.dart';
@@ -218,8 +217,6 @@ class _MhAccountDrawerState extends State<MhAccountDrawer> {
               children: [
                 _item(Icons.person_outline, tr(context, 'profile'),
                     () => _go(() => context.push('/profile'))),
-                _item(Icons.child_care_outlined, tr(context, 'children'),
-                    () => _go(() => context.push('/enfants'))),
                 _item(Icons.credit_card, tr(context, 'my_cards'),
                     () => _go(() => context.push('/ecards'))),
                 _item(Icons.description_outlined, tr(context, 'attestations'),
@@ -250,14 +247,6 @@ class _MhAccountDrawerState extends State<MhAccountDrawer> {
                     () => _go(() => context.push('/security'))),
                 _item(Icons.settings_outlined, tr(context, 'settings'),
                     () => _go(() => context.push('/settings'))),
-                _item(
-                  Icons.help_outline,
-                  tr(context, 'help'),
-                  () => _go(() => launchUrl(
-                        Uri.parse('https://mobilityhealth-care.com'),
-                        mode: LaunchMode.externalApplication,
-                      )),
-                ),
                 const Divider(height: 16),
                 _item(
                   Icons.logout,

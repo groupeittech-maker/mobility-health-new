@@ -85,6 +85,10 @@ async def list_my_reclamations(db: Session = Depends(get_db), current_user=Depen
         .order_by(Reclamation.created_at.desc())
         .all()
     )
+    # Suppression de l'application 1 mois après la clôture (archive conservée par MHC).
+    from datetime import datetime, timedelta
+    cutoff = datetime.utcnow() - timedelta(days=31)
+    rows = [r for r in rows if not (r.statut == svc.STATUT_CLOTUREE and r.cloturee_at and r.cloturee_at < cutoff)]
     return [svc.serialize(r) for r in rows]
 
 

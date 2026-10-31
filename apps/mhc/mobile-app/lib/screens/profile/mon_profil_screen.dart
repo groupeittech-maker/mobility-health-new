@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/mh_app_bar.dart';
 import '../../core/widgets/mh_states.dart';
 import '../../core/widgets/mh_stripe.dart';
 import '../../core/widgets/mh_surface_card.dart';
+import '../../models/subscription.dart';
 import '../../models/user.dart';
-import '../../providers/auth_provider.dart';
+import '../../services/account_service.dart';
+import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
 import '../../core/utils/api_error_helper.dart';
 
@@ -23,6 +24,7 @@ class MonProfilScreen extends StatefulWidget {
 
 class _MonProfilScreenState extends State<MonProfilScreen> {
   UserModel? _user;
+  SubscriptionModel? _voyageEnCours;
   bool _loading = true;
   String? _error;
 
@@ -35,9 +37,22 @@ class _MonProfilScreenState extends State<MonProfilScreen> {
   Future<void> _load() async {
     try {
       final u = await AuthService.instance.getMe();
+      SubscriptionModel? voyage;
+      try {
+        final subs = await SubscriptionsService().getSubscriptions();
+        for (final s in subs) {
+          if (s.isActive && s.projetVoyage != null) {
+            voyage = s;
+            break;
+          }
+        }
+      } catch (_) {
+        voyage = null;
+      }
       if (mounted) {
         setState(() {
           _user = u;
+          _voyageEnCours = voyage;
           _loading = false;
         });
       }
@@ -51,9 +66,73 @@ class _MonProfilScreenState extends State<MonProfilScreen> {
     }
   }
 
+  Future<void> _editAdresse() async {
+    final ctrl = TextEditingController(text: _user?.adresse ?? '');
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+            16, 16, 16, 16 + MediaQuery.viewInsetsOf(ctx).bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Adresse postale',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              maxLines: 3,
+              decoration: MHSurfaceCard.input(
+                labelText: 'Adresse postale',
+                hintText: 'Rue, ville, code postal, pays',
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Enregistrer'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (saved == true && mounted) {
+      try {
+        await AccountService.instance.updateAddress(ctrl.text);
+        _load();
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(apiErrorToUserMessage(e)),
+          backgroundColor: AppColors.danger,
+        ));
+      }
+    }
+  }
+
   String _masked(String? value) {
     if (value == null || value.trim().isEmpty) return 'Non renseigné';
     return value;
+  }
+
+  String _fmtDate(DateTime? d) => d == null
+      ? ''
+      : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  String _voyageDates(SubscriptionModel s) {
+    final v = s.projetVoyage;
+    if (v == null) return 'Non renseigné';
+    final dep = _fmtDate(v.dateDepart);
+    final ret = _fmtDate(v.dateRetour);
+    if (ret.isEmpty) return 'À partir du $dep';
+    return 'Du $dep au $ret';
   }
 
   @override
@@ -106,6 +185,18 @@ class _MonProfilScreenState extends State<MonProfilScreen> {
                               label: 'Pays de résidence',
                               value: _masked(_user?.paysResidence),
                             ),
+                            _EditRow(
+                              label: 'Adresse postale',
+                              value: _masked(_user?.adresse),
+                              actionLabel: 'Modifier',
+                              onTap: _editAdresse,
+                            ),
+                            _EditRow(
+                              label: 'Identité (nom, naissance, nationalité…)',
+                              value: 'Via une réclamation avec pièce d’identité',
+                              actionLabel: 'Demander',
+                              onTap: () => context.push('/reclamations'),
+                            ),
                           ],
                         ),
                       ),
@@ -142,13 +233,29 @@ class _MonProfilScreenState extends State<MonProfilScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const _BoxTitle('Voyage en cours'),
-                            _EditRow(
-                              label: 'Destination',
-                              value: 'Modifier ma destination',
-                              actionLabel: 'Ouvrir',
-                              onTap: () =>
-                                  context.push('/profile/change-destination'),
-                            ),
+                            if (_voyageEnCours?.projetVoyage == null)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 10),
+                                child: Text(
+                                  'Vous n’avez pas de voyage en cours.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.mutedText,
+                                  ),
+                                ),
+                              )
+                            else ...[
+                              _EditRow(
+                                label: 'Destination',
+                                value: _voyageEnCours!.projetVoyage!
+                                        .destinationDisplay ??
+                                    _voyageEnCours!.projetVoyage!.destination,
+                              ),
+                              _EditRow(
+                                label: 'Dates',
+                                value: _voyageDates(_voyageEnCours!),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -158,45 +265,14 @@ class _MonProfilScreenState extends State<MonProfilScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const _BoxTitle('Sécurité'),
+                            const _BoxTitle('Enfants mineurs'),
                             _EditRow(
-                              label: 'Mot de passe',
-                              value: '••••••••',
-                              actionLabel: 'Modifier',
-                              onTap: () => context.push('/forgot-password'),
-                            ),
-                            const _EditRow(
-                              label: 'Vérification du compte',
-                              value: 'Effectuée',
+                              label: 'Bénéficiaires enregistrés',
+                              value: 'Liste, ajout, modification, suppression',
+                              actionLabel: 'Gérer',
+                              onTap: () => context.push('/enfants'),
                             ),
                           ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        height: 48,
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            await AuthService.instance.logout();
-                            if (!context.mounted) return;
-                            context.read<AuthProvider>().checkAuth();
-                            context.go('/login');
-                          },
-                          icon: const Icon(Icons.logout,
-                              color: AppColors.danger, size: 18),
-                          label: const Text(
-                            'Déconnexion',
-                            style: TextStyle(
-                              color: AppColors.danger,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFF3C2C7)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
                         ),
                       ),
                     ],

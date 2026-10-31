@@ -130,6 +130,7 @@ class EnfantsService {
     required String dateNaissance,
     String? prenom,
     String? nationalite,
+    String? paysResidence,
     String? numeroPiece,
     String? validitePiece,
     String? lienParente,
@@ -141,6 +142,7 @@ class EnfantsService {
         'date_naissance': dateNaissance,
         if (prenom != null && prenom.trim().isNotEmpty) 'prenom': prenom.trim(),
         if (nationalite != null && nationalite.trim().isNotEmpty) 'nationalite': nationalite.trim(),
+        if (paysResidence != null && paysResidence.trim().isNotEmpty) 'pays_residence': paysResidence.trim(),
         if (numeroPiece != null && numeroPiece.trim().isNotEmpty) 'numero_piece': numeroPiece.trim(),
         if (validitePiece != null && validitePiece.trim().isNotEmpty) 'validite_piece': validitePiece,
         if (lienParente != null && lienParente.trim().isNotEmpty) 'lien_parente': lienParente.trim(),
@@ -153,6 +155,7 @@ class EnfantsService {
     required String dateNaissance,
     String? prenom,
     String? nationalite,
+    String? paysResidence,
     String? numeroPiece,
     String? validitePiece,
     String? lienParente,
@@ -163,6 +166,7 @@ class EnfantsService {
       '/users/me/enfants',
       body: _body(
         nom: nom, dateNaissance: dateNaissance, prenom: prenom, nationalite: nationalite,
+        paysResidence: paysResidence,
         numeroPiece: numeroPiece, validitePiece: validitePiece, lienParente: lienParente,
         photoDataUrl: photoDataUrl, copiePieceDataUrl: copiePieceDataUrl,
       ),
@@ -176,6 +180,7 @@ class EnfantsService {
     required String dateNaissance,
     String? prenom,
     String? nationalite,
+    String? paysResidence,
     String? numeroPiece,
     String? validitePiece,
     String? lienParente,
@@ -186,6 +191,7 @@ class EnfantsService {
       '/users/me/enfants/$enfantId',
       body: _body(
         nom: nom, dateNaissance: dateNaissance, prenom: prenom, nationalite: nationalite,
+        paysResidence: paysResidence,
         numeroPiece: numeroPiece, validitePiece: validitePiece, lienParente: lienParente,
         photoDataUrl: photoDataUrl, copiePieceDataUrl: copiePieceDataUrl,
       ),
@@ -233,6 +239,7 @@ class ReclamationsService {
     required String objet,
     required String description,
     int? souscriptionId,
+    List<Map<String, dynamic>>? piecesJointes,
   }) async {
     return _api.post<Map<String, dynamic>>(
       '/reclamations',
@@ -241,6 +248,8 @@ class ReclamationsService {
         'objet': objet.trim(),
         'description': description.trim(),
         if (souscriptionId != null) 'souscription_id': souscriptionId,
+        if (piecesJointes != null && piecesJointes.isNotEmpty)
+          'pieces_jointes': piecesJointes,
       },
       fromJson: (d) => d as Map<String, dynamic>,
     );

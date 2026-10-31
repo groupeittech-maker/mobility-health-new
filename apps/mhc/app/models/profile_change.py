@@ -42,6 +42,7 @@ class EnfantBeneficiaire(Base, TimestampMixin):
     prenom = Column(String(120), nullable=True)
     date_naissance = Column(Date, nullable=False)
     nationalite = Column(String(100), nullable=True)
+    pays_residence = Column(String(100), nullable=True)
     numero_piece = Column(String(60), nullable=True)
     validite_piece = Column(Date, nullable=True)
     lien_parente = Column(String(50), nullable=True)
