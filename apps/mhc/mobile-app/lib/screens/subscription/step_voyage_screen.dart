@@ -1475,6 +1475,24 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
           confirmText: 'Valider',
           cancelText: 'Annuler',
           saveText: 'Valider',
+          builder: (ctx, child) => Theme(
+            // Chiffres en blanc sur les bandes violettes (retour test).
+            data: Theme.of(ctx).copyWith(
+              datePickerTheme: DatePickerThemeData(
+                rangeSelectionBackgroundColor: AppColors.secondary,
+                dayForegroundColor: WidgetStateProperty.resolveWith((states) =>
+                    states.contains(WidgetState.selected)
+                        ? Colors.white
+                        : null),
+                dayOverlayColor: WidgetStateProperty.resolveWith((states) =>
+                    states.contains(WidgetState.selected)
+                        ? Colors.white.withValues(alpha: 0.14)
+                        : null),
+                rangePickerHeaderForegroundColor: AppColors.secondary,
+              ),
+            ),
+            child: child!,
+          ),
         );
         if (picked != null) {
           // Voyage limité à 92 jours (workflow MyMHC V3).

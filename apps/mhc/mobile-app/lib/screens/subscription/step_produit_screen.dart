@@ -482,7 +482,7 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
                       : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: (_acceptCgu && _exclusionsValidated)
-                        ? AppColors.primary
+                        ? AppColors.secondary
                         : const Color(0xFF94A3B8),
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: const Color(0xFF94A3B8),
@@ -667,9 +667,9 @@ class _ProductCard extends StatelessWidget {
             child: OutlinedButton(
               onPressed: onTap,
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
+                foregroundColor: AppColors.secondary,
                 side: BorderSide(
-                  color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+                  color: isSelected ? AppColors.secondary : const Color(0xFFE2E8F0),
                   width: isSelected ? 2 : 1,
                 ),
                 shape: RoundedRectangleBorder(
