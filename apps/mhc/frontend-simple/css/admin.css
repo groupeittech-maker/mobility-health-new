@@ -5337,6 +5337,11 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
     background: #e2e8f0;
 }
 
+/* Le display:flex de .filters-field bat l'attribut hidden : forcer le masquage */
+.filters-field[hidden] {
+    display: none !important;
+}
+
 /* ---- Modal « Dossier de souscription » (revue validateur) ---- */
 .dossier-grid {
     display: grid;

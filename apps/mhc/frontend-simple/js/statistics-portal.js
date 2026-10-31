@@ -282,6 +282,7 @@
                 btn.classList.add('active');
                 const section = btn.dataset.section;
                 $$('main > .dashboard-section').forEach((sec) => {
+                    if (sec.id === 'filtersSection') return;
                     if (sec.id === section) sec.removeAttribute('hidden');
                     else sec.setAttribute('hidden', '');
                 });
