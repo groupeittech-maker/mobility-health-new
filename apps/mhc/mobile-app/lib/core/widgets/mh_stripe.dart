@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 /// système du bas (barre de navigation Android) : elle est collée tout en
 /// bas de l'écran, sans bande blanche en dessous.
 class MhStripe extends StatelessWidget {
-  const MhStripe({super.key, this.height = 30, this.fillBottomInset = true});
+  const MhStripe({super.key, this.height = 18, this.fillBottomInset = true});
 
   final double height;
 
