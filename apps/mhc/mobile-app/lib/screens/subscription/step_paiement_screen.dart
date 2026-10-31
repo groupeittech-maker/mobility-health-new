@@ -872,6 +872,23 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
                   child: Text('• $r', style: const TextStyle(fontSize: 12, color: Color(0xFF7F1D1D))),
                 )),
           ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: ElevatedButton.icon(
+              onPressed: () => context.go('/home'),
+              icon: const Icon(Icons.home_rounded, size: 20),
+              label: const Text('Retour à l\'accueil'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

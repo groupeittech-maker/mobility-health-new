@@ -15,7 +15,7 @@ jamais supprimée (le webhook AfriPaie doit pouvoir la retrouver).
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -35,6 +35,9 @@ REMINDER_TYPE = "rappel_suppression_souscription"
 REMINDER_DAYS_BEFORE = (2, 1)
 
 _BLOCKING_PAYMENT_STATUSES = (StatutPaiement.VALIDE, StatutPaiement.EN_COURS)
+# Une session de paiement « en cours » au-delà de ce délai est considérée
+# abandonnée (le PSP l'a expirée) : elle est soldée en échec et ne bloque plus.
+_STALE_PAYMENT_SESSION_TTL = timedelta(hours=2)
 
 
 def deletion_blocker(db: Session, souscription: Souscription) -> str | None:
@@ -49,10 +52,38 @@ def deletion_blocker(db: Session, souscription: Souscription) -> str | None:
             Paiement.souscription_id == souscription.id,
             Paiement.statut.in_(_BLOCKING_PAYMENT_STATUSES),
         )
-        .first()
+        .all()
     )
     if blocking:
-        return "Un paiement est en cours ou validé pour cette souscription"
+        # Un paiement validé bloque toujours ; une session « en cours » ne bloque
+        # que si elle est récente (les sessions PSP expirent — une tentative
+        # abandonnée ne doit pas empêcher la suppression).
+        recent_limit = datetime.utcnow() - _STALE_PAYMENT_SESSION_TTL
+        stale_ids = [
+            row[0]
+            for row in db.query(Paiement.id)
+            .filter(
+                Paiement.souscription_id == souscription.id,
+                Paiement.statut == StatutPaiement.EN_COURS,
+                Paiement.created_at < recent_limit,
+            )
+            .all()
+        ]
+        if stale_ids:
+            db.query(Paiement).filter(Paiement.id.in_(stale_ids)).update(
+                {Paiement.statut: StatutPaiement.ECHOUE}, synchronize_session=False
+            )
+            db.flush()
+        still_blocking = (
+            db.query(Paiement.id)
+            .filter(
+                Paiement.souscription_id == souscription.id,
+                Paiement.statut.in_(_BLOCKING_PAYMENT_STATUSES),
+            )
+            .first()
+        )
+        if still_blocking:
+            return "Un paiement est en cours ou validé pour cette souscription"
     return None
 
 
