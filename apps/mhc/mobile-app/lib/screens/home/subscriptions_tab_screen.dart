@@ -85,11 +85,6 @@ class SubscriptionsTabScreenState extends State<SubscriptionsTabScreen>
     final theme = Theme.of(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom + 24;
     final active = _list.where((s) => s.isActive).toList();
-    final pending = _list.where((s) => s.isPending).toList();
-    final expired = _list.where((s) => s.isExpired).toList();
-    final other = _list
-        .where((s) => !s.isActive && !s.isPending && !s.isExpired)
-        .toList();
 
     return ColoredBox(
       color: kMhContentBackground,
@@ -148,13 +143,19 @@ class SubscriptionsTabScreenState extends State<SubscriptionsTabScreen>
               )
             else ...[
               if (active.isNotEmpty)
-                _Section(title: 'Actives', items: active),
-              if (pending.isNotEmpty)
-                _Section(title: 'En attente', items: pending),
-              if (expired.isNotEmpty)
-                _Section(title: 'Expirées', items: expired),
-              if (other.isNotEmpty)
-                _Section(title: 'Autres', items: other),
+                _Section(title: 'Police active', items: active)
+              else
+                MHSurfaceCard(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    'Vous n’avez pas de police active.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.mutedText,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
             ],
           ],
         ),

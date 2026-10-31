@@ -275,6 +275,9 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                     _row('N° souscription', s.numeroSouscription.isNotEmpty ? s.numeroSouscription : '#${s.id}'),
                     _row('Statut', s.statut),
                     _row('Produit', s.produitAssurance?.nom ?? 'Produit #${s.produitAssuranceId}'),
+                    if (s.projetVoyage != null)
+                      _row('Destination',
+                          s.projetVoyage!.destinationDisplay ?? s.projetVoyage!.destination),
                     _row('Début', _formatDate(s.dateDebut)),
                     _row('Fin', _formatDate(s.dateFin)),
                     _row('Prix', '${s.prixApplique.toStringAsFixed(0)} XAF'),

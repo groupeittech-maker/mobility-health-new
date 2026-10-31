@@ -418,9 +418,13 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
                     }),
                     onViewDetails: () async {
                       final q = _devisLineFor(p, widget.devisParProduit);
-                      final acknowledged = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => ProductDetailScreen(
+                      final acknowledged = await showModalBottomSheet<bool>(
+                        context: context,
+                        isScrollControlled: true,
+                        useSafeArea: true,
+                        builder: (_) => FractionallySizedBox(
+                          heightFactor: 0.92,
+                          child: ProductDetailScreen(
                             productId: p.id,
                             productName: name,
                             assureur: partnerName,
