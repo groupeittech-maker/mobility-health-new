@@ -1066,7 +1066,7 @@ class _CountrySearchPageState extends State<_CountrySearchPage> {
             children: [
               TextField(
                 controller: _searchController,
-                autofocus: true,
+                autofocus: false,
                 decoration: const InputDecoration(
                   hintText: 'Rechercher un pays...',
                   prefixIcon: Icon(Icons.search),
