@@ -352,7 +352,7 @@ class _EnfantFormState extends State<_EnfantForm> {
               },
             ),
             DropdownButtonFormField<String>(
-              value: _countries.any((c) => c.nom == _nationalite) ? _nationalite : null,
+              initialValue: _countries.any((c) => c.nom == _nationalite) ? _nationalite : null,
               decoration: MHSurfaceCard.input(labelText: 'Nationalité'),
               items: _countries
                   .map((c) => DropdownMenuItem(value: c.nom, child: Text(c.nom)))
@@ -361,7 +361,7 @@ class _EnfantFormState extends State<_EnfantForm> {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
-              value: _countries.any((c) => c.nom == _paysResidence) ? _paysResidence : null,
+              initialValue: _countries.any((c) => c.nom == _paysResidence) ? _paysResidence : null,
               decoration: MHSurfaceCard.input(labelText: 'Pays de résidence'),
               items: _countries
                   .map((c) => DropdownMenuItem(value: c.nom, child: Text(c.nom)))

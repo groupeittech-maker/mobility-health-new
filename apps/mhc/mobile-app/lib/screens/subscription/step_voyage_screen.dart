@@ -895,21 +895,48 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       );
                       return;
                     }
-                    // Un passeport expiré bloque la souscription.
+                    // La validité du passeport doit couvrir toute la période
+                    // du voyage (jusqu'à la date de retour).
                     final today = DateUtils.dateOnly(DateTime.now());
+                    final finVoyage = _dateRetour != null
+                        ? DateUtils.dateOnly(_dateRetour!)
+                        : today;
                     final passeports = <String, DateTime>{
                       for (final m in _mineurs) m.nom: m.validitePasseport,
                       for (final m in _enfantsVoyageurs) m.nom: m.validitePasseport,
                     };
                     final expiredEntry = passeports.entries.where(
-                      (e) => DateUtils.dateOnly(e.value).isBefore(today),
+                      (e) => DateUtils.dateOnly(e.value).isBefore(finVoyage),
                     );
                     if (expiredEntry.isNotEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            'Le passeport de ${expiredEntry.first.key} est expiré. '
-                            'Corrigez les informations de l\'enfant avant de continuer.',
+                            'Le passeport de ${expiredEntry.first.key} expire avant la fin du voyage. '
+                            'Corrigez les informations avant de continuer.',
+                          ),
+                          backgroundColor: AppColors.danger,
+                        ),
+                      );
+                      return;
+                    }
+                    // Un enfant accompagné doit être mineur pendant toute la
+                    // période de couverture.
+                    final majeur = [..._mineurs, ..._enfantsVoyageurs].where((m) {
+                      var age = finVoyage.year - m.dateNaissance.year;
+                      if (finVoyage.month < m.dateNaissance.month ||
+                          (finVoyage.month == m.dateNaissance.month &&
+                              finVoyage.day < m.dateNaissance.day)) {
+                        age--;
+                      }
+                      return age >= 18;
+                    });
+                    if (majeur.isNotEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '${majeur.first.nom} sera majeur(e) pendant la période de couverture : '
+                            'un enfant accompagné doit rester mineur durant tout le voyage.',
                           ),
                           backgroundColor: AppColors.danger,
                         ),
