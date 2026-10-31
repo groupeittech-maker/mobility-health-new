@@ -59,6 +59,17 @@ class TeleconsultationScreenState extends State<TeleconsultationScreen> {
     }
   }
 
+  /// Seules les affectations de la police active (pays de destination) — §5.2.
+  Iterable<MedecinConseilAssignment> _visibleAssignments() {
+    final withDoctor = _assignments.where((a) => a.medecinConseil != null);
+    final actives = withDoctor
+        .where((a) =>
+            a.statutSouscription == null ||
+            a.statutSouscription!.toLowerCase() == 'active')
+        .toList();
+    return actives.isNotEmpty ? actives : withDoctor;
+  }
+
   Future<void> _call(String? phone) async {
     if (phone == null || phone.trim().isEmpty) return;
     final uri = Uri(scheme: 'tel', path: phone.trim());
@@ -155,7 +166,7 @@ class TeleconsultationScreenState extends State<TeleconsultationScreen> {
                   ],
                 ),
               )
-            else if (_assignments.where((a) => a.medecinConseil != null).isEmpty)
+            else if (_visibleAssignments().isEmpty)
               MHSurfaceCard(
                 padding: const EdgeInsets.all(20),
                 child: Text(
@@ -168,9 +179,7 @@ class TeleconsultationScreenState extends State<TeleconsultationScreen> {
                 ),
               )
             else
-              ..._assignments
-                  .where((a) => a.medecinConseil != null)
-                  .map((a) {
+              ..._visibleAssignments().map((a) {
                 final ville = a.destinationLabel;
                 final doc = a.medecinConseil;
                 return Padding(
