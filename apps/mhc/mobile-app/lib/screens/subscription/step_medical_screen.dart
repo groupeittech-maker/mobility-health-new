@@ -60,6 +60,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
     ('malade_12_mois', 'A-t-il(elle) été malade au cours des 12 derniers mois ?'),
     ('maladie_chronique', 'Souffre-t-il(elle) d\'une maladie chronique ?'),
     ('voyage_medical', 'Le voyage est-il prévu pour des raisons médicales ?'),
+    ('enceinte_5mois', 'Est-elle enceinte de plus de 5 mois ?'),
   ];
 
   @override
@@ -137,13 +138,27 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
       }
     }
 
-    // Toute réponse « Oui » (hors question grossesse) oriente le dossier vers
-    // le service technique : on informe l'utilisateur avant de poursuivre.
+    // Une grossesse de plus de 5 mois chez n'importe quelle personne du groupe
+    // (enfant comprise) entraîne le refus de tout le dossier (§4.3).
+    if (_childAnswers.any(
+        (a) => a['enceinte_5mois'] == 'oui')) {
+      setState(() {
+        _error =
+            'Vous n\'êtes pas éligible pour être assuré par nos services (grossesse de plus de 5 mois).';
+      });
+      return;
+    }
+
+    // Toute réponse « Oui » (hors question grossesse), chez l'adulte comme chez
+    // un enfant, envoie tout le dossier au pôle santé de MHC (§4.3).
+    final childOui = _childAnswers.any((a) =>
+        a.entries.any((e) => e.key != 'enceinte_5mois' && e.value == 'oui'));
     final requiresTechnicalReview = _maladeSouscription == 'oui' ||
         _malade12Mois == 'oui' ||
         _maladieChronique == 'oui' ||
         _voyageMedical == 'oui' ||
-        _activite == 'oui';
+        _activite == 'oui' ||
+        childOui;
     if (requiresTechnicalReview && mounted) {
       final proceed = await showDialog<bool>(
         context: context,
@@ -165,7 +180,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
           ),
           content: const Text(
             'Votre dossier sera redirigé vers le service technique de MHC '
-            'qui prendra contact avec vous dans les brefs délais.',
+            'qui prendra contact avec vous dans les plus brefs délais.',
           ),
           actions: [
             TextButton(

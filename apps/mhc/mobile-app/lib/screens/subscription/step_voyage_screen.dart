@@ -122,7 +122,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
   DateTime? _dateDepart, _dateRetour;
   bool _avecMineurs = false;
   bool _voyagePourEnfant = false;
-  MineurEntry? _enfantVoyageur;
+  final List<MineurEntry> _enfantsVoyageurs = [];
   final List<MineurEntry> _mineurs = [];
   final List<VoyageDocEntry> _documents = [];
   /// Photo portrait dédiée à l'e-carte (kit « Pièces justificatives »).
@@ -571,10 +571,15 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                     _avecMineurs = v == 'with_children';
                     // Changer de « voyageur assuré » retire aussi les photos
                     // de passeport des enfants qui ne voyagent plus.
-                    if (!_voyagePourEnfant && _enfantVoyageur != null) {
-                      final p = _enfantVoyageur!.photoPasseportPath;
-                      _documents.removeWhere((d) => d.path == p);
-                      _enfantVoyageur = null;
+                    if (!_voyagePourEnfant && _enfantsVoyageurs.isNotEmpty) {
+                      final paths = <String>{};
+                      for (final e in _enfantsVoyageurs) {
+                        paths.add(e.photoPasseportPath);
+                        final pp = e.photoPortraitPath;
+                        if (pp != null) paths.add(pp);
+                      }
+                      _documents.removeWhere((d) => paths.contains(d.path));
+                      _enfantsVoyageurs.clear();
                     }
                     if (!_avecMineurs && _mineurs.isNotEmpty) {
                       final paths =
@@ -611,7 +616,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                           value: 'child_only',
                           activeColor: AppColors.primary,
                         ),
-                        Text('Un enfant mineur seul'),
+                        Text('Enfants mineurs uniquement'),
                       ],
                     ),
                   ],
@@ -624,71 +629,74 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Enfant voyageur',
+                        'Enfants voyageurs',
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: AppColors.secondary,
                         ),
                       ),
                     ),
-                    if (_enfantVoyageur == null)
-                      TextButton.icon(
-                        style: _addButtonStyle,
-                        onPressed: _ajouterEnfantVoyageur,
-                        icon: const Icon(Icons.add, size: 20),
-                        label: const Text('Ajouter l\'enfant'),
-                      ),
+                    TextButton.icon(
+                      style: _addButtonStyle,
+                      onPressed: _ajouterEnfantVoyageur,
+                      icon: const Icon(Icons.add, size: 20),
+                      label: const Text('Ajouter un enfant'),
+                    ),
                   ],
                 ),
-                if (_enfantVoyageur == null)
+                if (_enfantsVoyageurs.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Text(
-                      'Aucun enfant voyageur ajouté. Le parent reste abonné, l\'enfant est le bénéficiaire du voyage.',
+                      'Aucun enfant voyageur ajouté. Le parent reste abonné, les enfants ont leur propre numéro de police.',
                       style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
                     ),
                   )
                 else
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceCard,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(_enfantVoyageur!.nom, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                              Text(
-                                'Né(e) le ${_enfantVoyageur!.dateNaissance.day.toString().padLeft(2, '0')}/${_enfantVoyageur!.dateNaissance.month.toString().padLeft(2, '0')}/${_enfantVoyageur!.dateNaissance.year} · Passeport ${_enfantVoyageur!.numeroPasseport} · Valide jusqu\'au ${_enfantVoyageur!.validitePasseport.day.toString().padLeft(2, '0')}/${_enfantVoyageur!.validitePasseport.month.toString().padLeft(2, '0')}/${_enfantVoyageur!.validitePasseport.year}',
-                                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                              ),
-                            ],
+                  ..._enfantsVoyageurs.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final e = entry.value;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceCard,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(e.nom, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                Text(
+                                  'Né(e) le ${e.dateNaissance.day.toString().padLeft(2, '0')}/${e.dateNaissance.month.toString().padLeft(2, '0')}/${e.dateNaissance.year} · Passeport ${e.numeroPasseport} · Valide jusqu\'au ${e.validitePasseport.day.toString().padLeft(2, '0')}/${e.validitePasseport.month.toString().padLeft(2, '0')}/${e.validitePasseport.year}',
+                                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          onPressed: () => _modifierEnfantVoyageur(),
-                          icon: const Icon(Icons.edit_outlined, color: AppColors.secondary, size: 22),
-                          tooltip: 'Modifier',
-                        ),
-                        IconButton(
-                          onPressed: () => setState(() {
-                            _documents.removeWhere((d) =>
-                                d.path == _enfantVoyageur!.photoPasseportPath ||
-                                d.path == _enfantVoyageur!.photoPortraitPath);
-                            _enfantVoyageur = null;
-                          }),
-                          icon: const Icon(Icons.delete_outline, color: AppColors.danger, size: 22),
-                          tooltip: 'Supprimer',
-                        ),
-                      ],
-                    ),
-                  ),
+                          IconButton(
+                            onPressed: () => _modifierEnfantVoyageur(i),
+                            icon: const Icon(Icons.edit_outlined, color: AppColors.secondary, size: 22),
+                            tooltip: 'Modifier',
+                          ),
+                          IconButton(
+                            onPressed: () => setState(() {
+                              _documents.removeWhere((d) =>
+                                  d.path == e.photoPasseportPath ||
+                                  d.path == e.photoPortraitPath);
+                              _enfantsVoyageurs.removeAt(i);
+                            }),
+                            icon: const Icon(Icons.delete_outline, color: AppColors.danger, size: 22),
+                            tooltip: 'Supprimer',
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
                 const SizedBox(height: 8),
               ],
               if (_avecMineurs) ...[
@@ -865,11 +873,11 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       );
                       return;
                     }
-                    if (_voyagePourEnfant && _enfantVoyageur == null) {
+                    if (_voyagePourEnfant && _enfantsVoyageurs.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
-                            'Veuillez ajouter les informations de l\'enfant voyageur.',
+                            'Veuillez ajouter au moins un enfant voyageur.',
                           ),
                           backgroundColor: AppColors.danger,
                         ),
@@ -891,8 +899,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                     final today = DateUtils.dateOnly(DateTime.now());
                     final passeports = <String, DateTime>{
                       for (final m in _mineurs) m.nom: m.validitePasseport,
-                      if (_enfantVoyageur != null)
-                        _enfantVoyageur!.nom: _enfantVoyageur!.validitePasseport,
+                      for (final m in _enfantsVoyageurs) m.nom: m.validitePasseport,
                     };
                     final expiredEntry = passeports.entries.where(
                       (e) => DateUtils.dateOnly(e.value).isBefore(today),
@@ -909,8 +916,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       );
                       return;
                     }
-                    if (!_voyagePourEnfant &&
-                        !_documents.any((d) => d.label == kIdentityDocLabel)) {
+                    // La pièce d'identité du parent reste obligatoire même s'il
+                    // ne voyage pas : c'est lui qui souscrit pour les enfants.
+                    if (!_documents.any((d) => d.label == kIdentityDocLabel)) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
@@ -936,7 +944,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                     final titre = 'Voyage vers $_ville, $_pays';
                     if (titre.isEmpty) return;
                     final List<MineurEntry>? mineurs = _voyagePourEnfant
-                        ? (_enfantVoyageur != null ? <MineurEntry>[_enfantVoyageur!] : null)
+                        ? (_enfantsVoyageurs.isNotEmpty ? List<MineurEntry>.from(_enfantsVoyageurs) : null)
                         : (_avecMineurs && _mineurs.isNotEmpty ? List<MineurEntry>.from(_mineurs) : null);
                     widget.onContinue(VoyageFormData(
                       titre: titre,
@@ -953,7 +961,11 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       documents: _documents.isNotEmpty ? List.from(_documents) : null,
                       isChildOnly: _voyagePourEnfant,
                       ecartePhotoPath: _voyagePourEnfant
-                          ? (_ecartePhotoPath ?? _enfantVoyageur?.photoPortraitPath ?? _enfantVoyageur?.photoPasseportPath)
+                          ? (_ecartePhotoPath ??
+                              (_enfantsVoyageurs.isNotEmpty
+                                  ? (_enfantsVoyageurs.first.photoPortraitPath ??
+                                      _enfantsVoyageurs.first.photoPasseportPath)
+                                  : null))
                           : _ecartePhotoPath,
                     ));
                   },
@@ -1267,9 +1279,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
     }
   }
 
-  Future<void> _modifierEnfantVoyageur() async {
-    final existing = _enfantVoyageur;
-    if (existing == null) return;
+  Future<void> _modifierEnfantVoyageur(int index) async {
+    if (index < 0 || index >= _enfantsVoyageurs.length) return;
+    final existing = _enfantsVoyageurs[index];
     final result = await showModalBottomSheet<MineurEntry>(
       context: context,
       isScrollControlled: true,
@@ -1282,7 +1294,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
         _documents.removeWhere((d) =>
             d.path == existing.photoPasseportPath ||
             d.path == existing.photoPortraitPath);
-        _enfantVoyageur = result;
+        _enfantsVoyageurs[index] = result;
         _documents.add(
           VoyageDocEntry(
             path: result.photoPasseportPath,
@@ -1313,7 +1325,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
     );
     if (result != null && mounted) {
       setState(() {
-        _enfantVoyageur = result;
+        _enfantsVoyageurs.add(result);
         _documents.add(
           VoyageDocEntry(
             path: result.photoPasseportPath,
