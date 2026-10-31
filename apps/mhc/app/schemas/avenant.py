@@ -13,10 +13,13 @@ class AnnulationRequest(BaseModel):
 
 
 class ModificationRequest(BaseModel):
-    """Nouvelle destination dans la même zone tarifaire ; dates inchangées."""
+    """Modification : nouvelle destination (même zone) et/ou nouvelles dates
+    avant le début du voyage avec recalcul de la prime (supplément ou remboursement)."""
 
-    destination_country_id: int
+    destination_country_id: Optional[int] = None
     destination_ville: Optional[str] = None
+    nouvelle_date_debut: Optional[date] = None
+    nouvelle_date_fin: Optional[date] = None
     confirmer: bool = False
     motif: Optional[str] = None
 

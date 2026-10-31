@@ -106,8 +106,11 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
   Future<void> _openActionSheet(String action) async {
     final s = widget.subscription;
     final maxDays = (_info?['duree_max_jours'] as num?)?.toInt() ?? 92;
+    DateTime start = DateUtils.dateOnly(s.dateDebut);
     DateTime end = DateUtils.dateOnly(s.dateFin ?? s.dateDebut);
     if (action == 'prorogation') end = end.add(const Duration(days: 1));
+    final voyagePasCommence =
+        DateUtils.dateOnly(DateTime.now()).isBefore(DateUtils.dateOnly(s.dateDebut));
     final motifCtrl = TextEditingController();
     final villeCtrl = TextEditingController();
     List<DestinationCountryModel> countries = const [];
@@ -130,14 +133,13 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
 
     final titles = {
       'annulation': 'Annuler la police',
-      'modification': 'Changer de destination',
+      'modification': 'Modifier le voyage',
       'prorogation': 'Prolonger la police',
     };
     final hints = {
       'annulation': "L'annulation est définitive et n'est possible qu'avant la date d'effet.",
-      'modification': "Changement de destination dans la même zone tarifaire, "
-          "jusqu'à l'expiration de la police. Dates et prime inchangées : "
-          "aucun supplément ni remboursement.",
+      'modification': "Destination (même zone tarifaire) et, avant le début du voyage, "
+          "dates : la prime est recalculée (supplément à payer ou remboursement).",
       'prorogation': "Jusqu'à la date de fin initiale. Durée totale maximale : $maxDays jours. Prime complémentaire au prorata.",
     };
 
@@ -152,6 +154,7 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
           confirm: false,
           destinationCountryId: action == 'modification' ? destination?.id : null,
           destinationVille: action == 'modification' ? villeCtrl.text : null,
+          nouvelleDateDebut: action == 'modification' ? start : null,
           nouvelleDateFin: action == 'annulation' ? null : end,
         );
         setSheet(() => simulation = res);
@@ -173,6 +176,7 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
           confirm: true,
           destinationCountryId: action == 'modification' ? destination?.id : null,
           destinationVille: action == 'modification' ? villeCtrl.text : null,
+          nouvelleDateDebut: action == 'modification' ? start : null,
           nouvelleDateFin: action == 'annulation' ? null : end,
           motif: motifCtrl.text,
         );
@@ -270,6 +274,50 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
                     'Destination actuelle : ${s.projetVoyage?.destinationDisplay ?? s.projetVoyage?.destination ?? '—'}',
                     style: const TextStyle(fontSize: 12, color: AppColors.mutedText),
                   ),
+                  if (voyagePasCommence) ...[
+                    const SizedBox(height: 10),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.flight_takeoff),
+                      title: const Text('Nouvelle date de début'),
+                      subtitle: Text(_date(start)),
+                      onTap: () async {
+                        final first = DateUtils.dateOnly(DateTime.now())
+                            .add(const Duration(days: 1));
+                        final last =
+                            end.subtract(const Duration(days: 1));
+                        final d = await pick(
+                            ctx, start.isAfter(first) ? start : first, first, last);
+                        if (d != null) {
+                          setSheet(() {
+                            start = d;
+                            if (!end.isAfter(start)) {
+                              end = start.add(const Duration(days: 1));
+                            }
+                            simulation = null;
+                          });
+                        }
+                      },
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.flight_land),
+                      title: const Text('Nouvelle date de fin'),
+                      subtitle: Text(_date(end)),
+                      onTap: () async {
+                        final first = start.add(const Duration(days: 1));
+                        final last =
+                            start.add(Duration(days: maxDays));
+                        final d = await pick(ctx, end, first, last);
+                        if (d != null) {
+                          setSheet(() {
+                            end = d;
+                            simulation = null;
+                          });
+                        }
+                      },
+                    ),
+                  ],
                 ],
                 if (action == 'prorogation')
                   ListTile(
@@ -543,7 +591,7 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
           ),
         if (showButtons) ...[
           if (statut == 'active') ...[
-            actionButton('modification', 'Changer de destination', Icons.flight_takeoff_outlined),
+            actionButton('modification', 'Modifier le voyage', Icons.flight_takeoff_outlined),
             actionButton('prorogation', 'Prolonger', Icons.update),
           ],
           actionButton('annulation', 'Annuler la police', Icons.cancel_outlined, danger: true),

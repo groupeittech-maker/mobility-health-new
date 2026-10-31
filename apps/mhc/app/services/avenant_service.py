@@ -445,46 +445,110 @@ def request_modification(
     *,
     destination_country_id: Optional[int],
     destination_ville: Optional[str] = None,
+    nouvelle_date_debut: Any = None,
+    nouvelle_date_fin: Any = None,
     confirm: bool,
     motif: Optional[str] = None,
     today: Optional[date] = None,
 ) -> ActionResult:
-    """Modification (107) : nouvelle destination dans la même zone tarifaire.
+    """Modification (107) : destination (même zone tarifaire) et/ou dates.
 
-    La période de couverture (durée restante, date d'expiration) est inchangée et
-    aucun ajustement de prime n'est appliqué. Sur confirmation, l'avenant est émis.
+    - Destination seule : même zone tarifaire, dates et prime inchangées.
+    - Dates : uniquement avant le début du voyage, recalcul de la prime —
+      supplément à payer (avenant en attente de paiement) ou remboursement
+      (ristourne enregistrée « à rembourser »).
     """
     from app.models.destination import DestinationCountry
 
     day = _today(today)
     _ensure_allowed(db, souscription, TYPE_MODIFICATION, day)
-    if not destination_country_id:
-        raise AvenantError("La nouvelle destination est obligatoire.")
-    pays = db.query(DestinationCountry).filter(DestinationCountry.id == destination_country_id).first()
-    if pays is None:
-        raise AvenantError("Destination inconnue.")
     projet = souscription.projet_voyage
-    ancien_pays_id = getattr(projet, "destination_country_id", None) if projet else None
-    ancienne = _destination_display(projet, getattr(projet, "destination_country", None) if projet else None)
-    ville = (destination_ville or "").strip() or None
-    if ancien_pays_id == pays.id and (not ville or (projet and (projet.destination or "").strip().lower() == ville.lower())):
-        raise AvenantError("La nouvelle destination est identique à la destination actuelle.")
 
-    zone_initiale = _tariff_zone(db, souscription, ancien_pays_id)
-    zone_nouvelle = _tariff_zone(db, souscription, pays.id)
-    if not zone_initiale or not zone_nouvelle or zone_initiale != zone_nouvelle:
-        raise AvenantError(
-            "La nouvelle destination doit appartenir à la même zone tarifaire que la destination initiale "
-            f"({zone_initiale or 'zone inconnue'}). Pour une autre zone, une nouvelle souscription est requise."
-        )
-    nouvelle = _destination_display(projet, pays, ville)
-    montants = Montants()
+    old_debut = _as_date(souscription.date_debut)
+    old_fin = _as_date(souscription.date_fin)
+    new_debut = _as_date(nouvelle_date_debut) or old_debut
+    new_fin = _as_date(nouvelle_date_fin) or old_fin
+    dates_changed = new_debut != old_debut or new_fin != old_fin
+    if dates_changed:
+        if old_debut is None or day >= old_debut:
+            raise AvenantError("La modification des dates n'est possible qu'avant le début du voyage.")
+        if new_fin is None or new_debut is None or new_fin <= new_debut:
+            raise AvenantError("La date de fin doit être postérieure à la date de début.")
+        _validate_period(souscription, new_debut, new_fin)
+
+    ville = (destination_ville or "").strip() or None
+    ancien_pays_id = getattr(projet, "destination_country_id", None) if projet else None
+    ancienne = nouvelle = zone_nouvelle = None
+    pays = None
+    if destination_country_id:
+        pays = db.query(DestinationCountry).filter(DestinationCountry.id == destination_country_id).first()
+        if pays is None:
+            raise AvenantError("Destination inconnue.")
+        ancienne = _destination_display(projet, getattr(projet, "destination_country", None) if projet else None)
+        if ancien_pays_id == pays.id and (not ville or (projet and (projet.destination or "").strip().lower() == ville.lower())):
+            raise AvenantError("La nouvelle destination est identique à la destination actuelle.")
+        zone_initiale = _tariff_zone(db, souscription, ancien_pays_id)
+        zone_nouvelle = _tariff_zone(db, souscription, pays.id)
+        if not zone_initiale or not zone_nouvelle or zone_initiale != zone_nouvelle:
+            raise AvenantError(
+                "La nouvelle destination doit appartenir à la même zone tarifaire que la destination initiale "
+                f"({zone_initiale or 'zone inconnue'}). Pour une autre zone, une nouvelle souscription est requise."
+            )
+        nouvelle = _destination_display(projet, pays, ville)
+    elif not dates_changed:
+        raise AvenantError("Indiquez une nouvelle destination ou de nouvelles dates.")
+
+    delta = Montants()
+    if dates_changed:
+        coverage = _coverage_days(souscription)
+        delta = _prorata(souscription, (new_fin - new_debut).days - coverage, coverage)
+
+    nature = NATURE_COMPLEMENT if delta.total > 0 else (NATURE_REMBOURSEMENT if delta.total < 0 else NATURE_AUCUN)
+    info = {
+        "ancienne_destination": ancienne,
+        "nouvelle_destination": nouvelle,
+        "zone_tarifaire": zone_nouvelle,
+        "ancienne_date_debut": old_debut.isoformat() if old_debut else None,
+        "ancienne_date_fin": old_fin.isoformat() if old_fin else None,
+        "nouvelle_date_debut": new_debut.isoformat() if new_debut else None,
+        "nouvelle_date_fin": new_fin.isoformat() if new_fin else None,
+    }
     if not confirm:
-        return ActionResult(souscription, montants=montants, nature=NATURE_AUCUN, simulation=True,
-                            payment_info={"ancienne_destination": ancienne, "nouvelle_destination": nouvelle,
-                                          "zone_tarifaire": zone_nouvelle})
+        return ActionResult(souscription, montants=delta, nature=nature, simulation=True, payment_info=info)
 
     now = datetime.utcnow()
+    paiement = _original_payment(db, souscription)
+    payload = {
+        "delta": delta.as_payload(),
+        "ancienne_destination": ancienne,
+        "ancien_destination_country_id": ancien_pays_id,
+        "nouvelle_destination": nouvelle,
+        "destination_country_id": pays.id if pays else None,
+        "zone_tarifaire": zone_nouvelle,
+    }
+    if delta.total > 0:
+        # Complément à régler : l'avenant est appliqué à l'encaissement.
+        avenant = Avenant(
+            souscription_id=souscription.id,
+            type_avenant=TYPE_MODIFICATION,
+            numero=_provisional_number(),
+            statut=STATUT_ATTENTE_PAIEMENT,
+            motif_autre=(motif or "").strip() or None,
+            date_debut_initiale=souscription.date_debut,
+            date_fin_initiale=souscription.date_fin,
+            nouvelle_date_debut=_as_datetime(new_debut),
+            nouvelle_date_fin=_as_datetime(new_fin),
+            montant_ajustement=delta.total,
+            nature_ajustement=NATURE_COMPLEMENT,
+            payload=payload,
+            created_by_id=getattr(actor, "id", None),
+        )
+        db.add(avenant)
+        db.flush()
+        return ActionResult(souscription, avenant=avenant, montants=delta, nature=NATURE_COMPLEMENT,
+                            payment_info=info)
+
+    # Sans ajustement ou remboursement : avenant émis et appliqué immédiatement.
     avenant = Avenant(
         souscription_id=souscription.id,
         type_avenant=TYPE_MODIFICATION,
@@ -495,34 +559,48 @@ def request_modification(
         date_echeance=souscription.date_fin,
         date_debut_initiale=souscription.date_debut,
         date_fin_initiale=souscription.date_fin,
-        nouvelle_date_debut=souscription.date_debut,
-        nouvelle_date_fin=souscription.date_fin,
-        montant_ajustement=Decimal("0"),
-        nature_ajustement=NATURE_AUCUN,
-        payload={
-            "ancienne_destination": ancienne,
-            "ancien_destination_country_id": ancien_pays_id,
-            "nouvelle_destination": nouvelle,
-            "destination_country_id": pays.id,
-            "zone_tarifaire": zone_nouvelle,
-        },
+        nouvelle_date_debut=_as_datetime(new_debut),
+        nouvelle_date_fin=_as_datetime(new_fin),
+        montant_ajustement=delta.total,
+        nature_ajustement=nature,
+        payload=payload,
         created_by_id=getattr(actor, "id", None),
     )
     db.add(avenant)
-    if projet is not None:
+    if projet is not None and pays is not None:
         projet.destination_country_id = pays.id
         projet.destination = ville or pays.nom
     db.flush()
-    _regenerate_attestation(db, souscription, None)
+    ristourne = None
+    if dates_changed:
+        souscription.date_debut = _as_datetime(new_debut)
+        souscription.date_fin = _as_datetime(new_fin)
+        souscription.prix_applique = _dec(souscription.prix_applique) + delta.total
+        if souscription.prime_assurance is not None:
+            souscription.prime_assurance = _dec(souscription.prime_assurance) + delta.prime
+        if souscription.frais_services is not None:
+            souscription.frais_services = _dec(souscription.frais_services) + delta.frais_services
+        if souscription.taxes_total is not None:
+            souscription.taxes_total = _dec(souscription.taxes_total) + delta.taxes
+        if projet is not None:
+            projet.date_depart = souscription.date_debut
+            projet.date_retour = souscription.date_fin
+        if delta.total < 0 and paiement is not None:
+            ristourne = _create_ristourne(
+                db, souscription, avenant, paiement, delta.negate(),
+                motif=f"Modification des dates de la police (avenant {avenant.numero})",
+            )
+    db.flush()
+    _regenerate_attestation(db, souscription, paiement)
     _notify(
         souscription,
         "Avenant de modification émis",
-        f"La destination de votre police {souscription.numero_souscription} est désormais : {nouvelle}. "
-        "Les dates de couverture sont inchangées.",
+        f"Votre police {souscription.numero_souscription} est désormais valable du "
+        f"{new_debut:%d/%m/%Y} au {new_fin:%d/%m/%Y}"
+        + (f" — destination : {nouvelle}." if nouvelle else "."),
     )
-    return ActionResult(souscription, avenant=avenant, montants=montants, nature=NATURE_AUCUN,
-                        payment_info={"ancienne_destination": ancienne, "nouvelle_destination": nouvelle,
-                                      "zone_tarifaire": zone_nouvelle})
+    return ActionResult(souscription, avenant=avenant, ristourne=ristourne, montants=delta, nature=nature,
+                        payment_info=info)
 
 
 # ---------------------------------------------------------------------------

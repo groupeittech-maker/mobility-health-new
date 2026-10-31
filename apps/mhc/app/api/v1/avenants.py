@@ -170,6 +170,8 @@ async def request_modification(
         db, avenant_service.request_modification, sous, current_user,
         destination_country_id=body.destination_country_id,
         destination_ville=body.destination_ville,
+        nouvelle_date_debut=body.nouvelle_date_debut,
+        nouvelle_date_fin=body.nouvelle_date_fin,
         confirm=body.confirmer,
         motif=body.motif,
     )
