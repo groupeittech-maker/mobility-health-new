@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/constants/app_colors.dart';
@@ -9,6 +10,7 @@ import '../../core/utils/api_error_helper.dart';
 import '../../core/widgets/mh_ecard.dart';
 import '../../core/widgets/mh_surface_card.dart';
 import '../../models/subscription.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
 import '../subscription/nouvelle_souscription_screen.dart';
@@ -275,13 +277,16 @@ class DashboardScreenState extends State<DashboardScreen>
           // E-carte du voyage le plus imminent, entre « Paiement en attente »
           // et « Police d'assurance active ».
           if (trip != null) ...[
-            MhEcard(
-              holderName: _holderName(trip),
-              policyNumber: trip.numeroSouscription.isNotEmpty
-                  ? trip.numeroSouscription
-                  : _ecards[trip.id]?['numero_souscription']?.toString(),
-              validityLabel: _validity(trip),
-              photoBytes: _photos[trip.id],
+            GestureDetector(
+              onTap: () => context.push('/ecards'),
+              child: MhEcard(
+                holderName: _holderName(trip),
+                policyNumber: trip.numeroSouscription.isNotEmpty
+                    ? trip.numeroSouscription
+                    : _ecards[trip.id]?['numero_souscription']?.toString(),
+                validityLabel: _validity(trip),
+                photoBytes: _photos[trip.id],
+              ),
             ),
             const SizedBox(height: 16),
             _PolicyStatusStrip(
@@ -322,7 +327,10 @@ class DashboardScreenState extends State<DashboardScreen>
           if (trip != null)
             _TripSummary(sub: trip, onTap: () => _openDetail(trip))
           else
-            const _CoverageEmpty(),
+            _CoverageEmpty(
+              holderName: context.watch<AuthProvider>().currentUser?.displayName ?? '',
+              photoBytes: _photos.values.isNotEmpty ? _photos.values.first : null,
+            ),
           const SizedBox(height: 26),
           if (_assureurs.isNotEmpty) ...[
             Text(
@@ -548,7 +556,10 @@ class _CounterTile extends StatelessWidget {
 }
 
 class _CoverageEmpty extends StatelessWidget {
-  const _CoverageEmpty();
+  const _CoverageEmpty({required this.holderName, this.photoBytes});
+
+  final String holderName;
+  final Uint8List? photoBytes;
 
   @override
   Widget build(BuildContext context) {
@@ -556,12 +567,20 @@ class _CoverageEmpty extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Votre couverture',
+          'Pas de couverture',
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
             color: AppColors.secondary,
           ),
+        ),
+        const SizedBox(height: 10),
+        // Carte du bénéficiaire même sans police (pas de validité ni de numéro).
+        MhEcard(
+          holderName: holderName.isNotEmpty ? holderName : 'Assuré MHC',
+          policyNumber: null,
+          validityLabel: null,
+          photoBytes: photoBytes,
         ),
         const SizedBox(height: 10),
         MHSurfaceCard(
