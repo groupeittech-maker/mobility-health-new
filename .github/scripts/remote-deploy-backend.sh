@@ -180,8 +180,13 @@ if [ -f /tmp/mobility-health-production.conf ]; then
 fi
 
 if sudo nginx -t; then
-  sudo systemctl reload nginx
-  echo "✅ Nginx conf mise à jour et rechargée"
+  # nginx peut tourner hors systemd sur le VPS (service « inactive » alors que
+  # le processus sert le trafic) : on recharge via le signal en repli.
+  if sudo systemctl reload nginx 2>/dev/null || sudo nginx -s reload; then
+    echo "✅ Nginx conf mise à jour et rechargée"
+  else
+    echo "⚠️ Rechargement nginx impossible — conf installée, rechargement manuel requis"
+  fi
 else
   echo "❌ nginx -t a échoué — restauration de la conf précédente"
   [ -f /tmp/mobility-health-production.conf.bak ] && sudo cp /tmp/mobility-health-production.conf.bak "$NGINX_SITE" 2>/dev/null || true
