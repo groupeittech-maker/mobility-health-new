@@ -816,8 +816,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
           onTap: _isLoading
               ? null
               : () async {
+                  // Sans cela, la fermeture de la page de recherche rend le
+                  // focus au dernier champ saisi (téléphone) et rouvre le
+                  // clavier numérique (retour test).
+                  FocusManager.instance.primaryFocus?.unfocus();
                   final selected =
                       await _showCountrySearchDialog(label, value);
+                  FocusManager.instance.primaryFocus?.unfocus();
                   if (selected != null && mounted) onChanged(selected);
                 },
           borderRadius: BorderRadius.circular(8),

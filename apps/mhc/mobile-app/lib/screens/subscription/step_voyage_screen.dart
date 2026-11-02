@@ -1373,14 +1373,19 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
     }
   }
 
-  Future<String?> _searchableDropdown(String label, List<String> options) {
-    return showModalBottomSheet<String>(
+  Future<String?> _searchableDropdown(String label, List<String> options) async {
+    // Évite que la fermeture rende le focus au dernier champ saisi et
+    // rouvre le clavier alors que l'utilisateur vient de choisir une valeur.
+    FocusManager.instance.primaryFocus?.unfocus();
+    final selected = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _DestinationSearchSheet(title: label, options: options),
     );
+    FocusManager.instance.primaryFocus?.unfocus();
+    return selected;
   }
 
   Widget _dropdown(
