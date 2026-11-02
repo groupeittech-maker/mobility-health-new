@@ -815,10 +815,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                                 doc.label ?? _docTypeLabel(doc.docType),
                                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                               ),
-                              Text(
-                                doc.path.split(RegExp(r'[/\\]')).last,
-                                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                                overflow: TextOverflow.ellipsis,
+                              const Text(
+                                'Document joint',
+                                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                               ),
                             ],
                           ),
@@ -1246,7 +1245,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => const _AjouterMineurSheet(),
+      builder: (ctx) => _AjouterMineurSheet(dateRetour: _dateRetour),
     );
     if (result != null && mounted) {
       setState(() {
@@ -1277,7 +1276,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _AjouterMineurSheet(initial: existing),
+      builder: (ctx) => _AjouterMineurSheet(initial: existing, dateRetour: _dateRetour),
     );
     if (result != null && mounted) {
       setState(() {
@@ -1314,7 +1313,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _AjouterMineurSheet(initial: existing),
+      builder: (ctx) => _AjouterMineurSheet(initial: existing, dateRetour: _dateRetour),
     );
     if (result != null && mounted) {
       setState(() {
@@ -1484,14 +1483,20 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
             // Chiffres en blanc sur les bandes violettes (retour test).
             data: Theme.of(ctx).copyWith(
               datePickerTheme: DatePickerThemeData(
-                rangeSelectionBackgroundColor: AppColors.secondary,
+                // Les jours « dans la plage » ne sont pas thémables individuellement
+                // dans cette version de Flutter (pas d'état selected ni de
+                // rangeSelectionForegroundColor) : la bande reste violette claire
+                // pour garder les chiffres lisibles ; les extrémités restent en
+                // violet foncé avec chiffres blancs.
+                rangeSelectionBackgroundColor:
+                    AppColors.secondary.withValues(alpha: 0.22),
                 dayForegroundColor: WidgetStateProperty.resolveWith((states) =>
                     states.contains(WidgetState.selected)
                         ? Colors.white
                         : null),
-                dayOverlayColor: WidgetStateProperty.resolveWith((states) =>
+                dayBackgroundColor: WidgetStateProperty.resolveWith((states) =>
                     states.contains(WidgetState.selected)
-                        ? Colors.white.withValues(alpha: 0.14)
+                        ? AppColors.secondary
                         : null),
                 rangePickerHeaderForegroundColor: AppColors.secondary,
               ),
@@ -1695,9 +1700,12 @@ class _DestinationSearchSheetState extends State<_DestinationSearchSheet> {
 /// Formulaire « enfant accompagné » en bottom sheet (même approche que la recherche pays).
 /// [initial] pré-remplit le formulaire pour modifier un enfant existant.
 class _AjouterMineurSheet extends StatefulWidget {
-  const _AjouterMineurSheet({this.initial});
+  const _AjouterMineurSheet({this.initial, this.dateRetour});
 
   final MineurEntry? initial;
+  /// Date de retour du voyage : validité passeport et majorité vérifiées
+  /// dès la validation du formulaire (retour test), pas seulement à l'étape suivante.
+  final DateTime? dateRetour;
 
   @override
   State<_AjouterMineurSheet> createState() => _AjouterMineurSheetState();
@@ -1889,6 +1897,40 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
         const SnackBar(
           content: Text(
             'La date de validité du passeport est dépassée : le passeport est expiré.',
+          ),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+    // Vérifications dès la validation du formulaire (retour test) :
+    // la validité du passeport doit couvrir toute la période du voyage.
+    final finVoyage = widget.dateRetour != null
+        ? DateUtils.dateOnly(widget.dateRetour!)
+        : today;
+    if (DateUtils.dateOnly(_validitePasseport!).isBefore(finVoyage)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Le passeport expire avant la fin du voyage : sa validité doit couvrir la période du voyage.',
+          ),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+    // L'enfant accompagné doit être mineur durant l'entièreté de la couverture.
+    var age = finVoyage.year - _dateNaissance!.year;
+    if (finVoyage.month < _dateNaissance!.month ||
+        (finVoyage.month == _dateNaissance!.month &&
+            finVoyage.day < _dateNaissance!.day)) {
+      age--;
+    }
+    if (age >= 18) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Cet enfant sera majeur pendant la période de couverture : un enfant accompagné doit rester mineur durant tout le voyage.',
           ),
           backgroundColor: AppColors.danger,
         ),
