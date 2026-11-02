@@ -66,9 +66,28 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
   @override
   void initState() {
     super.initState();
-    for (var i = 0; i < widget.mineurs.length; i++) {
+    _syncChildForms();
+  }
+
+  @override
+  void didUpdateWidget(covariant StepMedicalScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // L'IndexedStack construit tous les enfants avant la saisie du voyage :
+    // mineurs arrive ensuite — sans resynchronisation, _childAnswers[i]
+    // déborde et l'étape s'affiche en écran gris (ErrorWidget).
+    _syncChildForms();
+  }
+
+  void _syncChildForms() {
+    while (_childAnswers.length < widget.mineurs.length) {
       _childAnswers.add({for (final (key, _) in _childQuestions) key: null});
       _childPrecisions.add({for (final (key, _) in _childQuestions) key: TextEditingController()});
+    }
+    while (_childAnswers.length > widget.mineurs.length) {
+      _childAnswers.removeLast();
+      for (final c in _childPrecisions.removeLast().values) {
+        c.dispose();
+      }
     }
   }
 
