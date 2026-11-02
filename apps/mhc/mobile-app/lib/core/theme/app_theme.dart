@@ -1,3 +1,7 @@
+// CupertinoPageTransitionsBuilder : exporté par material.dart (anciennes
+// versions) ou cupertino.dart (versions récentes de Flutter).
+// ignore: unnecessary_import
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
