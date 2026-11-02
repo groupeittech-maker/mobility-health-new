@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, JSON
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import backref, relationship
 from app.core.database import Base
 from app.models.base import TimestampMixin
 
@@ -17,7 +17,12 @@ class TransactionLog(Base, TimestampMixin):
     user_agent = Column(Text, nullable=True)
     
     # Relations
-    payment = relationship("Paiement", backref="transaction_logs")
+    # Suppression d'un paiement (ex. souscription « À payer » supprimée) :
+    # ses logs sont supprimés avec lui au lieu d'être orphelinés (payment_id NOT NULL).
+    payment = relationship(
+        "Paiement",
+        backref=backref("transaction_logs", cascade="all, delete-orphan"),
+    )
     user = relationship("User", backref="transaction_logs")
 
 

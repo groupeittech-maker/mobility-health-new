@@ -3,8 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../core/widgets/mh_logo_header.dart';
-import '../../core/widgets/mh_stripe.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/referent_navigation.dart';
@@ -105,31 +103,16 @@ class _SplashScreenState extends State<SplashScreen>
             Center(
               child: AnimatedBuilder(
                 animation: _controller,
-                builder: (context, _) {
-                  return Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Opacity(
-                        opacity: 1.0 - _logo.value,
-                        child: CustomPaint(
-                          size: const Size(64, 96),
-                          painter: _MhSymbolPainter(_symbol.value),
-                        ),
-                      ),
-                      Opacity(
-                        opacity: _logo.value,
-                        // Le logo MyMHC contient déjà le nom — pas de doublon.
-                        child: const MHOfficialLogo(height: 96),
-                      ),
-                    ],
-                  );
-                },
+                builder: (context, _) => _AnimatedLogo(
+                  symbol: _symbol.value,
+                  wordmark: _logo.value,
+                ),
               ),
             ),
             Positioned(
               left: 0,
               right: 0,
-              bottom: 30,
+              bottom: 10,
               child: FadeTransition(
                 opacity: _signature,
                 child: const Text(
@@ -144,12 +127,6 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
             ),
-            const Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: MhStripe(),
-            ),
           ],
         ),
       ),
@@ -157,47 +134,64 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-/// Les lignes du symbole MyMHC dessinées une à une (parallélogrammes inclinés
-/// alternant violet et teal), remplacées ensuite par le logo PNG complet.
-class _MhSymbolPainter extends CustomPainter {
-  const _MhSymbolPainter(this.progress);
+/// Logo MyMHC officiel reconstitué : les 5 lignes du symbole (découpées du
+/// visuel « Logo MyMHC » du kit) glissent une à une le long de leur diagonale,
+/// puis le mot « MyMHC » apparaît en fondu à droite.
+class _AnimatedLogo extends StatelessWidget {
+  const _AnimatedLogo({required this.symbol, required this.wordmark});
 
-  final double progress;
+  final double symbol;
+  final double wordmark;
 
-  static const _colors = [
-    AppColors.brandPurple,
-    AppColors.brandTeal,
-    AppColors.brandPurple,
-    AppColors.brandTeal,
-  ];
+  static const double _h = 64;
+  // Proportions du visuel source : symbole 658x657, écart 90, mot 1841x657.
+  static const double _symbolW = _h * 658 / 657;
+  static const double _gap = _h * 90 / 657;
+  static const double _wordW = _h * 1841 / 657;
+  static const int _lines = 5;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    const barCount = 4;
-    final barW = size.width / 6;
-    final gap = size.width / 9;
-    final paint = Paint()..isAntiAlias = true;
-    for (var i = 0; i < barCount; i++) {
-      // Chaque ligne apparaît en décalé, avec une légère translation verticale.
-      final local = (progress * (barCount + 1) - i).clamp(0.0, 1.0);
-      if (local <= 0) continue;
-      final x = gap + i * (barW + gap * 0.55);
-      final dy = (1 - local) * 16;
-      paint.color = _colors[i].withValues(alpha: local);
-      final top = 8.0 + dy;
-      final bottom = size.height - 8.0 + dy;
-      final slant = barW * 0.6;
-      final path = Path()
-        ..moveTo(x, bottom)
-        ..lineTo(x + slant, top)
-        ..lineTo(x + barW + slant, top)
-        ..lineTo(x + barW, bottom)
-        ..close();
-      canvas.drawPath(path, paint);
-    }
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: _symbolW,
+          height: _h,
+          child: Stack(
+            children: [
+              for (var i = 0; i < _lines; i++)
+                Builder(builder: (_) {
+                  final t = Curves.easeOut.transform(
+                    (symbol * (_lines + 1) / 2 - i * 0.5).clamp(0.0, 1.0),
+                  );
+                  return Opacity(
+                    opacity: t,
+                    child: Transform.translate(
+                      offset: Offset(-6 * (1 - t), 10 * (1 - t)),
+                      child: Image.asset(
+                        'assets/images/splash_line_$i.png',
+                        width: _symbolW,
+                        height: _h,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  );
+                }),
+            ],
+          ),
+        ),
+        const SizedBox(width: _gap),
+        Opacity(
+          opacity: wordmark,
+          child: Image.asset(
+            'assets/images/splash_wordmark.png',
+            width: _wordW,
+            height: _h,
+            fit: BoxFit.contain,
+          ),
+        ),
+      ],
+    );
   }
-
-  @override
-  bool shouldRepaint(_MhSymbolPainter oldDelegate) =>
-      oldDelegate.progress != progress;
 }

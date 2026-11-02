@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/mh_app_bar.dart';
 import '../../core/widgets/mh_states.dart';
-import '../../core/widgets/mh_stripe.dart';
 import '../../core/widgets/mh_surface_card.dart';
 import '../../models/subscription.dart';
 import '../../models/user.dart';
@@ -279,7 +278,6 @@ class _MonProfilScreenState extends State<MonProfilScreen> {
                           ),
                         ),
                       ),
-                      const MhStripe(),
                     ],
                   ),
                 ),

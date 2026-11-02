@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/widgets/mh_states.dart';
-import 'core/widgets/mh_stripe.dart';
 import 'screens/ekyc_nfc_screen.dart';
 import 'screens/ekyc_verification_screen.dart';
 import 'screens/forgot_password_screen.dart';
@@ -38,28 +37,6 @@ final appRouter = GoRouter(
     body: MhNotFoundView(),
   ),
   routes: [
-    // Bande graphique en bas de chaque écran poussé (kit MyMHC). Les écrans
-    // listés ont déjà leur bande (shell d'accueil via MhBottomNav, écrans
-    // d'accueil/profil avec MhStripe propre).
-    ShellRoute(
-      builder: (context, state, child) {
-        const ownStripe = {
-          '/splash',
-          '/welcome',
-          '/login',
-          '/register',
-          '/home',
-          '/profile',
-        };
-        if (ownStripe.contains(state.matchedLocation)) return child;
-        return Column(
-          children: [
-            Expanded(child: child),
-            const MhStripe(),
-          ],
-        );
-      },
-      routes: [
     GoRoute(
       path: '/splash',
       builder: (context, state) => const SplashScreen(),
@@ -97,7 +74,10 @@ final appRouter = GoRouter(
       path: '/home',
       builder: (context, state) {
         final tab = int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0;
-        return HomeScreen(initialTab: tab.clamp(0, 4));
+        return HomeScreen(
+          initialTab: tab.clamp(0, 4),
+          navToken: state.uri.queryParameters['r'],
+        );
       },
     ),
     GoRoute(
@@ -220,8 +200,6 @@ final appRouter = GoRouter(
         }
         return EkycNfcScreen(verificationUrl: url);
       },
-    ),
-      ],
     ),
   ],
 );

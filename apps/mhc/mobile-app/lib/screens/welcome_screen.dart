@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../core/constants/app_colors.dart';
 import '../core/widgets/mh_kit_widgets.dart';
 import '../core/widgets/mh_logo_header.dart';
-import '../core/widgets/mh_stripe.dart';
 
 /// Écran d'accueil du kit MyMHC : « Votre santé sans frontières »,
 /// photo héro, Créer un compte / Se connecter, connexion sociale,
@@ -99,7 +98,6 @@ class WelcomeScreen extends StatelessWidget {
                 ),
               ),
             ),
-            const MhStripe(),
           ],
         ),
       ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
-import 'mh_stripe.dart';
 
 /// Barre de navigation du kit MyMHC : fond blanc, 5 entrées
 /// (Accueil, Souscription, SOS central rouge, Téléconsultation, Hôpitaux),
@@ -58,7 +57,6 @@ class MhBottomNav extends StatelessWidget {
             ),
           ),
         ),
-        const MhStripe(),
       ],
     );
   }

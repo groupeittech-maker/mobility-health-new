@@ -647,7 +647,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
                     icon: const Icon(Icons.arrow_back, size: 18),
                     label: const Text('Étape précédente'),
                     style: TextButton.styleFrom(
-                      foregroundColor: AppColors.primary,
+                      foregroundColor: AppColors.secondary,
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),

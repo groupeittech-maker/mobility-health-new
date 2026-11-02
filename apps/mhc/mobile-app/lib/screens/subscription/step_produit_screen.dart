@@ -460,7 +460,7 @@ class _StepProduitScreenState extends State<StepProduitScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
-                          'Ouvrez « Voir mes conditions de couverture » puis validez « J\'ai lu les exclusions ».',
+                          'Ouvrir « Conditions de couverture » puis valider « J\'ai lu les exclusions ».',
                         ),
                       ),
                     );

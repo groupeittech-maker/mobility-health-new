@@ -5,7 +5,9 @@ __pycache__
 *.py[cod]
 .git
 .gitignore
-frontend-simple
+# Visuels charte (e-carte / attestation PDF : logo blanc, fond de carte) requis par l'API.
+frontend-simple/*
+!frontend-simple/assets
 frontend-temp.tar.gz
 alembic-temp.tar.gz
 mobile-app

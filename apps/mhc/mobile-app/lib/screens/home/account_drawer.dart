@@ -11,7 +11,6 @@ import '../../core/i18n/app_strings.dart';
 import '../../core/utils/api_error_helper.dart';
 import '../../core/widgets/mh_app_bar.dart';
 import '../../core/widgets/mh_logo_header.dart';
-import '../../core/widgets/mh_stripe.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_services.dart';
 import '../../services/auth_service.dart';
@@ -264,7 +263,6 @@ class _MhAccountDrawerState extends State<MhAccountDrawer> {
               ],
             ),
           ),
-          const MhStripe(),
         ],
       ),
     );

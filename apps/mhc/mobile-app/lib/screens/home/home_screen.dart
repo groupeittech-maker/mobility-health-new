@@ -20,11 +20,16 @@ import 'teleconsultation_screen.dart';
 /// Accueil, Souscription, SOS (rouge central), Téléconsultation, Hôpitaux —
 /// barre blanche et bande graphique chevron en bas.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, this.initialTab = 0});
+  const HomeScreen({super.key, this.initialTab = 0, this.navToken});
 
   /// Onglet affiché à l'ouverture (0 Accueil, 1 Souscription, 2 SOS,
   /// 3 Téléconsultation, 4 Hôpitaux).
   final int initialTab;
+
+  /// Change à chaque `context.go('/home?...')` : force l'onglet demandé même
+  /// si l'accueil était déjà dans la pile (sinon on retombait sur le dernier
+  /// onglet consulté — retour test).
+  final String? navToken;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -59,6 +64,18 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     });
     _loadAccountPhoto();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.navToken != oldWidget.navToken ||
+        widget.initialTab != oldWidget.initialTab) {
+      final tab = MhNavTab.values[widget.initialTab.clamp(0, MhNavTab.values.length - 1)];
+      setState(() => _currentTab = tab);
+      if (tab == MhNavTab.accueil) _dashboardKey.currentState?.refresh();
+      if (tab == MhNavTab.souscription) _subsTabKey.currentState?.refresh();
+    }
   }
 
   /// Photo du cercle « Compte » : photo de profil choisie par l'assuré,

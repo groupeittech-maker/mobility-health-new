@@ -10,7 +10,6 @@ import '../core/network/api_client.dart' as net;
 import '../core/utils/api_error_helper.dart';
 import '../core/widgets/mh_app_bar.dart';
 import '../core/widgets/mh_kit_widgets.dart';
-import '../core/widgets/mh_stripe.dart';
 import '../core/widgets/mh_surface_card.dart';
 import '../models/destination.dart';
 import '../services/api_services.dart';
@@ -298,7 +297,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
             const SizedBox(height: 4),
-            const MhStripe(),
           ],
         ),
       ),

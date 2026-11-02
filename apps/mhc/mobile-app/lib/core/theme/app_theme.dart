@@ -47,6 +47,15 @@ class AppTheme {
         surfaceContainerHighest: const Color(0xFFf5faf9),
       ),
       scaffoldBackgroundColor: Colors.transparent,
+      // Chaque page peint son propre fond charte : sans cela, les Scaffold
+      // transparents laissent voir la page précédente pendant les transitions
+      // (texte en surimpression sur « Sélectionner un pays », retour test).
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: _OpaquePageTransitionsBuilder(ZoomPageTransitionsBuilder()),
+          TargetPlatform.iOS: _OpaquePageTransitionsBuilder(CupertinoPageTransitionsBuilder()),
+        },
+      ),
       appBarTheme: AppBarTheme(
         elevation: 0,
         centerTitle: true,
@@ -159,6 +168,30 @@ class MHAuthCard extends StatelessWidget {
         boxShadow: AppColors.surfaceCardShadow,
       ),
       child: child,
+    );
+  }
+}
+
+/// Enveloppe chaque page dans le fond charte avant la transition native.
+class _OpaquePageTransitionsBuilder extends PageTransitionsBuilder {
+  const _OpaquePageTransitionsBuilder(this._inner);
+
+  final PageTransitionsBuilder _inner;
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return _inner.buildTransitions(
+      route,
+      context,
+      animation,
+      secondaryAnimation,
+      MHBackground(child: child),
     );
   }
 }

@@ -110,3 +110,31 @@ class TestTripWindow:
         }
         r = client.post("/api/v1/voyages/", json=payload, headers=auth_headers)
         assert r.status_code == 400
+
+
+class TestManualDeletion:
+    def test_delete_a_payer_with_failed_payment_and_logs(self, client, db, test_user, test_product, auth_headers):
+        """Retour test : la suppression d'une souscription « À payer » ayant des
+        tentatives de paiement journalisées échouait (transaction_logs.payment_id NOT NULL)."""
+        from app.core.enums import StatutPaiement, TypePaiement
+        from app.models.paiement import Paiement
+        from app.models.transaction_log import TransactionLog
+
+        sous = _sous(db, test_user, test_product, start_offset_days=5)
+        paiement = Paiement(
+            souscription_id=sous.id,
+            user_id=test_user.id,
+            montant=Decimal("100"),
+            type_paiement=TypePaiement.MOBILE_MONEY_MTN,
+            statut=StatutPaiement.ECHOUE,
+        )
+        db.add(paiement)
+        db.commit()
+        db.add(TransactionLog(payment_id=paiement.id, user_id=test_user.id, action="payment_initiated"))
+        db.commit()
+
+        r = client.delete(f"/api/v1/subscriptions/{sous.id}", headers=auth_headers)
+        assert r.status_code == 204, r.text
+        db.expire_all()
+        assert db.query(Souscription).filter(Souscription.id == sous.id).first() is None
+        assert db.query(TransactionLog).filter(TransactionLog.payment_id == paiement.id).count() == 0

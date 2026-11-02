@@ -794,7 +794,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              onPressed: () => context.go('/home?tab=2'),
+              onPressed: () => context.go('/home?tab=1&r=${DateTime.now().millisecondsSinceEpoch}'),
               icon: const Icon(Icons.history, size: 18),
               label: const Text('Voir dans l\'historique'),
               style: TextButton.styleFrom(
@@ -818,7 +818,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
             width: double.infinity,
             height: 46,
             child: ElevatedButton.icon(
-              onPressed: () => context.go('/home'),
+              onPressed: () => context.go('/home?tab=0&r=${DateTime.now().millisecondsSinceEpoch}'),
               icon: const Icon(Icons.home_rounded, size: 20),
               label: const Text('Retour à l\'accueil'),
               style: ElevatedButton.styleFrom(
@@ -877,7 +877,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
             width: double.infinity,
             height: 46,
             child: ElevatedButton.icon(
-              onPressed: () => context.go('/home'),
+              onPressed: () => context.go('/home?tab=0&r=${DateTime.now().millisecondsSinceEpoch}'),
               icon: const Icon(Icons.home_rounded, size: 20),
               label: const Text('Retour à l\'accueil'),
               style: ElevatedButton.styleFrom(

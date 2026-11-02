@@ -8,7 +8,6 @@ import '../core/constants/app_colors.dart';
 import '../core/utils/api_error_helper.dart';
 import '../core/widgets/mh_kit_widgets.dart';
 import '../core/widgets/mh_logo_header.dart';
-import '../core/widgets/mh_stripe.dart';
 import '../core/widgets/mh_surface_card.dart';
 import '../providers/auth_provider.dart';
 import '../services/referent_navigation.dart';
@@ -299,7 +298,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
-            const MhStripe(),
           ],
         ),
       ),

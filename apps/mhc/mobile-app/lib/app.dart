@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/widgets/mh_background.dart';
+import 'core/widgets/mh_stripe.dart';
 import 'providers/auth_provider.dart';
 import 'providers/locale_provider.dart';
 import 'router.dart';
@@ -46,7 +47,7 @@ class _MyAppState extends State<MyApp> {
             GlobalCupertinoLocalizations.delegate,
           ],
           builder: (context, child) {
-            return MHBackground(child: child);
+            return MHBackground(child: MhStripeFrame(child: child!));
           },
           routerConfig: appRouter,
         ),
