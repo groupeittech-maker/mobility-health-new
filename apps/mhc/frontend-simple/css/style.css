@@ -13,7 +13,7 @@
     --accent-color: #14AE98;
     --accent-gradient: linear-gradient(135deg, #4e267c 0%, #14AE98 100%);
     --soft-gradient: linear-gradient(135deg, #14AE98 0%, #6fd4c8 100%);
-    --wallpaper-image: url('../assets/wallpaper-brand.jpg');
+    --wallpaper-image: url('../assets/wallpaper-chevrons.png');
     --success-color: #10b981;
     --danger-color: #ef4444;
     --warning-color: #f59e0b;
