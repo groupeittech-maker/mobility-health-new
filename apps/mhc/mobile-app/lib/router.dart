@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/widgets/mh_states.dart';
+import 'core/widgets/mh_stripe.dart';
 import 'screens/ekyc_nfc_screen.dart';
 import 'screens/ekyc_verification_screen.dart';
 import 'screens/forgot_password_screen.dart';
@@ -37,6 +38,17 @@ final appRouter = GoRouter(
     body: MhNotFoundView(),
   ),
   routes: [
+    // Bande graphique « Bar du bas » en bas de tous les écrans SAUF la page
+    // de garde (/welcome) et la page de connexion (/login) — consigne client.
+    // Les pages poussées par Navigator.push héritent aussi de la bande puisque
+    // leur route de parent en est enveloppée.
+    ShellRoute(
+      builder: (context, state, child) {
+        const noStripe = {'/welcome', '/login'};
+        if (noStripe.contains(state.matchedLocation)) return child;
+        return MhStripeFrame(child: child);
+      },
+      routes: [
     GoRoute(
       path: '/splash',
       builder: (context, state) => const SplashScreen(),
@@ -200,6 +212,8 @@ final appRouter = GoRouter(
         }
         return EkycNfcScreen(verificationUrl: url);
       },
+    ),
+      ],
     ),
   ],
 );

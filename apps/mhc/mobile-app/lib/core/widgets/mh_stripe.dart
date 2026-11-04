@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 const String kMhStripeAsset = 'assets/images/bande_mhc_bas.png';
 
 /// Hauteur visible de la bande graphique (« Bar du bas » du kit).
-const double kMhStripeHeight = 14;
+const double kMhStripeHeight = 28;
 
 /// Bande graphique officielle du kit MyMHC (bas de chaque écran).
 class MhStripe extends StatelessWidget {

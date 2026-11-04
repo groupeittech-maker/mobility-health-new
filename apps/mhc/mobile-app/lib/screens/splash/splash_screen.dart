@@ -112,7 +112,7 @@ class _SplashScreenState extends State<SplashScreen>
             Positioned(
               left: 0,
               right: 0,
-              bottom: 10,
+              bottom: 40,
               child: FadeTransition(
                 opacity: _signature,
                 child: const Text(
