@@ -101,13 +101,15 @@ Priorités : **P0** bloquant, **P1** majeur, **P2** confort.
 
 | # | Scénario | Résultat attendu | P | ✓ |
 |---|----------|------------------|---|---|
-| 9.1 | Par personne | « Oui » → choix des personnes concernées + précision | P0 | |
-| 9.2 | Précision vide | « Veuillez préciser » bloque | P0 | |
-| 9.3 | Un « oui » | Dossier complet → pôle santé | P0 | |
-| 9.4 | Grossesse ≤ 5 mois | → pôle santé (pas refus auto) | P0 | |
-| 9.5 | Grossesse > 5 mois | **Refus de tout le dossier**, y compris enfant | P0 | |
-| 9.6 | Enfant | Mêmes questions que l'adulte | P1 | |
-| 9.7 | Tout « Non » | Passage assurance | P0 | |
+| 9.1 | Mode groupe | Questions communes ; « Oui » → sélecteur « Personne(s) concernée(s) » + précision | P0 | |
+| 9.2 | Adulte seul | Formulation individuelle, pas de sélecteur de personnes | P0 | |
+| 9.3 | Enfants seuls | **Aucun questionnaire adulte** ; formulation adaptée à l'enfant | P0 | |
+| 9.4 | Précision vide | « Veuillez préciser » bloque | P0 | |
+| 9.5 | Personne non cochée | « Oui » sans personne sélectionnée bloque | P0 | |
+| 9.6 | Un « oui » | Dossier complet → pôle santé | P0 | |
+| 9.7 | Grossesse ≤ 5 mois | → pôle santé (pas refus auto) | P0 | |
+| 9.8 | Grossesse > 5 mois | **Refus de tout le dossier**, y compris enfant | P0 | |
+| 9.9 | Tout « Non » | Passage assurance | P0 | |
 
 ## 10. Souscription — Étape 3 : Assurance
 
@@ -132,6 +134,8 @@ Priorités : **P0** bloquant, **P1** majeur, **P2** confort.
 | 11.7 | Abandon PSP | « Vérifier le statut » + historique | P1 | |
 | 11.8 | Montants | Prime + chargement + total conformes à la simulation | P1 | |
 | 11.9 | Plusieurs enfants | Tous listés au récap | P1 | |
+| 11.10 | Retour paiement web | Page PSP **sans connexion web** — pas de redirection login, navigateur interne fermé auto | P0 | |
+| 11.11 | Enfants seuls — photo | Photo adulte **non exigée** ; photo enfant utilisée pour la carte | P0 | |
 
 ## 12. eKYC
 
@@ -143,6 +147,7 @@ Priorités : **P0** bloquant, **P1** majeur, **P2** confort.
 | 12.4 | Échec eKYC | Session rejetée → dossier → **revue production** (pas refus auto) | P0 | |
 | 12.5 | Coût | eKYC facturée 350 FCFA/dossier, déduite part MHC | P1 | |
 | 12.6 | Statuts | Sessions en attente bloquent la finalisation | P1 | |
+| 12.7 | Service indisponible | 502/503 → **message clair** « réessayez plus tard », jamais de détail technique | P0 | |
 
 ## 13. Listes de souscriptions
 
@@ -154,6 +159,7 @@ Priorités : **P0** bloquant, **P1** majeur, **P2** confort.
 | 13.4 | Supprimer « À payer » | Session PSP abandonnée → OK | P0 | |
 | 13.5 | Suppression avec paiement | Refus | P0 | |
 | 13.6 | Détail | Destination, dates, montant, médecin-conseil tél. | P1 | |
+| 13.7 | Prix dans les listes | **Aucun prix** affiché dans les listes/onglets (montant uniquement dans détail/paiement) | P1 | |
 
 ## 14. Actions sur police — avenants
 
@@ -168,7 +174,7 @@ Priorités : **P0** bloquant, **P1** majeur, **P2** confort.
 | 14.7 | Prorogation | Avenant **108** attente paiement → couverture étendue après règlement | P0 | |
 | 14.8 | 2ᵉ demande | Refus + actions désactivées tant qu'une demande est en cours | P0 | |
 | 14.9 | Abandon | Actions débloquées | P1 | |
-| 14.10 | Documents | PDF avenants + quittances téléchargeables | P0 | |
+| 14.10 | Documents | Section « Documents » explicite : avenants 102/107/108 + quittances 119/120 téléchargeables | P0 | |
 
 ## 15. Sinistres & réclamations
 
@@ -200,8 +206,10 @@ Priorités : **P0** bloquant, **P1** majeur, **P2** confort.
 |---|----------|------------------|---|---|
 | 17.1 | Attestation valide | PDF téléchargeable | P0 | |
 | 17.2 | Expirée/résiliée | Visible + téléchargeable **1 an** puis archivée | P1 | |
-| 17.3 | E-carte | Logo **blanc**, fond officiel, photo bas-droite | P1 | |
-| 17.4 | Quittances | 119 (règlement) + 120 (ristourne) téléchargeables | P0 | |
+| 17.3 | E-carte adulte | Logo **blanc**, fond officiel, photo bas-droite | P1 | |
+| 17.4 | E-carte enfant | Carte **au nom de l'enfant** + **sa** photo (jamais la carte de l'adulte) | P0 | |
+| 17.5 | Liste membres | Adulte + chaque enfant affichés, téléchargement par membre | P0 | |
+| 17.6 | Quittances | 119 (règlement) + 120 (ristourne) téléchargeables | P0 | |
 
 ## 18. UI / UX transverse
 
@@ -214,6 +222,8 @@ Priorités : **P0** bloquant, **P1** majeur, **P2** confort.
 | 18.5 | Pays | Listes/recherche, pas de champs libres | P1 | |
 | 18.6 | Clavier | Ne masque pas le contenu | P1 | |
 | 18.7 | Hauteurs | Éléments compacts | P2 | |
+| 18.8 | Champs de date | Dates en champs **encadrés** (enfants, avenants, eKYC) | P1 | |
+| 18.9 | Fichiers joints | **Aucun nom de fichier technique** affiché (« Document joint » + supprimer) | P1 | |
 
 ## 19. Sécurité & cas limites
 
@@ -224,6 +234,7 @@ Priorités : **P0** bloquant, **P1** majeur, **P2** confort.
 | 19.3 | Rotation | État conservé | P2 | |
 | 19.4 | Permissions | GPS/photo/caméra demandés au bon moment | P1 | |
 | 19.5 | Données sensibles | Pas de secrets affichés/logs | P0 | |
+| 19.6 | Compte mobile sur web | Compte `user` ouvrant une page back-office → renvoyé vers l'espace client | P0 | |
 
 ---
 
@@ -239,18 +250,18 @@ Priorités : **P0** bloquant, **P1** majeur, **P2** confort.
 | 6. Enfants | 7 | | | | | | |
 | 7. Dashboard | 5 | | | | | | |
 | 8. Voyage | 10 | | | | | | |
-| 9. Questionnaire | 7 | | | | | | |
+| 9. Questionnaire | 9 | | | | | | |
 | 10. Assurance | 5 | | | | | | |
-| 11. Récap/paiement | 9 | | | | | | |
-| 12. eKYC | 6 | | | | | | |
-| 13. Listes | 6 | | | | | | |
+| 11. Récap/paiement | 11 | | | | | | |
+| 12. eKYC | 7 | | | | | | |
+| 13. Listes | 7 | | | | | | |
 | 14. Avenants | 10 | | | | | | |
 | 15. Sinistres | 8 | | | | | | |
 | 16. Téléconsult./SOS | 6 | | | | | | |
-| 17. Documents | 4 | | | | | | |
-| 18. UI | 7 | | | | | | |
-| 19. Sécurité | 5 | | | | | | |
-| **Total** | **~123** | | | | | | |
+| 17. Documents | 6 | | | | | | |
+| 18. UI | 9 | | | | | | |
+| 19. Sécurité | 6 | | | | | | |
+| **Total** | **~132** | | | | | | |
 
 ## Journal des anomalies
 
