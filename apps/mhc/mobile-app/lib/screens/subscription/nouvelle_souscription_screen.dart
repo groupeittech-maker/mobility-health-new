@@ -369,7 +369,7 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
         nombreParticipants: data.nombreParticipants,
         notes: notesLines.join('\n'),
         destinationCountryId: data.destinationCountryId,
-        mineurs: (!data.isChildOnly && data.mineurs != null)
+        mineurs: (data.mineurs != null)
             ? data.mineurs!
                 .map(
                   (m) => {
@@ -403,6 +403,11 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
               projetId: projet.id,
               filePath: doc.path,
               docType: doc.docType,
+              // Tag « [enfant:i] » : permet au backend d'associer le document
+              // (photo / passeport) au bon enfant voyageur (e-carte par membre).
+              displayName: doc.memberIndex != null
+                  ? '${doc.label ?? doc.docType} [enfant:${doc.memberIndex}]'
+                  : doc.label,
             );
           } catch (docError) {
             if (mounted) {
@@ -678,8 +683,13 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
                         StepVoyageScreen(onContinue: _onVoyageContinue),
                         StepMedicalScreen(
                           onContinue: _onMedicalContinue,
+                          // Souscription « enfants uniquement » : pas de
+                          // questionnaire adulte — le parent ne voyage pas.
+                          adultIncluded:
+                              !(_voyageData?.isChildOnly ?? false),
                           mineurs: (_voyageData?.mineurs ?? const [])
-                              .map((m) => m.nom)
+                              .map((m) =>
+                                  '${m.prenom ?? ''} ${m.nom}'.trim())
                               .toList(),
                         ),
                         StepProduitScreen(

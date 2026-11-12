@@ -305,6 +305,13 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
       final st = (res['status'] ?? '').toString().toLowerCase();
       if (st == 'valide') {
         _pollTimer?.cancel();
+        // Referme la vue navigateur du checkout si elle est encore ouverte :
+        // la confirmation s'affiche directement dans l'application.
+        unawaited(Future(() async {
+          try {
+            await closeInAppWebView();
+          } catch (_) {}
+        }));
         SubscriptionsService.clearSubscriptionsCache();
         AttestationsService.clearUserAttestationsCache();
         setState(() {

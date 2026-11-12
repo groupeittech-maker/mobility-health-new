@@ -250,3 +250,25 @@ if (document.body.classList.contains('protected')) {
     requireAuth();
 }
 
+// Séparation compte assuré / logiciel : les pages <body data-backoffice> sont
+// réservées aux profils personnel MHC et partenaires (assureur, courtier,
+// hôpital…). Un compte assuré — rôle « user », créé depuis l'application
+// mobile — qui tenterait d'ouvrir une page du logiciel est renvoyé vers son
+// espace client. (La connexion le dirige déjà vers user-dashboard ; cette
+// garde couvre la navigation directe par URL.)
+(function () {
+    function guardBackofficePages() {
+        if (!document.body || !document.body.hasAttribute('data-backoffice')) return;
+        const role = (localStorage.getItem('user_role') || '').toLowerCase();
+        if (role !== 'user') return;
+        requireAuth().then(function (ok) {
+            if (ok) window.location.replace('user-dashboard.html');
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', guardBackofficePages);
+    } else {
+        guardBackofficePages();
+    }
+})();
+

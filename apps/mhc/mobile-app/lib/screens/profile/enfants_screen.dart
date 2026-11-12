@@ -341,15 +341,19 @@ class _EnfantFormState extends State<_EnfantForm> {
               decoration: MHSurfaceCard.input(labelText: 'Prénom'),
             ),
             const SizedBox(height: 10),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.cake_outlined, color: AppColors.secondary),
-              title: const Text('Date de naissance *', style: TextStyle(fontSize: 14)),
-              subtitle: Text(_fmt(_naissance)),
+            InkWell(
               onTap: () async {
                 final d = await _pick(_naissance, past: true);
                 if (d != null) setState(() => _naissance = d);
               },
+              child: InputDecorator(
+                decoration: MHSurfaceCard.input(
+                  labelText: 'Date de naissance *',
+                  suffixIcon: const Icon(Icons.cake_outlined,
+                      color: AppColors.secondary),
+                ),
+                child: Text(_fmt(_naissance)),
+              ),
             ),
             DropdownButtonFormField<String>(
               initialValue: _countries.any((c) => c.nom == _nationalite) ? _nationalite : null,
@@ -376,15 +380,19 @@ class _EnfantFormState extends State<_EnfantForm> {
               ),
             ),
             const SizedBox(height: 10),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.event_outlined, color: AppColors.secondary),
-              title: const Text('Validité de la pièce', style: TextStyle(fontSize: 14)),
-              subtitle: Text(_fmt(_validite)),
+            InkWell(
               onTap: () async {
                 final d = await _pick(_validite, past: false);
                 if (d != null) setState(() => _validite = d);
               },
+              child: InputDecorator(
+                decoration: MHSurfaceCard.input(
+                  labelText: 'Validité de la pièce',
+                  suffixIcon: const Icon(Icons.event_outlined,
+                      color: AppColors.secondary),
+                ),
+                child: Text(_fmt(_validite)),
+              ),
             ),
             TextField(
               controller: _lienCtrl,

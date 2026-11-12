@@ -262,7 +262,7 @@ class _ProfileChangeScreenState extends State<ProfileChangeScreen> {
                                 child: Text(
                                   _piecePath == null
                                       ? 'Joindre le document (PDF ou image, 5 Mo max)'
-                                      : _piecePath!.split(RegExp(r'[\\/]')).last,
+                                      : 'Document joint',
                                   style: TextStyle(
                                     color: _piecePath == null
                                         ? AppColors.mutedText

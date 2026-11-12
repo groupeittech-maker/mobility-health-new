@@ -43,7 +43,12 @@ def serialize_medecin_conseil(user: Optional[User]) -> Optional[dict[str, Any]]:
     if not user:
         return None
     nom = (user.full_name or user.username or user.email or "").strip() or None
-    telephone = (getattr(user, "telephone", None) or "").strip() or None
+    # Téléphone de contact : à défaut, le numéro WhatsApp du médecin fait
+    # office de ligne directe (les deux champs existent sur le compte).
+    telephone = (
+        (getattr(user, "telephone", None) or "").strip()
+        or (getattr(user, "numero_whatsapp", None) or "").strip()
+    ) or None
     email = (user.email or "").strip() or None
     if not nom and not telephone and not email:
         return None

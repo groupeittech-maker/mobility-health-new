@@ -268,8 +268,6 @@ class _SubscriptionsFilteredScreenState
                               s.produitAssurance?.nom,
                               if (dest.isNotEmpty) dest,
                               if (v != null) 'Départ ${_fmt(v.dateDepart)}',
-                              if (s.prixApplique > 0)
-                                '${s.prixApplique.toStringAsFixed(0)} XAF',
                             ].whereType<String>().join(' • '),
                             style: const TextStyle(
                                 fontSize: 12, color: AppColors.mutedText),

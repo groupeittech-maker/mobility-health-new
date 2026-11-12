@@ -828,6 +828,57 @@ class EcardsService {
     }
   }
 
+  /// Membres assurés de la police (GET /subscriptions/:id/ecard/members) —
+  /// une e-carte par membre : adulte/tiers puis chaque enfant voyageur.
+  Future<List<Map<String, dynamic>>> getMembers(int subscriptionId) async {
+    final res = await _api.get<Map<String, dynamic>>(
+      '/subscriptions/$subscriptionId/ecard/members',
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+    final list = res['members'];
+    if (list is! List) return const [];
+    return list.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// Photo portrait d'un membre (GET /subscriptions/:id/ecard/member-photo).
+  Future<List<int>?> getMemberPhoto(int subscriptionId, int member) async {
+    try {
+      final response = await _api.dio.get<List<int>>(
+        '/subscriptions/$subscriptionId/ecard/member-photo',
+        queryParameters: {'member': member},
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final bytes = response.data;
+      if (bytes == null || bytes.isEmpty || !_isImageBytes(bytes)) return null;
+      return bytes;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// E-carte (PNG) d'un membre précis — l'enfant télécharge SA carte, pas
+  /// celle du parent (GET /subscriptions/:id/ecard/download?member=i).
+  Future<String> downloadMemberCard(
+    int subscriptionId,
+    int member, {
+    String? fileName,
+  }) async {
+    final response = await _api.dio.get<List<int>>(
+      '/subscriptions/$subscriptionId/ecard/download',
+      queryParameters: {'member': member},
+      options: Options(responseType: ResponseType.bytes),
+    );
+    final bytes = response.data;
+    if (bytes == null || bytes.isEmpty) throw Exception('E-carte vide reçue');
+    final dir = await getTemporaryDirectory();
+    final name = (fileName ?? 'ecarte-$subscriptionId-m$member.png')
+        .replaceAll(RegExp(r'[^\w\-.]'), '_');
+    final file = File('${dir.path}/$name');
+    await file.writeAsBytes(bytes);
+    return file.path;
+  }
+
   /// Vérifie la signature d'un vrai fichier image — l'endpoint peut renvoyer
   /// une erreur JSON/texte en 200, ce qui cassait `Image.memory`.
   bool _isImageBytes(List<int> b) {
@@ -999,10 +1050,15 @@ class VoyageDocumentsService {
     required int projetId,
     required String filePath,
     required String docType,
+    String? displayName,
   }) async {
     return _api.postMultipart<Map<String, dynamic>>(
       '/voyages/$projetId/documents',
-      fields: {'doc_type': docType},
+      fields: {
+        'doc_type': docType,
+        if (displayName != null && displayName.isNotEmpty)
+          'display_name': displayName,
+      },
       fileKey: 'file',
       filePath: filePath,
       fromJson: (d) => d as Map<String, dynamic>,

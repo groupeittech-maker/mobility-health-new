@@ -34,6 +34,12 @@ const _typeLabels = {
   'modification': 'Avenant de modification',
   'prorogation': 'Avenant de prorogation',
 };
+const _statutLabels = {
+  'attente_paiement': 'En attente de paiement',
+  'emise': 'Émis',
+  'annule': 'Annulé',
+  'abandonne': 'Abandonné',
+};
 const _paymentTypes = {
   'mobile_money_mtn': 'Mobile Money MTN',
   'mobile_money_airtel': 'Airtel Money',
@@ -276,11 +282,7 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
                   ),
                   if (voyagePasCommence) ...[
                     const SizedBox(height: 10),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.flight_takeoff),
-                      title: const Text('Nouvelle date de début'),
-                      subtitle: Text(_date(start)),
+                    InkWell(
                       onTap: () async {
                         final first = DateUtils.dateOnly(DateTime.now())
                             .add(const Duration(days: 1));
@@ -298,12 +300,17 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
                           });
                         }
                       },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Nouvelle date de début',
+                          border: OutlineInputBorder(),
+                          suffixIcon: Icon(Icons.flight_takeoff),
+                        ),
+                        child: Text(_date(start)),
+                      ),
                     ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.flight_land),
-                      title: const Text('Nouvelle date de fin'),
-                      subtitle: Text(_date(end)),
+                    const SizedBox(height: 10),
+                    InkWell(
                       onTap: () async {
                         final first = start.add(const Duration(days: 1));
                         final last =
@@ -316,15 +323,19 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
                           });
                         }
                       },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Nouvelle date de fin',
+                          border: OutlineInputBorder(),
+                          suffixIcon: Icon(Icons.flight_land),
+                        ),
+                        child: Text(_date(end)),
+                      ),
                     ),
                   ],
                 ],
                 if (action == 'prorogation')
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.flight_land),
-                    title: const Text('Nouvelle date de fin de couverture'),
-                    subtitle: Text(_date(end)),
+                  InkWell(
                     onTap: () async {
                       final first = DateUtils.dateOnly(s.dateFin ?? s.dateDebut).add(const Duration(days: 1));
                       final last = DateUtils.dateOnly(s.dateDebut).add(Duration(days: maxDays));
@@ -337,6 +348,14 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
                         });
                       }
                     },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Nouvelle date de fin de couverture',
+                        border: OutlineInputBorder(),
+                        suffixIcon: Icon(Icons.flight_land),
+                      ),
+                      child: Text(_date(end)),
+                    ),
                   ),
                 TextField(
                   controller: motifCtrl,
@@ -598,15 +617,30 @@ class _PolicyActionsSectionState extends State<PolicyActionsSection> {
         ],
         if (avenants.isNotEmpty || ristournes.isNotEmpty) ...[
           const SizedBox(height: 16),
-          const Text('Avenants et remboursements',
+          const Text('Documents — avenants et quittances',
               style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+          const SizedBox(height: 2),
+          const Text(
+            'Les avenants émis (annulation 102, modification 107, prorogation 108) '
+            'et les quittances de règlement/ristourne (119/120) se téléchargent ici.',
+            style: TextStyle(fontSize: 12, color: AppColors.mutedText),
+          ),
           ...avenants.map((a) {
             final id = (a['id'] as num).toInt();
+            final statut = a['statut']?.toString() ?? '';
+            final dateEmission = a['date_emission']?.toString() ??
+                a['created_at']?.toString() ??
+                '';
+            final sousTitre = [
+              'N° ${a['numero']}',
+              if (statut.isNotEmpty) _statutLabels[statut] ?? statut,
+              if (dateEmission.length >= 10) dateEmission.substring(0, 10),
+            ].join(' • ');
             return ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.description_outlined, color: AppColors.secondary),
               title: Text(_typeLabels[a['type_avenant']] ?? '${a['type_avenant']}'),
-              subtitle: Text('N° ${a['numero']}'),
+              subtitle: Text(sousTitre),
               trailing: _opening == 'av-$id'
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.picture_as_pdf_outlined),

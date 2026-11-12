@@ -78,16 +78,24 @@
 
                 if (result === 'cancel') {
                     setState('↩️', 'Paiement annulé', 'Vous avez quitté la page de paiement. La souscription reste en attente.');
-                    showLinks();
+                    // Liens vers l'espace web uniquement s'il y a une session web
+                    // (jamais depuis le navigateur ouvert par l'application).
+                    if (getStoredAccessToken()) showLinks();
                     return;
                 }
 
-                var authenticated = await requireAuth();
+                // Paiement lancé depuis l'application mobile : il n'y a pas de
+                // session web dans ce navigateur. On ne redirige JAMAIS vers la
+                // page de connexion du logiciel — l'application confirme
+                // elle-même le paiement dès que cette page est fermée.
+                var authenticated = false;
+                try { authenticated = await validateAuth(); } catch (e) { authenticated = false; }
                 if (!authenticated) {
-                    setState('🔒', 'Session requise', 'Connectez-vous pour vérifier l\'état de votre paiement.');
-                    retryLink.textContent = 'Se connecter';
-                    retryLink.href = 'login.html';
-                    retryLink.style.display = 'inline-block';
+                    setState(
+                        '✅',
+                        'Paiement pris en compte',
+                        'Vous pouvez fermer cette page et revenir dans l\'application MyMHC : la confirmation s\'y affiche automatiquement.'
+                    );
                     return;
                 }
 

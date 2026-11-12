@@ -51,14 +51,27 @@ String? _extractDetailMessage(DioException e) {
   final detail = e.response?.data;
   if (detail is Map && detail['detail'] != null) {
     final d = detail['detail'];
-    if (d is String && d.trim().isNotEmpty) return d;
+    if (d is String && d.trim().isNotEmpty) return _sanitizeDetail(d);
     if (d is List && d.isNotEmpty) {
       final msg = pydanticDetailToMessage(d);
       if (msg != null) return msg;
-      if (d.first is String) return d.first as String;
+      if (d.first is String) return _sanitizeDetail(d.first as String);
     }
   }
   return null;
+}
+
+/// Jamais de texte technique brut à l'utilisateur : « [ekyc] 502 Bad
+/// Gateway », HTML d'un proxy, pile d'appels… — on retombe sur le message
+/// générique du code de statut.
+String? _sanitizeDetail(String d) {
+  final technical = RegExp(
+    r'Bad Gateway|Internal Server Error|Gateway Timeout|'
+    r'Service Unavailable|<\s*html|<\s*head|<!doctype|'
+    r'\[(ekyc|payment|ocr|messaging|trust)\]|Exception:|Traceback',
+    caseSensitive: false,
+  );
+  return technical.hasMatch(d) ? null : d;
 }
 
 /// Convertit une liste d'erreurs FastAPI/Pydantic

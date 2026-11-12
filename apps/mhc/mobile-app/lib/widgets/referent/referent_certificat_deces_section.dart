@@ -119,7 +119,7 @@ class _ReferentCertificatDecesSectionState extends State<ReferentCertificatDeces
             ),
             const Divider(height: 20),
             if (att != null) ...[
-              Text(att['file_name']?.toString() ?? 'Fichier joint', style: const TextStyle(fontWeight: FontWeight.w600)),
+              const Text('Certificat de décès joint', style: TextStyle(fontWeight: FontWeight.w600)),
               if (meta.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),

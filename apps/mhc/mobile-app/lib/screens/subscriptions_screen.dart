@@ -184,10 +184,6 @@ class _Section extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                trailing: Text(
-                  '${s.prixApplique.toStringAsFixed(0)} XAF',
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
               ),
             )),
         const SizedBox(height: 16),

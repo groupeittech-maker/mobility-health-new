@@ -15,20 +15,34 @@ class MedicalFormData {
   final Map<String, dynamic> reponses;
 }
 
-/// Étape « Questionnaire » (kit) : Oui/Non + « veuillez préciser » uniquement
-/// pour une réponse positive pertinente, attestation d'exactitude.
-/// [mineurs] : prénom/nom de chaque enfant déclaré au voyage — chacun répond
-/// à son propre questionnaire (workflow V3 §4.3), transmis dans
-/// `reponses['enfants']` et analysé par le moteur de décision.
+/// Étape « Questionnaire » (kit) : les 6 questions sont posées **une fois pour
+/// le groupe de voyageurs**. Sur une réponse « Oui », l'utilisateur désigne la
+/// ou les personnes concernées (liste des voyageurs) puis précise la situation
+/// — la précision est associée aux personnes sélectionnées (workflow §4.3).
+///
+/// - [adultIncluded] = false : souscription « enfants mineurs uniquement » —
+///   le parent ne voyage pas, aucun questionnaire adulte n'est affiché.
+/// - Un seul voyageur : formulation individuelle, pas de sélecteur de personne.
+/// - Plusieurs voyageurs : formulation groupe + sélecteur de personnes.
 class StepMedicalScreen extends StatefulWidget {
   const StepMedicalScreen({
     super.key,
     required this.onContinue,
     this.mineurs = const [],
+    this.adultIncluded = true,
+    this.adultName,
   });
 
   final void Function(MedicalFormData data) onContinue;
+
+  /// Prénom/nom de chaque enfant déclaré au voyage.
   final List<String> mineurs;
+
+  /// L'adulte (souscripteur) fait partie des voyageurs assurés.
+  final bool adultIncluded;
+
+  /// Libellé affiché pour l'adulte dans le sélecteur de personnes.
+  final String? adultName;
 
   @override
   State<StepMedicalScreen> createState() => _StepMedicalScreenState();
@@ -37,78 +51,51 @@ class StepMedicalScreen extends StatefulWidget {
 class _StepMedicalScreenState extends State<StepMedicalScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  String? _maladeSouscription;
-  final _maladeSouscriptionPrec = TextEditingController();
-  String? _malade12Mois;
-  final _malade12MoisPrec = TextEditingController();
-  String? _maladieChronique;
-  final _maladieChroniquePrec = TextEditingController();
-  String? _enceinte;
+  /// Réponse Oui/Non par question (clé interne).
+  final Map<String, String?> _answers = {
+    for (final q in _questions) q.key: null,
+  };
+
+  /// Personnes concernées par question (index dans [_travelers]) — utilisé
+  /// uniquement quand la réponse est « oui » et qu'il y a plusieurs voyageurs.
+  final Map<String, Set<int>> _persons = {
+    for (final q in _questions) q.key: <int>{},
+  };
+
+  /// « Veuillez préciser » par question (obligatoire si « oui »).
+  final Map<String, TextEditingController> _precs = {
+    for (final q in _questions) q.key: TextEditingController(),
+  };
+
   final _moisGrossesseController = TextEditingController();
-  String? _voyageMedical;
-  String? _activite;
-  final _activitePrec = TextEditingController();
 
   bool _declarationSante = false;
   String? _error;
 
-  /// Réponses médicales par enfant : clé = index dans [widget.mineurs].
-  final List<Map<String, String?>> _childAnswers = [];
-  final List<Map<String, TextEditingController>> _childPrecisions = [];
+  /// Voyageurs assurés : adulte (s'il voyage) puis chaque enfant.
+  List<String> get _travelers => [
+        if (widget.adultIncluded) widget.adultName ?? 'Vous (adulte)',
+        ...widget.mineurs,
+      ];
 
-  static const _childQuestions = [
-    ('malade_12_mois', 'A-t-il(elle) été malade au cours des 12 derniers mois ?'),
-    ('maladie_chronique', 'Souffre-t-il(elle) d\'une maladie chronique ?'),
-    ('voyage_medical', 'Le voyage est-il prévu pour des raisons médicales ?'),
-    ('enceinte_5mois', 'Est-elle enceinte de plus de 5 mois ?'),
-  ];
+  bool get _isGroup => _travelers.length > 1;
 
-  @override
-  void initState() {
-    super.initState();
-    _syncChildForms();
-  }
-
-  @override
-  void didUpdateWidget(covariant StepMedicalScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // L'IndexedStack construit tous les enfants avant la saisie du voyage :
-    // mineurs arrive ensuite — sans resynchronisation, _childAnswers[i]
-    // déborde et l'étape s'affiche en écran gris (ErrorWidget).
-    _syncChildForms();
-  }
-
-  void _syncChildForms() {
-    while (_childAnswers.length < widget.mineurs.length) {
-      _childAnswers.add({for (final (key, _) in _childQuestions) key: null});
-      _childPrecisions.add({for (final (key, _) in _childQuestions) key: TextEditingController()});
-    }
-    while (_childAnswers.length > widget.mineurs.length) {
-      _childAnswers.removeLast();
-      for (final c in _childPrecisions.removeLast().values) {
-        c.dispose();
-      }
-    }
-  }
+  /// Souscription « un seul enfant voyageur » : formulation individuelle pour
+  /// l'enfant (le parent répond à sa place).
+  bool get _soloChild => !widget.adultIncluded && widget.mineurs.length == 1;
 
   bool get _pregnancyIneligible {
-    if (_enceinte != 'oui') return false;
+    if (_answers['enceinte'] != 'oui') return false;
     final months = int.tryParse(_moisGrossesseController.text.trim());
     return months != null && months > 5;
   }
 
   @override
   void dispose() {
-    _maladeSouscriptionPrec.dispose();
-    _malade12MoisPrec.dispose();
-    _maladieChroniquePrec.dispose();
-    _moisGrossesseController.dispose();
-    _activitePrec.dispose();
-    for (final m in _childPrecisions) {
-      for (final c in m.values) {
-        c.dispose();
-      }
+    for (final c in _precs.values) {
+      c.dispose();
     }
+    _moisGrossesseController.dispose();
     super.dispose();
   }
 
@@ -122,30 +109,29 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
     }
     if (!_formKey.currentState!.validate()) return;
     if (!_declarationSante) {
-      setState(() => _error = 'Veuillez certifier l’exactitude des informations.');
+      setState(
+          () => _error = 'Veuillez certifier l’exactitude des informations.');
       return;
     }
-    if (_maladeSouscription == null ||
-        _malade12Mois == null ||
-        _maladieChronique == null ||
-        _enceinte == null ||
-        _voyageMedical == null ||
-        _activite == null) {
-      setState(() => _error = 'Veuillez répondre à toutes les questions médicales.');
-      return;
-    }
-    for (var i = 0; i < widget.mineurs.length; i++) {
-      final answered = _childAnswers[i];
-      if (_childQuestions.any((q) => answered[q.$1] == null)) {
+    for (final q in _questions) {
+      if (_answers[q.key] == null) {
+        setState(
+            () => _error = 'Veuillez répondre à toutes les questions médicales.');
+        return;
+      }
+      if (_answers[q.key] == 'oui' &&
+          _isGroup &&
+          (_persons[q.key]?.isEmpty ?? true)) {
         setState(() => _error =
-            'Répondez à toutes les questions pour ${widget.mineurs[i]}.');
+            'Sélectionnez la ou les personnes concernées par la question ${q.index + 1}.');
         return;
       }
     }
-    if (_enceinte == 'oui') {
+    if (_answers['enceinte'] == 'oui') {
       final months = int.tryParse(_moisGrossesseController.text.trim());
       if (months == null || months < 1) {
-        setState(() => _error = 'Veuillez indiquer le nombre de mois de grossesse.');
+        setState(() =>
+            _error = 'Veuillez indiquer le nombre de mois de grossesse.');
         return;
       }
       if (months > 5) {
@@ -157,33 +143,15 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
       }
     }
 
-    // Une grossesse de plus de 5 mois chez n'importe quelle personne du groupe
-    // (enfant comprise) entraîne le refus de tout le dossier (§4.3).
-    if (_childAnswers.any(
-        (a) => a['enceinte_5mois'] == 'oui')) {
-      setState(() {
-        _error =
-            'Vous n\'êtes pas éligible pour être assuré par nos services (grossesse de plus de 5 mois).';
-      });
-      return;
-    }
-
-    // Toute réponse « Oui » (hors question grossesse), chez l'adulte comme chez
-    // un enfant, envoie tout le dossier au pôle santé de MHC (§4.3).
-    final childOui = _childAnswers.any((a) =>
-        a.entries.any((e) => e.key != 'enceinte_5mois' && e.value == 'oui'));
-    final requiresTechnicalReview = _maladeSouscription == 'oui' ||
-        _malade12Mois == 'oui' ||
-        _maladieChronique == 'oui' ||
-        _voyageMedical == 'oui' ||
-        _activite == 'oui' ||
-        childOui;
-    if (requiresTechnicalReview && mounted) {
+    // Toute réponse « Oui » envoie le dossier au pôle santé de MHC (§4.3).
+    final requiresMedicalReview =
+        _answers.values.any((v) => v == 'oui');
+    if (requiresMedicalReview && mounted) {
       final proceed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
               Icon(Icons.medical_information_outlined,
@@ -198,7 +166,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
             ],
           ),
           content: const Text(
-            'Votre dossier sera redirigé vers le service technique de MHC '
+            'Votre dossier sera redirigé vers le service médical de MHC '
             'qui prendra contact avec vous dans les plus brefs délais.',
           ),
           actions: [
@@ -219,60 +187,101 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
       if (proceed != true || !mounted) return;
     }
 
-    String? prec(TextEditingController c) {
-      final t = c.text.trim();
+    String? prec(String key) {
+      final t = _precs[key]!.text.trim();
       return t.isEmpty ? null : t;
     }
 
-    final moisGrossesse = _enceinte == 'oui'
+    final moisGrossesse = _answers['enceinte'] == 'oui'
         ? int.tryParse(_moisGrossesseController.text.trim())
         : null;
 
+    String a(String key) => _answers[key] ?? 'non';
+
+    /// Noms des personnes concernées par la question (pour la revue MHC).
+    List<String> personsOf(String key) {
+      final sel = _persons[key] ?? const <int>{};
+      final t = _travelers;
+      if (sel.isEmpty) {
+        // Voyageur unique : la réponse « oui » le concerne.
+        return t;
+      }
+      return [for (final i in sel.toList()..sort()) t[i]];
+    }
+
     final reponses = <String, dynamic>{
-      'version': 'simplified_v1',
+      'version': 'group_v2',
       'declaration_sante': true,
       'date_soumission': DateTime.now().toIso8601String(),
-      'malade_souscription': _maladeSouscription,
-      'maladeSouscription': _maladeSouscription,
-      'malade_12_mois': _malade12Mois,
-      'malade12Mois': _malade12Mois,
-      'maladie_chronique': _maladieChronique,
-      'maladieChronique': _maladieChronique,
-      'enceinte': _enceinte,
-      'pregnancy': _enceinte,
+      'adulte_voyage': widget.adultIncluded,
+      'voyageurs': _travelers,
+      // Clés historiques conservées : le moteur de décision lit « oui ».
+      'malade_souscription': a('malade_souscription'),
+      'maladeSouscription': a('malade_souscription'),
+      'malade_12_mois': a('malade_12_mois'),
+      'malade12Mois': a('malade_12_mois'),
+      'maladie_chronique': a('maladie_chronique'),
+      'maladieChronique': a('maladie_chronique'),
+      'enceinte': a('enceinte'),
+      'pregnancy': a('enceinte'),
       if (moisGrossesse != null) 'mois_grossesse': moisGrossesse,
       if (moisGrossesse != null) 'moisGrossesse': moisGrossesse,
-      'voyage_medical': _voyageMedical,
-      'voyageMedical': _voyageMedical,
-      'activite_sportive_pro': _activite,
-      'activiteSportivePro': _activite,
+      'voyage_medical': a('voyage_medical'),
+      'voyageMedical': a('voyage_medical'),
+      'activite_sportive_pro': a('activite'),
+      'activiteSportivePro': a('activite'),
+      // Personnes concernées par chaque réponse « oui » (revue médicale).
+      for (final q in _questions)
+        if (a(q.key) == 'oui') '${q.key}_personnes': personsOf(q.key),
+      // Réponses détaillées par personne (compatibilité moteur + revue).
+      if (widget.adultIncluded)
+        'adult': {
+          'nom': widget.adultName ?? 'Adulte',
+          'reponses': {
+            for (final q in _questions) q.key: _adultAnswer(q.key),
+            for (final q in _questions)
+              if (_adultAnswer(q.key) == 'oui' && prec(q.key) != null)
+                '${q.key}_precision': prec(q.key),
+          },
+        },
       if (widget.mineurs.isNotEmpty)
         'enfants': [
-          for (var i = 0; i < widget.mineurs.length; i++)
+          for (var j = 0; j < widget.mineurs.length; j++)
             {
-              'nom': widget.mineurs[i],
+              'nom': widget.mineurs[j],
               'reponses': {
-                for (final (key, _) in _childQuestions)
-                  if (_childAnswers[i][key] != null) key: _childAnswers[i][key],
-                for (final (key, _) in _childQuestions)
-                  if (_childPrecisions[i][key]!.text.trim().isNotEmpty)
-                    '${key}_precision': _childPrecisions[i][key]!.text.trim(),
+                for (final q in _questions)
+                  q.key: _childAnswer(j, q.key),
+                for (final q in _questions)
+                  if (_childAnswer(j, q.key) == 'oui' && prec(q.key) != null)
+                    '${q.key}_precision': prec(q.key),
               },
             },
         ],
-      if (prec(_maladeSouscriptionPrec) != null)
-        'malade_souscription_precision': prec(_maladeSouscriptionPrec),
-      if (prec(_malade12MoisPrec) != null)
-        'malade_12_mois_precision': prec(_malade12MoisPrec),
-      if (prec(_maladieChroniquePrec) != null)
-        'maladie_chronique_precision': prec(_maladieChroniquePrec),
-      if (prec(_activitePrec) != null)
-        'activite_precision': prec(_activitePrec),
+      for (final q in _questions)
+        if (prec(q.key) != null) '${q.key}_precision': prec(q.key),
     };
 
     widget.onContinue(MedicalFormData(reponses: reponses));
   }
 
+  /// Réponse d'un enfant à une question : « oui » si l'enfant est désigné,
+  /// « non » sinon. Enfant seul : la réponse du formulaire s'applique à lui.
+  String _childAnswer(int childIndex, String key) {
+    if (_answers[key] != 'oui') return _answers[key] ?? 'non';
+    final travelerIndex = childIndex + (widget.adultIncluded ? 1 : 0);
+    final sel = _persons[key];
+    if (sel == null || sel.isEmpty) return 'oui'; // voyageur unique
+    return sel.contains(travelerIndex) ? 'oui' : 'non';
+  }
+
+  /// Réponse de l'adulte à une question (sélecteur de personnes en groupe).
+  String _adultAnswer(String key) {
+    if (_answers[key] != 'oui') return _answers[key] ?? 'non';
+    final sel = _persons[key];
+    if (sel == null || sel.isEmpty) return 'oui';
+    return sel.contains(0) ? 'oui' : 'non';
+  }
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
@@ -289,9 +298,14 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
             children: [
               const MHSectionTitle(title: 'Questionnaire médical'),
               const SizedBox(height: 8),
-              const Text(
-                'Répondez pour chaque voyageur assuré.',
-                style: TextStyle(fontSize: 13, color: AppColors.mutedText),
+              Text(
+                _isGroup
+                    ? 'Répondez pour l\'ensemble des voyageurs assurés : ${_travelers.join(', ')}.'
+                    : _soloChild
+                        ? 'Répondez pour l\'enfant voyageur : ${_travelers.first}.'
+                        : 'Répondez pour le voyageur assuré.',
+                style:
+                    const TextStyle(fontSize: 13, color: AppColors.mutedText),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 12),
@@ -330,138 +344,57 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _yesNoRow(
-                      '1. Êtes-vous malade au moment de la souscription ?',
-                      _maladeSouscription,
-                      (v) => setState(() {
-                        _maladeSouscription = v;
-                        if (v != 'oui') _maladeSouscriptionPrec.clear();
-                      }),
-                    ),
-                    if (_maladeSouscription == 'oui')
-                      _preciserField(_maladeSouscriptionPrec),
-                    const SizedBox(height: 12),
-                    _yesNoRow(
-                      '2. Avez-vous été malade au cours des 12 derniers mois ?',
-                      _malade12Mois,
-                      (v) => setState(() {
-                        _malade12Mois = v;
-                        if (v != 'oui') _malade12MoisPrec.clear();
-                      }),
-                    ),
-                    if (_malade12Mois == 'oui')
-                      _preciserField(_malade12MoisPrec),
-                    const SizedBox(height: 12),
-                    _yesNoRow(
-                      '3. Souffrez-vous d\'une maladie chronique ?',
-                      _maladieChronique,
-                      (v) => setState(() {
-                        _maladieChronique = v;
-                        if (v != 'oui') _maladieChroniquePrec.clear();
-                      }),
-                    ),
-                    if (_maladieChronique == 'oui')
-                      _preciserField(_maladieChroniquePrec),
-                    const SizedBox(height: 12),
-                    _yesNoRow(
-                      '4. Êtes-vous enceinte au moment de la souscription ?',
-                      _enceinte,
-                      (v) => setState(() {
-                        _enceinte = v;
-                        if (v != 'oui') _moisGrossesseController.clear();
-                      }),
-                    ),
-                    if (_enceinte == 'oui') ...[
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _moisGrossesseController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly
-                        ],
-                        decoration: MHSurfaceCard.input(
-                          labelText: 'De combien de mois ?',
-                          isDense: true,
-                        ),
-                        onChanged: (_) => setState(() {}),
-                        validator: (value) {
-                          if (_enceinte != 'oui') return null;
-                          final months =
-                              int.tryParse((value ?? '').trim());
-                          if (months == null || months < 1) {
-                            return 'Indiquez le nombre de mois';
+                    for (final q in _questions) ...[
+                      _yesNoRow(
+                        '${q.index + 1}. ${_questionLabel(q)}',
+                        _answers[q.key],
+                        (v) => setState(() {
+                          _answers[q.key] = v;
+                          if (v != 'oui') {
+                            _precs[q.key]!.clear();
+                            _persons[q.key]!.clear();
+                            if (q.key == 'enceinte') {
+                              _moisGrossesseController.clear();
+                            }
                           }
-                          if (months > 5) {
-                            return 'Non éligible au-delà de 5 mois';
-                          }
-                          return null;
-                        },
+                        }),
                       ),
+                      if (_answers[q.key] == 'oui') ...[
+                        if (_isGroup) _personSelector(q.key),
+                        if (q.key == 'enceinte') ...[
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _moisGrossesseController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly
+                            ],
+                            decoration: MHSurfaceCard.input(
+                              labelText: 'De combien de mois ?',
+                              isDense: true,
+                            ),
+                            onChanged: (_) => setState(() {}),
+                            validator: (value) {
+                              if (_answers['enceinte'] != 'oui') return null;
+                              final months =
+                                  int.tryParse((value ?? '').trim());
+                              if (months == null || months < 1) {
+                                return 'Indiquez le nombre de mois';
+                              }
+                              if (months > 5) {
+                                return 'Non éligible au-delà de 5 mois';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                        _preciserField(_precs[q.key]!),
+                      ],
+                      const SizedBox(height: 12),
                     ],
-                    const SizedBox(height: 12),
-                    _yesNoRow(
-                      '5. Voyagez-vous pour des raisons médicales ?',
-                      _voyageMedical,
-                      (v) => setState(() => _voyageMedical = v),
-                    ),
-                    const SizedBox(height: 12),
-                    _yesNoRow(
-                      '6. Prévoyez-vous une activité sportive, d\'aventure ou professionnelle ?',
-                      _activite,
-                      (v) => setState(() {
-                        _activite = v;
-                        if (v != 'oui') _activitePrec.clear();
-                      }),
-                    ),
-                    if (_activite == 'oui') _preciserField(_activitePrec),
                   ],
                 ),
               ),
-              for (var i = 0; i < widget.mineurs.length; i++) ...[
-                const SizedBox(height: 16),
-                MHSurfaceCard(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.child_care_outlined,
-                              color: AppColors.secondary, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Questionnaire de ${widget.mineurs[i]}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.secondary,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      for (var q = 0; q < _childQuestions.length; q++) ...[
-                        _yesNoRow(
-                          '${q + 1}. ${_childQuestions[q].$2}',
-                          _childAnswers[i][_childQuestions[q].$1],
-                          (v) => setState(() {
-                            _childAnswers[i][_childQuestions[q].$1] = v;
-                            if (v != 'oui') {
-                              _childPrecisions[i][_childQuestions[q].$1]!.clear();
-                            }
-                          }),
-                        ),
-                        if (_childAnswers[i][_childQuestions[q].$1] == 'oui')
-                          _preciserField(
-                              _childPrecisions[i][_childQuestions[q].$1]!),
-                        const SizedBox(height: 12),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
               const SizedBox(height: 16),
               MHSurfaceCard(
                 padding: const EdgeInsets.all(16),
@@ -501,6 +434,60 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
     );
   }
 
+  String _questionLabel(_MedicalQuestion q) {
+    if (_isGroup) return q.groupLabel;
+    if (_soloChild) return q.childLabel;
+    return q.adultLabel;
+  }
+
+  /// Liste des voyageurs à cocher quand une question de groupe reçoit « Oui ».
+  Widget _personSelector(String key) {
+    final t = _travelers;
+    final sel = _persons[key]!;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Personne(s) concernée(s) *',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: AppColors.secondary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (var i = 0; i < t.length; i++)
+                FilterChip(
+                  label: Text(t[i]),
+                  selected: sel.contains(i),
+                  onSelected: (v) => setState(() {
+                    if (v) {
+                      sel.add(i);
+                    } else {
+                      sel.remove(i);
+                    }
+                  }),
+                  selectedColor:
+                      AppColors.brandTeal.withValues(alpha: 0.18),
+                  labelStyle: TextStyle(
+                    color: sel.contains(i)
+                        ? const Color(0xFF087F72)
+                        : AppColors.secondary,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _preciserField(TextEditingController controller) {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
@@ -509,7 +496,7 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
         maxLines: 2,
         decoration: MHSurfaceCard.input(
           labelText: 'Veuillez préciser *',
-          hintText: 'Décrivez votre situation',
+          hintText: 'Décrivez la situation',
           isDense: true,
         ),
         validator: (v) =>
@@ -565,3 +552,75 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
     );
   }
 }
+
+/// Une question médicale du kit, déclinée en formulation adulte / enfant seul /
+/// groupe de voyageurs.
+class _MedicalQuestion {
+  const _MedicalQuestion(
+    this.index,
+    this.key, {
+    required this.adultLabel,
+    required this.childLabel,
+    required this.groupLabel,
+  });
+
+  final int index;
+  final String key;
+  final String adultLabel;
+  final String childLabel;
+  final String groupLabel;
+}
+
+const _questions = [
+  _MedicalQuestion(
+    0,
+    'malade_souscription',
+    adultLabel: 'Êtes-vous malade au moment de la souscription ?',
+    childLabel: 'L\'enfant est-il malade au moment de la souscription ?',
+    groupLabel:
+        'L\'un des voyageurs est-il malade au moment de la souscription ?',
+  ),
+  _MedicalQuestion(
+    1,
+    'malade_12_mois',
+    adultLabel: 'Avez-vous été malade au cours des 12 derniers mois ?',
+    childLabel:
+        'L\'enfant a-t-il été malade au cours des 12 derniers mois ?',
+    groupLabel:
+        'L\'un des voyageurs a-t-il été malade au cours des 12 derniers mois ?',
+  ),
+  _MedicalQuestion(
+    2,
+    'maladie_chronique',
+    adultLabel: 'Souffrez-vous d\'une maladie chronique ?',
+    childLabel: 'L\'enfant souffre-t-il d\'une maladie chronique ?',
+    groupLabel:
+        'L\'un des voyageurs souffre-t-il d\'une maladie chronique ?',
+  ),
+  _MedicalQuestion(
+    3,
+    'enceinte',
+    adultLabel: 'Êtes-vous enceinte au moment de la souscription ?',
+    childLabel: 'L\'enfant est-elle enceinte au moment de la souscription ?',
+    groupLabel:
+        'L\'une des voyageuses est-elle enceinte au moment de la souscription ?',
+  ),
+  _MedicalQuestion(
+    4,
+    'voyage_medical',
+    adultLabel: 'Voyagez-vous pour des raisons médicales ?',
+    childLabel:
+        'Le voyage de l\'enfant est-il prévu pour des raisons médicales ?',
+    groupLabel: 'Le voyage est-il prévu pour des raisons médicales ?',
+  ),
+  _MedicalQuestion(
+    5,
+    'activite',
+    adultLabel:
+        'Prévoyez-vous une activité sportive, d\'aventure ou professionnelle ?',
+    childLabel:
+        'L\'enfant prévoit-il une activité sportive, d\'aventure ou professionnelle ?',
+    groupLabel:
+        'L\'un des voyageurs prévoit-il une activité sportive, d\'aventure ou professionnelle ?',
+  ),
+];

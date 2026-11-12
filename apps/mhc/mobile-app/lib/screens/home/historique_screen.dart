@@ -199,7 +199,6 @@ class _SouscriptionsListState extends State<_SouscriptionsList> {
                   fields: [
                     ('Date', _formatDateStr(s.createdAt)),
                     ('Produit', s.produitAssurance?.nom ?? 'Produit #${s.produitAssuranceId}'),
-                    if (s.prixApplique > 0) ('Prix', '${s.prixApplique.toStringAsFixed(0)} XAF'),
                   ],
                 ),
               ),

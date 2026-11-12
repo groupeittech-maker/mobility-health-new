@@ -25,7 +25,6 @@ class EcardsScreen extends StatefulWidget {
 class _EcardsScreenState extends State<EcardsScreen> {
   final SubscriptionsService _subsService = SubscriptionsService();
   final EcardsService _ecardsService = EcardsService();
-  final AttestationsService _attestationsService = AttestationsService();
 
   bool _loading = true;
   String? _error;
@@ -58,24 +57,58 @@ class _EcardsScreenState extends State<EcardsScreen> {
           final bytes = await _ecardsService.getUserPhoto(sub.id);
           if (bytes != null) photo = Uint8List.fromList(bytes);
         } catch (_) {}
+        final policyNumber = ecard?['numero_souscription']?.toString() ??
+            (sub.numeroSouscription.isNotEmpty
+                ? sub.numeroSouscription
+                : null);
+        final validity = _formatValidity(sub, ecard);
+        List<Map<String, dynamic>> members = const [];
+        try {
+          members = await _ecardsService.getMembers(sub.id);
+        } catch (_) {}
+        if (members.isNotEmpty) {
+          for (final m in members) {
+            final idx = (m['index'] as num?)?.toInt() ?? 0;
+            final isChild = m['role'] == 'child';
+            Uint8List? memberPhoto = idx == 0 ? photo : null;
+            if (isChild) {
+              try {
+                final b = await _ecardsService.getMemberPhoto(sub.id, idx);
+                if (b != null) memberPhoto = Uint8List.fromList(b);
+              } catch (_) {}
+            }
+            cards.add(_CardEntry(
+              subscription: sub,
+              holderName: m['name']?.toString() ??
+                  ecard?['holder_name']?.toString() ??
+                  '',
+              policyNumber: policyNumber,
+              validity: validity,
+              isChild: isChild,
+              memberIndex: idx,
+              photoBytes: memberPhoto,
+            ));
+          }
+          continue;
+        }
         cards.add(_CardEntry(
           subscription: sub,
           holderName: ecard?['holder_name']?.toString() ?? '',
-          policyNumber: ecard?['numero_souscription']?.toString() ??
-              (sub.numeroSouscription.isNotEmpty ? sub.numeroSouscription : null),
-          validity: _formatValidity(sub, ecard),
+          policyNumber: policyNumber,
+          validity: validity,
           isChild: false,
           photoBytes: photo,
         ));
+        var childIndex = 0;
         for (final childName in _minorNames(sub)) {
+          childIndex++;
           cards.add(_CardEntry(
             subscription: sub,
             holderName: childName,
-            policyNumber: sub.numeroSouscription.isNotEmpty
-                ? sub.numeroSouscription
-                : null,
-            validity: _formatValidity(sub, ecard),
+            policyNumber: policyNumber,
+            validity: validity,
             isChild: true,
+            memberIndex: childIndex,
           ));
         }
       }
@@ -131,17 +164,15 @@ class _EcardsScreenState extends State<EcardsScreen> {
     final entry = _cards[_currentIndex];
     setState(() => _downloading = true);
     try {
-      final attestations =
-          await _attestationsService.getSubscriptionAttestations(entry.subscription.id);
-      if (attestations.isEmpty) {
-        throw Exception('Aucune attestation disponible pour cette police.');
-      }
-      final att = attestations.first;
-      final id = att['id'] as int?;
-      if (id == null) throw Exception('Attestation invalide.');
-      final path = await _attestationsService.downloadEcard(
-        id,
-        numeroAttestation: att['numero_attestation']?.toString(),
+      // Chaque membre télécharge SA carte : l'endpoint génère l'e-carte de
+      // l'enfant demandé (nom + photo de l'enfant), pas celle du parent.
+      final numero = entry.policyNumber ??
+          entry.subscription.numeroSouscription;
+      final path = await _ecardsService.downloadMemberCard(
+        entry.subscription.id,
+        entry.memberIndex,
+        fileName:
+            'ecarte-${numero.isNotEmpty ? numero : entry.subscription.id}-${entry.holderName.isNotEmpty ? entry.holderName : 'assure'}.png',
       );
       if (!mounted) return;
       await OpenFilex.open(path);
@@ -345,6 +376,10 @@ class _CardEntry {
   final String? policyNumber;
   final String? validity;
   final bool isChild;
+
+  /// Index du membre assuré dans /ecard/members — le téléchargement demande
+  /// la carte de CE membre (0 = principal/tiers, ≥1 = enfant voyageur).
+  final int memberIndex;
   final Uint8List? photoBytes;
 
   _CardEntry({
@@ -353,6 +388,7 @@ class _CardEntry {
     this.policyNumber,
     this.validity,
     required this.isChild,
+    this.memberIndex = 0,
     this.photoBytes,
   });
 }

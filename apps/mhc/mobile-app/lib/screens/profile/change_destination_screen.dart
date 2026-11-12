@@ -265,7 +265,7 @@ class _ChangeDestinationScreenState extends State<ChangeDestinationScreen> {
                         child: Text(
                           _billetPath == null
                               ? 'Joindre le billet'
-                              : _billetPath!.split(RegExp(r'[\\/]')).last,
+                              : 'Billet joint',
                           style: TextStyle(
                             color: _billetPath == null
                                 ? AppColors.mutedText

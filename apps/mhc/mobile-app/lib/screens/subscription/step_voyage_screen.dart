@@ -47,10 +47,18 @@ class MineurEntry {
 
 /// Pièce justificative (chemin local + type pour l'API).
 class VoyageDocEntry {
-  const VoyageDocEntry({required this.path, required this.docType, this.label});
+  const VoyageDocEntry(
+      {required this.path,
+      required this.docType,
+      this.label,
+      this.memberIndex});
   final String path;
   final String docType; // passport, travel_booking, other, etc.
   final String? label;  // Libellé affiché (ex. "Passeport", "Billet")
+
+  /// Position de l'enfant dans la liste `mineurs` du voyage — permet au
+  /// backend d'associer le document (passeport, photo) au bon assuré.
+  final int? memberIndex;
 }
 
 /// Données voyage pour création du projet (API).
@@ -788,7 +796,10 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                 style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
               ),
               const SizedBox(height: 12),
-              _buildEcartePhotoField(theme),
+              // Souscription « enfants uniquement » : l'adulte ne voyage pas,
+              // il n'a pas d'e-carte — aucune photo adulte n'est exigée. La
+              // photo de chaque enfant (formulaire enfant) sert pour sa carte.
+              if (!_voyagePourEnfant) _buildEcartePhotoField(theme),
               const SizedBox(height: 12),
               _buildDocButtons(theme),
               if (_documents.isNotEmpty) ...[
@@ -981,7 +992,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       residenceCountryName: _residenceCountryLabel ?? _residenceCountryRaw,
                       dateDepart: _dateDepart ?? DateTime.now(),
                       dateRetour: _dateRetour,
-                      nombreParticipants: 1,
+                      nombreParticipants: _voyagePourEnfant
+                          ? _enfantsVoyageurs.length
+                          : 1 + (_avecMineurs ? _mineurs.length : 0),
                       dureeJours: _dureeJours > 0 ? _dureeJours : null,
                       mineurs: mineurs,
                       documents: _documents.isNotEmpty ? List.from(_documents) : null,
@@ -1061,7 +1074,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
           const SizedBox(height: 4),
           Text(
             hasPhoto
-                ? _ecartePhotoPath!.split(RegExp(r'[/\\]')).last
+                ? 'Photo ajoutée'
                 : 'Photo portrait (visage visible) — distincte du document de voyage.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: const Color(0xFF64748B),
@@ -1250,11 +1263,13 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
     if (result != null && mounted) {
       setState(() {
         _mineurs.add(result);
+        final i = _mineurs.length - 1;
         _documents.add(
           VoyageDocEntry(
             path: result.photoPasseportPath,
             docType: 'passport',
             label: 'Passeport (enfant) — ${result.nom}',
+            memberIndex: i,
           ),
         );
         if (result.photoPortraitPath != null) {
@@ -1263,6 +1278,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
               path: result.photoPortraitPath!,
               docType: 'photo_enfant',
               label: 'Photo enfant — ${result.nom}',
+              memberIndex: i,
             ),
           );
         }
@@ -1290,6 +1306,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
             path: result.photoPasseportPath,
             docType: 'passport',
             label: 'Passeport (enfant) — ${result.nom}',
+            memberIndex: index >= 0 ? index : null,
           ),
         );
         if (result.photoPortraitPath != null) {
@@ -1298,6 +1315,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
               path: result.photoPortraitPath!,
               docType: 'photo_enfant',
               label: 'Photo enfant — ${result.nom}',
+              memberIndex: index >= 0 ? index : null,
             ),
           );
         }
@@ -1326,6 +1344,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
             path: result.photoPasseportPath,
             docType: 'passport',
             label: 'Passeport (enfant voyageur) — ${result.nom}',
+            memberIndex: index,
           ),
         );
         if (result.photoPortraitPath != null) {
@@ -1334,6 +1353,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
               path: result.photoPortraitPath!,
               docType: 'photo_enfant',
               label: 'Photo enfant (voyageur) — ${result.nom}',
+              memberIndex: index,
             ),
           );
         }
@@ -1352,11 +1372,13 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
     if (result != null && mounted) {
       setState(() {
         _enfantsVoyageurs.add(result);
+        final i = _enfantsVoyageurs.length - 1;
         _documents.add(
           VoyageDocEntry(
             path: result.photoPasseportPath,
             docType: 'passport',
             label: 'Passeport (enfant voyageur) — ${result.nom}',
+            memberIndex: i,
           ),
         );
         if (result.photoPortraitPath != null) {
@@ -1365,6 +1387,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
               path: result.photoPortraitPath!,
               docType: 'photo_enfant',
               label: 'Photo enfant (voyageur) — ${result.nom}',
+              memberIndex: i,
             ),
           );
         }
@@ -2147,9 +2170,9 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
                 ),
                 if (_photoPath != null) ...[
                   const SizedBox(height: 6),
-                  Text(
-                    _photoPath!.split(RegExp(r'[/\\]')).last,
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  const Text(
+                    'Copie du passeport ajoutée',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -2169,9 +2192,9 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
                 ),
                 if (_portraitPath != null) ...[
                   const SizedBox(height: 6),
-                  Text(
-                    _portraitPath!.split(RegExp(r'[/\\]')).last,
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  const Text(
+                    'Photo ajoutée',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],

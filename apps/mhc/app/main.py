@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 from fastapi import status
+from app.integrations.base import ExternalServiceError
 from pathlib import Path
 import logging
 import os
@@ -269,14 +270,49 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Traceback complet:\n{traceback.format_exc()}")
     logger.error(f"Request: {request.method} {request.url.path}")
     
-    # Retourner une réponse JSON avec les détails de l'erreur
+    # Hors production : détails pour le débogage. En production, jamais de
+    # message technique brut (SQL, HTML d'un service tiers…) côté client —
+    # le détail complet reste dans les journaux serveur.
+    if _debug or _env in {"development", "local", "test"}:
+        detail = f"Erreur interne du serveur: {str(exc)}"
+    else:
+        detail = "Une erreur interne est survenue. Veuillez réessayer dans quelques instants."
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
-            "detail": f"Erreur interne du serveur: {str(exc)}",
+            "detail": detail,
             "type": type(exc).__name__,
             "path": str(request.url.path)
         }
+    )
+
+
+_EXTERNAL_SERVICE_LABELS = {
+    "ekyc": "de vérification d'identité",
+    "payment": "de paiement",
+    "ocr": "de lecture de documents",
+    "messaging": "d'envoi de messages",
+}
+
+
+@app.exception_handler(ExternalServiceError)
+async def external_service_exception_handler(request: Request, exc: ExternalServiceError):
+    """Service tiers indisponible (eKYC, paiement…) : 503 avec un message
+    lisible, sans le corps brut renvoyé par le service (HTML « 502 Bad Gateway »…)."""
+    logger.error(
+        "Service externe %s en erreur (HTTP %s) sur %s %s: %s",
+        exc.service, exc.status_code, request.method, request.url.path, str(exc)[:500],
+    )
+    label = _EXTERNAL_SERVICE_LABELS.get(str(exc.service).split("-")[0], "externe")
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={
+            "detail": (
+                f"Le service {label} est momentanément indisponible. "
+                "Veuillez réessayer dans quelques minutes."
+            ),
+            "service": exc.service,
+        },
     )
 
 @app.exception_handler(StarletteHTTPException)

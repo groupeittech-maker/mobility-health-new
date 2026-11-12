@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, date
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from decimal import Decimal
 import json
 from fastapi import APIRouter, Depends, HTTPException, status, Request
@@ -50,8 +50,13 @@ from app.api.v1.attestations import (
 from app.services.finance_service import FinanceService
 from app.services.prime_tarif_service import resolve_prime_tarif_detail
 from pydantic import BaseModel
+import re
 import uuid
 import logging
+from app.models.projet_voyage_document import ProjetVoyageDocument
+from app.services.card_service import CardService
+from app.services.qrcode_service import QRCodeService
+from app.services.project_document_storage import read_project_document_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -853,13 +858,242 @@ async def get_subscription_ecard(
     )
 
 
-@router.get("/{subscription_id}/ecard/download")
-async def download_subscription_ecard(
+# ---------------------------------------------------------------------------
+# E-cartes par membre assuré (adulte / tiers + enfants voyageurs)
+# ---------------------------------------------------------------------------
+
+def _member_name_from_mineur(m: Any) -> str:
+    if not isinstance(m, dict):
+        return str(m)
+    nom = str(m.get("nom") or "").strip()
+    prenom = str(m.get("prenom") or "").strip()
+    return f"{prenom} {nom}".strip() or nom
+
+
+def _subscription_members(db: Session, souscription: Souscription) -> List[Dict[str, Any]]:
+    """Membres assurés d'une police.
+
+    Index 0 = assuré principal : l'adulte souscripteur, ou le tiers pour une
+    souscription « enfants uniquement » (marqueur « Pour un tiers » dans les
+    notes). Les enfants voyageurs suivent, dans l'ordre du champ structuré
+    `projet.mineurs`.
+    """
+    projet = None
+    if souscription.projet_voyage_id:
+        projet = db.query(ProjetVoyage).filter(
+            ProjetVoyage.id == souscription.projet_voyage_id
+        ).first()
+    mineurs = list(getattr(projet, "mineurs", None) or [])
+    notes = f"{getattr(projet, 'notes', '') or ''}\n{souscription.notes or ''}"
+    is_tier = "pour un tiers" in notes.lower()
+
+    members: List[Dict[str, Any]] = []
+    if is_tier:
+        if mineurs:
+            for pos, m in enumerate(mineurs):
+                members.append({
+                    "index": pos,
+                    "role": "child",
+                    "name": _member_name_from_mineur(m),
+                    "mineur": m if isinstance(m, dict) else None,
+                    "mineur_pos": pos,
+                    "principal": pos == 0,
+                })
+        else:
+            # Ancien encodage : informations du tiers uniquement dans les notes.
+            members.append({
+                "index": 0, "role": "tier", "name": "",
+                "mineur": None, "mineur_pos": None, "principal": True,
+            })
+    else:
+        members.append({
+            "index": 0, "role": "adult", "name": "",
+            "mineur": None, "mineur_pos": None, "principal": True,
+        })
+        for pos, m in enumerate(mineurs):
+            members.append({
+                "index": pos + 1,
+                "role": "child",
+                "name": _member_name_from_mineur(m),
+                "mineur": m if isinstance(m, dict) else None,
+                "mineur_pos": pos,
+                "principal": False,
+            })
+    return members
+
+
+def _child_photo_bytes(
+    db: Session, projet_id: Optional[int], mineur_pos: Optional[int]
+) -> Optional[bytes]:
+    """Photo portrait d'un enfant assuré : document `photo_enfant` taggé
+    « [enfant:<pos>] » dans son libellé, sinon le n-ième document photo_enfant
+    dans l'ordre d'envoi."""
+    if not projet_id or mineur_pos is None:
+        return None
+    docs = (
+        db.query(ProjetVoyageDocument)
+        .filter(
+            ProjetVoyageDocument.projet_voyage_id == projet_id,
+            ProjetVoyageDocument.doc_type == "photo_enfant",
+        )
+        .order_by(ProjetVoyageDocument.uploaded_at, ProjetVoyageDocument.id)
+        .all()
+    )
+    if not docs:
+        return None
+    target = None
+    for d in docs:
+        tag = re.search(r"\[enfant:(\d+)\]", d.display_name or "")
+        if tag and int(tag.group(1)) == mineur_pos:
+            target = d
+            break
+    if target is None and 0 <= mineur_pos < len(docs):
+        target = docs[mineur_pos]
+    if target is None:
+        return None
+    try:
+        return read_project_document_bytes(target.bucket_name, target.object_name)
+    except Exception as e:
+        logger.warning(
+            "Photo enfant illisible (doc %s, projet %s): %s",
+            target.id, projet_id, e,
+        )
+        return None
+
+
+def _get_owned_subscription_or_404(
+    db: Session, subscription_id: int, current_user: User
+) -> Souscription:
+    souscription = (
+        db.query(Souscription)
+        .filter(
+            Souscription.id == subscription_id,
+            Souscription.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not souscription:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Souscription non trouvée",
+        )
+    return souscription
+
+
+def _generate_member_card_png(
+    db: Session,
+    souscription: Souscription,
+    attestation: Attestation,
+    member: Dict[str, Any],
+) -> BytesIO:
+    """Génère à la volée le PNG e-carte d'un enfant assuré (nom + photo de
+    l'enfant — pas ceux du parent souscripteur)."""
+    mineur = member.get("mineur") or {}
+    traveler_info = {
+        "fullName": member.get("name") or _member_name_from_mineur(mineur),
+        "nom": mineur.get("nom"),
+        "prenoms": mineur.get("prenom"),
+        "dateNaissance": mineur.get("date_naissance"),
+    }
+    verification_url = AttestationService.build_verification_url(
+        attestation.numero_attestation
+    )
+    qr_buffer = QRCodeService.generate_qr_image(verification_url)
+    photo = _child_photo_bytes(
+        db, souscription.projet_voyage_id, member.get("mineur_pos")
+    )
+    user_obj = db.query(User).filter(User.id == souscription.user_id).first()
+    return CardService.generate_insurance_card(
+        user_obj,
+        souscription,
+        attestation.numero_attestation,
+        verification_url,
+        photo_bytes=photo,
+        qr_bytes=qr_buffer.getvalue() if qr_buffer else None,
+        traveler_info=traveler_info,
+        allow_missing_photo=True,
+    )
+
+
+@router.get("/{subscription_id}/ecard/members")
+async def list_ecard_members(
     subscription_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Télécharger directement la carte numérique depuis Minio (évite les problèmes d'URL signée)"""
+    """Liste des membres assurés (une e-carte par membre) d'une souscription."""
+    souscription = _get_owned_subscription_or_404(db, subscription_id, current_user)
+    members = _subscription_members(db, souscription)
+    principal_name = ""
+    try:
+        info = AttestationService._extract_traveler_info(db, souscription.id)
+        principal_name = (info or {}).get("fullName") or ""
+    except Exception:
+        principal_name = ""
+    if not principal_name:
+        user_obj = getattr(souscription, "user", None) or db.query(User).filter(
+            User.id == souscription.user_id
+        ).first()
+        principal_name = (
+            getattr(user_obj, "full_name", None)
+            or getattr(user_obj, "username", None)
+            or getattr(user_obj, "email", None)
+            or "Assuré(e)"
+        )
+    return {
+        "subscription_id": souscription.id,
+        "members": [
+            {
+                "index": m["index"],
+                "role": m["role"],
+                "name": m["name"] or principal_name,
+            }
+            for m in members
+        ],
+    }
+
+
+@router.get("/{subscription_id}/ecard/member-photo")
+async def get_ecard_member_photo(
+    subscription_id: int,
+    member: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Photo portrait d'un membre assuré (pour l'aperçu e-carte côté app)."""
+    souscription = _get_owned_subscription_or_404(db, subscription_id, current_user)
+    members = _subscription_members(db, souscription)
+    target = next((m for m in members if m["index"] == member), None)
+    if target is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Membre assuré introuvable",
+        )
+    photo = _child_photo_bytes(
+        db, souscription.projet_voyage_id, target.get("mineur_pos")
+    )
+    if not photo:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Aucune photo disponible pour ce membre",
+        )
+    return Response(content=photo, media_type="image/jpeg")
+
+
+@router.get("/{subscription_id}/ecard/download")
+async def download_subscription_ecard(
+    subscription_id: int,
+    member: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Télécharger directement la carte numérique depuis Minio (évite les problèmes d'URL signée).
+
+    `member` (optionnel) = index du membre assuré retourné par `/ecard/members`.
+    Sans paramètre (ou index du membre principal), la carte stockée est servie ;
+    pour un enfant voyageur, sa carte est générée à la volée avec son nom et sa
+    photo — l'e-carte du parent n'est jamais servie à la place.
+    """
     souscription = (
         db.query(Souscription)
         .filter(
@@ -892,6 +1126,36 @@ async def download_subscription_ecard(
             detail="Aucune attestation définitive trouvée pour cette souscription",
         )
 
+    # Carte d'un enfant voyageur : générée à la volée avec son nom et sa photo
+    # (la carte stockée appartient au membre principal — jamais servie pour un
+    # enfant, cf. retour test : la carte d'un mineur renvoyait celle de l'adulte).
+    if member is not None:
+        members = _subscription_members(db, souscription)
+        target = next((m for m in members if m["index"] == member), None)
+        if target is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Membre assuré introuvable",
+            )
+        if not target["principal"]:
+            card_buffer = _generate_member_card_png(
+                db, souscription, attestation, target
+            )
+            safe_name = re.sub(
+                r"[^\w\-]+", "-", target["name"] or f"membre-{member}"
+            ).strip("-")[:40] or "membre"
+            return StreamingResponse(
+                BytesIO(card_buffer.getvalue()),
+                media_type="image/png",
+                headers={
+                    "Content-Disposition": (
+                        f'attachment; filename="carte-'
+                        f'{attestation.numero_attestation}-{safe_name}.png"'
+                    )
+                },
+            )
+        # Membre principal : carte stockée servie ci-dessous.
+
     if not attestation.carte_numerique_path or not attestation.carte_numerique_bucket:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -899,9 +1163,9 @@ async def download_subscription_ecard(
         )
 
     # Récupérer le fichier directement depuis Minio et le servir
+    # (StreamingResponse / BytesIO sont déjà importés en tête de module —
+    # un import local ici rendait le symbole « unbound » sur la branche membre).
     from app.services.minio_service import MinioService
-    from fastapi.responses import StreamingResponse
-    from io import BytesIO
 
     bucket_name = attestation.carte_numerique_bucket or MinioService.BUCKET_ATTESTATIONS
 
