@@ -398,17 +398,20 @@ class _StepMedicalScreenState extends State<StepMedicalScreen> {
               const SizedBox(height: 16),
               MHSurfaceCard(
                 padding: const EdgeInsets.all(16),
-                child: CheckboxListTile(
-                  value: _declarationSante,
-                  onChanged: (v) =>
-                      setState(() => _declarationSante = v ?? false),
-                  title: const Text(
-                    'Je certifie que les informations fournies sont exactes et complètes.',
-                    style: TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: CheckboxListTile(
+                    value: _declarationSante,
+                    onChanged: (v) =>
+                        setState(() => _declarationSante = v ?? false),
+                    title: const Text(
+                      'Je certifie que les informations fournies sont exactes et complètes.',
+                      style: TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: AppColors.primary,
                   ),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.primary,
                 ),
               ),
               const SizedBox(height: 24),
