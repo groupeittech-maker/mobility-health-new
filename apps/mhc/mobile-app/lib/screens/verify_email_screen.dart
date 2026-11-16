@@ -12,12 +12,21 @@ import '../services/auth_service.dart';
 
 /// Vérification du code OTP e-mail après inscription (aligné sur verify-email.html).
 class VerifyEmailScreen extends StatefulWidget {
-  const VerifyEmailScreen({super.key, required this.email, this.channel});
+  const VerifyEmailScreen({
+    super.key,
+    required this.email,
+    this.channel,
+    this.autoSend = false,
+  });
 
   final String email;
 
   /// Canal de réception du code : email | sms | whatsapp (kit MyMHC).
   final String? channel;
+
+  /// true quand on arrive depuis le login : aucun code n'a été envoyé à
+  /// cette occasion → envoyer automatiquement un nouveau code.
+  final bool autoSend;
 
   @override
   State<VerifyEmailScreen> createState() => _VerifyEmailScreenState();
@@ -46,6 +55,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   void initState() {
     super.initState();
     _startResendCooldown();
+    if (widget.autoSend) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _resendCode(force: true));
+    }
   }
 
   @override
@@ -101,8 +113,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     }
   }
 
-  Future<void> _resendCode() async {
-    if (_resendCooldown > 0 || _loading) return;
+  Future<void> _resendCode({bool force = false}) async {
+    if ((!force && _resendCooldown > 0) || _loading) return;
     setState(() {
       _errorMessage = null;
       _loading = true;

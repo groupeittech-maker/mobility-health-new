@@ -75,6 +75,7 @@ final appRouter = GoRouter(
         return VerifyEmailScreen(
           email: email.trim(),
           channel: state.uri.queryParameters['channel'],
+          autoSend: state.uri.queryParameters['autosend'] == '1',
         );
       },
     ),

@@ -1639,8 +1639,12 @@ async def resend_verification_code(
     canal = (request.channel or "email").strip().lower()
     try:
         _issue_verification_code(user, canal)
-    except HTTPException:
-        # Canal sans destination (SMS/WhatsApp sans numéro) : message neutre
+    except HTTPException as e:
+        # Canal sans destination (SMS/WhatsApp sans numéro) : message neutre.
+        # En revanche un échec d'envoi (5xx) doit remonter : sinon l'écran
+        # mobile afficherait « code envoyé » alors que rien n'est parti.
+        if e.status_code and e.status_code >= 500:
+            raise
         return {"message": "Si cet email existe, un code de vérification a été envoyé"}
 
     return {"message": "Si cet email existe, un code de vérification a été envoyé"}

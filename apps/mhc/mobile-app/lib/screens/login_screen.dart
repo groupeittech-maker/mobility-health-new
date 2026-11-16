@@ -125,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
         if (goVerify == true && mounted) {
-          context.go('/verify-email?email=${Uri.encodeComponent(email)}');
+          context.go('/verify-email?email=${Uri.encodeComponent(email)}&autosend=1');
           return;
         }
       }
