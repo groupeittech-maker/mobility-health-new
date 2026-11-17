@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../core/constants/app_colors.dart';
+import '../core/utils/api_error_helper.dart';
 import '../core/widgets/mh_logo_header.dart';
 import '../core/widgets/mh_surface_card.dart';
 import '../services/auth_service.dart';
@@ -107,7 +108,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _errorMessage = apiErrorToUserMessage(e);
         _loading = false;
       });
     }
@@ -131,7 +132,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       _startResendCooldown(60);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _errorMessage = e.toString().replaceFirst('Exception: ', ''));
+      setState(() => _errorMessage = apiErrorToUserMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

@@ -121,7 +121,7 @@ async function openReclamation(id) {
             <textarea id="reclamationMessage" rows="3" class="form-control" placeholder="Message envoyé à l'assuré ou motif interne…"></textarea>
         </div>`;
     document.getElementById('reclamationModalActions').innerHTML = _recActionsHtml(r);
-    document.getElementById('reclamationModal').classList.add('show');
+    document.getElementById('reclamationModal').classList.add('open');
 }
 
 function _recActionsHtml(r) {
@@ -154,7 +154,7 @@ async function setReclamationStatut(id, statut, message, requireMessage) {
             body: JSON.stringify({ statut, message: message || null }),
         });
         showAlert('Réclamation mise à jour.', 'success');
-        document.getElementById('reclamationModal').classList.remove('show');
+        document.getElementById('reclamationModal').classList.remove('open');
         loadReclamations();
     } catch (e) {
         showAlert(e.message || 'Action impossible.', 'error');
@@ -165,9 +165,9 @@ function initReclamationsAdmin() {
     document.getElementById('reclamationStatusFilter').addEventListener('change', loadReclamations);
     document.getElementById('reclamationSearch').addEventListener('input', renderReclamationsTable);
     document.getElementById('reclamationModalClose').onclick =
-        () => document.getElementById('reclamationModal').classList.remove('show');
+        () => document.getElementById('reclamationModal').classList.remove('open');
     document.getElementById('reclamationModal').addEventListener('click', (e) => {
-        if (e.target.id === 'reclamationModal') e.target.classList.remove('show');
+        if (e.target.id === 'reclamationModal') e.target.classList.remove('open');
     });
     loadReclamations();
 }
