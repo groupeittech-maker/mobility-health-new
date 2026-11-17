@@ -75,6 +75,45 @@ function escapeHtml(text) {
         .replace(/'/g, '&#039;');
 }
 
+// Badge de statut harmonisé : libellés français + classes status-* du
+// back-office (mêmes couleurs que les autres tableaux).
+const _SUBSCRIPTION_STATUS_LABELS = {
+    active: 'Active',
+    en_attente: 'En attente de paiement',
+    en_attente_paiement: 'En attente de paiement',
+    en_attente_validation: 'En attente de validation',
+    expiree: 'Expirée',
+    resiliee: 'Résiliée',
+    refusee: 'Refusée',
+    annulee: 'Annulée',
+    brouillon: 'Brouillon',
+    draft: 'Brouillon',
+};
+
+function subscriptionStatusBadge(statut) {
+    const key = (statut || '').toString().trim().toLowerCase();
+    const label = _SUBSCRIPTION_STATUS_LABELS[key] || (statut ? String(statut) : '—');
+    const cssClass = key === 'active' ? 'status-active'
+        : key === 'refusee' ? 'status-rejected'
+        : (key === 'expiree' || key === 'resiliee' || key === 'annulee') ? 'status-inactive'
+        : 'status-pending';
+    return `<span class="status-badge ${cssClass}">${escapeHtml(label)}</span>`;
+}
+
+// Prix aligné à droite, séparateur de milliers fr-FR (même rendu que les
+// autres tableaux financiers).
+const _fcfaFormatter = new Intl.NumberFormat('fr-FR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+});
+
+function formatSubscriptionPrice(sub) {
+    const value = parseFloat(sub && sub.prix_applique);
+    if (Number.isNaN(value)) return '—';
+    const currency = (sub.currency || 'FCFA').toString().trim() || 'FCFA';
+    return `${_fcfaFormatter.format(value)} ${escapeHtml(currency)}`;
+}
+
 // Charger les souscriptions
 async function loadSubscriptions() {
     const container = document.getElementById('subscriptionsTableContainer');
@@ -204,12 +243,10 @@ function renderSubscriptionsTable() {
     const pageData = filtered.slice(start, start + ROWS_PER_PAGE);
 
     let html = '<div class="table-wrapper" style="overflow-x: scroll !important;"><table class="data-table" style="min-width: 100%;"><thead><tr>';
-    html += '<th>Numéro</th><th>Utilisateur</th><th>Prix</th><th>Statut</th><th>Date</th><th>Actions</th>';
+    html += '<th>Numéro</th><th>Utilisateur</th><th class="num">Prix</th><th>Statut</th><th>Date</th><th>Actions</th>';
     html += '</tr></thead><tbody>';
 
     pageData.forEach(sub => {
-        const statusClass = sub.statut === 'active' ? 'status-active' :
-            sub.statut === 'en_attente' ? 'status-pending' : 'status-inactive';
         const date = new Date(sub.created_at).toLocaleDateString('fr-FR', {
             day: '2-digit',
             month: '2-digit',
@@ -220,8 +257,8 @@ function renderSubscriptionsTable() {
             <tr>
                 <td>${sub.numero_souscription}</td>
                 <td>${escapeHtml(userDisplay)}</td>
-                <td>${parseFloat(sub.prix_applique).toFixed(2)} FCFA</td>
-                <td><span class="status-badge ${statusClass}">${sub.statut}</span></td>
+                <td class="num">${formatSubscriptionPrice(sub)}</td>
+                <td>${subscriptionStatusBadge(sub.statut)}</td>
                 <td>${date}</td>
                 <td class="table-actions">
                     <select class="action-select" data-subscription-id="${sub.id}">
@@ -416,7 +453,7 @@ function _renderDossierHtml(dossier) {
     grid.push(_dossierCard('Souscription',
         _dossierRow('Statut', dossier.souscription_status) +
         _dossierRow('Produit', dossier.produit_nom) +
-        _dossierRow('Montant', dossier.prix_applique != null ? `${Number(dossier.prix_applique).toFixed(2)} ${dossier.currency || 'XAF'}` : null) +
+        _dossierRow('Montant', dossier.prix_applique != null ? `${_fcfaFormatter.format(Number(dossier.prix_applique))} ${dossier.currency || 'XAF'}` : null) +
         _dossierRow('Période', dossier.date_debut || dossier.date_fin
             ? `du ${_fmtDossierDate(dossier.date_debut)} au ${_fmtDossierDate(dossier.date_fin)}` : null) +
         _dossierRow('Destination', [dossier.travel_destination_city, dossier.travel_destination_country].filter(Boolean).join(', '))));
