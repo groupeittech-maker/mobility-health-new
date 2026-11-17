@@ -28,13 +28,41 @@
         return n.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
     }
 
+    // ---------- Pays de l'assureur : liste contrôlée ----------
+    function _populatePays() {
+        const sel = $('fPays');
+        if (!sel || typeof COUNTRIES === 'undefined') return;
+        sel.innerHTML = '<option value="">— Sélectionner —</option>' +
+            COUNTRIES.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+    }
+
+    // Sélectionne un pays (casse insensible) ; si la valeur n'existe pas dans la
+    // liste (donnée héritée), on ajoute une option temporaire pour la conserver.
+    function _setPays(value) {
+        const sel = $('fPays');
+        if (!sel) return;
+        const v = (value || '').trim();
+        if (!v) { sel.value = ''; return; }
+        const opt = [...sel.options].find(o => o.value.toLowerCase() === v.toLowerCase());
+        if (opt) { sel.value = opt.value; return; }
+        const tmp = document.createElement('option');
+        tmp.value = v; tmp.textContent = v;
+        sel.appendChild(tmp);
+        sel.value = v;
+    }
+
     // ---------- Chargement des référentiels ----------
     async function loadReferentials() {
         try {
-            const assureurs = await apiCall('/assureurs/');
+            const assureurs = await apiCall('/assureurs');
+            const list = assureurs || [];
             $('fAssureur').innerHTML = '<option value="">— Sélectionner —</option>' +
-                (assureurs || []).map(a => `<option value="${a.id}" data-pays="${esc(a.pays || '')}">${esc(a.nom || a.name)}</option>`).join('');
-        } catch (_) { /* liste vide */ }
+                (list.length
+                    ? list.map(a => `<option value="${a.id}" data-pays="${esc(a.pays || '')}">${esc(a.nom || a.name)}</option>`).join('')
+                    : '<option value="" disabled>— Aucune compagnie configurée —</option>');
+        } catch (e) {
+            $('fAssureur').innerHTML = '<option value="" disabled>— Erreur de chargement des compagnies —</option>';
+        }
         try {
             const reassureurs = await apiCall('/admin/reassureurs');
             $('fReassureur').innerHTML = '<option value="">— Sélectionner —</option>' +
@@ -62,7 +90,7 @@
         $('fCode').readOnly = true;
         $('fVersion').value = p.version || '';
         $('fStatut').value = p.est_actif ? 'actif' : 'inactif';
-        $('fPays').value = p.pays || '';
+        _setPays(p.pays);
         $('fCurrency').value = p.currency || 'XAF';
         $('fAssureur').value = p.assureur_id || '';
         $('fReassureur').value = p.reassureur_id || '';
@@ -228,6 +256,7 @@
         const ok = await requireAuth();
         if (!ok) return;
         productId = new URLSearchParams(location.search).get('id');
+        _populatePays();
         await loadReferentials();
         if (productId) {
             try { await loadProduct(); } catch (e) { toast(e.message || 'Produit introuvable', true); }
@@ -252,7 +281,7 @@
         // Auto-remplissage pays depuis l'assureur
         $('fAssureur').addEventListener('change', e => {
             const opt = e.target.selectedOptions[0];
-            if (opt && opt.dataset.pays && !$('fPays').value) $('fPays').value = opt.dataset.pays;
+            if (opt && opt.dataset.pays && !$('fPays').value) _setPays(opt.dataset.pays);
         });
         // Défauts réassureur
         $('fReassureur').addEventListener('change', e => {
