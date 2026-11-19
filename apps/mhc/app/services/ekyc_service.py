@@ -54,10 +54,13 @@ def create_session(
     if souscription:
         meta["mhc_souscription_id"] = souscription.id
 
-    # Le numéro de téléphone déclaré par MHC devient la destination OTP
-    # imposée : l'utilisateur ne peut pas substituer un autre numéro, l'OTP
-    # prouve donc le contrôle du téléphone connu de MHC.
-    otp_destination = (user.telephone or user.numero_whatsapp or "").strip() or None
+    # Destination OTP imposée (l'utilisateur ne peut pas la substituer).
+    # L'email est privilégié : il est vérifié à l'inscription et ne dépend pas
+    # du routage SMS de l'opérateur eKYC — un numéro déclaré différent de celui
+    # saisi par l'utilisateur provoque OTP_DESTINATION_MISMATCH côté eKYC.
+    otp_destination = (
+        user.email or user.telephone or user.numero_whatsapp or ""
+    ).strip() or None
 
     client = get_ekyc_client()
     response = client.create_session(
