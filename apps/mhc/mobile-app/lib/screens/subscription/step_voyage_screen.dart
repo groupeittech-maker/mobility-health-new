@@ -792,7 +792,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Prenez une photo ou joignez vos documents (pièce d’identité obligatoire, billet, etc.)',
+                _voyagePourEnfant
+                    ? 'Prenez une photo ou joignez vos documents (pièce d’identité du souscripteur facultative, billet, etc.)'
+                    : 'Prenez une photo ou joignez vos documents (pièce d’identité obligatoire, billet, etc.)',
                 style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
               ),
               const SizedBox(height: 12),
@@ -953,9 +955,11 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       );
                       return;
                     }
-                    // La pièce d'identité du parent reste obligatoire même s'il
-                    // ne voyage pas : c'est lui qui souscrit pour les enfants.
-                    if (!_documents.any((d) => d.label == kIdentityDocLabel)) {
+                    // La pièce d'identité de l'adulte est exigée quand il
+                    // voyage ; en souscription « enfants uniquement » elle est
+                    // facultative (l'adulte n'est pas un assuré).
+                    if (!_voyagePourEnfant &&
+                        !_documents.any((d) => d.label == kIdentityDocLabel)) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
