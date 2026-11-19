@@ -1,9 +1,34 @@
 (async function () {
     const ok = await requirePermission('comptes_produits', 'consultation', 'index.html');
     if (!ok) return;
+    populateCountryOptions();
     loadParams();
     bindEvents();
 })();
+
+// Liste contrôlée des pays (countries.js) — value = nom du pays, car le
+// paramètre doit correspondre au champ "pays" de l'assureur.
+function populateCountryOptions() {
+    const sel = document.getElementById('countryInput');
+    if (!sel || typeof COUNTRIES === 'undefined') return;
+    sel.innerHTML = '<option value="">— Sélectionner —</option>' +
+        COUNTRIES.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('');
+}
+
+// Sélectionne un pays (casse insensible) ; une valeur héritée hors liste est
+// conservée via une option temporaire.
+function setCountryValue(value) {
+    const sel = document.getElementById('countryInput');
+    if (!sel) return;
+    const v = (value || '').trim();
+    if (!v) { sel.value = ''; return; }
+    const opt = [...sel.options].find(o => o.value.toLowerCase() === v.toLowerCase());
+    if (opt) { sel.value = opt.value; return; }
+    const tmp = document.createElement('option');
+    tmp.value = v; tmp.textContent = v;
+    sel.appendChild(tmp);
+    sel.value = v;
+}
 
 let editingCountry = null;
 let taxCounter = 0;
@@ -143,7 +168,7 @@ async function loadCountryDetail(country) {
     showAlert('formAlert', '', false);
     try {
         const p = await apiCall(`/admin/tarification/parametres-pays/${encodeURIComponent(country)}`);
-        document.getElementById('countryInput').value = p.pays_assureur;
+        setCountryValue(p.pays_assureur);
         document.getElementById('feeInput').value = p.frais_services_pct;
         document.getElementById('coutPoliceInput').value = p.cout_police != null ? p.cout_police : 0;
         document.getElementById('reassureurNomInput').value = p.reassureur_nom || 'SCGRÉ';
