@@ -80,6 +80,9 @@ def _actions(db, sous, today=TODAY):
 
 
 class TestAnnulation:
+    """Workflow : demande de l'assuré → validation par l'agent de production.
+    Interdite moins de 48 h avant l'entrée en vigueur et une fois la police en vigueur."""
+
     def test_simulation_does_not_change_policy(self, db, test_user, test_product):
         sous = _souscription(db, test_user, test_product)
         result = avenant_service.request_annulation(db, sous, test_user, confirm=False)
@@ -87,31 +90,170 @@ class TestAnnulation:
         # Prime + taxes remboursées ; coût de police et frais de service retenus.
         assert result.montants.total == Decimal("11000")
         assert sous.statut == StatutSouscription.ACTIVE
+        assert db.query(Avenant).filter(Avenant.souscription_id == sous.id).count() == 0
 
-    def test_confirmed_annulation_emits_102_and_ristourne(self, db, test_user, test_product):
+    def test_confirmed_annulation_creates_pending_request(self, db, test_user, test_product):
         sous = _souscription(db, test_user, test_product)
         result = avenant_service.request_annulation(db, sous, test_user, confirm=True, motif="Voyage annulé")
         db.commit()
-        assert sous.statut == StatutSouscription.RESILIEE
-        assert result.avenant.numero.endswith("-102")
-        assert result.avenant.statut == "emis"
-        assert result.ristourne.statut == "a_rembourser"
-        assert result.ristourne.montant_total == Decimal("11000")
-        assert result.ristourne.numero is None
-        assert avenant_service.build_avenant_pdf(db, result.avenant).read()[:4] == b"%PDF"
-        # Police annulée : plus aucune action possible.
+        # La police n'est PAS résiliée : la demande attend l'agent de production.
+        assert sous.statut == StatutSouscription.ACTIVE
+        assert result.avenant.statut == "attente_validation"
+        assert result.avenant.numero.startswith("PROV-")
+        assert result.avenant.montant_ajustement == Decimal("11000")
+        assert result.avenant.nature_ajustement == "remboursement"
+        assert result.ristourne is None
+        assert result.montants.total == Decimal("11000")
+        # Demande en cours : plus aucune action possible.
         assert not any(_actions(db, sous).values())
 
-    def test_unpaid_dossier_cancelled_without_document(self, db, test_user, test_product):
+    def test_production_approval_emits_102_and_ristourne(self, db, test_user, test_product):
+        sous = _souscription(db, test_user, test_product)
+        result = avenant_service.request_annulation(db, sous, test_user, confirm=True)
+        db.commit()
+        approved = avenant_service.validate_annulation(db, result.avenant, test_user, approve=True)
+        db.commit()
+        assert sous.statut == StatutSouscription.RESILIEE
+        assert approved.avenant.numero.endswith("-102")
+        assert approved.avenant.statut == "emis"
+        assert approved.avenant.decision_assureur == "approuvee"
+        assert approved.avenant.decided_by_id == test_user.id
+        assert approved.ristourne.statut == "a_rembourser"
+        assert approved.ristourne.montant_total == Decimal("11000")
+        assert approved.ristourne.numero is None
+        assert avenant_service.build_avenant_pdf(db, approved.avenant).read()[:4] == b"%PDF"
+        assert not any(_actions(db, sous).values())
+
+    def test_production_rejection_releases_policy(self, db, test_user, test_product):
+        sous = _souscription(db, test_user, test_product)
+        result = avenant_service.request_annulation(db, sous, test_user, confirm=True)
+        db.commit()
+        refused = avenant_service.validate_annulation(
+            db, result.avenant, test_user, approve=False, motif="Justificatif insuffisant"
+        )
+        db.commit()
+        assert sous.statut == StatutSouscription.ACTIVE
+        assert refused.avenant.statut == "refuse"
+        assert refused.avenant.decision_assureur == "refusee"
+        assert refused.avenant.notes == "Justificatif insuffisant"
+        # La demande refusée libère la police : une nouvelle annulation est possible.
+        assert _actions(db, sous)["annulation"]
+
+    def test_unpaid_dossier_cancelled_after_approval(self, db, test_user, test_product):
         sous = _souscription(db, test_user, test_product, statut=StatutSouscription.EN_ATTENTE_VALIDATION, paid=False)
         result = avenant_service.request_annulation(db, sous, test_user, confirm=True)
+        assert sous.statut == StatutSouscription.EN_ATTENTE_VALIDATION
+        assert result.avenant.statut == "attente_validation"
+        assert result.ristourne is None
+        approved = avenant_service.validate_annulation(db, result.avenant, test_user, approve=True)
+        db.commit()
         assert sous.statut == StatutSouscription.RESILIEE
-        assert result.avenant is None and result.ristourne is None
+        assert approved.avenant.statut == "emis"
+        assert approved.avenant.numero.startswith("PROV-")  # pas d'avenant 102 à prime nulle
+        assert approved.ristourne is None
+
+    def test_annulation_refused_within_48h_before_start(self, db, test_user, test_product):
+        for start in (0, 1, 2):
+            sous = _souscription(db, test_user, test_product, start=start, end=10)
+            with pytest.raises(AvenantError):
+                avenant_service.request_annulation(db, sous, test_user, confirm=True)
+
+    def test_annulation_allowed_more_than_48h_before_start(self, db, test_user, test_product):
+        sous = _souscription(db, test_user, test_product, start=3, end=10)
+        result = avenant_service.request_annulation(db, sous, test_user, confirm=True)
+        assert result.avenant.statut == "attente_validation"
+        # Mais à J-2 la fenêtre devient interdite : la validation doit échouer.
+        with pytest.raises(AvenantError):
+            avenant_service.validate_annulation(
+                db, result.avenant, test_user, approve=True, today=TODAY + timedelta(days=1)
+            )
 
     def test_annulation_refused_on_or_after_start_date(self, db, test_user, test_product):
         sous = _souscription(db, test_user, test_product, start=0, end=10)
-        with pytest.raises(AvenantError):
+        with pytest.raises(AvenantError, match="en vigueur"):
             avenant_service.request_annulation(db, sous, test_user, confirm=True)
+        sous2 = _souscription(db, test_user, test_product, start=-2, end=10)
+        with pytest.raises(AvenantError, match="en vigueur"):
+            avenant_service.request_annulation(db, sous2, test_user, confirm=True)
+
+    def test_requester_can_withdraw_pending_request(self, db, test_user, test_product):
+        sous = _souscription(db, test_user, test_product)
+        result = avenant_service.request_annulation(db, sous, test_user, confirm=True)
+        db.commit()
+        abandoned = avenant_service.abandon_pending(db, result.avenant)
+        db.commit()
+        assert abandoned.statut == "abandonne"
+        assert sous.statut == StatutSouscription.ACTIVE
+        assert _actions(db, sous)["annulation"]
+
+
+def _login(client, username: str, password: str) -> dict:
+    r = client.post("/api/v1/auth/login", data={"username": username, "password": password})
+    assert r.status_code == status.HTTP_200_OK, r.text
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+def _production_agent(db, suffix="1"):
+    agent = User(
+        email=f"prod{suffix}@example.com",
+        username=f"prodagent{suffix}",
+        hashed_password=get_password_hash("prodpassword123"),
+        full_name="Agent Production",
+        role=Role.PRODUCTION_AGENT,
+        is_active=True,
+    )
+    db.add(agent)
+    db.commit()
+    db.refresh(agent)
+    return agent
+
+
+class TestAnnulationValidationAPI:
+    """POST /avenants/{id}/valider-annulation : réservé à l'agent de production."""
+
+    def test_insured_cannot_validate(self, client, db, test_user, test_product):
+        sous = _souscription(db, test_user, test_product)
+        result = avenant_service.request_annulation(db, sous, test_user, confirm=True)
+        db.commit()
+        r = client.post(
+            f"/api/v1/avenants/{result.avenant.id}/valider-annulation",
+            json={"approuver": True},
+            headers=_login(client, "testuser", "testpassword123"),
+        )
+        assert r.status_code == status.HTTP_403_FORBIDDEN
+        assert sous.statut == StatutSouscription.ACTIVE
+
+    def test_production_agent_approves(self, client, db, test_user, test_product):
+        sous = _souscription(db, test_user, test_product)
+        result = avenant_service.request_annulation(db, sous, test_user, confirm=True)
+        db.commit()
+        _production_agent(db)
+        r = client.post(
+            f"/api/v1/avenants/{result.avenant.id}/valider-annulation",
+            json={"approuver": True},
+            headers=_login(client, "prodagent1", "prodpassword123"),
+        )
+        assert r.status_code == status.HTTP_200_OK, r.text
+        body = r.json()
+        assert body["statut"] == "emis"
+        assert body["numero"].endswith("-102")
+        db.refresh(sous)
+        assert sous.statut == StatutSouscription.RESILIEE
+
+    def test_production_agent_refuses(self, client, db, test_user, test_product):
+        sous = _souscription(db, test_user, test_product)
+        result = avenant_service.request_annulation(db, sous, test_user, confirm=True)
+        db.commit()
+        _production_agent(db, suffix="2")
+        r = client.post(
+            f"/api/v1/avenants/{result.avenant.id}/valider-annulation",
+            json={"approuver": False, "motif": "Hors délai"},
+            headers=_login(client, "prodagent2", "prodpassword123"),
+        )
+        assert r.status_code == status.HTTP_200_OK, r.text
+        assert r.json()["statut"] == "refuse"
+        db.refresh(sous)
+        assert sous.statut == StatutSouscription.ACTIVE
 
 
 def _countries(db, monkeypatch, zones=None):
@@ -304,8 +446,24 @@ class TestPolicyActionsApi:
 
             r = client.post(base + "/actions/annulation", json={"confirmer": True})
             assert r.status_code == 200, r.text
-            ristourne_id = r.json()["ristourne"]["id"]
-            assert Decimal(r.json()["ristourne"]["montant_total"]) == Decimal("22000")
+            # Demande enregistrée, en attente de l'agent de production : pas encore de ristourne.
+            assert r.json()["avenant"]["statut"] == "attente_validation"
+            assert r.json()["ristourne"] is None
+            annulation_id = r.json()["avenant"]["id"]
+
+            _as(other)
+            r = client.post(f"/api/v1/avenants/{annulation_id}/valider-annulation", json={"approuver": True})
+            assert r.status_code == status.HTTP_403_FORBIDDEN
+
+            _as(_production_agent(db, suffix="flow"))
+            r = client.post(f"/api/v1/avenants/{annulation_id}/valider-annulation", json={"approuver": True})
+            assert r.status_code == 200, r.text
+            assert r.json()["statut"] == "emis"
+
+            _as(test_user)
+            ristourne = db.query(Ristourne).one()
+            ristourne_id = ristourne.id
+            assert Decimal(str(ristourne.montant_total)) == Decimal("22000")
 
             r = client.post(f"/api/v1/ristournes/{ristourne_id}/confirmer", json={"moyen_remboursement": "virement"})
             assert r.status_code == status.HTTP_403_FORBIDDEN

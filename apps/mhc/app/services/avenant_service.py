@@ -47,13 +47,18 @@ TYPE_PROROGATION = "prorogation"
 ACTION_TYPES = (TYPE_ANNULATION, TYPE_MODIFICATION, TYPE_PROROGATION)
 
 STATUT_ATTENTE_PAIEMENT = "attente_paiement"
+STATUT_ATTENTE_VALIDATION = "attente_validation"
 STATUT_EMIS = "emis"
 STATUT_ABANDONNE = "abandonne"
-STATUTS_EN_COURS = (STATUT_ATTENTE_PAIEMENT,)
+STATUT_REFUSE = "refuse"
+STATUTS_EN_COURS = (STATUT_ATTENTE_PAIEMENT, STATUT_ATTENTE_VALIDATION)
 
 NATURE_COMPLEMENT = "complement"
 NATURE_REMBOURSEMENT = "remboursement"
 NATURE_AUCUN = "aucun"
+
+# Annulation : fenêtre d'interdiction avant l'entrée en vigueur (48 h).
+ANNULATION_CUTOFF_DAYS = 2
 
 RISTOURNE_A_REMBOURSER = "a_rembourser"
 RISTOURNE_REMBOURSE = "rembourse"
@@ -293,7 +298,9 @@ def _blocker(db: Session, souscription: Souscription, action: str, today: date) 
     fin = _as_date(souscription.date_fin)
     if action == TYPE_ANNULATION:
         if debut is None or today >= debut:
-            return "L'annulation n'est possible qu'avant la date d'effet de la police."
+            return "Police en vigueur : la résiliation n'est plus possible."
+        if (debut - today).days <= ANNULATION_CUTOFF_DAYS:
+            return "L'annulation est impossible moins de 48 h avant l'entrée en vigueur de la police."
         if statut in {StatutSouscription.EN_ATTENTE, StatutSouscription.PENDING}:
             return "Un brouillon se supprime directement depuis la liste « En attente »."
         in_flight = (
@@ -368,33 +375,91 @@ def request_annulation(
         return ActionResult(souscription, montants=montants, simulation=True,
                             nature=NATURE_REMBOURSEMENT if montants.total > 0 else NATURE_AUCUN)
 
+    # La demande part en validation auprès de l'agent de production : la police
+    # n'est résiliée qu'après sa décision (avenant 102 émis à ce moment-là).
+    avenant = Avenant(
+        souscription_id=souscription.id,
+        type_avenant=TYPE_ANNULATION,
+        numero=_provisional_number(),
+        statut=STATUT_ATTENTE_VALIDATION,
+        motif_autre=(motif or "").strip() or None,
+        date_debut_initiale=souscription.date_debut,
+        date_fin_initiale=souscription.date_fin,
+        montant_ajustement=montants.total,
+        nature_ajustement=NATURE_REMBOURSEMENT if montants.total > 0 else NATURE_AUCUN,
+        payload={"montants": montants.as_payload()},
+        created_by_id=getattr(actor, "id", None),
+    )
+    db.add(avenant)
+    db.flush()
+    _notify(
+        souscription,
+        "Demande d'annulation reçue",
+        f"Votre demande d'annulation de la police {souscription.numero_souscription} "
+        "a été transmise à l'agent de production pour validation.",
+    )
+    return ActionResult(souscription, avenant=avenant, montants=montants,
+                        nature=avenant.nature_ajustement)
+
+
+def validate_annulation(
+    db: Session,
+    avenant: Avenant,
+    actor: Optional[User],
+    *,
+    approve: bool,
+    motif: Optional[str] = None,
+    today: Optional[date] = None,
+) -> ActionResult:
+    """Décision de l'agent de production sur une demande d'annulation (102)."""
+    if avenant.type_avenant != TYPE_ANNULATION or avenant.statut != STATUT_ATTENTE_VALIDATION:
+        raise AvenantError("Cette demande n'est pas une annulation en attente de validation.")
+    souscription = avenant.souscription or db.query(Souscription).filter(Souscription.id == avenant.souscription_id).first()
+    if souscription is None:
+        raise AvenantError("Police introuvable pour cette demande.")
+    avenant.decision_assureur = "approuvee" if approve else "refusee"
+    avenant.decided_by_id = getattr(actor, "id", None)
+    avenant.decided_at = datetime.utcnow()
+    if not approve:
+        avenant.statut = STATUT_REFUSE
+        avenant.notes = ((motif or "").strip() or avenant.notes)
+        db.flush()
+        _notify(
+            souscription,
+            "Annulation refusée",
+            f"Votre demande d'annulation de la police {souscription.numero_souscription} a été refusée."
+            + (f" Motif : {motif.strip()}" if motif and motif.strip() else ""),
+        )
+        return ActionResult(souscription, avenant=avenant, nature=NATURE_AUCUN)
+
+    # La fenêtre d'annulation est revérifiée au moment de la décision : la
+    # police peut être entrée en vigueur ou dans les 48 h pendant l'attente.
+    day = _today(today)
+    debut = _as_date(souscription.date_debut)
+    if debut is None or day >= debut:
+        raise AvenantError("Police en vigueur : la résiliation n'est plus possible.")
+    if (debut - day).days <= ANNULATION_CUTOFF_DAYS:
+        raise AvenantError("L'annulation est impossible moins de 48 h avant l'entrée en vigueur de la police.")
+
+    paiement = _original_payment(db, souscription)
+    montants = annulation_refund(souscription) if paiement else Montants()
     now = datetime.utcnow()
     souscription.statut = StatutSouscription.RESILIEE
-    avenant = ristourne = None
-    if paiement is not None:
-        for attestation in db.query(Attestation).filter(Attestation.souscription_id == souscription.id).all():
-            attestation.est_valide = False
-        avenant = Avenant(
-            souscription_id=souscription.id,
-            type_avenant=TYPE_ANNULATION,
-            numero=_allocate_number(db, TYPE_ANNULATION),
-            statut=STATUT_EMIS,
-            motif_autre=(motif or "").strip() or None,
-            date_effet=now,
-            date_debut_initiale=souscription.date_debut,
-            date_fin_initiale=souscription.date_fin,
-            montant_ajustement=montants.total,
-            nature_ajustement=NATURE_REMBOURSEMENT if montants.total > 0 else NATURE_AUCUN,
-            payload={"montants": montants.as_payload()},
-            created_by_id=getattr(actor, "id", None),
+    ristourne = None
+    for attestation in db.query(Attestation).filter(Attestation.souscription_id == souscription.id).all():
+        attestation.est_valide = False
+    avenant.statut = STATUT_EMIS
+    avenant.date_effet = now
+    avenant.montant_ajustement = montants.total
+    avenant.nature_ajustement = NATURE_REMBOURSEMENT if montants.total > 0 else NATURE_AUCUN
+    avenant.payload = {"montants": montants.as_payload()}
+    avenant.notes = ((motif or "").strip() or avenant.notes)
+    if paiement is not None and montants.total > 0:
+        avenant.numero = _allocate_number(db, TYPE_ANNULATION)
+        ristourne = _create_ristourne(
+            db, souscription, avenant, paiement, montants,
+            motif=f"Annulation de la police avant sa date d'effet (avenant {avenant.numero})",
         )
-        db.add(avenant)
-        db.flush()
-        if montants.total > 0:
-            ristourne = _create_ristourne(
-                db, souscription, avenant, paiement, montants,
-                motif=f"Annulation de la police avant sa date d'effet (avenant {avenant.numero})",
-            )
     db.flush()
     _notify(
         souscription,
@@ -403,7 +468,7 @@ def request_annulation(
         + (" Le remboursement applicable est en cours de traitement." if ristourne else ""),
     )
     return ActionResult(souscription, avenant=avenant, ristourne=ristourne, montants=montants,
-                        nature=avenant.nature_ajustement if avenant else NATURE_AUCUN)
+                        nature=avenant.nature_ajustement)
 
 
 # ---------------------------------------------------------------------------
@@ -783,7 +848,7 @@ def start_avenant_payment(
 
 
 def abandon_pending(db: Session, avenant: Avenant, reason: Optional[str] = None) -> Avenant:
-    if avenant.statut != STATUT_ATTENTE_PAIEMENT:
+    if avenant.statut not in (STATUT_ATTENTE_PAIEMENT, STATUT_ATTENTE_VALIDATION):
         raise AvenantError("Cette demande n'est plus en cours.")
     avenant.statut = STATUT_ABANDONNE
     avenant.notes = reason or avenant.notes
@@ -793,17 +858,26 @@ def abandon_pending(db: Session, avenant: Avenant, reason: Optional[str] = None)
 
 def expire_stale_pending(db: Session, today: Optional[date] = None) -> int:
     """Abandonne les demandes dont la fenêtre est dépassée (modification après
-    la date d'effet, prorogation après la fin de couverture initiale)."""
+    la date d'effet, prorogation après la fin de couverture initiale, annulation
+    dans les 48 h précédant l'entrée en vigueur)."""
     day = _today(today)
     count = 0
-    pendings = db.query(Avenant).filter(Avenant.statut == STATUT_ATTENTE_PAIEMENT).all()
+    pendings = db.query(Avenant).filter(
+        Avenant.statut.in_((STATUT_ATTENTE_PAIEMENT, STATUT_ATTENTE_VALIDATION))
+    ).all()
     for avenant in pendings:
         souscription = avenant.souscription
         if souscription is None:
             continue
-        expired = day > _as_date(souscription.date_fin)
+        if avenant.statut == STATUT_ATTENTE_VALIDATION:
+            debut = _as_date(souscription.date_debut)
+            expired = debut is None or (debut - day).days <= ANNULATION_CUTOFF_DAYS
+            reason = "Délai d'annulation dépassé (moins de 48 h avant l'entrée en vigueur)."
+        else:
+            expired = day > _as_date(souscription.date_fin)
+            reason = "Complément non réglé dans le délai autorisé."
         if expired:
-            abandon_pending(db, avenant, "Complément non réglé dans le délai autorisé.")
+            abandon_pending(db, avenant, reason)
             count += 1
     return count
 

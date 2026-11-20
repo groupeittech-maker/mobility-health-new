@@ -12,6 +12,7 @@ import httpx
 
 from app.integrations.base import BaseServiceClient, ExternalServiceError
 from app.integrations.ekyc.schemas import (
+    EkycEvidenceResponse,
     EkycResultResponse,
     EkycSealRequest,
     EkycSealResponse,
@@ -92,12 +93,14 @@ class EkycLiveClient(BaseServiceClient):
         flow: str,
         metadata: Dict[str, Any] | None = None,
         otp_destination: str | None = None,
+        return_url: str | None = None,
     ) -> EkycSessionResponse:
         payload = EkycSessionRequest(
             customer_reference=customer_reference,
             flow=flow,
             metadata=metadata,
             otp_destination=otp_destination,
+            return_url=return_url,
         ).model_dump(mode="json", exclude_none=True)
         data = self._request("POST", "/v1/kyc/sessions", json=payload)
         return EkycSessionResponse.model_validate(data)
@@ -105,6 +108,53 @@ class EkycLiveClient(BaseServiceClient):
     def get_result(self, session_id: str) -> EkycResultResponse:
         data = self._request("GET", f"/v1/kyc/sessions/{session_id}")
         return EkycResultResponse.model_validate(data)
+
+    def get_evidence(self, session_id: str) -> EkycEvidenceResponse:
+        """Dossier de preuve pour la revue manuelle (artefacts + scores)."""
+        data = self._request("GET", f"/v1/kyc/sessions/{session_id}/evidence")
+        return EkycEvidenceResponse.model_validate(data)
+
+    def get_artifact(self, session_id: str, artifact_id: str) -> tuple[bytes, str]:
+        """Binaire d'une pièce de preuve (image doc, selfie) + content-type."""
+        headers = {"Accept": "*/*", **self._headers()}
+        try:
+            with httpx.Client(timeout=self.timeout) as client:
+                response = client.get(
+                    f"{self.base_url}/v1/kyc/sessions/{session_id}/artifacts/{artifact_id}",
+                    headers=headers,
+                )
+                response.raise_for_status()
+                return response.content, response.headers.get(
+                    "content-type", "application/octet-stream"
+                )
+        except httpx.HTTPStatusError as exc:
+            raise ExternalServiceError(
+                self.service_name,
+                exc.response.text or str(exc),
+                status_code=exc.response.status_code,
+            ) from exc
+        except httpx.RequestError as exc:
+            raise ExternalServiceError(self.service_name, str(exc)) from exc
+
+    def get_certificate(self, session_id: str) -> bytes:
+        """Certificat KYC signé (PDF) — dossier de preuve officiel."""
+        headers = {"Accept": "application/pdf", **self._headers()}
+        try:
+            with httpx.Client(timeout=self.timeout) as client:
+                response = client.get(
+                    f"{self.base_url}/v1/kyc/sessions/{session_id}/certificate",
+                    headers=headers,
+                )
+                response.raise_for_status()
+                return response.content
+        except httpx.HTTPStatusError as exc:
+            raise ExternalServiceError(
+                self.service_name,
+                exc.response.text or str(exc),
+                status_code=exc.response.status_code,
+            ) from exc
+        except httpx.RequestError as exc:
+            raise ExternalServiceError(self.service_name, str(exc)) from exc
 
     def seal_document(
         self,

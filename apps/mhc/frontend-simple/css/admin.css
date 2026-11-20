@@ -5501,3 +5501,13 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
 }
 .dossier-step.skipped .step-dot { background: #e2e8f0; color: #94a3b8; }
 .dossier-step.skipped .step-label { color: #94a3b8; font-weight: 500; }
+
+/* Section eKYC du dossier de revue */
+.ekyc-summary { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.ekyc-checks { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.ekyc-check-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #f8fafc; border-radius: 8px; font-size: 13px; }
+.ekyc-artifacts { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0; }
+.ekyc-artifact { margin: 0; text-align: center; max-width: 180px; }
+.ekyc-artifact img { width: 100%; max-height: 140px; object-fit: contain; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; }
+.ekyc-artifact figcaption { font-size: 12px; color: #64748b; margin-top: 4px; }
+.dossier-photo-missing { display: inline-block; padding: 14px 10px; font-size: 11px; color: #94a3b8; border: 1px dashed #e2e8f0; border-radius: 8px; width: 56px; text-align: center; }

@@ -62,12 +62,23 @@ def create_session(
         user.email or user.telephone or user.numero_whatsapp or ""
     ).strip() or None
 
+    # Le parcours eKYC s'ouvre dans un nouvel onglet : à la fin, le bouton
+    # « Retour à l'application » ramène au wizard qui reprend l'étape courante
+    # (eKYC si non vérifié, paiement sinon). Sans souscription → dashboard.
+    front = (settings.FRONTEND_BASE_URL or "").rstrip("/")
+    return_url = (
+        f"{front}/subscription-wizard.html?subscription_id={souscription.id}"
+        if front and souscription
+        else f"{front}/user-dashboard.html" if front else None
+    )
+
     client = get_ekyc_client()
     response = client.create_session(
         customer_reference=customer_ref,
         flow=flow,
         metadata=meta,
         otp_destination=otp_destination,
+        return_url=return_url,
     )
 
     session = EkycSession(

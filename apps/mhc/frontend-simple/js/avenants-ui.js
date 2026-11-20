@@ -9,8 +9,10 @@ const AVENANT_TYPE_LABELS = {
 };
 const AVENANT_STATUT_LABELS = {
     attente_paiement: 'En attente du paiement du complément',
+    attente_validation: 'En attente de validation',
     emis: 'Émis',
     abandonne: 'Abandonné',
+    refuse: 'Refusée',
 };
 const RISTOURNE_STATUT_LABELS = { a_rembourser: 'Remboursement en cours', rembourse: 'Remboursé' };
 const ACTION_PAYMENT_TYPES = {
@@ -88,7 +90,15 @@ function _renderActionButtons(info) {
 
 function _sectionHtml(info) {
     const pending = info.action_en_cours;
-    const pendingHtml = pending ? `
+    const pendingHtml = pending ? (pending.statut === 'attente_validation' ? `
+        <div class="alert alert-info" style="margin-bottom:0.8rem;">
+            <strong>Demande en cours : ${_esc(AVENANT_TYPE_LABELS[pending.type_avenant] || pending.type_avenant)}</strong>
+            <div>Votre demande est en cours de validation par l'agent de production.</div>
+            <div class="muted-text">Les autres actions sur cette attestation sont désactivées jusqu'à la clôture de la demande.</div>
+            <div style="margin-top:0.5rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
+                <button class="btn btn-outline btn-sm" onclick="abandonAvenant(${pending.id})">Retirer ma demande</button>
+            </div>
+        </div>` : `
         <div class="alert alert-info" style="margin-bottom:0.8rem;">
             <strong>Demande en cours : ${_esc(AVENANT_TYPE_LABELS[pending.type_avenant] || pending.type_avenant)}</strong>
             <div>Nouvelles dates : du ${_fmtDate(pending.nouvelle_date_debut)} au ${_fmtDate(pending.nouvelle_date_fin)}</div>
@@ -98,9 +108,9 @@ function _sectionHtml(info) {
                 <button class="btn btn-primary btn-sm" onclick="openAvenantPaymentModal(${pending.id})">Payer le complément</button>
                 <button class="btn btn-outline btn-sm" onclick="abandonAvenant(${pending.id})">Renoncer à la demande</button>
             </div>
-        </div>` : '';
+        </div>`) : '';
 
-    const avenants = (info.avenants || []).filter((a) => a.statut !== 'attente_paiement');
+    const avenants = (info.avenants || []).filter((a) => !['attente_paiement', 'attente_validation'].includes(a.statut));
     const avenantRows = avenants.map((a) => `
         <li class="card-item" style="margin-bottom:0.6rem;">
             <strong>${_esc(AVENANT_TYPE_LABELS[a.type_avenant] || a.type_avenant)}</strong>
@@ -175,7 +185,8 @@ function openPolicyActionModal(action) {
     if (action === 'annulation') {
         _openModal(
             'Annuler la police',
-            "L'annulation est définitive. Elle n'est possible qu'avant la date d'effet de la police.",
+            "La demande est transmise à l'agent de production pour validation : la police n'est résiliée qu'après son accord. "
+            + "L'annulation est impossible moins de 48 h avant l'entrée en vigueur et une fois la police en vigueur.",
             `${motif}<div id="policySimulation"></div>`,
             cancelBtn + simulateBtn,
         );

@@ -35,6 +35,13 @@ class AvenantPaymentRequest(BaseModel):
     flow: str = Field(default="checkout", pattern="^(checkout|direct)$")
 
 
+class AvenantDecisionRequest(BaseModel):
+    """Décision de l'agent de production sur une demande d'annulation."""
+
+    approuver: bool
+    motif: Optional[str] = None
+
+
 class RistourneConfirmRequest(BaseModel):
     moyen_remboursement: str
     reference: Optional[str] = None
@@ -43,6 +50,7 @@ class RistourneConfirmRequest(BaseModel):
 class AvenantResponse(BaseModel):
     id: int
     souscription_id: int
+    police_numero: Optional[str] = None
     type_avenant: str
     numero: str
     statut: str

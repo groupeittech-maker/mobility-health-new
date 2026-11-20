@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, JSON, Numeric
 from sqlalchemy.orm import relationship
 
@@ -61,3 +63,7 @@ class Avenant(Base, TimestampMixin):
     decided_by = relationship("User", foreign_keys=[decided_by_id])
     created_by = relationship("User", foreign_keys=[created_by_id])
     parent_avenant = relationship("Avenant", remote_side=[id], foreign_keys=[parent_avenant_id])
+
+    @property
+    def police_numero(self) -> Optional[str]:
+        return self.souscription.numero_souscription if self.souscription else None

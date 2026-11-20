@@ -7,13 +7,14 @@ from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
 from app.core.database import get_db
-from app.core.permissions import F_REMBOURSEMENT, LEVEL_CONSULTATION, LEVEL_EDITION, has_permission
+from app.core.permissions import F_PRODUCTION, F_REMBOURSEMENT, LEVEL_CONSULTATION, LEVEL_EDITION, has_permission
 from app.models.avenant import Avenant
 from app.models.ristourne import Ristourne
 from app.models.souscription import Souscription
 from app.models.user import User
 from app.schemas.avenant import (
     AnnulationRequest,
+    AvenantDecisionRequest,
     AvenantPaymentRequest,
     AvenantResponse,
     ModificationRequest,
@@ -215,6 +216,35 @@ async def pay_avenant(
     return _run(db, lambda session: avenant_service.start_avenant_payment(
         session, avenant, payer, payment_type=body.payment_type, flow=body.flow,
     ))
+
+
+def _is_production_validator(user: User) -> bool:
+    """Validation des demandes d'annulation : agent de production (édition
+    sur la fonctionnalité « production ») ou administrateur."""
+    return _is_admin(user) or has_permission(_role(user), F_PRODUCTION, LEVEL_EDITION)
+
+
+@router.post("/avenants/{avenant_id}/valider-annulation", response_model=AvenantResponse)
+async def decide_annulation(
+    avenant_id: int,
+    body: AvenantDecisionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """L'agent de production approuve ou refuse une demande d'annulation (102)."""
+    if not _is_production_validator(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Réservé à l'agent de production.")
+    avenant = avenant_service.get_avenant(db, avenant_id)
+    if not avenant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avenant introuvable.")
+    try:
+        avenant_service.validate_annulation(db, avenant, current_user, approve=body.approuver, motif=body.motif)
+    except AvenantError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    db.commit()
+    db.refresh(avenant)
+    return avenant
 
 
 @router.post("/avenants/{avenant_id}/abandon", response_model=AvenantResponse)

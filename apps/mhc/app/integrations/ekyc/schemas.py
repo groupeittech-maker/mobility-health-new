@@ -34,6 +34,10 @@ class EkycSessionRequest(BaseModel):
             "substituer une autre destination pour l'OTP"
         ),
     )
+    return_url: Optional[str] = Field(
+        default=None,
+        description="URL de retour affichée à la fin du parcours (http/https)",
+    )
 
 
 class EkycSessionResponse(BaseModel):
@@ -96,3 +100,27 @@ class EkycWebhookPayload(BaseModel):
     flow: Optional[str] = None
     status: Optional[str] = None
     occurred_at: Optional[str] = None
+
+
+class EkycArtifactInfo(BaseModel):
+    artifact_id: str
+    kind: str
+    content_type: str
+    size_bytes: int
+    sha256: str
+    created_at: Optional[str] = None
+    purged: bool = False
+
+
+class EkycEvidenceResponse(BaseModel):
+    """Dossier de preuve d'une session — revue manuelle côté MHC."""
+
+    session_id: str
+    customer_reference: Optional[str] = None
+    status: str
+    checks: Dict[str, Any] = Field(default_factory=dict)
+    check_details: Dict[str, Any] = Field(default_factory=dict)
+    reasons: list[str] = Field(default_factory=list)
+    identity: Optional[Dict[str, Any]] = None
+    risk_score: Optional[float] = None
+    artifacts: list[EkycArtifactInfo] = Field(default_factory=list)

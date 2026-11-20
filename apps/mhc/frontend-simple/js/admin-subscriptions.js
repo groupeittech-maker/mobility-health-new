@@ -428,7 +428,7 @@ function _renderDocuments(docs) {
         const name = escapeHtml(d.display_name || `Document #${d.id}`);
         const isImage = (d.content_type || '').startsWith('image/');
         const thumb = isImage && d.download_url
-            ? `<a href="${escapeHtml(d.download_url)}" target="_blank" rel="noopener"><img src="${escapeHtml(d.download_url)}" alt="${name}" class="dossier-photo"></a>`
+            ? `<a href="${escapeHtml(d.download_url)}" target="_blank" rel="noopener"><img src="${escapeHtml(d.download_url)}" alt="${name}" class="dossier-photo" onerror="this.onerror=null;this.closest('a').outerHTML='<span class=&quot;dossier-photo-missing&quot;>Image indisponible</span>';"></a>`
             : '';
         return `<div class="dossier-doc">${thumb}${d.download_url
             ? `<a href="${escapeHtml(d.download_url)}" target="_blank" rel="noopener">${name}</a>`
@@ -515,6 +515,7 @@ function _renderDossierHtml(dossier) {
 
     html += _dossierBlock('Questionnaires médicaux', _renderQuestionnaires(dossier.questionnaires));
     html += _dossierBlock('Documents du voyage', _renderDocuments(dossier.documents_projet_voyage));
+    html += _dossierBlock("Vérification d'identité (eKYC)", `<div id="dossierEkyc"><p class="muted">Chargement du dossier eKYC…</p></div>`);
 
     // Actions de validation selon l'étape en attente et le rôle courant.
     const step = _pendingValidationStep(dossier);
@@ -613,6 +614,7 @@ async function viewSubscription(id) {
             `<span class="status-badge ${stCls}">${escapeHtml(dossier.souscription_status || '—')}</span>`;
         body.innerHTML = _renderDossierHtml(dossier);
         _bindDossierActions(body, dossier);
+        _loadEkycSection(body, id);
     } catch (e) {
         body.innerHTML = `<div class="alert alert-error" style="margin:1rem 0;"><p>${escapeHtml(e.message || 'Chargement du dossier impossible.')}</p></div>`;
     }
@@ -654,3 +656,183 @@ function setupSubscriptionsTableActions() {
 // Charger les souscriptions au chargement de la page
 document.addEventListener('DOMContentLoaded', loadSubscriptions);
 
+/* ------------------------------------------------------------------
+ * Demandes d'annulation en attente de validation (agent de production)
+ * ------------------------------------------------------------------ */
+
+async function loadAnnulationRequests() {
+    const container = document.getElementById('annulationRequestsContainer');
+    if (!container) return;
+    try {
+        const avenants = await apiCall('/avenants?statut=attente_validation&type_avenant=annulation');
+        renderAnnulationRequests(avenants || []);
+    } catch (e) {
+        container.innerHTML = `<div class="alert alert-error">Impossible de charger les demandes : ${escapeHtml(e.message || 'erreur')}</div>`;
+    }
+}
+
+function renderAnnulationRequests(avenants) {
+    const container = document.getElementById('annulationRequestsContainer');
+    if (!avenants.length) {
+        container.innerHTML = '<div class="empty-state"><p>Aucune demande d\'annulation en attente.</p></div>';
+        return;
+    }
+    const rows = avenants.map((a) => {
+        const montant = a.montant_ajustement != null
+            ? `${Number(a.montant_ajustement).toLocaleString('fr-FR')} FCFA`
+            : '—';
+        const remboursement = a.nature_ajustement === 'remboursement' ? 'Remboursement prévu' : 'Sans remboursement';
+        return `<tr>
+            <td><strong>${escapeHtml(a.police_numero || ('#' + a.souscription_id))}</strong></td>
+            <td class="mono">${escapeHtml(a.numero || '')}</td>
+            <td>${escapeHtml(a.motif_autre || '—')}</td>
+            <td>${_fmtDossierDate(a.created_at)}</td>
+            <td>${montant}<br><span class="muted-text">${remboursement}</span></td>
+            <td class="table-actions">
+                <button class="btn btn-primary btn-sm" onclick="decideAnnulation(${a.id}, true)">Approuver</button>
+                <button class="btn btn-danger btn-sm" onclick="decideAnnulation(${a.id}, false)">Refuser</button>
+            </td>
+        </tr>`;
+    }).join('');
+    container.innerHTML = `<div class="table-wrapper"><table class="data-table"><thead><tr>
+        <th>Police</th><th>Demande</th><th>Motif de l'assuré</th><th>Reçue le</th><th>Ajustement</th><th>Décision</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+async function decideAnnulation(avenantId, approuver) {
+    let motif = null;
+    if (!approuver) {
+        motif = window.prompt("Motif du refus (visible par l'assuré) :", '');
+        if (motif === null) return;
+    } else if (!window.confirm("Approuver cette annulation ? La police sera résiliée et l'avenant 102 émis.")) {
+        return;
+    }
+    try {
+        await apiCall(`/avenants/${avenantId}/valider-annulation`, {
+            method: 'POST',
+            body: JSON.stringify({ approuver, motif }),
+        });
+        loadAnnulationRequests();
+        loadSubscriptions();
+    } catch (e) {
+        alert(e.message || 'Décision impossible.');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadAnnulationRequests);
+
+
+// ---------------------------------------------------------------------------
+// Section eKYC du dossier : statut, scores par check, pièces de preuve.
+// ---------------------------------------------------------------------------
+const _EKYC_CHECK_LABELS = {
+    DOCUMENT_VERIFICATION: 'Document',
+    DOCUMENT_AUTHENTICITY: 'Authenticité du document',
+    OCR: 'Lecture du document (OCR)',
+    LIVENESS: 'Preuve de vie',
+    FACE_MATCH: 'Correspondance du visage',
+    NFC: 'Puce NFC',
+    OTP: 'Code de vérification',
+    SIGNATURE: 'Signature',
+};
+
+const _EKYC_ARTIFACT_LABELS = {
+    DOCUMENT_IMAGE: 'Photo du document (recto)',
+    DOCUMENT_VERSO: 'Photo du document (verso)',
+    SELFIE: 'Selfie — preuve de vie',
+    NFC_DG2: 'Portrait (puce NFC)',
+    NFC_DG1: 'Zone MRZ (puce NFC)',
+    NFC_COM: 'Fichier COM (puce NFC)',
+    NFC_SOD: 'Fichier SOD (puce NFC)',
+};
+
+const _EKYC_STATUS_LABELS = {
+    VERIFIED: 'Vérifiée', REJECTED: 'Rejetée', REVIEW: 'En revue',
+    EXPIRED: 'Expirée', IN_PROGRESS: 'En cours', CREATED: 'Créée',
+    PROCESSING: 'En traitement', OTP_SENT: 'Code envoyé',
+};
+
+async function _ekycFetch(url) {
+    const meta = window.MobilityAuth?.getAccessTokenMeta?.()
+        || { token: localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) };
+    const resp = await fetch(url, {
+        headers: meta.token ? { Authorization: buildAuthorizationHeader(meta.token) } : {},
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    return resp.blob();
+}
+
+async function _loadEkycSection(body, souscriptionId) {
+    const container = body.querySelector('#dossierEkyc');
+    if (!container) return;
+    let data;
+    try {
+        data = await apiCall(`/ekyc/admin/by-souscription/${souscriptionId}/evidence`);
+    } catch (e) {
+        // Le backend renvoie déjà un message français explicite
+        // ("Aucune session eKYC pour cette souscription", 403, 502…).
+        container.innerHTML = `<p class="muted">${escapeHtml(e.message || 'Dossier eKYC indisponible.')}</p>`;
+        return;
+    }
+
+    const st = data.status || '—';
+    const stCls = st === 'VERIFIED' ? 'status-active' : st === 'REJECTED' || st === 'EXPIRED' ? 'status-inactive' : 'status-pending';
+    const checkRows = Object.entries(data.checks || {}).map(([name, value]) => {
+        const d = (data.check_details || {})[name] || {};
+        const score = typeof d.score === 'number' ? ` <span class="muted">(score ${(+d.score).toFixed(2)})</span>` : '';
+        const reason = d.reason ? ` <span class="muted">— ${escapeHtml(String(d.reason))}</span>` : '';
+        const cls = value === 'PASSED' ? 'status-active' : value === 'FAILED' ? 'status-inactive' : 'status-pending';
+        return `<div class="ekyc-check-row"><span>${escapeHtml(_EKYC_CHECK_LABELS[name] || name)}</span>
+            <span class="status-badge ${cls}">${escapeHtml(value)}${score}${reason}</span></div>`;
+    }).join('') || '<p class="muted">Aucun contrôle enregistré.</p>';
+
+    const images = (data.artifacts || []).filter(a => (a.content_type || '').startsWith('image/') && !a.purged);
+    const purged = (data.artifacts || []).filter(a => a.purged).length;
+    const figs = images.map(a => `<figure class="ekyc-artifact">
+        <img data-artifact-url="${escapeHtml(a.url)}" alt="${escapeHtml(_EKYC_ARTIFACT_LABELS[a.kind] || a.kind)}">
+        <figcaption>${escapeHtml(_EKYC_ARTIFACT_LABELS[a.kind] || a.kind)}</figcaption>
+    </figure>`).join('');
+
+    const reasons = (data.reasons || []).length
+        ? `<p class="muted">Motifs : ${data.reasons.map(r => escapeHtml(r)).join(', ')}</p>` : '';
+    const identity = data.identity
+        ? `<p class="muted">${escapeHtml([data.identity.first_name, data.identity.last_name].filter(Boolean).join(' '))}${data.identity.date_of_birth ? ` — né(e) le ${escapeHtml(data.identity.date_of_birth)}` : ''}${data.identity.document_type ? ` — ${escapeHtml(data.identity.document_type)}` : ''}</p>` : '';
+
+    container.innerHTML = `
+        <div class="ekyc-summary">
+            <span class="status-badge ${stCls}">${escapeHtml(_EKYC_STATUS_LABELS[st] || st)}</span>
+            ${typeof data.risk_score === 'number' ? `<span class="muted">Score de risque : ${(+data.risk_score).toFixed(2)}</span>` : ''}
+        </div>
+        ${identity}
+        <div class="ekyc-checks">${checkRows}</div>
+        ${reasons}
+        ${figs ? `<div class="ekyc-artifacts">${figs}</div>` : '<p class="muted">Aucune image de preuve disponible.</p>'}
+        ${purged ? `<p class="muted">${purged} pièce(s) purgée(s) — rétention réglementaire écoulée.</p>` : ''}
+        <button type="button" class="btn btn-outline btn-sm" id="ekycCertBtn">Certificat de vérification (PDF signé)</button>`;
+
+    for (const img of container.querySelectorAll('img[data-artifact-url]')) {
+        const url = img.dataset.artifactUrl;
+        _ekycFetch(url)
+            .then((blob) => {
+                img.src = URL.createObjectURL(blob);
+                img.style.cursor = 'zoom-in';
+                img.addEventListener('click', () => window.open(img.src, '_blank', 'noopener'));
+            })
+            .catch(() => {
+                const fig = img.closest('figure');
+                if (fig) fig.innerHTML = '<figcaption class="muted">Pièce indisponible</figcaption>';
+            });
+    }
+
+    container.querySelector('#ekycCertBtn')?.addEventListener('click', async (ev) => {
+        ev.target.disabled = true;
+        try {
+            const blob = await _ekycFetch(data.certificate_url);
+            window.open(URL.createObjectURL(blob), '_blank', 'noopener');
+        } catch (_) {
+            showAlert('Certificat indisponible.', 'error');
+        } finally {
+            ev.target.disabled = false;
+        }
+    });
+}

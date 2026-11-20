@@ -70,6 +70,15 @@ def _stub_email_delivery(monkeypatch):
     monkeypatch.setattr(settings, "EMAIL_DELIVERY_MODE", "stub")
 
 
+# Sans broker Redis, task.delay() retente la connexion (~100 s/appel : retry de
+# publication Celery + retry de connexion kombu) — tout coupé en test, l'échec
+# d'envoi est déjà ignoré par les try/except des helpers de notification.
+from app.core.celery_app import celery_app
+
+celery_app.conf.task_publish_retry = False
+celery_app.conf.broker_connection_retry = False
+
+
 @pytest.fixture
 def test_user(db):
     """Create a test user"""
