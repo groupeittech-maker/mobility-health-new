@@ -767,7 +767,7 @@ async function _loadEkycSection(body, souscriptionId) {
     if (!container) return;
     let data;
     try {
-        data = await apiCall(`/ekyc/admin/by-souscription/${souscriptionId}/evidence`);
+        data = await apiCall(`/admin/ekyc/by-souscription/${souscriptionId}/evidence`);
     } catch (e) {
         // Le backend renvoie déjà un message français explicite
         // ("Aucune session eKYC pour cette souscription", 403, 502…).

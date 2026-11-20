@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.database import get_db
 from app.core.config import settings
 from app.core.constants import MAX_TRIP_DAYS
+from app.core.http_headers import content_disposition
 from app.api.v1.auth import get_current_user, get_current_user_optional
 from app.core.permissions import can_act_for_third_party
 from app.models.destination import DestinationCountry
@@ -551,7 +552,7 @@ async def download_project_document(
     return StreamingResponse(
         BytesIO(data),
         media_type=media_type,
-        headers={"Content-Disposition": f'{safe_disposition}; filename="{filename}"'},
+        headers={"Content-Disposition": content_disposition(safe_disposition, filename)},
     )
 
 

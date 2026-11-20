@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
 from app.core.database import get_db
+from app.core.http_headers import content_disposition
 from app.core.permissions import F_PRODUCTION, F_REMBOURSEMENT, LEVEL_CONSULTATION, LEVEL_EDITION, has_permission
 from app.models.avenant import Avenant
 from app.models.ristourne import Ristourne
@@ -298,7 +299,7 @@ def _pdf_response(pdf, filename: str) -> Response:
     return Response(
         content=pdf.read(),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{filename.replace("/", "-")}"'},
+        headers={"Content-Disposition": content_disposition("inline", filename)},
     )
 
 

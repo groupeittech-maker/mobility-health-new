@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.http_headers import content_disposition
 from app.api.v1.auth import get_current_user
 from app.models.user import User
 from app.models.souscription import Souscription
@@ -42,7 +43,7 @@ def _stream_from_url_as_pdf(url: str, filename: str) -> StreamingResponse:
     return StreamingResponse(
         BytesIO(content),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        headers={"Content-Disposition": content_disposition("attachment", filename)}
     )
 
 

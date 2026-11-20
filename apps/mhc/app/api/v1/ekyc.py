@@ -204,11 +204,11 @@ def ekyc_evidence_for_souscription(
         "artifacts": [
             {
                 **a.model_dump(),
-                "url": f"/api/v1/ekyc/admin/sessions/{session.session_id}/artifacts/{a.artifact_id}",
+                "url": f"/api/v1/admin/ekyc/sessions/{session.session_id}/artifacts/{a.artifact_id}",
             }
             for a in evidence.artifacts
         ],
-        "certificate_url": f"/api/v1/ekyc/admin/sessions/{session.session_id}/certificate",
+        "certificate_url": f"/api/v1/admin/ekyc/sessions/{session.session_id}/certificate",
     }
 
 
