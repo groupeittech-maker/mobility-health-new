@@ -125,11 +125,17 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
         _taxesTotal = sub.taxesTotal;
         _taxes = sub.taxes;
         _currentStep = 4;
-        _dossierLocked = sub.statut != 'en_attente';
+        _dossierLocked =
+            sub.statut != 'en_attente' && sub.statut != 'pending';
       });
       // Souscription voyage reprise : la vérification d'identité est
-      // proposée tant qu'elle n'est pas VERIFIED.
-      if (sub.projetVoyageId != null && mounted) {
+      // proposée tant qu'elle n'est pas VERIFIED — mais seulement tant
+      // que le dossier est encore éditable (brouillon). Un dossier déjà
+      // soumis ou en attente de paiement ne doit pas forcer l'écran eKYC
+      // à chaque ouverture : la carte eKYC du détail sert de rappel.
+      final editable =
+          sub.statut == 'en_attente' || sub.statut == 'pending';
+      if (editable && sub.projetVoyageId != null && mounted) {
         bool ekycOk = false;
         try {
           final latest = await EkycSessionService.instance
