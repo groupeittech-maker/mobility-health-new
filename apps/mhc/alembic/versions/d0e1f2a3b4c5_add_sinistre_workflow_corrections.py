@@ -1,6 +1,6 @@
 """Workflow sinistre : décision médecin-conseil, blocage et agrément réassureur des factures.
 
-Revision ID: c5d6e7f8a9b0
+Revision ID: d0e1f2a3b4c5
 Revises: b3c4d5e6f7a8
 """
 from typing import Sequence, Union
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = "c5d6e7f8a9b0"
+revision: str = "d0e1f2a3b4c5"
 down_revision: Union[str, Sequence[str], None] = "b3c4d5e6f7a8"
 branch_labels = None
 depends_on = None
