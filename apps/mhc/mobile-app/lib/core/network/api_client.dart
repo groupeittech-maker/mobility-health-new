@@ -184,8 +184,8 @@ class ApiClient {
       data: formData,
       options: Options(
         contentType: Headers.multipartFormDataContentType,
-        sendTimeout: const Duration(seconds: 60),
-        receiveTimeout: const Duration(seconds: 60),
+        sendTimeout: const Duration(seconds: 120),
+        receiveTimeout: const Duration(seconds: 120),
       ),
     );
     return _decode<T>(response.data, fromJson);

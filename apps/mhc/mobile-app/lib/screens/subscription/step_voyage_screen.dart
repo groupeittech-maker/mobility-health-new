@@ -1123,6 +1123,8 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
     final xfile = await picker.pickImage(
       source: source == 'camera' ? ImageSource.camera : ImageSource.gallery,
       imageQuality: 85,
+      maxWidth: 1920,
+      maxHeight: 1920,
     );
     if (xfile != null && mounted) {
       setState(() => _ecartePhotoPath = xfile.path);
@@ -1222,11 +1224,21 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
     String? path;
     if (source == 'camera') {
       final picker = ImagePicker();
-      final xfile = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+      final xfile = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
+      );
       path = xfile?.path;
     } else if (source == 'gallery') {
       final picker = ImagePicker();
-      final xfile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      final xfile = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
+      );
       path = xfile?.path;
     } else if (source == 'file') {
       final result = await FilePicker.platform.pickFiles(
@@ -1857,11 +1869,21 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
     String? path;
     if (source == 'camera') {
       final picker = ImagePicker();
-      final xfile = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+      final xfile = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
+      );
       path = xfile?.path;
     } else if (source == 'gallery') {
       final picker = ImagePicker();
-      final xfile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      final xfile = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
+      );
       path = xfile?.path;
     } else if (source == 'file') {
       final pick = await FilePicker.platform.pickFiles(
