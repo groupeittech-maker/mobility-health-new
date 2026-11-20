@@ -19,6 +19,8 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    # Acceptation CGU + politique de confidentialité (cases cochées à l'inscription)
+    cgu_accepte: Optional[bool] = None
 
 
 class UserUpdate(BaseModel):

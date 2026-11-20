@@ -2,12 +2,14 @@
 Service pour la gestion des utilisateurs
 """
 import re
+from datetime import datetime
 from urllib.parse import quote
 from typing import Optional, Tuple
 from sqlalchemy import inspect, or_
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
+from app.core.constants import CURRENT_CGU_VERSION
 from app.models.user import User
 from app.models.souscription import Souscription
 from app.models.paiement import Paiement
@@ -104,6 +106,7 @@ class UserService:
         traitements_en_cours: Optional[str] = None,
         antecedents_recents: Optional[str] = None,
         grossesse: Optional[bool] = None,
+        cgu_accepte: Optional[bool] = None,
     ) -> User:
         """
         Créer un nouvel utilisateur avec validation complète.
@@ -216,6 +219,8 @@ class UserService:
             traitements_en_cours=traitements_en_cours,
             antecedents_recents=antecedents_recents,
             grossesse=grossesse,
+            cgu_accepte_at=datetime.utcnow() if cgu_accepte else None,
+            cgu_version=CURRENT_CGU_VERSION if cgu_accepte else None,
         )
         
         try:

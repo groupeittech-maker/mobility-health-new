@@ -11,6 +11,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.core.database import get_db
+from app.core.constants import CURRENT_CGU_VERSION
 from app.core.security import (
     verify_password,
     get_password_hash,
@@ -210,6 +211,9 @@ def _apply_registration_payload(user: User, user_data: "UserCreate") -> None:
         user.antecedents_recents = user_data.antecedents_recents
     if user_data.grossesse is not None:
         user.grossesse = user_data.grossesse
+    if user_data.cgu_accepte:
+        user.cgu_accepte_at = datetime.utcnow()
+        user.cgu_version = CURRENT_CGU_VERSION
     if user_data.date_naissance:
         try:
             from datetime import datetime
@@ -358,6 +362,8 @@ class UserCreate(BaseModel):
     grossesse: bool | None = None
     # Canal de vérification du kit MyMHC : email | sms | whatsapp
     canal_verification: str | None = None
+    # Acceptation des CGU + politique de confidentialité (cases cochées)
+    cgu_accepte: bool | None = None
 
     @model_validator(mode="after")
     def set_username_from_email(self):
@@ -659,6 +665,7 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
                 traitements_en_cours=user_data.traitements_en_cours,
                 antecedents_recents=user_data.antecedents_recents,
                 grossesse=user_data.grossesse,
+                cgu_accepte=user_data.cgu_accepte,
             )
 
         canal = (user_data.canal_verification or "email").strip().lower()

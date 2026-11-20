@@ -6,6 +6,11 @@ from decimal import Decimal
 # modification et prorogation ne peuvent pas dépasser cette durée totale.
 MAX_TRIP_DAYS = 92
 
+# Version des CGU / politique de confidentialité affichées à l'inscription
+# (documents officiels MHC, nov. 2026). À incrémenter à chaque évolution des
+# textes pour tracer quelle version un compte a acceptée.
+CURRENT_CGU_VERSION = "2026-11"
+
 HOSPITAL_STAY_ACTS = [
     "Consultation médicale",
     "Stabilisation des fonctions vitales",

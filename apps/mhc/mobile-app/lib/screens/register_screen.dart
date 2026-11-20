@@ -1,5 +1,6 @@
 import 'package:country_code_picker/country_code_picker.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11,6 +12,8 @@ import '../core/utils/api_error_helper.dart';
 import '../core/widgets/mh_app_bar.dart';
 import '../core/widgets/mh_kit_widgets.dart';
 import '../core/widgets/mh_surface_card.dart';
+import '../legal/legal_document_screen.dart';
+import '../legal/legal_documents.dart';
 import '../models/destination.dart';
 import '../services/api_services.dart';
 import '../services/reference_countries_fallback.dart';
@@ -175,6 +178,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ? null
           : '${_contactUrgenceCountryCode.dialCode ?? ''}${contactTel.replaceAll(RegExp(r'[\s\-\.]'), '')}',
       'canal_verification': _canalVerification,
+      'cgu_accepte': _consentCgu && _consentConfidentialite,
     };
 
     try {
@@ -243,6 +247,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     }
     return code;
+  }
+
+  /// Libelle de consentement : le nom du document est un lien qui ouvre
+  /// l'ecran de lecture du texte integral.
+  Widget _consentLabel(
+    String before,
+    String link,
+    LegalDocument doc,
+    String after,
+  ) {
+    return Text.rich(
+      TextSpan(
+        style: GoogleFonts.poppins(fontSize: 13, color: AppColors.secondary),
+        children: [
+          TextSpan(text: before),
+          TextSpan(
+            text: link,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.underline,
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => LegalDocumentScreen(document: doc),
+                    ),
+                  ),
+          ),
+          TextSpan(text: after),
+        ],
+      ),
+    );
   }
 
   @override
@@ -589,10 +627,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ? null
                         : (v) =>
                             setState(() => _consentCgu = v ?? false),
-                    title: Text(
-                      "J'accepte les conditions générales d'utilisation (CGU).",
-                      style: GoogleFonts.poppins(
-                          fontSize: 13, color: AppColors.secondary),
+                    title: _consentLabel(
+                      "J'accepte les ",
+                      'conditions générales d’utilisation (CGU)',
+                      kCguDocument,
+                      '.',
                     ),
                   ),
                   CheckboxListTile(
@@ -603,10 +642,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ? null
                         : (v) => setState(
                             () => _consentConfidentialite = v ?? false),
-                    title: Text(
-                      "J'accepte la politique de confidentialité.",
-                      style: GoogleFonts.poppins(
-                          fontSize: 13, color: AppColors.secondary),
+                    title: _consentLabel(
+                      "J'accepte la ",
+                      'politique de confidentialité',
+                      kPrivacyDocument,
+                      '.',
                     ),
                   ),
                 ],

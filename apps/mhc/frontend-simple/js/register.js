@@ -335,6 +335,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 ].filter(Boolean).join(' ') || null,
                 contact_urgence: (formData.get('contact_urgence') || '').trim() || null,
                 canal_verification: canal,
+                cgu_accepte:
+                    document.getElementById('consent_cgu')?.checked === true &&
+                    document.getElementById('consent_confidentialite')?.checked === true,
             };
             if (canal === 'whatsapp') {
                 const wa = (formData.get('numero_whatsapp') || '').replace(/[^\d+]/g, '').trim();

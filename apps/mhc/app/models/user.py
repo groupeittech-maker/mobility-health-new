@@ -72,6 +72,9 @@ class User(Base, TimestampMixin):
     fraude_motif = Column(Text, nullable=True)
     # Adresse physique : modifiable directement, sans validation MHC.
     adresse = Column(Text, nullable=True)
+    # Acceptation des CGU + politique de confidentialité à l'inscription (trace légale).
+    cgu_accepte_at = Column(DateTime, nullable=True)
+    cgu_version = Column(String(20), nullable=True)
     # Sécurité (workflow V3 §3.2) : blocage après N échecs, session unique par appareil.
     failed_login_attempts = Column(Integer, default=0, nullable=False, server_default="0")
     locked_until = Column(DateTime, nullable=True)
