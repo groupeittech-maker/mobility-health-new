@@ -129,20 +129,23 @@ class _NouvelleSouscriptionScreenState extends State<NouvelleSouscriptionScreen>
             sub.statut != 'en_attente' && sub.statut != 'pending';
       });
       // Souscription voyage reprise : la vérification d'identité est
-      // proposée tant qu'elle n'est pas VERIFIED — mais seulement tant
-      // que le dossier est encore éditable (brouillon). Un dossier déjà
-      // soumis ou en attente de paiement ne doit pas forcer l'écran eKYC
-      // à chaque ouverture : la carte eKYC du détail sert de rappel.
+      // proposée tant que le parcours n'a pas été mené à son terme —
+      // mais seulement tant que le dossier est encore éditable
+      // (brouillon). Un parcours déjà soumis (REVIEW/PROCESSING) ou
+      // tranché (VERIFIED/REJECTED) n'est jamais re-proposé : pas de
+      // repassage forcé. La carte eKYC du détail sert de rappel.
+      const statutsDejaPasses = {'VERIFIED', 'REVIEW', 'PROCESSING', 'REJECTED'};
       final editable =
           sub.statut == 'en_attente' || sub.statut == 'pending';
       if (editable && sub.projetVoyageId != null && mounted) {
-        bool ekycOk = false;
+        bool ekycDejaPasse = false;
         try {
           final latest = await EkycSessionService.instance
               .getLatestForSouscription(sub.id);
-          ekycOk = latest?.isVerified == true;
+          final st = latest?.status.toUpperCase();
+          ekycDejaPasse = st != null && statutsDejaPasses.contains(st);
         } catch (_) {}
-        if (!ekycOk && mounted) {
+        if (!ekycDejaPasse && mounted) {
           context.push('/ekyc-verification?subscription=${sub.id}');
         }
       }

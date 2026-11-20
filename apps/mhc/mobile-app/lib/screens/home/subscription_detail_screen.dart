@@ -604,7 +604,15 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
             style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
           ),
           const SizedBox(height: 12),
-          SizedBox(
+          if (_ekycSession != null &&
+              const {'REVIEW', 'PROCESSING', 'REJECTED'}
+                  .contains(_ekycSession!.status.toUpperCase()))
+            Text(
+              'Vérification d\'identité soumise — en cours de révision.',
+              style: TextStyle(fontSize: 13, color: Colors.orange.shade700),
+            )
+          else
+            SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () => context.push('/ekyc-verification?subscription=${s.id}'),
