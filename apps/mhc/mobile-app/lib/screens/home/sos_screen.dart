@@ -50,7 +50,13 @@ class _SosScreenState extends State<SosScreen> {
   bool _sending = false;
   String? _error;
   bool _checkingEligibility = true;
-  bool _canTriggerSos = false;
+  SosEligibilityResult? _eligibility;
+
+  bool get _canTriggerSos => _eligibility?.canTrigger ?? false;
+
+  String get _blockedMessage =>
+      _eligibility?.blockedMessage ??
+      'Une attestation définitive est nécessaire pour déclencher une alerte SOS (après validation production).';
 
   @override
   void initState() {
@@ -94,17 +100,17 @@ class _SosScreenState extends State<SosScreen> {
 
   Future<void> _loadEligibility() async {
     try {
-      final ok = await SosEligibilityService.canTriggerSos();
+      final result = await SosEligibilityService.check();
       if (mounted) {
         setState(() {
-          _canTriggerSos = ok;
+          _eligibility = result;
           _checkingEligibility = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _canTriggerSos = false;
+          _eligibility = null;
           _checkingEligibility = false;
         });
       }
@@ -141,12 +147,10 @@ class _SosScreenState extends State<SosScreen> {
     if (_sending || !mounted) return;
     if (_checkingEligibility || !_canTriggerSos) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Une attestation définitive est nécessaire pour déclencher une alerte SOS (après validation production).',
-          ),
+        SnackBar(
+          content: Text(_blockedMessage),
           backgroundColor: AppColors.danger,
-          duration: Duration(seconds: 5),
+          duration: const Duration(seconds: 5),
         ),
       );
       return;
@@ -337,7 +341,9 @@ class _SosScreenState extends State<SosScreen> {
                               Text(
                                 enabled
                                     ? 'Déclarer une alerte SOS'
-                                    : 'SOS non disponible',
+                                    : _eligibility?.status == SosEligibilityStatus.coverageNotStarted
+                                        ? 'SOS pas encore actif'
+                                        : 'SOS non disponible',
                                 style: theme.textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
@@ -348,7 +354,7 @@ class _SosScreenState extends State<SosScreen> {
                               Text(
                                 enabled
                                     ? 'En cas d\'urgence médicale, appuyez sur ce bouton pour déclencher une alerte et vous serez pris en charge rapidement.'
-                                    : 'Une attestation définitive est requise (après validation production de votre dossier). Vous pouvez consulter l’état de vos attestations dans le tableau de bord.',
+                                    : _blockedMessage,
                                 style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
                                 textAlign: TextAlign.center,
                               ),
