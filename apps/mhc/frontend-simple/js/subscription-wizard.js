@@ -351,6 +351,30 @@
         state.mineurs.forEach((m, i) => { minList.innerHTML += itemHtml(m, `mineur-${i}`); });
     }
 
+    // Nationalité enfant : liste de pays (référentiel API, repli liste locale).
+    function nationalityOptions() {
+        const fromApi = (state.referenceCountries || [])
+            .map((c) => c.nom || c.name)
+            .filter(Boolean);
+        const base = fromApi.length
+            ? fromApi
+            : (typeof COUNTRIES !== 'undefined' ? COUNTRIES.map((c) => c.name) : []);
+        return [...new Set(base)].sort((a, b) => a.localeCompare(b, 'fr'));
+    }
+
+    function populateMinorNationalite(value) {
+        const sel = $('minorNationalite');
+        const options = nationalityOptions();
+        sel.innerHTML = '<option value="">Sélectionner</option>' + options
+            .map((n) => `<option value="${escapeHtml(n)}"${n === value ? ' selected' : ''}>${escapeHtml(n)}</option>`)
+            .join('');
+        // Valeur historique en saisie libre : on la conserve comme option pour
+        // ne pas perdre la donnée en modification.
+        if (value && !options.includes(value)) {
+            sel.innerHTML += `<option value="${escapeHtml(value)}" selected>${escapeHtml(value)}</option>`;
+        }
+    }
+
     // Modal enfant — champ fichier conservé dans l'input jusqu'à validation.
     // minorEditIndex : null = ajout, 'enfant' ou index numérique = modification.
     let minorTarget = null; // 'enfant' | 'mineur'
@@ -367,7 +391,7 @@
         $('minorNom').value = existing?.nom || '';
         $('minorPrenom').value = existing?.prenom || '';
         $('minorNaissance').value = existing?.dateNaissance || '';
-        $('minorNationalite').value = existing?.nationalite || '';
+        populateMinorNationalite(existing?.nationalite || '');
         $('minorParente').value = existing?.lienParente || '';
         $('minorPasseport').value = existing?.numeroPasseport || '';
         $('minorValidite').value = existing?.validitePasseport || '';
@@ -422,7 +446,7 @@
         $('minorNom').value = kid.nom || '';
         $('minorPrenom').value = kid.prenom || '';
         $('minorNaissance').value = kid.date_naissance || '';
-        $('minorNationalite').value = kid.nationalite || '';
+        populateMinorNationalite(kid.nationalite || '');
         $('minorParente').value = kid.lien_parente || '';
         $('minorPasseport').value = kid.numero_piece || '';
         $('minorValidite').value = kid.validite_piece || '';
@@ -558,10 +582,15 @@
             showMessage(`La durée du voyage est limitée à ${MAX_TRIP_DAYS} jours.`, 'error');
             return;
         }
-        // Photo e-carte obligatoire sauf voyage « enfant seul » (portrait de l'enfant utilisé).
-        if (!state.medicalPhotoDataUrl &&
-            !(voyageurMode() === 'child_only' && state.enfantVoyageur && state.enfantVoyageur.portrait)) {
-            showMessage('Veuillez joindre la photo pour l\'e-carte.', 'error');
+        // Photo d'identité du souscripteur : obligatoire dans tous les modes.
+        if (!state.medicalPhotoDataUrl) {
+            showMessage('Veuillez joindre la photo d\'identité du souscripteur.', 'error');
+            return;
+        }
+        // Pièce d'identité du souscripteur (adulte) : obligatoire dans tous les
+        // modes — y compris « enfant seul » (le souscripteur reste un adulte).
+        if (!state.documents.some((d) => d.adult)) {
+            showMessage('Veuillez joindre la pièce d\'identité du souscripteur (passeport ou carte d\'identité).', 'error');
             return;
         }
         const btn = $('voyageContinueBtn');
@@ -645,6 +674,19 @@
                 }),
             });
             state.projetId = projet.id;
+
+            // Voyage « enfant seul » : l'e-carte porte la photo de l'enfant, la
+            // photo du souscripteur est jointe comme pièce du dossier.
+            if (mode === 'child_only' && state.medicalPhotoDataUrl &&
+                !state.documents.some((d) => d.souscripteurPhoto)) {
+                const photoFile = await dataUrlToFile(state.medicalPhotoDataUrl, 'photo_souscripteur');
+                state.documents.push({
+                    file: photoFile,
+                    docType: 'other',
+                    label: 'Photo du souscripteur',
+                    souscripteurPhoto: true,
+                });
+            }
 
             // Upload séquentiel des pièces justificatives
             for (const doc of state.documents) {
@@ -798,8 +840,7 @@
     let selectedProductId = null;
 
     function updateProduitContinueState() {
-        const hasIdPhoto = state.medicalPhotoDataUrl ||
-            (voyageurMode() === 'child_only' && state.enfantVoyageur && state.enfantVoyageur.portrait);
+        const hasIdPhoto = !!state.medicalPhotoDataUrl;
         const ok = selectedProductId && hasIdPhoto && $('consentCG').checked && $('consentExclusions').checked;
         $('produitContinueBtn').disabled = !ok;
         document.querySelectorAll('.mh-product-card').forEach((card) => {
@@ -1552,6 +1593,7 @@
                 const input = $('docFileInput');
                 input.dataset.docType = chip.dataset.doctype;
                 input.dataset.docLabel = chip.dataset.doclabel;
+                input.dataset.docAdult = chip.dataset.adult === '1' ? '1' : '';
                 input.value = '';
                 input.click();
             });
@@ -1559,7 +1601,12 @@
         $('docFileInput').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            state.documents.push({ file, docType: e.target.dataset.docType, label: e.target.dataset.docLabel });
+            state.documents.push({
+                file,
+                docType: e.target.dataset.docType,
+                label: e.target.dataset.docLabel,
+                adult: e.target.dataset.docAdult === '1',
+            });
             renderDocs();
         });
 

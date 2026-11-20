@@ -352,10 +352,14 @@
                     <div id="minorsList"></div>
                 </div>
 
-                <div class="mh-sub-title" style="margin-top:20px;">Pièces justificatives</div>
-                <p class="mh-muted">Joignez vos documents (passeport, billet, etc.)</p>
+                <div class="mh-sub-title" style="margin-top:20px;">Pièce d'identité du souscripteur (adulte) *</div>
+                <p class="mh-muted">Passeport ou carte d'identité du souscripteur — obligatoire, y compris pour un voyage « enfant seul ».</p>
                 <div>
-                    <button type="button" class="mh-doc-chip" data-doctype="passport" data-doclabel="Passeport">Passeport ＋</button>
+                    <button type="button" class="mh-doc-chip" data-doctype="passport" data-doclabel="Passeport (souscripteur)" data-adult="1">Passeport ＋</button>
+                    <button type="button" class="mh-doc-chip" data-doctype="id_card" data-doclabel="Carte d'identité (souscripteur)" data-adult="1">Carte d'identité ＋</button>
+                </div>
+                <div class="mh-sub-title" style="margin-top:12px;">Autres justificatifs (facultatif)</div>
+                <div>
                     <button type="button" class="mh-doc-chip" data-doctype="travel_booking" data-doclabel="Billet / réservation">Billet / réservation ＋</button>
                     <button type="button" class="mh-doc-chip" data-doctype="other" data-doclabel="Autre document">Autre document ＋</button>
                 </div>
@@ -363,7 +367,7 @@
                 <div id="docsList"></div>
             </div>
             <div class="mh-card">
-                <div class="mh-sub-title">Photo pour l'e-carte (obligatoire — pour un voyage « enfant seul », la photo de l'enfant est utilisée)</div>
+                <div class="mh-sub-title">Photo d'identité du souscripteur * (obligatoire — sert pour l'e-carte ; pour un voyage « enfant seul », l'e-carte porte la photo de l'enfant)</div>
                 <input type="file" id="ecardPhotoInput" accept="image/*">
                 <div id="ecardPhotoPreview" style="margin-top:8px;"></div>
             </div>
@@ -525,7 +529,7 @@
             <div class="form-group"><label for="minorNom">Nom de l'enfant *</label><input type="text" id="minorNom"></div>
             <div class="form-group"><label for="minorPrenom">Prénom(s) de l'enfant</label><input type="text" id="minorPrenom"></div>
             <div class="form-group"><label for="minorNaissance">Date de naissance *</label><input type="date" id="minorNaissance"></div>
-            <div class="form-group"><label for="minorNationalite">Nationalité *</label><input type="text" id="minorNationalite"></div>
+            <div class="form-group"><label for="minorNationalite">Nationalité *</label><select id="minorNationalite" class="search-input"><option value="">Sélectionner</option></select></div>
             <div class="form-group"><label for="minorParente">Lien de parenté (facultatif)</label><input type="text" id="minorParente" placeholder="Ex. : fille, fils"></div>
             <div class="form-group"><label for="minorPasseport">Numéro de passeport *</label><input type="text" id="minorPasseport"></div>
             <div class="form-group"><label for="minorValidite">Validité du passeport (expiration) *</label><input type="date" id="minorValidite"></div>
@@ -579,6 +583,7 @@
     <script src="js/api.js?v=20261013"></script>
     <script src="js/auth.js?v=3"></script>
     <script src="js/garanties-officielles.js"></script>
+    <script src="js/countries.js"></script>
     <script src="js/subscription-wizard.js"></script>
 </body>
 </html>

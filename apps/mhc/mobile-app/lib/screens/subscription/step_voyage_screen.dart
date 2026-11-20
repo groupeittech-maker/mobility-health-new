@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/countries.dart';
 import '../../core/constants/mh_layout.dart';
 import '../../core/widgets/mh_surface_card.dart';
 import '../../core/widgets/mh_text_highlight.dart';
@@ -792,16 +793,14 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                _voyagePourEnfant
-                    ? 'Prenez une photo ou joignez vos documents (pièce d’identité du souscripteur facultative, billet, etc.)'
-                    : 'Prenez une photo ou joignez vos documents (pièce d’identité obligatoire, billet, etc.)',
+                'Prenez une photo ou joignez vos documents (pièce d’identité du souscripteur obligatoire, billet, etc.)',
                 style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
               ),
               const SizedBox(height: 12),
-              // Souscription « enfants uniquement » : l'adulte ne voyage pas,
-              // il n'a pas d'e-carte — aucune photo adulte n'est exigée. La
-              // photo de chaque enfant (formulaire enfant) sert pour sa carte.
-              if (!_voyagePourEnfant) _buildEcartePhotoField(theme),
+              // Photo du souscripteur exigée dans tous les modes ; en
+              // souscription « enfants uniquement », l'e-carte porte quand
+              // même la photo de l'enfant (cf. ecartePhotoPath).
+              _buildEcartePhotoField(theme),
               const SizedBox(height: 12),
               _buildDocButtons(theme),
               if (_documents.isNotEmpty) ...[
@@ -955,27 +954,24 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                       );
                       return;
                     }
-                    // La pièce d'identité de l'adulte est exigée quand il
-                    // voyage ; en souscription « enfants uniquement » elle est
-                    // facultative (l'adulte n'est pas un assuré).
-                    if (!_voyagePourEnfant &&
-                        !_documents.any((d) => d.label == kIdentityDocLabel)) {
+                    // La pièce d'identité du souscripteur (adulte) est exigée
+                    // dans tous les modes, y compris « enfant seul ».
+                    if (!_documents.any((d) => d.label == kIdentityDocLabel)) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
-                            'Ajoutez votre pièce d\'identité (obligatoire).',
+                            'Ajoutez la pièce d\'identité du souscripteur (obligatoire).',
                           ),
                           backgroundColor: AppColors.danger,
                         ),
                       );
                       return;
                     }
-                    if (!_voyagePourEnfant &&
-                        (_ecartePhotoPath == null || _ecartePhotoPath!.isEmpty)) {
+                    if (_ecartePhotoPath == null || _ecartePhotoPath!.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
-                            'Ajoutez une photo portrait pour l\'e-carte (caméra ou galerie).',
+                            'Ajoutez la photo d\'identité du souscripteur (caméra ou galerie).',
                           ),
                           backgroundColor: AppColors.danger,
                         ),
@@ -987,6 +983,17 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                     final List<MineurEntry>? mineurs = _voyagePourEnfant
                         ? (_enfantsVoyageurs.isNotEmpty ? List<MineurEntry>.from(_enfantsVoyageurs) : null)
                         : (_avecMineurs && _mineurs.isNotEmpty ? List<MineurEntry>.from(_mineurs) : null);
+                    // « Enfant seul » : la photo du souscripteur n'alimente pas
+                    // l'e-carte (photo de l'enfant) — elle est jointe au dossier
+                    // comme pièce justificative.
+                    final docsToSend = List<VoyageDocEntry>.from(_documents);
+                    if (_voyagePourEnfant && _ecartePhotoPath != null) {
+                      docsToSend.add(VoyageDocEntry(
+                        path: _ecartePhotoPath!,
+                        docType: 'other',
+                        label: 'Photo du souscripteur',
+                      ));
+                    }
                     widget.onContinue(VoyageFormData(
                       titre: titre,
                       destination: _ville ?? '',
@@ -1001,14 +1008,13 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
                           : 1 + (_avecMineurs ? _mineurs.length : 0),
                       dureeJours: _dureeJours > 0 ? _dureeJours : null,
                       mineurs: mineurs,
-                      documents: _documents.isNotEmpty ? List.from(_documents) : null,
+                      documents: docsToSend.isNotEmpty ? docsToSend : null,
                       isChildOnly: _voyagePourEnfant,
                       ecartePhotoPath: _voyagePourEnfant
-                          ? (_ecartePhotoPath ??
-                              (_enfantsVoyageurs.isNotEmpty
-                                  ? (_enfantsVoyageurs.first.photoPortraitPath ??
-                                      _enfantsVoyageurs.first.photoPasseportPath)
-                                  : null))
+                          ? (_enfantsVoyageurs.isNotEmpty
+                              ? (_enfantsVoyageurs.first.photoPortraitPath ??
+                                  _enfantsVoyageurs.first.photoPasseportPath)
+                              : null)
                           : _ecartePhotoPath,
                     ));
                   },
@@ -1032,8 +1038,9 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
     );
   }
 
-  /// Champ « Photo pour l'e-carte » (kit) : photo portrait distincte du
-  /// document de voyage — caméra ou galerie.
+  /// Champ « Photo d'identité du souscripteur » (kit) : photo portrait
+  /// distincte du document de voyage — caméra ou galerie. Sert pour l'e-carte
+  /// quand l'adulte voyage.
   Widget _buildEcartePhotoField(ThemeData theme) {
     final hasPhoto = _ecartePhotoPath != null && _ecartePhotoPath!.isNotEmpty;
     return Container(
@@ -1058,7 +1065,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Photo pour l’e-carte *',
+                  'Photo d’identité du souscripteur *',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: AppColors.secondary,
@@ -1079,7 +1086,7 @@ class _StepVoyageScreenState extends State<StepVoyageScreen> {
           Text(
             hasPhoto
                 ? 'Photo ajoutée'
-                : 'Photo portrait (visage visible) — distincte du document de voyage.',
+                : 'Photo portrait du souscripteur (visage visible) — utilisée pour l’e-carte quand l’adulte voyage.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: const Color(0xFF64748B),
             ),
@@ -1741,7 +1748,7 @@ class _AjouterMineurSheet extends StatefulWidget {
 class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
   late final TextEditingController _nomController;
   late final TextEditingController _prenomController;
-  late final TextEditingController _nationaliteController;
+  String? _nationalite;
   late final TextEditingController _parenteController;
   late final TextEditingController _passeportController;
   DateTime? _dateNaissance;
@@ -1762,8 +1769,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
     if (!_isEditing) _loadSavedEnfants();
     _nomController = TextEditingController(text: existing?.nom ?? '');
     _prenomController = TextEditingController(text: existing?.prenom ?? '');
-    _nationaliteController =
-        TextEditingController(text: existing?.nationalite ?? '');
+    _nationalite = existing?.nationalite;
     _parenteController =
         TextEditingController(text: existing?.lienParente ?? '');
     _passeportController =
@@ -1778,7 +1784,6 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
   void dispose() {
     _nomController.dispose();
     _prenomController.dispose();
-    _nationaliteController.dispose();
     _parenteController.dispose();
     _passeportController.dispose();
     super.dispose();
@@ -1809,7 +1814,8 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
     _enfantId = e['id'] as int?;
     _nomController.text = (e['nom'] ?? '').toString();
     _prenomController.text = (e['prenom'] ?? '').toString();
-    _nationaliteController.text = (e['nationalite'] ?? '').toString();
+    final nat = (e['nationalite'] ?? '').toString().trim();
+    _nationalite = nat.isEmpty ? null : nat;
     _parenteController.text = (e['lien_parente'] ?? '').toString();
     _passeportController.text = (e['numero_piece'] ?? '').toString();
     _dateNaissance = _parseDate(e['date_naissance']);
@@ -1902,7 +1908,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
   void _trySubmit() {
     if (_nomController.text.trim().isEmpty ||
         _dateNaissance == null ||
-        _nationaliteController.text.trim().isEmpty ||
+        _nationalite == null || _nationalite!.trim().isEmpty ||
         _passeportController.text.trim().isEmpty ||
         _validitePasseport == null ||
         _photoPath == null ||
@@ -1970,7 +1976,7 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
       MineurEntry(
         nom: _nomController.text.trim(),
         prenom: opt(_prenomController),
-        nationalite: opt(_nationaliteController),
+        nationalite: _nationalite,
         lienParente: opt(_parenteController),
         enfantId: _enfantId,
         dateNaissance: _dateNaissance!,
@@ -2115,11 +2121,39 @@ class _AjouterMineurSheetState extends State<_AjouterMineurSheet> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: _nationaliteController,
-                  decoration:
-                      MHSurfaceCard.input(labelText: 'Nationalité *'),
-                  textCapitalization: TextCapitalization.words,
+                InkWell(
+                  onTap: () async {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    final selected = await showModalBottomSheet<String>(
+                      context: context,
+                      isScrollControlled: true,
+                      useSafeArea: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (ctx) => const _DestinationSearchSheet(
+                        title: 'Nationalité',
+                        options: countriesList,
+                      ),
+                    );
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    if (selected != null && mounted) {
+                      setState(() => _nationalite = selected);
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: MHSurfaceCard.input(
+                      labelText: 'Nationalité *',
+                      suffixIcon: const Icon(Icons.search),
+                    ),
+                    child: Text(
+                      _nationalite ?? 'Sélectionner',
+                      style: TextStyle(
+                        color: _nationalite != null
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFF64748B),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(

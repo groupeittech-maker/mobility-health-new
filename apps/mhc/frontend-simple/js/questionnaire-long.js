@@ -1,4 +1,9 @@
 document.addEventListener('DOMContentLoaded', function() {
+    const natSelect = document.getElementById('nationalite');
+    if (natSelect && typeof COUNTRIES !== 'undefined') {
+        natSelect.innerHTML = '<option value="">Sélectionner</option>' +
+            COUNTRIES.map((c) => `<option value="${c.name}">${c.name}</option>`).join('');
+    }
     const form = document.getElementById('questionnaireLongForm');
     const submitBtn = document.getElementById('submitBtn');
     
