@@ -1798,20 +1798,20 @@ function getPriorityClass(priority) {
     }[priority] || 'priority-normale';
 }
 
-/** Médecin référent MH ou médecin MH (medical_reviewer) peut valider médicalement la facture. */
+/** 1re validation de la facture : réservée au médecin-conseil (étape 9). */
 function canCurrentUserApproveInvoice(invoice) {
     if (!invoice) return false;
-    const canMedical = isReferentForCurrentCase() || (currentUserRole === 'medical_reviewer');
+    const canMedical = isReferentForCurrentCase() || currentUserRole === 'medecin_referent_mh' || currentUserRole === 'admin';
     if (!canMedical) return false;
     const alreadyProcessed = ['approved', 'rejected'].includes(invoice.validation_medicale || '');
     return invoice.statut === 'pending_medical' && !alreadyProcessed;
 }
 
-/** SOS operator ou agent sinistre MH peut valider la facture (étape sinistre). */
+/** 2e validation de la facture : réservée au pôle affaires médicales MHC (étape 10). */
 function canCurrentUserApproveInvoiceSinistre(invoice) {
     if (!invoice) return false;
-    const canSinistre = ['sos_operator', 'agent_sinistre_mh'].includes(currentUserRole || '');
-    if (!canSinistre) return false;
+    const canAffairesMedicales = ['agent_medical_mhc', 'superviseur_affaires_medicales', 'agent_conformite_medical', 'admin'].includes(currentUserRole || '');
+    if (!canAffairesMedicales) return false;
     const alreadyProcessed = ['approved', 'rejected'].includes(invoice.validation_sinistre || '');
     return invoice.statut === 'pending_sinistre' && !alreadyProcessed;
 }
@@ -1821,16 +1821,25 @@ function getInvoiceApprovalStatusMessage(invoice) {
         return '';
     }
     if (invoice.validation_medicale === 'approved') {
-        return 'Accord médical donné. La facture poursuit son circuit.';
+        return 'Validée par le médecin-conseil. La facture poursuit son circuit.';
     }
     if (invoice.validation_medicale === 'rejected') {
-        return 'Facture rejetée par le médecin référent.';
+        return 'Facture refusée par le médecin-conseil.';
     }
     if (invoice.statut === 'pending_medical') {
-        return 'En attente de validation médicale (médecin référent MH / médecin MH).';
+        return 'En attente de validation du médecin-conseil MHC.';
     }
     if (invoice.statut === 'pending_sinistre') {
-        return 'En attente de validation du pôle sinistre (SOS / agent sinistre MH).';
+        return 'En attente de validation des affaires médicales MHC.';
+    }
+    if (invoice.statut === 'validated') {
+        if (invoice.reassureur_agrement === 'en_attente') {
+            return 'Validée — en attente de l\u2019agrément du réassureur (plafond dépassé).';
+        }
+        if (invoice.bloquee) {
+            return 'Validée — facture bloquée.';
+        }
+        return 'Validée — en attente du paiement MHC.';
     }
     return '';
 }
@@ -1893,7 +1902,7 @@ async function handleInvoiceSinistreDecision(approve) {
         });
         if (notesEl) notesEl.value = '';
         showAlert(
-            approve ? 'Facture validée par le pôle sinistre.' : 'Facture refusée par le pôle sinistre.',
+            approve ? 'Facture validée par les affaires médicales.' : 'Facture refusée par les affaires médicales.',
             approve ? 'success' : 'warning'
         );
         await loadAlertDetails();
@@ -1924,7 +1933,7 @@ async function handleInvoiceMedicalDecision(approve) {
             notesField.value = '';
         }
         showAlert(
-            approve ? 'Facture approuvée par le médecin référent.' : 'Facture rejetée par le médecin référent.',
+            approve ? 'Facture validée par le médecin-conseil.' : 'Facture refusée par le médecin-conseil.',
             approve ? 'success' : 'warning'
         );
         await loadAlertDetails();
@@ -1948,11 +1957,12 @@ function setInvoiceMedicalButtonsDisabled(state) {
 
 function getInvoiceStatusLabel(status) {
     const map = {
-        pending_medical: 'En attente accord médical',
-        pending_sinistre: 'En attente pôle sinistre',
+        pending_medical: 'En attente médecin-conseil',
+        pending_sinistre: 'En attente affaires médicales',
         pending_compta: 'En attente comptabilité MH',
         validated: 'Validée',
-        rejected: 'Refusée'
+        rejected: 'Refusée',
+        paid: 'Payée'
     };
     return map[status] || (status ? status : 'Inconnu');
 }
@@ -2357,24 +2367,29 @@ const MHC_VALIDATION_STATUS_LABELS = {
     refuse: 'Refusé',
 };
 
+const MHC_POLE_MEDICAL_ROLES = ['medical_reviewer', 'agent_medical_mhc', 'superviseur_affaires_medicales', 'agent_conformite_medical'];
+const MHC_PARTENAIRE_SANTE_ROLES = ['medecin_hopital', 'hospital_admin', 'agent_reception_hopital'];
+
 // Rôles applicatifs autorisés par groupe validateur (libellés renvoyés par l'API).
 const MHC_VALIDATOR_GROUP_ROLES = {
     'Médecin-conseil': ['medecin_referent_mh'],
-    'Partenaire-Santé': ['medecin_hopital', 'hospital_admin', 'agent_reception_hopital'],
-    'Pôle médical MHC': ['medical_reviewer'],
+    'Partenaire-Santé': MHC_PARTENAIRE_SANTE_ROLES,
+    'Pôle médical MHC': MHC_POLE_MEDICAL_ROLES,
 };
 
 // Rôles autorisés à ÉMETTRE chaque type de bon (colonne « Émis » du référentiel).
+// Bon 111 : agent d'accueil clinique (après accord du médecin-conseil).
+// Bon 116 : affaires médicales MHC. Bons 121/122 : affaires médicales MHC.
 const MHC_DOC_EMITTER_ROLES = {
-    bpcu: ['medecin_referent_mh'],
+    bpcu: MHC_PARTENAIRE_SANTE_ROLES,
     brpcu: ['medecin_referent_mh'],
     brs: ['medecin_referent_mh'],
-    brf: ['medecin_referent_mh'],
-    bs: ['medecin_hopital', 'hospital_admin', 'agent_reception_hopital'],
-    bh: ['medecin_hopital', 'hospital_admin', 'agent_reception_hopital'],
-    bph: ['medecin_hopital', 'hospital_admin', 'agent_reception_hopital'],
-    ars: ['medical_reviewer'],
-    arf: ['medical_reviewer'],
+    brf: MHC_POLE_MEDICAL_ROLES,
+    bs: MHC_PARTENAIRE_SANTE_ROLES,
+    bh: MHC_PARTENAIRE_SANTE_ROLES,
+    bph: MHC_PARTENAIRE_SANTE_ROLES,
+    ars: MHC_POLE_MEDICAL_ROLES,
+    arf: MHC_POLE_MEDICAL_ROLES,
 };
 
 function careDocActionsForCurrentRole(actions) {
@@ -2468,11 +2483,72 @@ async function loadCareDocuments() {
         if (issueBox) {
             issueBox.hidden = issuableActions.length === 0;
         }
+        initReorientation();
     } catch (error) {
         if (statusEl) {
             statusEl.textContent = error.message || 'Impossible de charger les documents MHC.';
         }
         if (issueBox) issueBox.hidden = true;
+    }
+}
+
+// --- Réorientation (étape 4) : médecin-conseil / affaires médicales ---------
+const REORIENTATION_ROLES = [
+    'medecin_referent_mh',
+    'agent_medical_mhc',
+    'superviseur_affaires_medicales',
+    'agent_conformite_medical',
+    'admin',
+];
+let reorientationInitialized = false;
+
+async function initReorientation() {
+    const section = document.getElementById('reorientationSection');
+    if (!section || !currentSinistre?.id) return;
+    if (!REORIENTATION_ROLES.includes(currentUserRole || '')) return;
+    if (['resolu', 'annule'].includes(currentSinistre.statut || '')) return;
+    section.hidden = false;
+    if (reorientationInitialized) return;
+    reorientationInitialized = true;
+
+    const select = document.getElementById('reorientationHospital');
+    const submitBtn = document.getElementById('reorientationSubmitBtn');
+    try {
+        const hospitals = await apiCall('/hospitals/');
+        const options = (Array.isArray(hospitals) ? hospitals : [])
+            .filter((h) => h.est_actif !== false && h.id !== currentSinistre.hospital_id)
+            .map((h) => `<option value="${h.id}">${escapeHtml(h.nom || `Hôpital #${h.id}`)}${h.pays ? ` — ${escapeHtml(h.pays)}` : ''}</option>`)
+            .join('');
+        if (select) select.innerHTML = '<option value="">Choisir un établissement…</option>' + options;
+    } catch (_) {
+        if (select) select.innerHTML = '<option value="">Établissements indisponibles</option>';
+    }
+    if (submitBtn) {
+        submitBtn.addEventListener('click', submitReorientation);
+    }
+}
+
+async function submitReorientation() {
+    const hospitalId = Number(document.getElementById('reorientationHospital')?.value);
+    if (!hospitalId || !currentSinistre?.id) {
+        showAlert('Choisissez un établissement de destination.', 'warning');
+        return;
+    }
+    const notes = document.getElementById('reorientationNotes')?.value.trim() || undefined;
+    const btn = document.getElementById('reorientationSubmitBtn');
+    if (btn) btn.disabled = true;
+    try {
+        const res = await apiCall(`/mhc/sinistres/${currentSinistre.id}/reorientation`, {
+            method: 'POST',
+            body: JSON.stringify({ hospital_id: hospitalId, notes }),
+        });
+        showAlert(`Patient réorienté vers ${res.hospital || 'le nouvel établissement'}.`, 'success');
+        await loadCareDocuments();
+        await loadAlertDetails();
+    } catch (error) {
+        showAlert(error.message || 'Réorientation impossible.', 'error');
+    } finally {
+        if (btn) btn.disabled = false;
     }
 }
 

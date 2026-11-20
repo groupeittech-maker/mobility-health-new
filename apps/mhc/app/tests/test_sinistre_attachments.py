@@ -102,22 +102,24 @@ class TestSinistreCertificatDecesAttachment:
         stored = db.query(SinistreAttachment).filter(SinistreAttachment.sinistre_id == sinistre.id).all()
         assert len(stored) == 1
 
-    def test_non_assigned_doctor_cannot_upload(
+    def test_non_clinic_actor_cannot_upload(
         self,
         client,
         db,
         test_user,
         test_hospital,
         hospital_doctor,
-        reception_headers,
+        sos_operator_headers,
         attachment_storage_root,
     ):
+        """Un acteur hors clinique / médecin-conseil (opérateur SOS) ne peut pas
+        joindre le certificat de décès."""
         _, sinistre, _ = _create_sinistre_with_stay(db, test_user, test_hospital, hospital_doctor)
 
         upload = client.post(
             f"/api/v1/hospital-sinistres/sinistres/{sinistre.id}/attachments/certificat-deces",
             files={"file": ("certificat.pdf", io.BytesIO(b"%PDF-test"), "application/pdf")},
-            headers=reception_headers,
+            headers=sos_operator_headers,
         )
         assert upload.status_code == status.HTTP_403_FORBIDDEN
 

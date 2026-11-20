@@ -1482,3 +1482,16 @@ body[data-backoffice] main .table-wrapper:has(.finance-table) {
 .client-search-results li.muted {
     cursor: default;
 }
+
+/* Déclaration manuelle d'alerte — résultats de recherche assuré */
+.declare-results { max-height: 220px; overflow-y: auto; margin-bottom: 0.9rem; }
+.declare-item {
+    padding: 0.55rem 0.7rem;
+    border: 1px solid #e6e8f2;
+    border-radius: 0.5rem;
+    margin-bottom: 0.4rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+.declare-item:hover { background: #f6f7fc; }
+.declare-item.selected { border-color: #6c5ce7; background: #f0eeff; }

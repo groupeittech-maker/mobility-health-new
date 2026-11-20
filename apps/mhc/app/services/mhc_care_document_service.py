@@ -79,30 +79,36 @@ GROUP_ROLES: Dict[str, set] = {
     },
 }
 
-# Émetteur autorisé par type de document (colonne « Émis »).
+# Émetteur autorisé par type de document (colonne « Émis » du workflow sinistre).
+# Le bon 111 est émis par l'agent d'accueil de la clinique à l'acceptation du
+# patient — l'accord du médecin-conseil n'émet aucun bon (étapes 2a et 3).
+# Le bon 116 est demandé par les affaires médicales MHC après certificat de
+# décès, puis validé par le médecin-conseil et les affaires médicales (étape 7b).
 DOCUMENT_EMITTERS: Dict[MhcCareDocumentType, str] = {
-    MhcCareDocumentType.BPCU: GROUP_MEDECIN_CONSEIL,
+    MhcCareDocumentType.BPCU: GROUP_PARTENAIRE_SANTE,
     MhcCareDocumentType.BRPCU: GROUP_MEDECIN_CONSEIL,
     MhcCareDocumentType.BS: GROUP_PARTENAIRE_SANTE,
     MhcCareDocumentType.BH: GROUP_PARTENAIRE_SANTE,
     MhcCareDocumentType.BPH: GROUP_PARTENAIRE_SANTE,
     MhcCareDocumentType.BRS: GROUP_MEDECIN_CONSEIL,
     MhcCareDocumentType.ARS: GROUP_POLE_MEDICAL_MHC,
-    MhcCareDocumentType.BRF: GROUP_MEDECIN_CONSEIL,
+    MhcCareDocumentType.BRF: GROUP_POLE_MEDICAL_MHC,
     MhcCareDocumentType.ARF: GROUP_POLE_MEDICAL_MHC,
 }
 
-# Groupes validateurs requis par type de document (colonne « Validé par »).
-# Liste vide = aucune validation (NÉANT). Deux groupes = double validation.
+# Groupes validateurs requis par type de document, DANS L'ORDRE (colonne
+# « Validé par » / étapes 5b-5c et 7b du workflow). Liste vide = aucune
+# validation — le document est effectif dès l'émission. Le refus de prise en
+# charge (112) clôt le dossier immédiatement, sans validation.
 DOCUMENT_VALIDATORS: Dict[MhcCareDocumentType, List[str]] = {
     MhcCareDocumentType.BPCU: [],
-    MhcCareDocumentType.BRPCU: [GROUP_POLE_MEDICAL_MHC],
+    MhcCareDocumentType.BRPCU: [],
     MhcCareDocumentType.BS: [],
     MhcCareDocumentType.BH: [GROUP_MEDECIN_CONSEIL, GROUP_POLE_MEDICAL_MHC],
     MhcCareDocumentType.BPH: [GROUP_MEDECIN_CONSEIL, GROUP_POLE_MEDICAL_MHC],
     MhcCareDocumentType.BRS: [GROUP_POLE_MEDICAL_MHC, GROUP_PARTENAIRE_SANTE],
     MhcCareDocumentType.ARS: [],
-    MhcCareDocumentType.BRF: [GROUP_POLE_MEDICAL_MHC],
+    MhcCareDocumentType.BRF: [GROUP_MEDECIN_CONSEIL, GROUP_POLE_MEDICAL_MHC],
     MhcCareDocumentType.ARF: [],
 }
 
@@ -188,8 +194,15 @@ def _expire_if_needed(doc: MhcCareDocument) -> None:
 
 
 def _effective(docs: Iterable[MhcCareDocument]) -> List[MhcCareDocument]:
-    """Documents qui comptent dans l'enchaînement : validés ou sans validation requise."""
-    return [d for d in docs if (d.validation_status or VALIDATION_NOT_REQUIRED) in EFFECTIVE_VALIDATION_STATUSES]
+    """Documents qui comptent dans l'enchaînement : validés (ou sans validation
+    requise) et non expirés/clôturés — une réorientation peut invalider un bon
+    111 émis pour l'ancienne clinique, qui n'a alors plus d'effet."""
+    return [
+        d
+        for d in docs
+        if (d.validation_status or VALIDATION_NOT_REQUIRED) in EFFECTIVE_VALIDATION_STATUSES
+        and (d.statut or MhcCareDocumentStatus.EMI.value) == MhcCareDocumentStatus.EMI.value
+    ]
 
 
 def _pending(docs: Iterable[MhcCareDocument]) -> List[MhcCareDocument]:
@@ -235,6 +248,14 @@ def _compute_next(docs: Sequence[MhcCareDocument], numero_sinistre: Optional[str
     ]
 
 
+def _has_certificat_deces(sinistre: Sinistre) -> bool:
+    """Le certificat de décès (118) est joint comme pièce du dossier."""
+    for att in getattr(sinistre, "attachments", None) or []:
+        if getattr(att, "attachment_type", None) == "certificat_deces":
+            return True
+    return False
+
+
 def allowed_next_actions(sinistre: Sinistre) -> List[str]:
     docs = _docs(sinistre)
     for doc in docs:
@@ -242,6 +263,20 @@ def allowed_next_actions(sinistre: Sinistre) -> List[str]:
 
     effective = _effective(docs)
     actions = _compute_next(effective, sinistre.numero_sinistre)
+
+    # Étape 3 : le bon 111 n'est émis qu'après l'accord du médecin-conseil
+    # (l'accord n'émet aucun bon — il autorise l'acceptation du patient).
+    if MhcCareDocumentType.BPCU.value in actions and getattr(sinistre, "decision_mc", None) != "accord":
+        actions = [a for a in actions if a != MhcCareDocumentType.BPCU.value]
+
+    # Étape 2b : le refus (112) se prononce en décision, pas en émission libre.
+    if MhcCareDocumentType.BRPCU.value in actions and getattr(sinistre, "decision_mc", None) is not None:
+        actions = [a for a in actions if a != MhcCareDocumentType.BRPCU.value]
+
+    # Étape 7b : la demande de rapatriement funéraire exige le certificat de
+    # décès (118) joint au dossier.
+    if MhcCareDocumentType.BRF.value in actions and not _has_certificat_deces(sinistre):
+        actions = [a for a in actions if a != MhcCareDocumentType.BRF.value]
 
     # Tant qu'une validation est en attente, on bloque les émissions concurrentes.
     # Seule la branche décès (BRF) reste ouverte, et jamais pour un type déjà en attente.
@@ -516,6 +551,11 @@ def issue_care_document(
     # BRPCU), la clôture est différée à la validation (voir validate_care_document).
     if doc_type in CLOSING_TYPES and document.validation_status == VALIDATION_NOT_REQUIRED:
         _apply_effective_effects(sinistre, document, alerte)
+    if doc_type == MhcCareDocumentType.BRPCU and sinistre.decision_mc is None:
+        # L'émission directe d'un 112 vaut décision de refus du médecin-conseil.
+        sinistre.decision_mc = "refus"
+        sinistre.decision_mc_by_id = actor.id if actor else None
+        sinistre.decision_mc_at = _now()
     return created
 
 
@@ -532,6 +572,10 @@ def _apply_effective_effects(
             alerte.statut = "annulee"
     elif doc_type in {MhcCareDocumentType.ARS, MhcCareDocumentType.ARF}:
         _close_dossier(sinistre, alerte)
+        # Étape 7c : le rapatriement effectué clôt aussi la police.
+        souscription = getattr(sinistre, "souscription", None)
+        if souscription is not None:
+            souscription.statut = "resiliee"
 
 
 def validate_care_document(
@@ -568,6 +612,32 @@ def validate_care_document(
     validations = list(document.validations or [])
     approved_groups = {v.get("groupe") for v in validations if v.get("approuve")}
     actor_name = _doctor_display(actor)
+
+    # Ordre imposé (workflow : médecin-conseil PUIS affaires médicales) : un
+    # groupe ne peut approuver que si tous les groupes précédents l'ont fait.
+    if approve and not _is_admin(actor):
+        actor_rank = min(required.index(g) for g in actor_groups)
+        earlier_missing = [g for g in required[:actor_rank] if g not in approved_groups]
+        if earlier_missing:
+            labels = ", ".join(GROUP_LABELS[g] for g in earlier_missing)
+            raise ValueError(
+                f"La validation « {labels} » est requise avant celle-ci."
+            )
+        # « Une autre personne que le demandeur » : le dernier validateur ne
+        # peut pas être l'émetteur du document (ex. BRF demandé puis validé
+        # par les affaires médicales).
+        remaining = [g for g in required if g not in approved_groups]
+        if (
+            remaining
+            and actor_groups[-1] == remaining[-1]
+            and len(remaining) == 1
+            and document.issued_by_id is not None
+            and getattr(actor, "id", None) == document.issued_by_id
+        ):
+            raise ValueError(
+                "La dernière validation doit être effectuée par une autre "
+                "personne que le demandeur."
+            )
 
     if not approve:
         validations.append({
@@ -615,24 +685,36 @@ def issue_decision_documents(
     alerte: Optional[Alerte] = None,
     payload: Optional[Dict[str, Any]] = None,
 ) -> List[MhcCareDocument]:
-    """Émet automatiquement BPCU (acceptation) ou BRPCU (refus) après décision médicale."""
-    docs = _docs(sinistre)
-    if _has_type(docs, MhcCareDocumentType.BPCU) or _has_type(docs, MhcCareDocumentType.BRPCU):
-        return []
-    doc_type = MhcCareDocumentType.BPCU if approve else MhcCareDocumentType.BRPCU
-    # Chemin système : l'émission est déclenchée par la vérification d'urgence
-    # (déjà autorisée en amont pour le médecin-conseil), on ne réapplique donc
-    # pas le contrôle de rôle émetteur ici.
-    return issue_care_document(
-        db,
-        sinistre,
-        doc_type.value,
-        actor,
-        payload=payload,
-        notes=notes,
-        alerte=alerte,
-        enforce_roles=False,
-    )
+    """Enregistre la décision de prise en charge du médecin-conseil (étapes 2a/2b).
+
+    - Accord : statut « Accord du médecin-conseil » — AUCUN bon n'est émis ;
+      le bon 111 sera émis par l'agent d'accueil de la clinique à
+      l'acceptation du patient (étape 3).
+    - Refus : émission immédiate du bon 112 (BRPCU), dossier « Refusé — clos ».
+    """
+    if sinistre.decision_mc is not None:
+        raise ValueError("La décision de prise en charge a déjà été prise.")
+
+    created: List[MhcCareDocument] = []
+    if not approve:
+        # Le 112 est émis AVANT le marquage de la décision : une fois « refus »
+        # enregistré, le BRPCU sort des actions autorisées (clôture).
+        created = issue_care_document(
+            db,
+            sinistre,
+            MhcCareDocumentType.BRPCU.value,
+            actor,
+            payload=payload,
+            notes=notes,
+            alerte=alerte,
+            enforce_roles=False,
+        )
+
+    sinistre.decision_mc = "accord" if approve else "refus"
+    sinistre.decision_mc_by_id = actor.id if actor else None
+    sinistre.decision_mc_at = _now()
+    db.add(sinistre)
+    return created
 
 
 def list_care_documents(db: Session, sinistre_id: int) -> List[MhcCareDocument]:
@@ -659,6 +741,7 @@ def load_sinistre_for_care(db: Session, sinistre_id: int) -> Optional[Sinistre]:
             selectinload(Sinistre.souscription).selectinload(Souscription.user),
             selectinload(Sinistre.souscription).selectinload(Souscription.produit_assurance).selectinload(ProduitAssurance.assureur_obj),
             selectinload(Sinistre.alerte).selectinload(Alerte.user),
+            selectinload(Sinistre.attachments),
         )
         .filter(Sinistre.id == sinistre_id)
         .first()

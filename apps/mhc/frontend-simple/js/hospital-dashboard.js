@@ -616,7 +616,7 @@ function hideLoading(element) {
 function getInvoiceStatusLabel(statut) {
     const map = {
         pending_medical: 'Accord médical',
-        pending_sinistre: 'Validation sinistre',
+        pending_sinistre: 'Validation affaires médicales',
         pending_compta: 'Validation compta',
         validated: 'Validée',
         paid: 'Payée',

@@ -157,6 +157,8 @@ class InvoiceListItem(BaseModel):
     sinistre: Optional[InvoiceSinistreSummary] = None
     client_name: Optional[str] = None
     sinistre_numero: Optional[str] = None
+    bloquee: Optional[bool] = None
+    reassureur_agrement: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -332,6 +334,35 @@ def require_medical_role(current_user: User):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Accès réservé aux médecins, référents médicaux ou administrateurs."
+        )
+
+
+MEDICAL_AFFAIRS_ROLES = {
+    Role.AGENT_MEDICAL_MHC,
+    Role.SUPERVISEUR_AFFAIRES_MEDICALES,
+    Role.AGENT_CONFORMITE_MEDICAL,
+}
+
+
+def require_medecin_conseil(current_user: User):
+    """Étape 9 : la première validation de facture revient au médecin-conseil."""
+    if current_user.role not in [Role.MEDECIN_REFERENT_MH, Role.ADMIN] and not getattr(current_user, "is_superuser", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé au médecin-conseil MHC."
+        )
+
+
+def require_medical_affairs(current_user: User):
+    """Étape 10 : la seconde validation de facture revient aux affaires médicales."""
+    if (
+        current_user.role not in MEDICAL_AFFAIRS_ROLES
+        and current_user.role != Role.ADMIN
+        and not getattr(current_user, "is_superuser", False)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé au pôle affaires médicales MHC."
         )
 
 
@@ -636,6 +667,8 @@ def _list_invoices_logic(
                 sinistre=stay.sinistre if stay else None,
                 client_name=client_name,
                 sinistre_numero=sinistre_number,
+                bloquee=getattr(invoice, "bloquee", None),
+                reassureur_agrement=getattr(invoice, "reassureur_agrement", None),
             )
         )
     return response_items
@@ -769,8 +802,8 @@ async def validate_medical(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Valider une facture médicalement"""
-    require_medical_role(current_user)
+    """1re validation (étape 9) : réservée au médecin-conseil MHC."""
+    require_medecin_conseil(current_user)
     
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not invoice:
@@ -862,14 +895,12 @@ async def validate_sinistre(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Valider une facture pour sinistre (SOS operator, agent sinistre MH)."""
-    if current_user.role not in [Role.SOS_OPERATOR, Role.AGENT_SINISTRE_MH, Role.ADMIN]:
-        # Matrice de permissions : contrôle ou édition des sinistres
-        if not has_permission(_role_str(current_user), F_SINISTRES, LEVEL_CONTROLE):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Accès réservé au pôle sinistre (SOS / agent sinistre MH) ou admin.",
-            )
+    """2e validation (étape 10) : réservée au pôle affaires médicales MHC.
+
+    L'approbation valide la facture (VALIDATED) — il n'y a plus d'étape
+    comptable intermédiaire : la facture passe ensuite au paiement (/pay).
+    """
+    require_medical_affairs(current_user)
     
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not invoice:
@@ -899,13 +930,13 @@ async def validate_sinistre(
 
     invoice_push_queue: List[Tuple[int, int]] = []
     if request.approve:
-        invoice.statut = InvoiceStatus.PENDING_COMPTA
-        invoice.validation_compta = "pending"
+        invoice.statut = InvoiceStatus.VALIDATED
+        invoice.validation_compta = None
         _notify_role_users(
             db,
             {Role.AGENT_COMPTABLE_MH, Role.FINANCE_MANAGER},
-            "Validation comptable requise",
-            f"La facture #{invoice.numero_facture} doit être traitée par la comptabilité.",
+            "Facture validée — paiement",
+            f"La facture #{invoice.numero_facture} est validée et peut être payée.",
             relation_id=invoice.id,
             send_push_channel=True,
             push_queue=invoice_push_queue,
@@ -917,7 +948,7 @@ async def validate_sinistre(
     record_invoice_history(
         db,
         invoice,
-        action=f"sinistre_validation_{'approved' if request.approve else 'rejected'}",
+        action=f"affaires_medicales_validation_{'approved' if request.approve else 'rejected'}",
         actor_id=current_user.id,
         notes=request.notes,
         previous_status=previous_status,
@@ -1025,3 +1056,205 @@ async def validate_compta(
         items=[]
     )
 
+
+
+def _invoice_payable_or_400(invoice: Invoice) -> None:
+    if invoice.statut != InvoiceStatus.VALIDATED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Seule une facture validée peut être payée.",
+        )
+    if getattr(invoice, "bloquee", False):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La facture est bloquée.",
+        )
+    if getattr(invoice, "reassureur_agrement", None) not in (None, "approuve"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Plafond dépassé : agrément du réassureur requis avant paiement.",
+        )
+
+
+def _close_dossier_if_settled(db: Session, invoice: Invoice) -> None:
+    """Étape 11 : dossier « Réglé et clôturé » quand toutes ses factures sont soldées."""
+    stay = (
+        db.query(HospitalStay)
+        .options(joinedload(HospitalStay.sinistre).joinedload(Sinistre.alerte))
+        .filter(HospitalStay.id == invoice.hospital_stay_id)
+        .first()
+    ) if invoice.hospital_stay_id else None
+    sinistre = stay.sinistre if stay else None
+    if not sinistre:
+        return
+    autres = (
+        db.query(Invoice)
+        .join(HospitalStay, HospitalStay.id == Invoice.hospital_stay_id)
+        .filter(
+            HospitalStay.sinistre_id == sinistre.id,
+            Invoice.statut != InvoiceStatus.REJECTED,
+            Invoice.id != invoice.id,
+        )
+        .all()
+    )
+    if all(i.statut == InvoiceStatus.PAID for i in autres):
+        sinistre.statut = "resolu"
+        if sinistre.alerte and sinistre.alerte.statut != "resolue":
+            sinistre.alerte.statut = "resolue"
+
+
+@router.post("/{invoice_id}/pay", response_model=InvoiceResponse)
+async def pay_invoice(
+    invoice_id: int,
+    request: ValidationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Étape 11 : paiement par le comptable / superviseur financier MHC."""
+    if (
+        current_user.role not in [Role.AGENT_COMPTABLE_MH, Role.FINANCE_MANAGER, Role.ADMIN]
+        and not getattr(current_user, "is_superuser", False)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Paiement réservé au comptable ou superviseur financier MHC.",
+        )
+
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+
+    _invoice_payable_or_400(invoice)
+
+    previous_status = invoice.statut
+    previous_stage = get_invoice_stage(invoice)
+    invoice.statut = InvoiceStatus.PAID
+    _close_dossier_if_settled(db, invoice)
+
+    record_invoice_history(
+        db,
+        invoice,
+        action="invoice_paid",
+        actor_id=current_user.id,
+        notes=request.notes,
+        previous_status=previous_status,
+        previous_stage=previous_stage,
+    )
+    db.commit()
+    db.refresh(invoice)
+    logger.info(f"Invoice {invoice_id} paid by user {current_user.id}")
+    return InvoiceResponse(
+        id=invoice.id,
+        hospital_id=invoice.hospital_id,
+        numero_facture=invoice.numero_facture,
+        montant_ht=invoice.montant_ht,
+        montant_tva=invoice.montant_tva,
+        montant_ttc=invoice.montant_ttc,
+        date_facture=invoice.date_facture,
+        statut=invoice.statut,
+        validation_medicale=invoice.validation_medicale,
+        validation_sinistre=invoice.validation_sinistre,
+        validation_compta=invoice.validation_compta,
+        items=[],
+    )
+
+
+class BlockRequest(BaseModel):
+    bloquee: bool = True
+    notes: Optional[str] = None
+
+
+@router.post("/{invoice_id}/block", response_model=InvoiceResponse)
+async def block_invoice(
+    invoice_id: int,
+    request: BlockRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Bloque / débloque une facture (litige, contrôle) — finance ou affaires médicales."""
+    if (
+        current_user.role not in MEDICAL_AFFAIRS_ROLES
+        and current_user.role != Role.ADMIN
+        and not getattr(current_user, "is_superuser", False)
+    ):
+        require_finance_or_admin(current_user)
+
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+    if invoice.statut == InvoiceStatus.PAID:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Une facture payée ne peut pas être bloquée.")
+
+    invoice.bloquee = request.bloquee
+    record_invoice_history(
+        db,
+        invoice,
+        action="invoice_blocked" if request.bloquee else "invoice_unblocked",
+        actor_id=current_user.id,
+        notes=request.notes,
+        previous_status=invoice.statut,
+        previous_stage=get_invoice_stage(invoice),
+    )
+    db.commit()
+    db.refresh(invoice)
+    return InvoiceResponse(
+        id=invoice.id,
+        hospital_id=invoice.hospital_id,
+        numero_facture=invoice.numero_facture,
+        montant_ht=invoice.montant_ht,
+        montant_tva=invoice.montant_tva,
+        montant_ttc=invoice.montant_ttc,
+        date_facture=invoice.date_facture,
+        statut=invoice.statut,
+        validation_medicale=invoice.validation_medicale,
+        validation_sinistre=invoice.validation_sinistre,
+        validation_compta=invoice.validation_compta,
+        items=[],
+    )
+
+
+@router.post("/{invoice_id}/reassureur-agrement", response_model=InvoiceResponse)
+async def reassureur_agrement(
+    invoice_id: int,
+    request: ValidationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Enregistre l'agrément du réassureur quand le plafond du produit est dépassé."""
+    require_finance_or_admin(current_user)
+
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+    if getattr(invoice, "reassureur_agrement", None) != "en_attente":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Aucun agrément réassureur n'est requis pour cette facture.",
+        )
+
+    invoice.reassureur_agrement = "approuve" if request.approve else "refuse"
+    record_invoice_history(
+        db,
+        invoice,
+        action=f"reassureur_agrement_{'approved' if request.approve else 'rejected'}",
+        actor_id=current_user.id,
+        notes=request.notes,
+        previous_status=invoice.statut,
+        previous_stage=get_invoice_stage(invoice),
+    )
+    db.commit()
+    db.refresh(invoice)
+    return InvoiceResponse(
+        id=invoice.id,
+        hospital_id=invoice.hospital_id,
+        numero_facture=invoice.numero_facture,
+        montant_ht=invoice.montant_ht,
+        montant_tva=invoice.montant_tva,
+        montant_ttc=invoice.montant_ttc,
+        date_facture=invoice.date_facture,
+        statut=invoice.statut,
+        validation_medicale=invoice.validation_medicale,
+        validation_sinistre=invoice.validation_sinistre,
+        validation_compta=invoice.validation_compta,
+        items=[],
+    )

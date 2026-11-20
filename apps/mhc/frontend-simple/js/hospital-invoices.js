@@ -34,7 +34,7 @@ const numberFormatter = new Intl.NumberFormat('fr-FR', {
 
 const INVOICE_STATUS_LABELS = {
     pending_medical: 'En attente accord médical',
-    pending_sinistre: 'En attente pôle sinistre',
+    pending_sinistre: 'En attente affaires médicales',
     pending_compta: 'En attente comptabilité MH',
     validated: 'Validée',
     rejected: 'Refusée',

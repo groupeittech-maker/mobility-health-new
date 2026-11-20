@@ -38,6 +38,25 @@ def _create_sinistre(db, test_user, test_hospital):
     db.add(sinistre)
     db.commit()
     db.refresh(sinistre)
+
+    # Conditions d'émission de facture (étape 8) : bon 111 effectif + soins
+    # terminés (bulletin de sortie).
+    from app.services.mhc_care_document_service import issue_care_document
+
+    sinistre.decision_mc = "accord"
+    issue_care_document(db, sinistre, "bpcu", None, alerte=alerte, enforce_roles=False)
+    db.flush()
+    issue_care_document(
+        db,
+        sinistre,
+        "bs",
+        None,
+        payload={"mode_sortie": "guerison"},
+        alerte=alerte,
+        enforce_roles=False,
+    )
+    db.commit()
+    db.refresh(sinistre)
     return alerte, sinistre
 
 

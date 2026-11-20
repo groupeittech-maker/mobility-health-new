@@ -297,7 +297,7 @@
             </div>
             <div id="invoiceSinistreApproval" class="medical-decision-card" hidden>
                 <label for="invoiceSinistreNotes">Notes pour la validation sinistre</label>
-                <textarea id="invoiceSinistreNotes" rows="3" placeholder="Commentaires pour le pôle sinistre"></textarea>
+                <textarea id="invoiceSinistreNotes" rows="3" placeholder="Commentaires pour les affaires médicales"></textarea>
                 <div class="medical-decision-actions">
                     <button type="button" class="btn btn-success" id="invoiceSinistreApproveBtn">Valider la facture</button>
                     <button type="button" class="btn btn-danger" id="invoiceSinistreRejectBtn">Refuser la facture</button>
@@ -349,6 +349,25 @@
             </div>
         </section>
 
+        <section class="dashboard-section" id="reorientationSection" hidden>
+            <div class="section-header">
+                <h3>Réorientation du patient</h3>
+                <p class="muted">
+                    Médecin-conseil ou affaires médicales : change la clinique et remet l'acceptation à zéro.
+                    Le bon 111 de l'ancienne clinique est invalidé — la nouvelle clinique devra accepter le patient.
+                </p>
+            </div>
+            <div class="medical-decision-card">
+                <label for="reorientationHospital">Nouvel établissement</label>
+                <select id="reorientationHospital"><option value="">Chargement…</option></select>
+                <label for="reorientationNotes" style="margin-top:0.6rem;">Motif</label>
+                <textarea id="reorientationNotes" rows="2" placeholder="Motif de la réorientation"></textarea>
+                <div class="medical-decision-actions" style="margin-top:0.6rem;">
+                    <button type="button" class="btn btn-primary" id="reorientationSubmitBtn">Réorienter le patient</button>
+                </div>
+            </div>
+        </section>
+
         <section class="dashboard-section" id="medicalDecisionSection">
             <div class="section-header">
                 <h3>Décision médicale</h3>
@@ -384,7 +403,7 @@
     <script src="js/auth.js?v=3"></script>
     <script src="js/permissions.js?v=3"></script>
     <script src="js/backoffice-nav.js?v=5"></script>
-    <script src="js/hospital-alert-details.js?v=3"></script>
+    <script src="js/hospital-alert-details.js?v=5"></script>
 </body>
 </html>
 

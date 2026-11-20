@@ -26,9 +26,9 @@
 
     <main class="container">
         <div class="dashboard-header">
-            <h2>Traitement comptable des factures</h2>
+            <h2>Paiement des factures hospitalières</h2>
             <p class="muted">
-                Visualisez les factures transmises par le pôle sinistre et validez-les pour paiement ou retour.
+                Visualisez les factures transmises par les affaires médicales et validez-les pour paiement ou retour.
             </p>
         </div>
 
@@ -37,10 +37,11 @@
                 <label>
                     Étape du circuit
                     <select id="mhStageFilter">
-                        <option value="compta" selected>En attente comptabilité</option>
+                        <option value="validated" selected>Validées — à payer</option>
                         <option value="sinistre">En validation sinistre</option>
                         <option value="medical">En validation médicale</option>
-                        <option value="validated">Payées / validées</option>
+                        <option value="paid">Payées</option>
+                        <option value="compta">En attente comptabilité (hérité)</option>
                         <option value="rejected">Rejets</option>
                         <option value="all">Toutes</option>
                     </select>
@@ -78,7 +79,7 @@
     <script src="js/api.js?v=20261013"></script>
     <script src="js/auth.js?v=3"></script>
     <script src="js/permissions.js?v=3"></script>
-    <script src="js/mh-invoices.js?v=3"></script>
+    <script src="js/mh-invoices.js?v=5"></script>
     <script src="js/backoffice-nav.js?v=5"></script>
 </body>
 </html>

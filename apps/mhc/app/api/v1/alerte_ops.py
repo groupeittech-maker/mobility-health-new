@@ -453,12 +453,12 @@ async def execute_action(alerte_id: int, payload: ActionRequest, db: Session = D
         label = "Ambulance en route"
 
     elif payload.action == "prise_en_charge":
+        # Accord de prise en charge (étape 2a) : statut « Accord du
+        # médecin-conseil », AUCUN bon émis — la clinique émet le bon 111 à
+        # l'acceptation du patient (étape 3).
         if not sinistre:
             raise HTTPException(status_code=400, detail="Orientez d'abord l'alerte vers un établissement")
         if not sinistre.numero_sinistre:
-            # La prise en charge directe vaut validation : on attribue le
-            # numéro de sinistre avant l'émission du BPCU (même logique que
-            # la validation médicale dans sos.py).
             from app.services.mhc_reference_service import allocate_sinistre_number
             if sinistre.souscription_id and sinistre.souscription is None:
                 sinistre.souscription = db.query(Souscription).filter(
@@ -467,31 +467,43 @@ async def execute_action(alerte_id: int, payload: ActionRequest, db: Session = D
             if sinistre.hospital_id and sinistre.hospital is None:
                 sinistre.hospital = db.query(Hospital).filter(Hospital.id == sinistre.hospital_id).first()
             sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
-        from app.services.mhc_care_document_service import issue_care_document, CareDocumentPermissionError
+        from app.services.mhc_care_document_service import issue_decision_documents
         try:
-            docs = issue_care_document(db, sinistre, "BPCU", current_user, notes=payload.notes, alerte=alerte)
-        except CareDocumentPermissionError as exc:
-            raise HTTPException(status_code=403, detail=str(exc))
+            issue_decision_documents(
+                db, sinistre, approve=True, actor=current_user,
+                notes=payload.notes, alerte=alerte,
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
-        label = f"Prise en charge {docs[0].numero if docs else ''} émise".strip()
-        _log_event(db, alerte_id, "prise_en_charge", label, current_user)
+        label = "Accord de prise en charge enregistré"
+        _log_event(db, alerte_id, "accord_prise_en_charge", label, current_user)
 
     elif payload.action == "hotel":
         _log_event(db, alerte_id, "hotel", "Demande d'hébergement enregistrée", current_user, {"notes": payload.notes})
         label = "Demande d'hôtel enregistrée"
 
     elif payload.action == "refuser":
-        # Bon de refus de prise en charge (BRPCU) + alerte marquée refusée.
+        # Refus de prise en charge (étape 2b) : bon 112 émis immédiatement,
+        # dossier « Refusé — clos ».
         if sinistre:
-            from app.services.mhc_care_document_service import issue_care_document, CareDocumentPermissionError
+            if not sinistre.numero_sinistre:
+                from app.services.mhc_reference_service import allocate_sinistre_number
+                if sinistre.souscription_id and sinistre.souscription is None:
+                    sinistre.souscription = db.query(Souscription).filter(
+                        Souscription.id == sinistre.souscription_id
+                    ).first()
+                sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
+            from app.services.mhc_care_document_service import issue_decision_documents
             try:
-                issue_care_document(db, sinistre, "BRPCU", current_user, notes=payload.notes, alerte=alerte)
-            except (CareDocumentPermissionError, ValueError):
-                pass
+                issue_decision_documents(
+                    db, sinistre, approve=False, actor=current_user,
+                    notes=payload.notes, alerte=alerte,
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
         alerte.statut = "annulee"
-        _log_event(db, alerte_id, "refus", "Prise en charge refusée", current_user, {"notes": payload.notes})
-        label = "Alerte refusée"
+        _log_event(db, alerte_id, "refus", "Prise en charge refusée (bon 112)", current_user, {"notes": payload.notes})
+        label = "Prise en charge refusée"
 
     else:
         raise HTTPException(status_code=400, detail="Action inconnue")

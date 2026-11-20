@@ -195,6 +195,80 @@
         load();
     };
 
+    // ------- Déclaration manuelle (assuré au téléphone) -------
+    const DECLARE_ROLES = ['medecin_referent_mh', 'agent_medical_mhc', 'superviseur_affaires_medicales', 'admin'];
+    let declareSelectedUserId = null;
+    let declareSearchTimer = null;
+
+    function initDeclaration() {
+        const role = (localStorage.getItem('user_role') || '').toLowerCase();
+        const btn = document.getElementById('declareBtn');
+        if (!btn || !DECLARE_ROLES.includes(role)) return;
+        btn.hidden = false;
+        btn.addEventListener('click', () => {
+            declareSelectedUserId = null;
+            document.getElementById('declareSubmit').disabled = true;
+            document.getElementById('declareSearch').value = '';
+            document.getElementById('declareResults').innerHTML = '';
+            document.getElementById('declareModal').classList.add('open');
+        });
+        document.getElementById('declareSearch').addEventListener('input', (e) => {
+            clearTimeout(declareSearchTimer);
+            const q = e.target.value.trim();
+            if (q.length < 2) { document.getElementById('declareResults').innerHTML = ''; return; }
+            declareSearchTimer = setTimeout(() => searchAssures(q), 300);
+        });
+        document.getElementById('declareSubmit').addEventListener('click', submitDeclaration);
+    }
+
+    async function searchAssures(q) {
+        const box = document.getElementById('declareResults');
+        box.innerHTML = '<div class="muted">Recherche…</div>';
+        const res = await fetch(API + '/sos/assures/search?q=' + encodeURIComponent(q), {
+            headers: { Authorization: 'Bearer ' + token() },
+        });
+        if (!res.ok) { box.innerHTML = '<div class="muted">Recherche impossible (HTTP ' + res.status + ')</div>'; return; }
+        const users = await res.json();
+        if (!users.length) { box.innerHTML = '<div class="muted">Aucun assuré trouvé.</div>'; return; }
+        box.innerHTML = users.map(u =>
+            '<div class="declare-item" data-uid="' + u.id + '">' +
+            '<strong>' + (u.nom || '—') + '</strong> <span class="muted">' + (u.email || '') + ' ' + (u.telephone || '') + '</span>' +
+            (u.souscription_active
+                ? ' <span class="bo-badge resolue">Couvert — ' + (u.souscription_active.numero || '') + '</span>'
+                : ' <span class="bo-badge annulee">Sans souscription active</span>') +
+            '</div>'
+        ).join('');
+        box.querySelectorAll('.declare-item').forEach(el => el.addEventListener('click', () => {
+            box.querySelectorAll('.declare-item').forEach(x => x.classList.remove('selected'));
+            el.classList.add('selected');
+            declareSelectedUserId = Number(el.dataset.uid);
+            document.getElementById('declareSubmit').disabled = false;
+        }));
+    }
+
+    async function submitDeclaration() {
+        if (!declareSelectedUserId) return;
+        const submit = document.getElementById('declareSubmit');
+        submit.disabled = true;
+        const res = await fetch(API + '/sos/declaration-manuelle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
+            body: JSON.stringify({
+                user_id: declareSelectedUserId,
+                description: document.getElementById('declareDescription').value.trim() || undefined,
+                priorite: document.getElementById('declarePriorite').value,
+            }),
+        });
+        if (res.ok) {
+            document.getElementById('declareModal').classList.remove('open');
+            load();
+        } else {
+            const err = await res.json().catch(() => ({}));
+            alert(err.detail || 'Déclaration impossible.');
+            submit.disabled = false;
+        }
+    }
+
     document.getElementById('exportBtn').addEventListener('click', () => {
         const rows = filtered();
         const csv = 'numero;date;assure;type;etablissement;statut\n' + rows.map(a =>
@@ -212,6 +286,7 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
         if (!(await requireBackoffice('index.html'))) return;
+        initDeclaration();
         load();
     });
     if (document.readyState !== 'loading') load();

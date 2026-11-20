@@ -3,18 +3,25 @@ const MH_ALLOWED_ROLES =
 const MH_ACTION_ROLES = ['agent_comptable_mh', 'finance_manager', 'admin'];
 const MH_HISTORY_ACTIONS = {
     invoice_created: 'Facture créée',
-    medical_validation_approved: 'Accord médical',
-    medical_validation_rejected: 'Rejet médical',
-    sinistre_validation_approved: 'Validation pôle sinistre',
-    sinistre_validation_rejected: 'Rejet pôle sinistre',
+    medical_validation_approved: 'Validation médecin-conseil',
+    medical_validation_rejected: 'Refus médecin-conseil',
+    sinistre_validation_approved: 'Validation affaires médicales',
+    sinistre_validation_rejected: 'Refus affaires médicales',
+    affaires_medicales_validation_approved: 'Validation affaires médicales',
+    affaires_medicales_validation_rejected: 'Refus affaires médicales',
     compta_validation_approved: 'Validation comptable',
     compta_validation_rejected: 'Rejet comptable',
+    invoice_paid: 'Facture payée',
+    invoice_blocked: 'Facture bloquée',
+    invoice_unblocked: 'Facture débloquée',
+    reassureur_agrement_approved: 'Agrément réassureur accordé',
+    reassureur_agrement_rejected: 'Agrément réassureur refusé',
 };
 
 let mhInvoices = [];
 let mhFilteredInvoices = [];
 let mhSelectedInvoiceId = null;
-let mhStageFilter = 'compta';
+let mhStageFilter = 'validated';
 let mhSearchTerm = '';
 let mhUserRole = null;
 
@@ -51,8 +58,8 @@ function bindMhInvoiceEvents() {
 function buildMhInvoiceParams() {
     const params = new URLSearchParams();
     params.set('limit', '200');
-    if (mhStageFilter === 'validated' || mhStageFilter === 'rejected') {
-        params.set('statut', mhStageFilter === 'validated' ? 'validated' : 'rejected');
+    if (['validated', 'rejected', 'paid'].includes(mhStageFilter)) {
+        params.set('statut', mhStageFilter);
     } else if (mhStageFilter !== 'all') {
         // stage values accepted by API: medical, sinistre, compta
         params.set('stage', mhStageFilter);
@@ -202,35 +209,57 @@ function renderMhInvoiceDetail() {
             </div>
         </div>
         <div class="timeline">
-            ${renderMhTimelineItem('Accord médical', invoice.validation_medicale)}
-            ${renderMhTimelineItem('Pôle sinistre', invoice.validation_sinistre)}
-            ${renderMhTimelineItem('Comptabilité', invoice.validation_compta)}
+            ${renderMhTimelineItem('Médecin-conseil', invoice.validation_medicale)}
+            ${renderMhTimelineItem('Affaires médicales', invoice.validation_sinistre)}
+            ${renderMhTimelineItem('Paiement', invoice.statut === 'paid' ? 'approved' : (invoice.statut === 'validated' ? 'pending' : null))}
         </div>
+        ${invoice.bloquee ? '<p class="pill pill-danger">Facture bloquée</p>' : ''}
+        ${invoice.reassureur_agrement === 'en_attente' ? '<p class="pill">Plafond dépassé — agrément du réassureur requis</p>' : ''}
+        ${invoice.reassureur_agrement === 'approuve' ? '<p class="pill pill-success">Agrément réassureur accordé</p>' : ''}
         <div class="history-block">
             <h4>Historique des actions</h4>
             <div id="mhHistory" class="history-list"></div>
         </div>
         <div class="form-group">
             <label for="mhDecisionNotes">Notes internes</label>
-            <textarea id="mhDecisionNotes" rows="3" placeholder="Commentaire visible par le pôle sinistre"></textarea>
+            <textarea id="mhDecisionNotes" rows="3" placeholder="Commentaire interne"></textarea>
         </div>
         <div class="form-actions">
-            <button class="btn btn-success" id="mhApproveBtn">Valider (payer)</button>
+            <button class="btn btn-success" id="mhApproveBtn">Payer la facture</button>
             <button class="btn btn-danger" id="mhRejectBtn">Rejeter la facture</button>
+            <button class="btn" id="mhBlockBtn">${invoice.bloquee ? 'Débloquer' : 'Bloquer'}</button>
+            <button class="btn btn-success" id="mhAgrementBtn" hidden>Enregistrer l’agrément réassureur</button>
         </div>
     `;
 
-    const canAct = canValidateInvoiceCompta(invoice);
+    const notesField = document.getElementById('mhDecisionNotes');
     const approveBtn = document.getElementById('mhApproveBtn');
     const rejectBtn = document.getElementById('mhRejectBtn');
-    const notesField = document.getElementById('mhDecisionNotes');
-    if (!canAct) {
-        if (approveBtn) approveBtn.disabled = true;
-        if (rejectBtn) rejectBtn.disabled = true;
-        if (notesField) notesField.disabled = true;
-    } else {
+    const blockBtn = document.getElementById('mhBlockBtn');
+    const agrementBtn = document.getElementById('mhAgrementBtn');
+
+    const canPay = canPayInvoice(invoice);
+    const isLegacyCompta = invoice.statut === 'pending_compta';
+    if (approveBtn) {
+        approveBtn.hidden = !(canPay || isLegacyCompta);
+        approveBtn.disabled = !(canPay || isLegacyCompta);
+        if (isLegacyCompta) approveBtn.textContent = 'Valider comptablement';
+        else approveBtn.textContent = 'Payer la facture';
         approveBtn.onclick = () => handleMhInvoiceDecision(true);
+    }
+    if (rejectBtn) {
+        rejectBtn.hidden = !isLegacyCompta;
+        rejectBtn.disabled = !isLegacyCompta;
         rejectBtn.onclick = () => handleMhInvoiceDecision(false);
+    }
+    const canBlock = invoice.statut !== 'paid' && canActOnInvoice();
+    if (blockBtn) {
+        blockBtn.hidden = !canBlock;
+        blockBtn.onclick = () => handleMhInvoiceBlock(!invoice.bloquee);
+    }
+    if (agrementBtn) {
+        agrementBtn.hidden = !(invoice.reassureur_agrement === 'en_attente' && canActOnInvoice());
+        agrementBtn.onclick = () => handleMhAgrement();
     }
 
     loadInvoiceHistory(invoice.id, 'mhHistory', MH_HISTORY_ACTIONS);
@@ -296,12 +325,21 @@ function renderMhTimelineItem(label, state) {
     `;
 }
 
-function canValidateInvoiceCompta(invoice) {
+function canActOnInvoice() {
+    return (
+        MH_ACTION_ROLES.includes(mhUserRole || '') ||
+        (window.MhPermissions && window.MhPermissions.can('facturation_medicale', 'controle'))
+    );
+}
+
+/** Étape 11 : facture validée, non bloquée, agrément réassureur obtenu si requis. */
+function canPayInvoice(invoice) {
     return (
         invoice &&
-        invoice.statut === 'pending_compta' &&
-        (MH_ACTION_ROLES.includes(mhUserRole || '') ||
-            (window.MhPermissions && window.MhPermissions.can('facturation_medicale', 'controle')))
+        invoice.statut === 'validated' &&
+        !invoice.bloquee &&
+        [null, undefined, 'approuve'].includes(invoice.reassureur_agrement) &&
+        canActOnInvoice()
     );
 }
 
@@ -310,23 +348,58 @@ async function handleMhInvoiceDecision(approve) {
     const notes = notesField?.value.trim() || undefined;
     const approveBtn = document.getElementById('mhApproveBtn');
     const rejectBtn = document.getElementById('mhRejectBtn');
+    const invoice = mhFilteredInvoices.find((item) => item.id === mhSelectedInvoiceId);
+    const isLegacyCompta = invoice && invoice.statut === 'pending_compta';
+    const endpoint = isLegacyCompta ? 'validate_compta' : 'pay';
     if (approveBtn) approveBtn.disabled = true;
     if (rejectBtn) rejectBtn.disabled = true;
     try {
-        await apiCall(`/invoices/${mhSelectedInvoiceId}/validate_compta`, {
+        await apiCall(`/invoices/${mhSelectedInvoiceId}/${endpoint}`, {
             method: 'POST',
             body: JSON.stringify({ approve, notes }),
         });
         showAlert(
-            approve ? 'Facture validée comptablement.' : 'Facture rejetée par la comptabilité.',
-            approve ? 'success' : 'warning'
+            isLegacyCompta
+                ? (approve ? 'Facture validée comptablement.' : 'Facture rejetée par la comptabilité.')
+                : 'Facture payée. Le dossier est réglé.',
+            'success'
         );
         await fetchMhInvoices();
     } catch (error) {
-        console.error('Erreur validation comptable:', error);
+        console.error('Erreur paiement facture:', error);
         showAlert(error.message || 'Impossible de traiter la facture.', 'error');
         if (approveBtn) approveBtn.disabled = false;
         if (rejectBtn) rejectBtn.disabled = false;
+    }
+}
+
+async function handleMhInvoiceBlock(bloquee) {
+    const notesField = document.getElementById('mhDecisionNotes');
+    const notes = notesField?.value.trim() || undefined;
+    try {
+        await apiCall(`/invoices/${mhSelectedInvoiceId}/block`, {
+            method: 'POST',
+            body: JSON.stringify({ bloquee, notes }),
+        });
+        showAlert(bloquee ? 'Facture bloquée.' : 'Facture débloquée.', 'success');
+        await fetchMhInvoices();
+    } catch (error) {
+        showAlert(error.message || 'Impossible de modifier le blocage.', 'error');
+    }
+}
+
+async function handleMhAgrement() {
+    const notesField = document.getElementById('mhDecisionNotes');
+    const notes = notesField?.value.trim() || undefined;
+    try {
+        await apiCall(`/invoices/${mhSelectedInvoiceId}/reassureur-agrement`, {
+            method: 'POST',
+            body: JSON.stringify({ approve: true, notes }),
+        });
+        showAlert('Agrément du réassureur enregistré.', 'success');
+        await fetchMhInvoices();
+    } catch (error) {
+        showAlert(error.message || 'Impossible d’enregistrer l’agrément.', 'error');
     }
 }
 
@@ -375,7 +448,7 @@ function renderMhHistoryItem(entry, actionLabels) {
 function getInvoiceStatusLabel(status) {
     const map = {
         pending_medical: 'En attente accord médical',
-        pending_sinistre: 'En attente pôle sinistre',
+        pending_sinistre: 'En attente affaires médicales',
         pending_compta: 'En attente comptabilité MH',
         validated: 'Validée',
         rejected: 'Refusée',

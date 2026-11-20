@@ -1233,11 +1233,18 @@ async def verify_alert_veracity(
     Permettre à un médecin référent de confirmer ou refuser la véracité d'une alerte.
     Cette action met à jour l'étape `verification_urgence` du workflow sinistre.
     """
-    allowed_roles = {Role.MEDECIN_REFERENT_MH}
-    if current_user.role not in allowed_roles:
+    # Médecin-conseil, ou en relève l'agent médical / le superviseur des
+    # affaires médicales MHC (étapes 2a/2b du workflow sinistre).
+    allowed_roles = {
+        Role.MEDECIN_REFERENT_MH,
+        Role.AGENT_MEDICAL_MHC,
+        Role.SUPERVISEUR_AFFAIRES_MEDICALES,
+        Role.ADMIN,
+    }
+    if current_user.role not in allowed_roles and not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès réservé aux médecins référents."
+            detail="Accès réservé au médecin-conseil ou aux affaires médicales MHC."
         )
 
     sinistre = db.query(Sinistre).filter(Sinistre.id == sinistre_id).first()
@@ -1300,34 +1307,28 @@ async def verify_alert_veracity(
                 alerte=alerte,
             )
         except ValueError as exc:
-            logger.warning("Émission BPCU ignorée: %s", exc)
-        
-        # Notifier les agents de réception de l'hôpital que l'alerte est validée
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+        # Étape 3 : l'accord n'émet aucun bon — on notifie l'agent d'accueil et
+        # l'agent médical de la clinique pour l'acceptation du patient (bon 111).
         if sinistre.hospital_id:
             hospital = db.query(Hospital).filter(Hospital.id == sinistre.hospital_id).first()
             if hospital:
                 recipients = db.query(User).filter(
-                    User.role == Role.AGENT_RECEPTION_HOPITAL,
+                    User.role.in_([Role.AGENT_RECEPTION_HOPITAL, Role.MEDECIN_HOPITAL]),
                     User.is_active == True,  # noqa: E712
                     User.hospital_id == hospital.id
                 ).all()
-                
-                if not recipients:
-                    recipients = db.query(User).filter(
-                        User.role == Role.AGENT_RECEPTION_HOPITAL,
-                        User.is_active == True,  # noqa: E712
-                        User.hospital_id.is_(None)
-                    ).all()
-                
+
                 alerte_label = alerte.numero_alerte if alerte else f"Alerte #{sinistre.alerte_id}"
                 sinistre_label = sinistre.numero_sinistre or f"Sinistre #{sinistre.id}"
-                
+
                 for user in recipients:
                     notification = Notification(
                         user_id=user.id,
                         type_notification="alert_validated_by_referent",
-                        titre="Alerte validée par le médecin référent",
-                        message=f"L'alerte {alerte_label} (sinistre {sinistre_label}) a été validée par le médecin référent MH. Vous pouvez maintenant orienter l'assuré vers un médecin hospitalier.",
+                        titre="Accord de prise en charge",
+                        message=f"Accord du médecin-conseil pour le sinistre {sinistre_label} (alerte {alerte_label}). Vous pouvez accepter le patient et émettre le bon 111.",
                         lien_relation_id=sinistre.id,
                         lien_relation_type="sinistre"
                     )
@@ -1356,7 +1357,7 @@ async def verify_alert_veracity(
                 alerte=alerte,
             )
         except ValueError as exc:
-            logger.warning("Émission BRPCU ignorée: %s", exc)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
     mark_notifications_read_for_relation(
         db,
@@ -1370,3 +1371,182 @@ async def verify_alert_veracity(
 
     return step
 
+
+
+# --- Déclaration manuelle (étape 1b) -----------------------------------------
+# Le bénéficiaire appelle : le médecin-conseil, l'agent médical MHC ou le
+# superviseur des affaires médicales recherche l'assuré puis déclenche le
+# mécanisme d'alerte sinistre à sa place.
+
+DECLARATION_MANUELLE_ROLES = {
+    Role.MEDECIN_REFERENT_MH,
+    Role.AGENT_MEDICAL_MHC,
+    Role.SUPERVISEUR_AFFAIRES_MEDICALES,
+    Role.ADMIN,
+}
+
+
+def _require_declaration_role(current_user: User) -> None:
+    if current_user.role not in DECLARATION_MANUELLE_ROLES and not getattr(current_user, "is_superuser", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé au médecin-conseil ou aux affaires médicales MHC.",
+        )
+
+
+@router.get("/assures/search")
+async def search_assures(
+    q: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recherche d'un assuré (nom, e-mail ou téléphone) pour la déclaration manuelle."""
+    _require_declaration_role(current_user)
+    term = (q or "").strip()
+    if len(term) < 2:
+        return []
+    like = f"%{term}%"
+    users = (
+        db.query(User)
+        .filter(
+            User.role == Role.USER,
+            User.is_active == True,  # noqa: E712
+            func.coalesce(User.full_name, "").ilike(like)
+            | User.email.ilike(like)
+            | func.coalesce(User.telephone, "").ilike(like),
+        )
+        .order_by(User.full_name)
+        .limit(20)
+        .all()
+    )
+    results = []
+    for u in users:
+        souscription = (
+            db.query(Souscription)
+            .filter(Souscription.user_id == u.id, Souscription.statut == "active")
+            .order_by(Souscription.created_at.desc())
+            .first()
+        )
+        results.append({
+            "id": u.id,
+            "nom": u.full_name or u.username or u.email,
+            "email": u.email,
+            "telephone": u.telephone,
+            "souscription_active": {
+                "id": souscription.id,
+                "numero": souscription.numero_souscription,
+            } if souscription else None,
+        })
+    return results
+
+
+class DeclarationManuelleRequest(BaseModel):
+    user_id: int
+    description: Optional[str] = None
+    priorite: Optional[str] = "normale"
+    hospital_id: Optional[int] = None
+    adresse: Optional[str] = None
+
+
+@router.post("/declaration-manuelle", status_code=status.HTTP_201_CREATED)
+async def declaration_manuelle(
+    payload: DeclarationManuelleRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Déclaration manuelle d'une alerte sinistre pour un assuré qui appelle.
+
+    Crée le dossier (statut « Alerte reçue ») qui apparaît dans l'interface de
+    réception des alertes — le circuit ensuite est le même qu'une alerte SOS.
+    """
+    _require_declaration_role(current_user)
+
+    assure = db.query(User).filter(User.id == payload.user_id, User.role == Role.USER).first()
+    if not assure:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assuré introuvable.")
+
+    souscription = (
+        db.query(Souscription)
+        .filter(Souscription.user_id == assure.id, Souscription.statut == "active")
+        .order_by(Souscription.created_at.desc())
+        .first()
+    )
+
+    numero_alerte = f"ALERT-{uuid.uuid4().hex[:8].upper()}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+    description = payload.description or f"Déclaration manuelle par {current_user.full_name or current_user.email}"
+    alerte = Alerte(
+        user_id=assure.id,
+        souscription_id=souscription.id if souscription else None,
+        numero_alerte=numero_alerte,
+        adresse=payload.adresse,
+        description=description,
+        priorite=payload.priorite or "normale",
+        statut="en_attente",
+    )
+    db.add(alerte)
+    db.flush()
+
+    hospital = None
+    if payload.hospital_id:
+        hospital = db.query(Hospital).filter(Hospital.id == payload.hospital_id, Hospital.est_actif == True).first()
+        if not hospital:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Établissement introuvable.")
+
+    sinistre = None
+    if souscription:
+        agent_sinistre = db.query(User).filter(
+            User.role.in_([Role.SOS_OPERATOR, Role.AGENT_SINISTRE_MH]),
+            User.is_active == True,  # noqa: E712
+        ).first()
+        medecin_referent = db.query(User).filter(
+            User.id == hospital.medecin_referent_id,
+            User.role == Role.MEDECIN_REFERENT_MH,
+            User.is_active == True,  # noqa: E712
+        ).first() if hospital and getattr(hospital, "medecin_referent_id", None) else None
+        if not medecin_referent:
+            medecin_referent = db.query(User).filter(
+                User.role == Role.MEDECIN_REFERENT_MH,
+                User.is_active == True,  # noqa: E712
+            ).first()
+
+        sinistre = Sinistre(
+            alerte_id=alerte.id,
+            souscription_id=souscription.id,
+            hospital_id=hospital.id if hospital else None,
+            numero_sinistre=None,
+            description=description,
+            statut="en_cours",
+            agent_sinistre_id=agent_sinistre.id if agent_sinistre else None,
+            medecin_referent_id=medecin_referent.id if medecin_referent else None,
+        )
+        db.add(sinistre)
+        db.flush()
+        alerte.statut = "en_cours"
+
+        # Le médecin-conseil est destinataire de l'alerte (relève : affaires médicales).
+        for u in db.query(User).filter(
+            User.role.in_([
+                Role.MEDECIN_REFERENT_MH,
+                Role.AGENT_MEDICAL_MHC,
+                Role.SUPERVISEUR_AFFAIRES_MEDICALES,
+            ]),
+            User.is_active == True,  # noqa: E712
+        ).all():
+            db.add(Notification(
+                user_id=u.id,
+                type_notification="sos_alert",
+                titre="Alerte déclarée manuellement",
+                message=f"Alerte {numero_alerte} déclarée par {current_user.full_name or current_user.email} pour {assure.full_name or assure.email}.",
+                lien_relation_id=sinistre.id,
+                lien_relation_type="sinistre",
+            ))
+        ensure_workflow_steps(db, sinistre, alerte)
+
+    db.commit()
+    return {
+        "ok": True,
+        "alerte_id": alerte.id,
+        "numero_alerte": numero_alerte,
+        "sinistre_id": sinistre.id if sinistre else None,
+        "souscription_trouvee": souscription is not None,
+    }

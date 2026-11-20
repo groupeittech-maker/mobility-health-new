@@ -133,7 +133,7 @@
         const states = [
             ['btnAmbulance', types.has('ambulance'), '🚑 Ambulance déjà envoyée'],
             ['btnNotifyHospital', types.has('notification_hopital'), '🏥 Hôpital déjà prévenu'],
-            ['btnPriseEnCharge', hasBpcu || types.has('prise_en_charge'), '📋 Prise en charge validée'],
+            ['btnPriseEnCharge', hasBpcu || types.has('prise_en_charge'), '📋 Accord du médecin-conseil enregistré'],
             ['btnHotel', types.has('hotel'), '🏨 Hébergement organisé'],
         ];
         states.forEach(([id, done, label]) => {

@@ -1,7 +1,8 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -9,6 +10,8 @@ from app.core.enums import Role
 from app.core.mhc_nomenclature import DOCUMENT_TITLES, MhcCareDocumentType, document_catalog
 from app.core.mhc_tarif_reference import projet_tarif_public, split_prime_nette
 from app.api.v1.auth import get_current_user
+from app.models.hospital import Hospital
+from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.mhc_care_document import (
     MhcCareDocumentIssueRequest,
@@ -42,6 +45,11 @@ CARE_ROLES = {
     Role.DOCTOR,
     Role.HOSPITAL_ADMIN,
     Role.AGENT_RECEPTION_HOPITAL,
+    # Affaires médicales MHC : 2e validation des demandes, demande de
+    # rapatriement funéraire, attestations 121/122, réorientation.
+    Role.AGENT_MEDICAL_MHC,
+    Role.SUPERVISEUR_AFFAIRES_MEDICALES,
+    Role.AGENT_CONFORMITE_MEDICAL,
 }
 
 
@@ -201,6 +209,98 @@ async def validate_care_document_endpoint(
     db.commit()
     db.refresh(document)
     return _to_response(document)
+
+
+REORIENTATION_ROLES = {
+    Role.ADMIN,
+    Role.MEDECIN_REFERENT_MH,
+    Role.AGENT_MEDICAL_MHC,
+    Role.SUPERVISEUR_AFFAIRES_MEDICALES,
+}
+
+
+class ReorientationRequest(BaseModel):
+    hospital_id: int
+    notes: Optional[str] = None
+
+
+@router.post("/sinistres/{sinistre_id}/reorientation")
+async def reorient_sinistre(
+    sinistre_id: int,
+    body: ReorientationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Réorientation (étape 4) : médecin-conseil / affaires médicales MHC.
+
+    Change la clinique et remet l'acceptation à zéro : le bon 111 émis pour
+    l'ancienne clinique est expiré — la nouvelle clinique devra accepter le
+    patient et émettre un nouveau bon 111 (l'accord du médecin-conseil reste).
+    """
+    if current_user.role not in REORIENTATION_ROLES and not current_user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès réservé au médecin-conseil ou aux affaires médicales MHC.")
+
+    sinistre = load_sinistre_for_care(db, sinistre_id)
+    if not sinistre:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sinistre introuvable.")
+    if sinistre.statut in {"resolu", "annule"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Le dossier est clos.")
+    if body.hospital_id == sinistre.hospital_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Le dossier est déjà rattaché à cet établissement.")
+
+    # Réorientation impossible une fois l'hospitalisation en cours (bon 113 effectif).
+    effective_docs = [d for d in (sinistre.care_documents or []) if (d.statut or "emi") == "emi"]
+    if any(d.document_type in {"bh", "bph"} for d in effective_docs):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Réorientation impossible : une hospitalisation est en cours.")
+
+    hospital = db.query(Hospital).filter(Hospital.id == body.hospital_id, Hospital.est_actif == True).first()
+    if not hospital:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Établissement introuvable.")
+
+    from app.core.mhc_nomenclature import MhcCareDocumentStatus, MhcCareDocumentType
+    from datetime import datetime
+
+    old_hospital = sinistre.hospital
+    old_bpcu = None
+    for d in effective_docs:
+        if d.document_type == MhcCareDocumentType.BPCU.value:
+            d.statut = MhcCareDocumentStatus.EXPIRE.value
+            old_bpcu = d
+
+    sinistre.hospital_id = hospital.id
+    stay = sinistre.hospital_stay
+    if stay is not None:
+        stay.hospital_id = hospital.id
+
+    # Notifier l'agent d'accueil et l'agent médical de la nouvelle clinique.
+    recipients = (
+        db.query(User)
+        .filter(
+            User.role.in_([Role.AGENT_RECEPTION_HOPITAL, Role.MEDECIN_HOPITAL]),
+            User.is_active == True,  # noqa: E712
+            User.hospital_id == hospital.id,
+        )
+        .all()
+    )
+    sinistre_label = sinistre.numero_sinistre or f"sinistre #{sinistre.id}"
+    origin = f" depuis « {old_hospital.nom} »" if old_hospital else ""
+    for u in recipients:
+        db.add(Notification(
+            user_id=u.id,
+            type_notification="sinistre_reorientation",
+            titre="Patient réorienté vers votre établissement",
+            message=f"Le dossier {sinistre_label} a été réorienté{origin}. Veuillez accepter le patient et émettre le bon 111.",
+            lien_relation_id=sinistre.id,
+            lien_relation_type="sinistre",
+        ))
+
+    db.commit()
+    return {
+        "ok": True,
+        "hospital_id": hospital.id,
+        "hospital": hospital.nom,
+        "bpcu_invalide": old_bpcu.numero if old_bpcu else None,
+    }
 
 
 @router.get("/care-documents/{document_id}/pdf")

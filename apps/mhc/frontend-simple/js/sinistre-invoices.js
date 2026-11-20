@@ -1,13 +1,20 @@
-const SINISTRE_ALLOWED_ROLES = ['sos_operator', 'agent_sinistre_mh', 'admin'];
-const SINISTRE_ACTION_ROLES = ['sos_operator', 'agent_sinistre_mh', 'admin'];
+const SINISTRE_ALLOWED_ROLES = ['sos_operator', 'agent_sinistre_mh', 'agent_medical_mhc', 'superviseur_affaires_medicales', 'agent_conformite_medical', 'admin'];
+const SINISTRE_ACTION_ROLES = ['agent_medical_mhc', 'superviseur_affaires_medicales', 'agent_conformite_medical', 'admin'];
 const HISTORY_ACTION_LABELS = {
     invoice_created: 'Facture créée',
-    medical_validation_approved: 'Accord médical',
-    medical_validation_rejected: 'Rejet médical',
-    sinistre_validation_approved: 'Validation pôle sinistre',
-    sinistre_validation_rejected: 'Rejet pôle sinistre',
+    medical_validation_approved: 'Validation médecin-conseil',
+    medical_validation_rejected: 'Refus médecin-conseil',
+    sinistre_validation_approved: 'Validation affaires médicales',
+    sinistre_validation_rejected: 'Refus affaires médicales',
+    affaires_medicales_validation_approved: 'Validation affaires médicales',
+    affaires_medicales_validation_rejected: 'Refus affaires médicales',
     compta_validation_approved: 'Validation comptable',
     compta_validation_rejected: 'Rejet comptable',
+    invoice_paid: 'Facture payée',
+    invoice_blocked: 'Facture bloquée',
+    invoice_unblocked: 'Facture débloquée',
+    reassureur_agrement_approved: 'Agrément réassureur accordé',
+    reassureur_agrement_rejected: 'Agrément réassureur refusé',
 };
 
 let invoices = [];
@@ -214,8 +221,8 @@ function renderInvoiceDetail() {
             </div>
         </div>
         <div class="timeline">
-            ${renderTimelineItem('Accord médical', invoice.validation_medicale)}
-            ${renderTimelineItem('Pôle sinistre', invoice.validation_sinistre)}
+            ${renderTimelineItem('Médecin-conseil', invoice.validation_medicale)}
+            ${renderTimelineItem('Affaires médicales', invoice.validation_sinistre)}
             ${renderTimelineItem('Comptabilité', invoice.validation_compta)}
         </div>
         <div class="history-block">
@@ -313,7 +320,8 @@ function canValidateInvoiceSinistre(invoice) {
     return (
         invoice &&
         invoice.statut === 'pending_sinistre' &&
-        window.MhPermissions && window.MhPermissions.can('sinistres', 'controle')
+        (SINISTRE_ACTION_ROLES.includes(currentUserRole || '') ||
+            (window.MhPermissions && window.MhPermissions.can('sinistres', 'controle')))
     );
 }
 
@@ -330,7 +338,7 @@ async function handleSinistreInvoiceDecision(approve) {
             body: JSON.stringify({ approve, notes }),
         });
         showAlert(
-            approve ? 'Facture validée par le pôle sinistre.' : 'Facture rejetée par le pôle sinistre.',
+            approve ? 'Facture validée par les affaires médicales.' : 'Facture refusée par les affaires médicales.',
             approve ? 'success' : 'warning'
         );
         await fetchSinistreInvoices();
@@ -387,7 +395,7 @@ function renderHistoryItem(entry) {
 function getInvoiceStatusLabel(status) {
     const map = {
         pending_medical: 'En attente accord médical',
-        pending_sinistre: 'En attente pôle sinistre',
+        pending_sinistre: 'En attente affaires médicales',
         pending_compta: 'En attente comptabilité MH',
         validated: 'Validée',
         rejected: 'Refusée',

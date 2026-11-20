@@ -35,6 +35,33 @@ def _approve(db, sinistre, doc, *validators):
         validate_care_document(db, sinistre, doc, actor, approve=True, alerte=sinistre.alerte)
     db.flush()
 
+
+def _grant_accord(db, sinistre, doctor):
+    """Étape 2a : accord du médecin-conseil (aucun bon n'est émis)."""
+    from app.services.mhc_care_document_service import issue_decision_documents
+
+    issue_decision_documents(db, sinistre, approve=True, actor=doctor, alerte=sinistre.alerte)
+    db.flush()
+
+
+def _attach_certificat(db, sinistre, user):
+    """Joint le certificat de décès (118) au dossier — requis avant le BRF."""
+    from app.models.sinistre_attachment import SinistreAttachment
+
+    att = SinistreAttachment(
+        sinistre_id=sinistre.id,
+        attachment_type="certificat_deces",
+        bucket_name="test",
+        object_name=f"certificat_{sinistre.id}.pdf",
+        file_name="certificat.pdf",
+        uploaded_by_id=user.id if user else None,
+    )
+    db.add(att)
+    db.flush()
+    sinistre.attachments.append(att)
+    return att
+
+
 _SEQ = {"n": 0}
 
 
@@ -114,22 +141,19 @@ class TestMhcCareDocumentWorkflow:
     def test_refuse_closes_dossier(
         self, db, test_user, test_product, test_hospital, test_doctor, test_medical_reviewer
     ):
+        """Étape 2b : le refus émet le 112 et clôt immédiatement — pas de validation pôle."""
         sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)
         sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
-        # BRPCU émis par le médecin-conseil, en attente de validation du pôle médical
         docs = issue_care_document(db, sinistre, "brpcu", test_doctor, notes="Hors garantie", alerte=alerte)
         db.flush()
         assert len(docs) == 1
         brpcu = docs[0]
         assert brpcu.document_type == "brpcu"
         assert "-112-" in brpcu.numero
-        assert brpcu.validation_status == "en_attente"
-        assert sinistre.statut != "annule"  # clôture différée à la validation
-        # Validation par le pôle médical MHC → clôture (annulation)
-        validate_care_document(db, sinistre, brpcu, test_medical_reviewer, approve=True, alerte=alerte)
-        db.commit()
-        assert brpcu.validation_status == "valide"
-        assert sinistre.statut == "annule"
+        assert brpcu.validation_status == "non_requise"  # aucune validation requise
+        assert sinistre.statut == "annule"  # clôture immédiate
+        assert sinistre.decision_mc == "refus"
+        assert alerte.statut == "annulee"
         assert allowed_next_actions(sinistre) == []
 
     def test_accept_then_hospital_then_exit(
@@ -137,8 +161,11 @@ class TestMhcCareDocumentWorkflow:
     ):
         sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)
         sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
-        # BPCU (médecin-conseil) : sans validation → effectif immédiatement
-        bpcu = issue_care_document(db, sinistre, "bpcu", test_doctor, payload={"motif_medical": "Fièvre"}, alerte=alerte)
+        # Étape 2a : accord du médecin-conseil (aucun bon émis)
+        _grant_accord(db, sinistre, test_doctor)
+        assert sinistre.decision_mc == "accord"
+        # Étape 3 : le bon 111 est émis par l'agent d'accueil de la clinique
+        bpcu = issue_care_document(db, sinistre, "bpcu", test_receptionist, payload={"motif_medical": "Fièvre"}, alerte=alerte)
         db.flush()
         assert bpcu[0].validation_status == "non_requise"
         assert bpcu[0].valid_until is not None
@@ -185,7 +212,8 @@ class TestMhcCareDocumentWorkflow:
     ):
         sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)
         sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
-        issue_care_document(db, sinistre, "bpcu", test_doctor, alerte=alerte)
+        _grant_accord(db, sinistre, test_doctor)
+        issue_care_document(db, sinistre, "bpcu", test_receptionist, alerte=alerte)
         db.flush()
         # BS (partenaire-santé) en mode rapatriement → BS + BRS simultanés
         created = issue_care_document(
@@ -205,7 +233,22 @@ class TestMhcCareDocumentWorkflow:
         assert sinistre.statut == "en_cours"
         assert "ars" not in allowed_next_actions(sinistre)  # BRS pas encore validé
         # double validation BRS : pôle médical MHC + partenaire-santé
-        _approve(db, sinistre, brs, test_medical_reviewer, test_receptionist)
+        # (la 2e validation ne peut pas venir du demandeur — réceptionniste émetteur)
+        from app.core.enums import Role as _Role
+        from app.core.security import get_password_hash as _hash
+        from app.models.user import User as _User
+        other_partenaire = _User(
+            email="medhop2@example.com",
+            username="medhop2",
+            hashed_password=_hash("medhop2"),
+            full_name="Médecin Clinique",
+            role=_Role.MEDECIN_HOPITAL,
+            hospital_id=test_hospital.id,
+            is_active=True,
+        )
+        db.add(other_partenaire)
+        db.commit()
+        _approve(db, sinistre, brs, test_medical_reviewer, other_partenaire)
         assert brs.validation_status == "valide"
         assert "ars" in allowed_next_actions(sinistre)
         # ARS émise par le pôle médical MHC (sans validation) → clôture
@@ -218,15 +261,63 @@ class TestMhcCareDocumentWorkflow:
     def test_funeral_branch(
         self, db, test_user, test_product, test_hospital, test_doctor, test_medical_reviewer
     ):
+        """Étape 7b : BRF exige le certificat 118, émis par les affaires médicales,
+        validé par le médecin-conseil puis les affaires médicales (autre personne)."""
+        from app.core.enums import Role
+        from app.core.security import get_password_hash
+        from app.models.user import User
+
         sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)
         sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
-        # BRF (médecin-conseil), validation par le pôle médical MHC
-        brf = issue_care_document(db, sinistre, "brf", test_doctor, payload={"cause_deces": "AVC"}, alerte=alerte)
+
+        # Sans certificat 118 : le BRF n'est pas proposé.
+        assert "brf" not in allowed_next_actions(sinistre)
+        try:
+            issue_care_document(db, sinistre, "brf", test_medical_reviewer, alerte=alerte)
+            assert False, "BRF sans certificat de décès devrait échouer"
+        except ValueError:
+            pass
+        _attach_certificat(db, sinistre, test_doctor)
+
+        # Second membre du pôle médical : la dernière validation ne peut pas
+        # être faite par le demandeur (émetteur du BRF).
+        other_pole = User(
+            email="pole2@example.com",
+            username="pole2",
+            hashed_password=get_password_hash("pole2"),
+            full_name="Agent Affaires Médicales",
+            role=Role.AGENT_MEDICAL_MHC,
+            is_active=True,
+        )
+        db.add(other_pole)
+        db.commit()
+
+        # BRF émis par le pôle médical MHC (affaires médicales)
+        brf = issue_care_document(db, sinistre, "brf", test_medical_reviewer, payload={"cause_deces": "AVC"}, alerte=alerte)
         db.flush()
         assert brf[0].document_type == "brf"
         assert brf[0].validation_status == "en_attente"
         assert allowed_next_actions(sinistre) == []  # BRF en attente
-        validate_care_document(db, sinistre, brf[0], test_medical_reviewer, approve=True, alerte=alerte)
+
+        # Ordre imposé : les affaires médicales ne peuvent pas valider avant
+        # le médecin-conseil.
+        try:
+            validate_care_document(db, sinistre, brf[0], other_pole, approve=True, alerte=alerte)
+            assert False, "Validation affaires médicales avant médecin-conseil devrait échouer"
+        except ValueError:
+            pass
+        # 1re validation : médecin-conseil
+        validate_care_document(db, sinistre, brf[0], test_doctor, approve=True, alerte=alerte)
+        db.flush()
+        assert brf[0].validation_status == "en_attente"
+        # Le demandeur (émetteur) ne peut pas faire la dernière validation.
+        try:
+            validate_care_document(db, sinistre, brf[0], test_medical_reviewer, approve=True, alerte=alerte)
+            assert False, "Validation par le demandeur devrait échouer"
+        except ValueError:
+            pass
+        # 2e validation : affaires médicales (autre personne)
+        validate_care_document(db, sinistre, brf[0], other_pole, approve=True, alerte=alerte)
         db.flush()
         assert brf[0].validation_status == "valide"
         assert allowed_next_actions(sinistre) == ["arf"]
@@ -251,14 +342,21 @@ class TestMhcCareDocumentWorkflow:
     ):
         sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)
         sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
-        # Un partenaire-santé ne peut pas émettre un BPCU (réservé médecin-conseil)
+        # Le médecin-conseil ne peut pas émettre le 111 (réservé à la clinique)
         try:
-            issue_care_document(db, sinistre, "bpcu", test_receptionist, alerte=alerte)
-            assert False, "BPCU par partenaire-santé devrait être refusé"
+            issue_care_document(db, sinistre, "bpcu", test_doctor, alerte=alerte)
+            assert False, "BPCU par médecin-conseil devrait être refusé"
         except CareDocumentPermissionError:
             pass
+        # Sans accord préalable, même la clinique ne peut pas émettre le 111.
+        try:
+            issue_care_document(db, sinistre, "bpcu", test_receptionist, alerte=alerte)
+            assert False, "BPCU sans accord devrait échouer"
+        except ValueError:
+            pass
+        _grant_accord(db, sinistre, test_doctor)
         # Un médecin-conseil ne peut pas émettre un BH (réservé partenaire-santé)
-        issue_care_document(db, sinistre, "bpcu", test_doctor, alerte=alerte)
+        issue_care_document(db, sinistre, "bpcu", test_receptionist, alerte=alerte)
         db.flush()
         try:
             issue_care_document(db, sinistre, "bh", test_doctor, alerte=alerte)
@@ -271,7 +369,8 @@ class TestMhcCareDocumentWorkflow:
     ):
         sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)
         sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
-        issue_care_document(db, sinistre, "bpcu", test_doctor, alerte=alerte)
+        _grant_accord(db, sinistre, test_doctor)
+        issue_care_document(db, sinistre, "bpcu", test_receptionist, alerte=alerte)
         db.flush()
         bh = issue_care_document(db, sinistre, "bh", test_receptionist, alerte=alerte)
         db.flush()
@@ -287,10 +386,11 @@ class TestMhcCareDocumentWorkflow:
         assert bh[0].validation_status == "refuse"
         assert "bh" in allowed_next_actions(sinistre)  # ré-émission possible
 
-    def test_pdf_generation(self, db, test_user, test_product, test_hospital, test_doctor):
+    def test_pdf_generation(self, db, test_user, test_product, test_hospital, test_doctor, test_receptionist):
         sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)
         sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
-        docs = issue_care_document(db, sinistre, "bpcu", test_doctor, payload={"montant_max": "500000"}, alerte=alerte)
+        _grant_accord(db, sinistre, test_doctor)
+        docs = issue_care_document(db, sinistre, "bpcu", test_receptionist, payload={"montant_max": "500000"}, alerte=alerte)
         pdf = build_care_document_pdf(docs[0])
         assert pdf[:4] == b"%PDF"
         assert len(pdf) > 500
@@ -304,7 +404,8 @@ class TestMhcCareDocumentWorkflow:
 
         sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)
         sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
-        issue_care_document(db, sinistre, "bpcu", test_doctor, alerte=alerte)
+        _grant_accord(db, sinistre, test_doctor)
+        issue_care_document(db, sinistre, "bpcu", test_receptionist, alerte=alerte)
         stay = HospitalStay(
             sinistre_id=sinistre.id,
             hospital_id=test_hospital.id,
@@ -338,15 +439,16 @@ class TestMhcCareDocumentWorkflow:
         assert payload.get("motif_medical") == "Fièvre persistante"
         assert payload.get("admission_prevue") == "2026-09-04T10:00"
 
-    def test_bpcu_brpcu_pdf_templates(self, db, test_user, test_product, test_hospital, test_doctor):
+    def test_bpcu_brpcu_pdf_templates(self, db, test_user, test_product, test_hospital, test_doctor, test_receptionist):
         """BPCU et BRPCU utilisent le gabarit officiel (sections numérotées, mentions légales)."""
         sinistre, alerte, _ = _open_sinistre(db, test_user, test_product, test_hospital)
         sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
+        _grant_accord(db, sinistre, test_doctor)
         bpcu = issue_care_document(
             db,
             sinistre,
             "bpcu",
-            test_doctor,
+            test_receptionist,
             payload={"motif_medical": "Traumatisme crânien", "montant_max": "750000", "devise": "XAF"},
             alerte=alerte,
         )
@@ -379,14 +481,16 @@ class TestMhcCareDocumentApi:
         test_product,
         test_hospital,
         test_doctor,
+        test_receptionist,
     ):
         from app.api.v1.auth import get_current_user
         from app.main import app
 
-        app.dependency_overrides[get_current_user] = lambda: test_doctor
+        app.dependency_overrides[get_current_user] = lambda: test_receptionist
         try:
             sinistre, _, _ = _open_sinistre(db, test_user, test_product, test_hospital)
             sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
+            sinistre.decision_mc = "accord"  # accord du médecin-conseil préalable
             db.commit()
 
             ref = client.get("/api/v1/mhc/referentiel")
@@ -429,6 +533,7 @@ class TestMhcCareDocumentApi:
 
         sinistre, _, _ = _open_sinistre(db, test_user, test_product, test_hospital)
         sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
+        sinistre.decision_mc = "accord"
         db.commit()
         base = f"/api/v1/mhc/sinistres/{sinistre.id}/care-documents"
 
@@ -436,13 +541,13 @@ class TestMhcCareDocumentApi:
             app.dependency_overrides[get_current_user] = lambda: user
 
         try:
-            # Un partenaire-santé ne peut pas émettre un BPCU (réservé médecin-conseil) → 403
-            _as(test_receptionist)
+            # Le médecin-conseil ne peut pas émettre le bon 111 (réservé à la clinique) → 403
+            _as(test_doctor)
             r = client.post(base, json={"document_type": "bpcu"})
             assert r.status_code == status.HTTP_403_FORBIDDEN
 
-            # Le médecin-conseil émet le BPCU (sans validation)
-            _as(test_doctor)
+            # L'agent d'accueil de la clinique émet le BPCU (sans validation)
+            _as(test_receptionist)
             r = client.post(base, json={"document_type": "bpcu"})
             assert r.status_code == status.HTTP_201_CREATED
             assert r.json()[0]["validation_status"] == "non_requise"

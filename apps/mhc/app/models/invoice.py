@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, Enum as SQLEnum
+from sqlalchemy import Boolean, Column, Integer, String, Numeric, DateTime, ForeignKey, Text, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.models.base import TimestampMixin
@@ -53,7 +53,13 @@ class Invoice(Base, TimestampMixin):
     validation_compta_notes = Column(Text, nullable=True)
     
     notes = Column(Text, nullable=True)
-    
+
+    # Paiement (étape 11 du workflow sinistre) : une facture « bloquée » ne
+    # peut pas être payée ; l'agrément du réassureur est exigé quand le total
+    # dépasse le plafond du produit (étape 8).
+    bloquee = Column(Boolean, nullable=False, default=False)
+    reassureur_agrement = Column(String(20), nullable=True)  # en_attente, approuve
+
     # Relations
     hospital = relationship("Hospital", back_populates="invoices")
     hospital_stay = relationship("HospitalStay", back_populates="invoice")

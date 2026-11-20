@@ -136,6 +136,30 @@ def _user_can_view_sinistre(user: User, sinistre: Sinistre) -> bool:
     return False
 
 
+def _product_medical_ceiling(sinistre: Sinistre) -> Optional[Decimal]:
+    """Plafond de garantie du produit (étape 8) : plus grande valeur numérique
+    trouvée dans les capitaux/plafonds des garanties du produit souscrit."""
+    souscription = getattr(sinistre, "souscription", None)
+    produit = getattr(souscription, "produit_assurance", None) if souscription else None
+    garanties = getattr(produit, "garanties", None) or []
+    best: Optional[Decimal] = None
+    for g in garanties:
+        if not isinstance(g, dict):
+            continue
+        raw = g.get("capitaux") or g.get("montant_max") or g.get("plafond") or g.get("montant")
+        if raw is None:
+            continue
+        digits = "".join(ch for ch in str(raw) if ch.isdigit() or ch in ".,")
+        digits = digits.replace(" ", "").replace(",", ".")
+        try:
+            value = Decimal(digits)
+        except Exception:
+            continue
+        if best is None or value > best:
+            best = value
+    return best
+
+
 def _get_active_users_by_roles(
     db: Session,
     roles: set[Role],
@@ -910,8 +934,40 @@ async def create_invoice_for_stay(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Le rapport doit être validé avant la facturation.",
         )
-    if stay.invoice:
+
+    # Étape 8 : le bon 111 (BPCU) doit être en vigueur et les soins terminés.
+    from app.core.mhc_nomenclature import MhcCareDocumentType, MhcCareDocumentStatus
+    from app.services.mhc_care_document_service import _docs, _expire_if_needed, _effective
+
+    care_docs = _docs(sinistre)
+    for d in care_docs:
+        _expire_if_needed(d)
+    effective = _effective(care_docs)
+    effective_types = {d.document_type for d in effective}
+    if MhcCareDocumentType.BPCU.value not in effective_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La facture exige un bon de prise en charge (111) en vigueur.",
+        )
+    soins_termines = bool(
+        effective_types
+        & {
+            MhcCareDocumentType.BS.value,
+            MhcCareDocumentType.ARS.value,
+            MhcCareDocumentType.ARF.value,
+        }
+    ) or get_certificat_deces_attachment(db, sinistre.id) is not None
+    if not soins_termines:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Les soins doivent être terminés (bulletin de sortie ou attestation) avant la facturation.",
+        )
+    if stay.invoice and stay.invoice.statut != InvoiceStatus.REJECTED:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Une facture a déjà été générée.")
+    if stay.invoice and stay.invoice.statut == InvoiceStatus.REJECTED:
+        # Réémission après refus : on détache l'ancienne (unicité hospital_stay_id).
+        stay.invoice.hospital_stay_id = None
+        db.flush()
 
     custom_lines = None
     if payload.lines:
@@ -956,6 +1012,10 @@ async def create_invoice_for_stay(
         validation_compta=None,
         notes=payload.notes,
     )
+    # Dépassement du plafond produit → agrément du réassureur exigé avant paiement.
+    plafond = _product_medical_ceiling(sinistre)
+    if plafond is not None and montant_ttc > plafond:
+        invoice.reassureur_agrement = "en_attente"
     db.add(invoice)
     db.flush()
 
@@ -1054,16 +1114,48 @@ def _user_is_assigned_doctor_for_sinistre(db: Session, user: User, sinistre: Sin
 
 
 def _require_certificat_deces_upload_access(db: Session, user: User, sinistre: Sinistre) -> None:
-    if not _user_is_assigned_doctor_for_sinistre(db, user, sinistre):
+    """Étape 7a : certificat 118 par la clinique (agent médical / accueil) ou
+    le médecin-conseil — dossier non clos ; patient accepté si c'est la clinique."""
+    if sinistre.statut in {"resolu", "annule"}:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Seul le médecin traitant assigné peut joindre le certificat de décès.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le dossier est clos.",
         )
-    if user.hospital_id and sinistre.hospital_id and user.hospital_id != sinistre.hospital_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cet hôpital n'est pas associé à votre compte.",
+    role_val = _role_value(user)
+    if role_val == Role.ADMIN.value or getattr(user, "is_superuser", False):
+        return
+    if role_val == Role.MEDECIN_REFERENT_MH.value:
+        return
+    # Le médecin traitant assigné (côté clinique) peut aussi joindre le 118.
+    if _user_is_assigned_doctor_for_sinistre(db, user, sinistre):
+        return
+    clinic_roles = {
+        Role.MEDECIN_HOPITAL.value,
+        Role.AGENT_RECEPTION_HOPITAL.value,
+        Role.HOSPITAL_ADMIN.value,
+    }
+    if role_val in clinic_roles:
+        if not sinistre.hospital_id or user.hospital_id != sinistre.hospital_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cet hôpital n'est pas associé à votre compte.",
+            )
+        # « Patient accepté » : bon 111 émis ou séjour ouvert pour cette clinique.
+        from app.core.mhc_nomenclature import MhcCareDocumentType
+        bpcu = any(
+            d.document_type == MhcCareDocumentType.BPCU.value and (d.statut or "emi") == "emi"
+            for d in (sinistre.care_documents or [])
         )
+        if not bpcu and sinistre.hospital_stay is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Le patient n'a pas encore été accepté (bon 111 requis).",
+            )
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Seuls la clinique et le médecin-conseil peuvent joindre le certificat de décès.",
+    )
 
 
 @router.post(

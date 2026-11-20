@@ -18,6 +18,13 @@ class Sinistre(Base, TimestampMixin):
     agent_sinistre_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     medecin_referent_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     notes = Column(Text, nullable=True)
+
+    # Décision de prise en charge (étape 2a/2b du workflow) : « accord » ou
+    # « refus » prononcés par le médecin-conseil (ou sa relève) — l'accord
+    # n'émet aucun bon, il autorise la clinique à accepter le patient (bon 111).
+    decision_mc = Column(String(20), nullable=True)
+    decision_mc_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    decision_mc_at = Column(DateTime, nullable=True)
     
     # Relations
     alerte = relationship("Alerte", back_populates="sinistres")
