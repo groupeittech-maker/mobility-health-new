@@ -35,6 +35,7 @@ class _EkycVerificationScreenState extends State<EkycVerificationScreen> {
   String? _error;
   bool _creating = true;
   Timer? _poller;
+  bool _completionDialogShown = false;
 
   @override
   void initState() {
@@ -84,7 +85,10 @@ class _EkycVerificationScreenState extends State<EkycVerificationScreen> {
       final status = await _service.getStatus(session.sessionId);
       if (!mounted) return;
       setState(() => _status = status);
-      if (status.isTerminal) _poller?.cancel();
+      if (status.isTerminal) {
+        _poller?.cancel();
+        _showCompletion(status);
+      }
     } catch (_) {
       // Le polling est best-effort : une erreur réseau ne bloque pas l'écran.
     }
@@ -107,6 +111,89 @@ class _EkycVerificationScreenState extends State<EkycVerificationScreen> {
     final url = _session?.verificationUrl;
     if (url == null) return;
     context.push('/ekyc-nfc?url=${Uri.encodeComponent(url)}').then((_) => _poll());
+  }
+
+  /// Fin du parcours (pattern AfriPaie) : l'app invite à fermer l'onglet
+  /// eKYC du navigateur puis revient à l'accueil — l'utilisateur n'a pas
+  /// à naviguer manuellement.
+  void _showCompletion(EkycSessionStatus status) {
+    if (_completionDialogShown || !mounted) return;
+    _completionDialogShown = true;
+    final (title, message, icon, color) = switch (status.status) {
+      'VERIFIED' => (
+          'Identité vérifiée',
+          'Votre vérification est terminée. Vous pouvez fermer '
+              "l'onglet de vérification dans votre navigateur.",
+          Icons.verified,
+          AppColors.success,
+        ),
+      'REVIEW' => (
+          'Vérification soumise',
+          'Votre dossier est en revue manuelle par nos équipes. '
+              "Vous pouvez fermer l'onglet de vérification dans "
+              'votre navigateur.',
+          Icons.hourglass_top,
+          AppColors.warning,
+        ),
+      'REJECTED' => (
+          'Vérification refusée',
+          'Votre vérification a été refusée. Vous pouvez fermer '
+              "l'onglet de vérification dans votre navigateur.",
+          Icons.cancel,
+          AppColors.danger,
+        ),
+      _ => (
+          'Session terminée',
+          "Vous pouvez fermer l'onglet de vérification dans votre "
+              'navigateur.',
+          Icons.timer_off,
+          AppColors.danger,
+        ),
+    };
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(icon, color: color, size: 40),
+        title: Text(title, textAlign: TextAlign.center),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(message, textAlign: TextAlign.center),
+            if (status.reasons.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                status.reasons.join(', '),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.mutedText),
+              ),
+            ],
+          ],
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          if (status.status == 'EXPIRED')
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _completionDialogShown = false;
+                _createSession();
+              },
+              child: const Text('Recommencer'),
+            ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              if (mounted) context.go('/home');
+            },
+            icon: const Icon(Icons.home_outlined),
+            label: const Text("Retour à l'accueil"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

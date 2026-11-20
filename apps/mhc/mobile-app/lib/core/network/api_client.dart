@@ -45,6 +45,7 @@ class ApiClient {
     if (options.headers['X-Device-Id'] == null) {
       options.headers['X-Device-Id'] = await _storage.getDeviceId();
     }
+    options.headers['X-Client-Platform'] ??= 'mobile';
     handler.next(options);
   }
 

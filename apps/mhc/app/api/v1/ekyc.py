@@ -19,9 +19,14 @@ from app.services import ekyc_service
 router = APIRouter(tags=["ekyc"])
 
 
+def _is_mobile_client(request: Request) -> bool:
+    return (request.headers.get("x-client-platform") or "").strip().lower() == "mobile"
+
+
 @router.post("/ekyc/sessions", status_code=status.HTTP_201_CREATED, response_model=EkycSessionResponse)
 def create_ekyc_session(
     payload: EkycSessionCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> EkycSessionResponse:
@@ -39,15 +44,18 @@ def create_ekyc_session(
                 detail="Souscription invalide ou non autorisée",
             )
 
+    mobile = _is_mobile_client(request)
     session = ekyc_service.get_or_create_for_souscription(
         db,
         user=current_user,
         souscription=souscription,
+        mobile=mobile,
     ) if souscription else ekyc_service.create_session(
         db,
         user=current_user,
         souscription=None,
         flow="TRAVEL_INSURANCE",
+        mobile=mobile,
     )
 
     return EkycSessionResponse(

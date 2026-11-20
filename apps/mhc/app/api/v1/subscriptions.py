@@ -196,6 +196,7 @@ async def get_subscription_client(
 @router.post("/start", response_model=SouscriptionResponse, status_code=status.HTTP_201_CREATED)
 async def start_subscription(
     subscription_data: SouscriptionStartRequest,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -393,7 +394,12 @@ async def start_subscription(
     if target_user is not None:
         from app.services import ekyc_service
 
-        ekyc_service.auto_create_for_voyage(db, user=target_user, souscription=souscription)
+        ekyc_service.auto_create_for_voyage(
+            db,
+            user=target_user,
+            souscription=souscription,
+            mobile=(request.headers.get("x-client-platform") or "").strip().lower() == "mobile",
+        )
 
     return souscription
 

@@ -39,6 +39,7 @@ def create_session(
     souscription: Souscription | None = None,
     flow: str = "TRAVEL_INSURANCE",
     metadata: dict[str, Any] | None = None,
+    mobile: bool = False,
 ) -> EkycSession:
     """Créer une session eKYC et la persister localement.
 
@@ -65,12 +66,17 @@ def create_session(
     # Le parcours eKYC s'ouvre dans un nouvel onglet : à la fin, le bouton
     # « Retour à l'application » ramène au wizard qui reprend l'étape courante
     # (eKYC si non vérifié, paiement sinon). Sans souscription → dashboard.
+    # Client mobile : deep link mymhc:// qui ramène l'app au premier plan —
+    # le polling interne termine le parcours (pattern checkout AfriPaie).
     front = (settings.FRONTEND_BASE_URL or "").rstrip("/")
-    return_url = (
-        f"{front}/subscription-wizard.html?subscription_id={souscription.id}"
-        if front and souscription
-        else f"{front}/user-dashboard.html" if front else None
-    )
+    if mobile:
+        return_url = "mymhc://ekyc/complete"
+    else:
+        return_url = (
+            f"{front}/subscription-wizard.html?subscription_id={souscription.id}"
+            if front and souscription
+            else f"{front}/user-dashboard.html" if front else None
+        )
 
     client = get_ekyc_client()
     response = client.create_session(
@@ -104,7 +110,7 @@ _NON_TERMINAL_STATUSES = {"CREATED", "PENDING", "IN_PROGRESS", "OTP_SENT"}
 
 
 def get_or_create_for_souscription(
-    db: Session, *, user: User, souscription: Souscription
+    db: Session, *, user: User, souscription: Souscription, mobile: bool = False
 ) -> EkycSession:
     """Idempotent per souscription: a pending session is reused (the user
     resumes where they stopped); a terminal or expired one spawns a fresh
@@ -121,17 +127,19 @@ def get_or_create_for_souscription(
             expires = expires.replace(tzinfo=timezone.utc)
         if expires is None or expires > _now():
             return latest
-    return create_session(db, user=user, souscription=souscription, flow="TRAVEL_INSURANCE")
+    return create_session(db, user=user, souscription=souscription, flow="TRAVEL_INSURANCE", mobile=mobile)
 
 
-def auto_create_for_voyage(db: Session, *, user: User, souscription: Souscription) -> EkycSession | None:
+def auto_create_for_voyage(
+    db: Session, *, user: User, souscription: Souscription, mobile: bool = False
+) -> EkycSession | None:
     """Trigger eKYC automatically after a travel-insurance subscription.
     Fail-soft: the ekyc platform being down must never break subscription
     creation — the session is retried when the user taps the CTA."""
     if not souscription.projet_voyage_id:
         return None
     try:
-        return get_or_create_for_souscription(db, user=user, souscription=souscription)
+        return get_or_create_for_souscription(db, user=user, souscription=souscription, mobile=mobile)
     except Exception as exc:  # noqa: BLE001 — availability must not block the journey
         from logging import getLogger
 
