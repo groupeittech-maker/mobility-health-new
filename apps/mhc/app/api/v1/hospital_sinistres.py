@@ -20,6 +20,7 @@ from app.core.constants import (
 )
 from app.core.database import get_db
 from app.core.enums import Role, StatutWorkflowSinistre
+from app.core.http_headers import content_disposition
 from app.core.permissions import has_permission, LEVEL_EDITION, F_ALERTE_SOS, F_FACTURATION_MEDICALE
 from pydantic import BaseModel
 from app.models.alerte import Alerte
@@ -935,19 +936,24 @@ async def create_invoice_for_stay(
             detail="Le rapport doit être validé avant la facturation.",
         )
 
-    # Étape 8 : le bon 111 (BPCU) doit être en vigueur et les soins terminés.
+    # Étape 8 : un bon 111 (BPCU) émis pour cette clinique et les soins terminés.
     from app.core.mhc_nomenclature import MhcCareDocumentType, MhcCareDocumentStatus
-    from app.services.mhc_care_document_service import _docs, _expire_if_needed, _effective
+    from app.services.mhc_care_document_service import (
+        _docs,
+        _expire_if_needed,
+        _effective,
+        has_bpcu_for_invoice,
+    )
 
     care_docs = _docs(sinistre)
     for d in care_docs:
         _expire_if_needed(d)
     effective = _effective(care_docs)
     effective_types = {d.document_type for d in effective}
-    if MhcCareDocumentType.BPCU.value not in effective_types:
+    if not has_bpcu_for_invoice(care_docs):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="La facture exige un bon de prise en charge (111) en vigueur.",
+            detail="La facture exige un bon de prise en charge (111) émis pour cet établissement.",
         )
     soins_termines = bool(
         effective_types
@@ -1259,7 +1265,7 @@ async def download_certificat_deces(
 
     media_type = attachment.content_type or "application/octet-stream"
     headers = {
-        "Content-Disposition": f'attachment; filename="{attachment.file_name}"',
+        "Content-Disposition": content_disposition("attachment", attachment.file_name),
     }
     return Response(content=file_bytes, media_type=media_type, headers=headers)
 

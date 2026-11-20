@@ -837,9 +837,9 @@ async def validate_medical(
         invoice.validation_sinistre = "pending"
         _notify_role_users(
             db,
-            {Role.AGENT_SINISTRE_MH, Role.SOS_OPERATOR},
-            "Validation sinistre requise",
-            f"La facture #{invoice.numero_facture} est en attente de validation sinistre.",
+            MEDICAL_AFFAIRS_ROLES,
+            "Validation affaires médicales requise",
+            f"La facture #{invoice.numero_facture} est validée par le médecin-conseil et attend la validation des affaires médicales.",
             relation_id=invoice.id,
             send_push_channel=True,
             push_queue=invoice_push_queue,

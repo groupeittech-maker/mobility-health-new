@@ -1,11 +1,18 @@
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import status
 
+from app.core.enums import Role
+from app.core.security import get_password_hash
 from app.models.alerte import Alerte
 from app.models.invoice import Invoice
+from app.models.mhc_care_document import MhcCareDocument
+from app.models.notification import Notification
 from app.models.sinistre import Sinistre
+from app.models.user import User
+from app.services.mhc_care_document_service import invalidate_bpcu_for_reorientation
+from app.services.sinistre_workflow_service import ensure_workflow_steps
 
 
 def _create_sinistre(db, test_user, test_hospital):
@@ -58,6 +65,198 @@ def _create_sinistre(db, test_user, test_hospital):
     db.commit()
     db.refresh(sinistre)
     return alerte, sinistre
+
+
+def _validated_stay(
+    client,
+    sinistre,
+    hospital_doctor,
+    reception_headers,
+    hospital_doctor_headers,
+    hospital_referent_headers,
+):
+    stay = client.post(
+        f"/api/v1/hospital-sinistres/sinistres/{sinistre.id}/stays",
+        json={"doctor_id": hospital_doctor.id},
+        headers=reception_headers,
+    )
+    assert stay.status_code == status.HTTP_201_CREATED
+    stay_id = stay.json()["id"]
+    report = client.put(
+        f"/api/v1/hospital-sinistres/hospital-stays/{stay_id}/report",
+        json={
+            "motif_consultation": "Traumatisme",
+            "duree_sejour_heures": 48,
+            "actes_effectues": ["Consultation médicale"],
+            "examens_effectues": [],
+            "terminer_sejour": True,
+        },
+        headers=hospital_doctor_headers,
+    )
+    assert report.status_code == status.HTTP_200_OK
+    validation = client.post(
+        f"/api/v1/hospital-sinistres/hospital-stays/{stay_id}/validation",
+        json={"approve": True},
+        headers=hospital_referent_headers,
+    )
+    assert validation.status_code == status.HTTP_200_OK
+    return stay_id
+
+
+def _bpcu(db, sinistre):
+    return (
+        db.query(MhcCareDocument)
+        .filter(
+            MhcCareDocument.sinistre_id == sinistre.id,
+            MhcCareDocument.document_type == "bpcu",
+        )
+        .one()
+    )
+
+
+class TestInvoiceAfterBpcuExpiry:
+    def test_invoice_allowed_after_bpcu_24h_validity(
+        self,
+        client,
+        db,
+        test_user,
+        test_hospital,
+        reception_headers,
+        hospital_doctor,
+        hospital_doctor_headers,
+        hospital_referent_headers,
+        hospital_accountant_headers,
+    ):
+        """Le 111 vaut 24 h : la facture, émise après la sortie, doit rester possible."""
+        _, sinistre = _create_sinistre(db, test_user, test_hospital)
+        stay_id = _validated_stay(
+            client, sinistre, hospital_doctor,
+            reception_headers, hospital_doctor_headers, hospital_referent_headers,
+        )
+        bpcu = _bpcu(db, sinistre)
+        bpcu.valid_until = datetime.utcnow() - timedelta(hours=1)
+        db.commit()
+
+        invoice = client.post(
+            f"/api/v1/hospital-sinistres/hospital-stays/{stay_id}/invoice",
+            json={"taux_tva": 0.18},
+            headers=hospital_accountant_headers,
+        )
+        assert invoice.status_code == status.HTTP_200_OK, invoice.text
+        assert invoice.json()["status"] == "invoiced"
+
+    def test_invoice_refused_when_bpcu_invalidated_by_reorientation(
+        self,
+        client,
+        db,
+        test_user,
+        test_hospital,
+        reception_headers,
+        hospital_doctor,
+        hospital_doctor_headers,
+        hospital_referent_headers,
+        hospital_accountant_headers,
+    ):
+        """Un 111 émis pour l'ancienne clinique (réorientation) ne couvre pas la facture."""
+        _, sinistre = _create_sinistre(db, test_user, test_hospital)
+        stay_id = _validated_stay(
+            client, sinistre, hospital_doctor,
+            reception_headers, hospital_doctor_headers, hospital_referent_headers,
+        )
+        invalidate_bpcu_for_reorientation(_bpcu(db, sinistre))
+        db.commit()
+
+        invoice = client.post(
+            f"/api/v1/hospital-sinistres/hospital-stays/{stay_id}/invoice",
+            json={"taux_tva": 0.18},
+            headers=hospital_accountant_headers,
+        )
+        assert invoice.status_code == status.HTTP_400_BAD_REQUEST
+        assert "111" in invoice.json()["detail"]
+
+
+class TestInvoiceValidationNotifications:
+    def test_medical_affairs_notified_after_medecin_conseil_validation(
+        self,
+        client,
+        db,
+        test_user,
+        test_hospital,
+        reception_headers,
+        hospital_doctor,
+        hospital_doctor_headers,
+        hospital_referent_headers,
+        hospital_accountant_headers,
+    ):
+        """La 2e validation revient aux affaires médicales : ce sont elles qu'on notifie."""
+        agent = User(
+            email="agentmed@example.com",
+            username="agentmed",
+            hashed_password=get_password_hash("agentmedpass"),
+            full_name="Agent médical",
+            role=Role.AGENT_MEDICAL_MHC,
+            is_active=True,
+        )
+        db.add(agent)
+        db.commit()
+        _, sinistre = _create_sinistre(db, test_user, test_hospital)
+        stay_id = _validated_stay(
+            client, sinistre, hospital_doctor,
+            reception_headers, hospital_doctor_headers, hospital_referent_headers,
+        )
+        invoice = client.post(
+            f"/api/v1/hospital-sinistres/hospital-stays/{stay_id}/invoice",
+            json={"taux_tva": 0.18},
+            headers=hospital_accountant_headers,
+        )
+        invoice_id = invoice.json()["invoice"]["id"]
+        validation = client.post(
+            f"/api/v1/invoices/{invoice_id}/validate_medical",
+            json={"approve": True},
+            headers=hospital_referent_headers,
+        )
+        assert validation.status_code == status.HTTP_200_OK
+
+        notified = (
+            db.query(Notification)
+            .filter(
+                Notification.user_id == agent.id,
+                Notification.lien_relation_type == "invoice",
+                Notification.lien_relation_id == invoice_id,
+            )
+            .count()
+        )
+        assert notified == 1
+
+
+class TestWorkflowFrise:
+    def test_stay_report_step_follows_report_validation(
+        self,
+        client,
+        db,
+        test_user,
+        test_hospital,
+        reception_headers,
+        hospital_doctor,
+        hospital_doctor_headers,
+        hospital_referent_headers,
+    ):
+        alerte, sinistre = _create_sinistre(db, test_user, test_hospital)
+
+        def step_status(key):
+            db.expire_all()
+            fresh = db.query(Sinistre).filter(Sinistre.id == sinistre.id).one()
+            steps, _ = ensure_workflow_steps(db, fresh, fresh.alerte)
+            db.commit()
+            return {s.step_key: s.statut for s in steps}[key]
+
+        assert step_status("rapport_sejour_valide") == "pending"
+        _validated_stay(
+            client, sinistre, hospital_doctor,
+            reception_headers, hospital_doctor_headers, hospital_referent_headers,
+        )
+        assert step_status("rapport_sejour_valide") == "completed"
+        assert step_status("facture_emise") == "in_progress"
 
 
 class TestHospitalStayFlow:

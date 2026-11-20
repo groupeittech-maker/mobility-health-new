@@ -88,31 +88,38 @@ SINISTRE_WORKFLOW_TEMPLATE: List[Dict] = [
         "auto_sync": True,
     },
     {
-        "key": "facture_emise",
+        "key": "rapport_sejour_valide",
         "ordre": 12,
+        "titre": "Rapport de séjour validé",
+        "description": "Le médecin de l'hôpital rédige le rapport de séjour ; le médecin-conseil le valide, ce qui ouvre la facturation.",
+        "auto_sync": True,
+    },
+    {
+        "key": "facture_emise",
+        "ordre": 13,
         "titre": "Facture hospitalière émise",
-        "description": "L'hôpital rédige la facture du séjour pour transmission à Mobility Health Care.",
+        "description": "Le comptable de l'hôpital rédige la facture du séjour pour transmission à Mobility Health Care.",
         "auto_sync": True,
     },
     {
         "key": "validation_facture_medicale",
-        "ordre": 13,
-        "titre": "Validation médicale de la facture",
-        "description": "Le médecin référent MH confirme le contenu médical avant envoi au pôle sinistre.",
+        "ordre": 14,
+        "titre": "Validation de la facture par le médecin-conseil",
+        "description": "Le médecin-conseil confirme le contenu médical de la facture avant envoi aux affaires médicales.",
         "auto_sync": True,
     },
     {
         "key": "validation_facture_sinistre",
-        "ordre": 14,
-        "titre": "Validation par le pôle sinistre",
-        "description": "Les agents sinistre MH vérifient la facture et déclenchent la phase comptable.",
+        "ordre": 15,
+        "titre": "Validation par les affaires médicales",
+        "description": "Le pôle affaires médicales MHC valide la facture, qui devient payable.",
         "auto_sync": True,
     },
     {
         "key": "validation_facture_comptable",
-        "ordre": 15,
-        "titre": "Validation comptable",
-        "description": "La facturation est transmise à la comptabilité MH pour paiement ou rejet.",
+        "ordre": 16,
+        "titre": "Paiement de la facture",
+        "description": "La comptabilité MHC règle la facture validée ; le dossier est alors clôturé.",
         "auto_sync": True,
     },
 ]
@@ -273,6 +280,15 @@ def _compute_status(
             return StatutWorkflowSinistre.CANCELLED, sinistre.updated_at
         return StatutWorkflowSinistre.IN_PROGRESS, None
 
+    if step_key == "rapport_sejour_valide":
+        if not stay:
+            return StatutWorkflowSinistre.PENDING, None
+        if stay.status in {"validated", "invoiced"}:
+            return StatutWorkflowSinistre.COMPLETED, stay.validated_at or stay.updated_at
+        if stay.report_submitted_at:
+            return StatutWorkflowSinistre.IN_PROGRESS, None
+        return StatutWorkflowSinistre.PENDING, None
+
     if step_key == "facture_emise":
         if not stay:
             return StatutWorkflowSinistre.PENDING, None
@@ -329,15 +345,9 @@ def _compute_status(
                 StatutWorkflowSinistre.CANCELLED,
                 invoice.validation_compta_date or invoice.updated_at,
             )
-        if invoice.validation_compta == "approved" or invoice.statut in {
-            InvoiceStatus.VALIDATED,
-            InvoiceStatus.PAID,
-        }:
-            return (
-                StatutWorkflowSinistre.COMPLETED,
-                invoice.validation_compta_date or invoice.updated_at,
-            )
-        if invoice.statut == InvoiceStatus.PENDING_COMPTA:
+        if invoice.statut == InvoiceStatus.PAID:
+            return StatutWorkflowSinistre.COMPLETED, invoice.updated_at
+        if invoice.statut in {InvoiceStatus.VALIDATED, InvoiceStatus.PENDING_COMPTA}:
             return StatutWorkflowSinistre.IN_PROGRESS, None
         return StatutWorkflowSinistre.PENDING, None
 

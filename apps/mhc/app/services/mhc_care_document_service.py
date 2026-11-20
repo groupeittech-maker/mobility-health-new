@@ -205,6 +205,30 @@ def _effective(docs: Iterable[MhcCareDocument]) -> List[MhcCareDocument]:
     ]
 
 
+REORIENTATION_FLAG = "invalide_par_reorientation"
+
+
+def invalidate_bpcu_for_reorientation(doc: MhcCareDocument) -> None:
+    """Le bon 111 de l'ancienne clinique n'a plus d'effet après une réorientation."""
+    doc.statut = MhcCareDocumentStatus.EXPIRE.value
+    doc.payload = {**(doc.payload or {}), REORIENTATION_FLAG: True}
+
+
+def has_bpcu_for_invoice(docs: Iterable[MhcCareDocument]) -> bool:
+    """La facture exige un bon 111 émis pour la clinique qui facture.
+
+    L'échéance de 24 h borne l'enchaînement des bons, pas la facturation : la
+    facture est établie après la sortie, donc presque toujours après l'échéance.
+    Seul un 111 invalidé par une réorientation ne couvre pas la facture.
+    """
+    return any(
+        d.document_type == MhcCareDocumentType.BPCU.value
+        and (d.validation_status or VALIDATION_NOT_REQUIRED) in EFFECTIVE_VALIDATION_STATUSES
+        and not (d.payload or {}).get(REORIENTATION_FLAG)
+        for d in docs
+    )
+
+
 def _pending(docs: Iterable[MhcCareDocument]) -> List[MhcCareDocument]:
     return [d for d in docs if (d.validation_status or VALIDATION_NOT_REQUIRED) == VALIDATION_PENDING]
 

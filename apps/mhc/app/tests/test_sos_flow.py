@@ -106,8 +106,9 @@ class TestSOSFlow:
 
         # Step 4bis: Workflow steps should exist
         steps = db.query(SinistreProcessStep).filter(SinistreProcessStep.sinistre_id == sinistre.id).all()
-        assert len(steps) == 15
+        assert len(steps) == 16
         keys = {step.step_key for step in steps}
+        assert "rapport_sejour_valide" in keys
         assert "alerte_declenchee" in keys
         assert "centre_ops_notifie" in keys
         assert "validation_et_numero_sinistre" in keys
@@ -154,7 +155,7 @@ class TestSOSFlow:
         sinistre_detail = sinistre_detail_response.json()
         assert sinistre_detail["id"] == sinistre.id
         assert "workflow_steps" in sinistre_detail
-        assert len(sinistre_detail["workflow_steps"]) == 15
+        assert len(sinistre_detail["workflow_steps"]) == 16
         first_step = sinistre_detail["workflow_steps"][0]
         assert first_step["step_key"] == "alerte_declenchee"
         assert first_step["statut"] == "completed"

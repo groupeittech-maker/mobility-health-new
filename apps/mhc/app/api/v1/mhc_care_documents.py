@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.enums import Role
+from app.core.http_headers import content_disposition
 from app.core.mhc_nomenclature import DOCUMENT_TITLES, MhcCareDocumentType, document_catalog
 from app.core.mhc_tarif_reference import projet_tarif_public, split_prime_nette
 from app.api.v1.auth import get_current_user
@@ -26,6 +27,7 @@ from app.services.mhc_care_document_service import (
     VALIDATION_PENDING,
     allowed_next_actions,
     get_care_document,
+    invalidate_bpcu_for_reorientation,
     issue_care_document,
     list_care_documents,
     load_sinistre_for_care,
@@ -264,7 +266,7 @@ async def reorient_sinistre(
     old_bpcu = None
     for d in effective_docs:
         if d.document_type == MhcCareDocumentType.BPCU.value:
-            d.statut = MhcCareDocumentStatus.EXPIRE.value
+            invalidate_bpcu_for_reorientation(d)
             old_bpcu = d
 
     sinistre.hospital_id = hospital.id
@@ -318,5 +320,5 @@ async def download_care_document_pdf(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+        headers={"Content-Disposition": content_disposition("inline", filename)},
     )

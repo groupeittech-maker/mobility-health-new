@@ -70,13 +70,12 @@ def _stub_email_delivery(monkeypatch):
     monkeypatch.setattr(settings, "EMAIL_DELIVERY_MODE", "stub")
 
 
-# Sans broker Redis, task.delay() retente la connexion (~100 s/appel : retry de
-# publication Celery + retry de connexion kombu) — tout coupé en test, l'échec
-# d'envoi est déjà ignoré par les try/except des helpers de notification.
+# Pas de Redis en test : broker mémoire pour que task.delay() n'ouvre jamais
+# de connexion réseau (les retries kombu coûtaient ~100 s par appel).
+# Les tâches restent mises en file sans être exécutées, comme sans worker.
 from app.core.celery_app import celery_app
 
-celery_app.conf.task_publish_retry = False
-celery_app.conf.broker_connection_retry = False
+celery_app.conf.update(broker_url="memory://", result_backend="cache+memory://")
 
 
 @pytest.fixture
