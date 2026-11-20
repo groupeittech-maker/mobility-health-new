@@ -1,3 +1,11 @@
+// Normalise un numéro saisi : conserve '+' et les chiffres (format E.164).
+function normalizePhone(raw) {
+    if (!raw) return '';
+    const cleaned = String(raw).replace(/[^\d+]/g, '');
+    if (!cleaned) return '';
+    return cleaned.startsWith('+') ? cleaned : `+${cleaned}`;
+}
+
 // Vérifier l'authentification et le rôle admin
 (async function() {
     const isValid = await requireBackoffice('index.html');
@@ -247,7 +255,7 @@ function renderUsersTable(users) {
     if (newUserBtn) newUserBtn.style.display = canManage ? '' : 'none';
 
     let html = '<div class="table-wrapper" style="overflow-x: scroll !important;"><table class="data-table" style="min-width: 100%;"><thead><tr>';
-    html += '<th>Email</th><th>Username</th><th>Rôle</th><th>Statut</th><th>Date création</th>' + (canManage ? '<th>Actions</th>' : '');
+    html += '<th>Email</th><th>Téléphone</th><th>Username</th><th>Rôle</th><th>Statut</th><th>Date création</th>' + (canManage ? '<th>Actions</th>' : '');
     html += '</tr></thead><tbody>';
     
     pageData.forEach(user => {
@@ -259,6 +267,7 @@ function renderUsersTable(users) {
         html += `
             <tr>
                 <td>${user.email}</td>
+                <td>${user.telephone || '—'}</td>
                 <td>${user.username}</td>
                 <td>${roleLabel}</td>
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
@@ -411,6 +420,7 @@ function fillEditForm(user) {
     const idInput = document.getElementById('editUserId');
     const fullNameInput = document.getElementById('editFullName');
     const emailInput = document.getElementById('editEmail');
+    const telephoneInput = document.getElementById('editTelephone');
     const usernameInput = document.getElementById('editUsername');
     const roleSelect = document.getElementById('editUserRole');
     const statusSelect = document.getElementById('editUserStatus');
@@ -423,6 +433,9 @@ function fillEditForm(user) {
     }
     if (emailInput) {
         emailInput.value = user.email || '';
+    }
+    if (telephoneInput) {
+        telephoneInput.value = user.telephone || '';
     }
     if (usernameInput) {
         usernameInput.value = user.username || '';
@@ -534,10 +547,12 @@ function setupEditUserForm() {
             showAlert("L'email est obligatoire.", 'error');
             return;
         }
-        
+
+        const telephoneInput = document.getElementById('editTelephone');
         const payload = {
             email,
             full_name: fullNameInput?.value?.trim() || null,
+            telephone: normalizePhone(telephoneInput?.value) || null,
             role: roleSelect?.value || 'user',
             is_active: statusSelect?.value === 'true',
         };
@@ -744,6 +759,7 @@ function setupCreateUserForm() {
             email: formData.get('email')?.trim(),
             username: formData.get('username')?.trim(),
             password: formData.get('password') || '',
+            telephone: normalizePhone(formData.get('telephone')) || null,
             role: roleSelect?.disabled && roleFilterParam ? roleFilterParam : formData.get('role'),
             is_active: formData.get('is_active') === 'true',
         };

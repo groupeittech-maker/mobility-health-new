@@ -96,6 +96,7 @@ class UserCreate(BaseModel):
     role_id: int | None = None
     hospital_id: int | None = None
     reassureur_id: int | None = None
+    telephone: str | None = None
 
 
 class UserUpdate(BaseModel):
@@ -292,6 +293,7 @@ async def create_user(
         role_id=user_data.role_id,
         hospital_id=user_data.hospital_id,
         reassureur_id=user_data.reassureur_id,
+        telephone=user_data.telephone,
         created_by_id=current_user.id,  # Lien avec l'admin qui crée le compte
         send_welcome_email=True
     )
