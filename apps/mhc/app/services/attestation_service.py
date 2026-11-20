@@ -983,14 +983,27 @@ class AttestationService:
                 .filter(DestinationCountry.id == projet.destination_country_id)
                 .first()
             )
-        if not country or not getattr(country, "medecin_conseil_id", None):
-            return None
+        # Médecin-conseil de la ville de destination en priorité, sinon du
+        # pays — même règle que list_medecin_conseil_for_user (les
+        # affectations sont faites au niveau ville dans le back-office).
+        from app.services.medecin_conseil import _destination_city
 
-        doctor = getattr(country, "medecin_conseil", None)
-        if not doctor:
-            from app.models.user import User as UserModel
+        doctor = None
+        ville = _destination_city(db, projet)
+        if ville is not None:
+            doctor = getattr(ville, "medecin_conseil", None)
+            if not doctor and getattr(ville, "medecin_conseil_id", None):
+                from app.models.user import User as UserModel
 
-            doctor = db.query(UserModel).filter(UserModel.id == country.medecin_conseil_id).first()
+                doctor = db.query(UserModel).filter(UserModel.id == ville.medecin_conseil_id).first()
+
+        if not doctor and country and getattr(country, "medecin_conseil_id", None):
+            doctor = getattr(country, "medecin_conseil", None)
+            if not doctor:
+                from app.models.user import User as UserModel
+
+                doctor = db.query(UserModel).filter(UserModel.id == country.medecin_conseil_id).first()
+
         return serialize_medecin_conseil(doctor)
 
     @staticmethod
