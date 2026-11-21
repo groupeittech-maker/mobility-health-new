@@ -105,6 +105,15 @@ async def dashboard_summary(
         "annules": _count(db, Sinistre, Sinistre.statut == "annule"),
     }
 
+    # ---- Finance ----
+    stats["finance"] = {
+        "encaissements_attente": _count(db, Paiement, Paiement.statut == "en_attente"),
+        "primes_mois": float(primes or 0),
+        "remboursements_attente": _count(db, Refund, Refund.statut == "pending"),
+        "factures_attente": _count(db, Invoice, Invoice.statut.like("pending%")),
+        "paiements_mois": _count(db, Paiement, Paiement.created_at >= month_start),
+    }
+
     # ---- Répartition des demandes (types de bons, mois courant) ----
     stats["repartition_demandes"] = [
         {"label": "Prise en charge", "value": doc_counts.get("bpcu", 0), "color": "#4e267c"},
@@ -182,6 +191,44 @@ async def dashboard_summary(
             "priorite": a.priorite,
         }
         for a in urgentes
+    ]
+
+    # Listes par pôle : souscriptions et paiements récents (la vue demandes
+    # médicales ci-dessus couvre les profils santé).
+    recent_subs = (
+        db.query(Souscription)
+        .order_by(Souscription.created_at.desc())
+        .limit(6)
+        .all()
+    )
+    stats["souscriptions_recentes"] = [
+        {
+            "id": s.id,
+            "numero": s.numero_souscription or f"SUB-{s.id}",
+            "date": s.created_at.strftime("%d/%m/%Y %H:%M") if s.created_at else "",
+            "assure": (s.user.full_name or s.user.username) if s.user else "—",
+            "prix": float(s.prix_applique or 0),
+            "statut": str(s.statut.value if hasattr(s.statut, "value") else s.statut),
+        }
+        for s in recent_subs
+    ]
+
+    recent_pay = (
+        db.query(Paiement)
+        .order_by(Paiement.created_at.desc())
+        .limit(6)
+        .all()
+    )
+    stats["paiements_recents"] = [
+        {
+            "id": p.id,
+            "reference": f"PAY-{p.id}",
+            "date": p.created_at.strftime("%d/%m/%Y %H:%M") if p.created_at else "",
+            "montant": float(p.montant or 0),
+            "statut": str(p.statut.value if hasattr(p.statut, "value") else p.statut),
+            "souscription_id": p.souscription_id,
+        }
+        for p in recent_pay
     ]
 
     # ---- Tâches à traiter ----

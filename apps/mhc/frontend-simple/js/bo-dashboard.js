@@ -34,14 +34,70 @@
             { key: 'alertes.refusees', label: 'Alertes refusées', ico: '🚫', color: 'red' },
             { key: 'alertes.cloturees', label: 'Alertes clôturées', ico: '📁', color: 'slate' },
         ],
+        finance: [
+            { key: 'finance.encaissements_attente', label: 'Encaissements en attente', ico: '⏳', color: 'amber' },
+            { key: 'finance.primes_mois', label: 'Primes encaissées (mois)', ico: '💰', color: 'teal', fmt: v => (v || 0).toLocaleString('fr-FR') + ' FCFA' },
+            { key: 'finance.remboursements_attente', label: 'Remboursements à valider', ico: '🔄', color: 'red' },
+            { key: 'finance.factures_attente', label: 'Factures en attente', ico: '📄', color: 'blue' },
+            { key: 'finance.paiements_mois', label: 'Paiements du mois', ico: '💳', color: 'purple' },
+        ],
+        admin: [
+            { key: 'production.comptes_crees', label: 'Nouveaux comptes', ico: '👤', color: 'purple' },
+            { key: 'production.souscriptions', label: 'Souscriptions (mois)', ico: '📄', color: 'teal' },
+            { key: 'production.primes_encaissees', label: 'Primes encaissées (mois)', ico: '💰', color: 'teal', fmt: v => (v || 0).toLocaleString('fr-FR') + ' FCFA' },
+            { key: 'alertes.en_traitement', label: 'Alertes actives', ico: '🚨', color: 'red' },
+            { key: 'sinistres.en_cours', label: 'Sinistres en cours', ico: '📁', color: 'amber' },
+            { key: 'taches.comptes_en_attente', label: 'Inscriptions en attente', ico: '⏳', color: 'blue' },
+        ],
     };
 
     function roleGroup(r) {
-        if (['medecin_referent_mh', 'superviseur_affaires_medicales', 'agent_medical_mhc', 'agent_conformite_medical', 'agent_medical_assureur'].includes(r)) return 'medical';
-        if (['production_agent', 'agent_conformite_production', 'superviseur_technique', 'assistant_souscription', 'agent_production_assureur', 'agent_production_courtier'].includes(r)) return 'production';
-        if (['agent_sinistre_mh', 'agent_sinistre_assureur', 'agent_sinistre_courtier', 'agent_conformite_sinistre'].includes(r)) return 'sinistre';
+        if (['admin', 'superviseur_technique'].includes(r)) return 'admin';
+        if (['medecin_referent_mh', 'superviseur_affaires_medicales', 'agent_medical_mhc', 'agent_conformite_medical', 'agent_medical_assureur', 'medecin_conseil', 'medical_advisor'].includes(r)) return 'medical';
+        if (['agent_comptable_mh', 'agent_conformite_comptable', 'superviseur_comptable', 'agent_comptable_assureur', 'agent_comptable_courtier'].includes(r)) return 'finance';
+        if (['agent_sinistre_mh', 'agent_sinistre_assureur', 'agent_sinistre_courtier'].includes(r)) return 'alertes';
+        if (['agent_conformite_sinistre'].includes(r)) return 'sinistre';
         return 'production';
     }
+
+    const LIST_BY_ROLE = {
+        production: {
+            title: '📋 Souscriptions récentes', link: 'admin-subscriptions.html',
+            headers: ['N° souscription', 'Date', 'Assuré', 'Prix', 'Statut', 'Actions'],
+            rows: d => (d.souscriptions_recentes || []).map(s =>
+                '<tr><td class="num">' + s.numero + '</td><td class="muted">' + s.date + '</td><td>' + s.assure +
+                '</td><td>' + s.prix.toLocaleString('fr-FR') + ' FCFA</td><td>' + badge(s.statut) + '</td>' +
+                '<td><a class="act-link" href="admin-subscriptions.html">Voir</a></td></tr>'
+            ).join(''),
+        },
+        finance: {
+            title: '💳 Paiements récents', link: 'finance-outbound.html',
+            headers: ['Référence', 'Date', 'Montant', 'Dossier', 'Statut', 'Actions'],
+            rows: d => (d.paiements_recents || []).map(p =>
+                '<tr><td class="num">' + p.reference + '</td><td class="muted">' + p.date + '</td><td>' +
+                p.montant.toLocaleString('fr-FR') + ' FCFA</td><td>SUB-' + (p.souscription_id || '—') + '</td><td>' + badge(p.statut) + '</td>' +
+                '<td><a class="act-link" href="finance-outbound.html">Voir</a></td></tr>'
+            ).join(''),
+        },
+        admin: {
+            title: '📋 Souscriptions récentes', link: 'admin-subscriptions.html',
+            headers: ['N° souscription', 'Date', 'Assuré', 'Prix', 'Statut', 'Actions'],
+            rows: d => (d.souscriptions_recentes || []).map(s =>
+                '<tr><td class="num">' + s.numero + '</td><td class="muted">' + s.date + '</td><td>' + s.assure +
+                '</td><td>' + s.prix.toLocaleString('fr-FR') + ' FCFA</td><td>' + badge(s.statut) + '</td>' +
+                '<td><a class="act-link" href="admin-subscriptions.html">Voir</a></td></tr>'
+            ).join(''),
+        },
+        default: {
+            title: '📋 Demandes récentes', link: 'admin-subscriptions.html',
+            headers: ['N° demande', 'Date et heure', 'Assuré', 'Type de demande', 'Statut', 'Actions'],
+            rows: d => (d.demandes_recentes || []).map(s =>
+                '<tr><td class="num">' + s.numero + '</td><td class="muted">' + s.date + '</td><td>' + s.assure +
+                '</td><td>' + s.type + '</td><td>' + badge(s.statut) + '</td>' +
+                '<td><a class="act-link" href="admin-subscriptions.html">Voir</a></td></tr>'
+            ).join(''),
+        },
+    };
 
     const QUICK_BY_ROLE = {
         medical: [
@@ -61,11 +117,38 @@
             { href: 'alert-center.html', ico: '🚨', label: "Alertes", feature: 'alerte_sos' },
             { href: 'finance-outbound.html', ico: '💰', label: 'Paiements', feature: 'paiement_sinistre' },
         ],
+        alertes: [
+            { href: 'alert-center.html?tab=a_valider', ico: '✔️', label: 'Alertes à valider', feature: 'alerte_sos' },
+            { href: 'alert-center.html', ico: '🚨', label: 'Centre d\'alertes', feature: 'alerte_sos' },
+            { href: 'sos-alerts-map.html', ico: '🗺️', label: 'Carte des alertes', feature: 'alerte_sos' },
+            { href: 'medical-validations.html', ico: '🩺', label: 'Validations médicales', feature: 'prise_en_charge' },
+        ],
+        finance: [
+            { href: 'finance-dashboard.html', ico: '💰', label: 'Tableau financier', feature: 'encaissement_prime' },
+            { href: 'finance-outbound.html', ico: '💳', label: 'Encaissements & paiements', feature: 'encaissement_prime' },
+            { href: 'accounting-portal.html', ico: '📒', label: 'Portail comptable', feature: 'encaissement_prime' },
+            { href: 'mh-invoices.html', ico: '📄', label: 'Factures médicales', feature: 'paiement_facture_mhc' },
+        ],
+        admin: [
+            { href: 'admin-users.html', ico: '👤', label: 'Comptes & utilisateurs', feature: 'comptes_utilisateurs' },
+            { href: 'admin-subscriptions.html', ico: '📋', label: 'Souscriptions', feature: 'production' },
+            { href: 'alert-center.html', ico: '🚨', label: 'Centre d\'alertes', feature: 'alerte_sos' },
+            { href: 'statistics-portal.html', ico: '📊', label: 'Reporting global', feature: 'encaissement_prime' },
+        ],
         default: [
             { href: 'alert-center.html', ico: '🚨', label: 'Centre d\'alertes', feature: 'alerte_sos' },
             { href: 'admin-users.html', ico: '👤', label: 'Utilisateurs', feature: 'comptes_utilisateurs' },
             { href: 'statistics-portal.html', ico: '📊', label: 'Reporting', feature: 'encaissement_prime' },
         ],
+    };
+
+    const ROLE_LABELS = {
+        admin: 'Vue d\'ensemble — direction & administration.',
+        production: 'Pôle production — inscriptions, souscriptions, avenants.',
+        medical: 'Pôle affaires médicales — validations & documents médicaux.',
+        sinistre: 'Pôle sinistres — suivi & règlement des dossiers.',
+        alertes: 'Pôle sinistres — traitement des alertes & urgences.',
+        finance: 'Pôle comptabilité & finances — encaissements, paiements, remboursements.',
     };
 
     function get(obj, path) {
@@ -97,7 +180,10 @@
         const d = await res.json();
 
         // KPIs par groupe de profil
-        const grp = KPIS_BY_ROLE[roleGroup(role)] || KPIS_BY_ROLE.production;
+        const grpKey = roleGroup(role);
+        const grp = KPIS_BY_ROLE[grpKey] || KPIS_BY_ROLE.production;
+        const sub = document.querySelector('.bo-page-head .sub');
+        if (sub && ROLE_LABELS[grpKey]) sub.textContent = ROLE_LABELS[grpKey];
         document.getElementById('kpis').innerHTML = grp.map(k => {
             const raw = get(d, k.key);
             const val = k.fmt ? k.fmt(raw) : raw;
@@ -137,12 +223,17 @@
             '<span class="pct">' + (r[1] || 0) + ' <span class="muted">' + Math.round((r[1] || 0) / sgTotal * 100) + '%</span></span></li>'
         ).join('');
 
-        // Demandes récentes
-        document.getElementById('recentRows').innerHTML = (d.demandes_recentes || []).map(s =>
-            '<tr><td class="num">' + s.numero + '</td><td class="muted">' + s.date + '</td><td>' + s.assure +
-            '</td><td>' + s.type + '</td><td>' + badge(s.statut) + '</td>' +
-            '<td><a class="act-link" href="admin-subscriptions.html">Voir</a></td></tr>'
-        ).join('') || '<tr><td colspan="6" class="muted" style="text-align:center;padding:1rem">Aucune demande</td></tr>';
+        // Première liste : adaptée au profil (souscriptions, paiements, demandes)
+        const listCfg = LIST_BY_ROLE[grpKey] || LIST_BY_ROLE.default;
+        const listCard = document.getElementById('recentCard');
+        if (listCard) {
+            listCard.querySelector('.bo-card-title').textContent = listCfg.title;
+            const link = listCard.querySelector('.bo-link-all');
+            if (link) link.href = listCfg.link;
+            listCard.querySelector('thead tr').innerHTML = listCfg.headers.map(h => '<th>' + h + '</th>').join('');
+        }
+        document.getElementById('recentRows').innerHTML = listCfg.rows(d) ||
+            '<tr><td colspan="6" class="muted" style="text-align:center;padding:1rem">Aucun élément</td></tr>';
 
         // Alertes urgences
         document.getElementById('alertRows').innerHTML = (d.alertes_urgences || []).map(a =>
@@ -153,7 +244,6 @@
         ).join('') || '<tr><td colspan="6" class="muted" style="text-align:center;padding:1rem">Aucune alerte active</td></tr>';
 
         // Actions rapides
-        const grpKey = KPIS_BY_ROLE[roleGroup(role)] ? roleGroup(role) : 'default';
         const qa = (QUICK_BY_ROLE[grpKey] || QUICK_BY_ROLE.default).filter(q => {
             if (!q.feature) return true;
             const perms = window.MhPermissions;
