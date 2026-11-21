@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Centre d'alerte des urgences — Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css?v=20261028">
-    <link rel="stylesheet" href="css/backoffice.css?v=17">
+    <link rel="stylesheet" href="css/backoffice.css?v=18">
 </head>
 <body data-backoffice>
     <main>
@@ -27,6 +27,7 @@
             <div class="bo-card-h">
                 <span class="bo-card-title" id="filterTabs"></span>
                 <span style="display:flex;gap:0.5rem;align-items:center;">
+                    <button type="button" class="export mh-sos-sound-toggle" id="mhSosAlertSoundToggle" aria-pressed="false" title="Autorise le navigateur à jouer la sirène d'alerte SOS">Son des alertes : désactivé</button>
                     <a class="export" href="sos-alerts-map.html" style="text-decoration:none;" title="Voir les alertes sur la carte">🗺 Vue carte</a>
                     <button class="export" id="exportBtn">⤓ Exporter</button>
                 </span>
@@ -95,6 +96,7 @@
     <script src="js/auth.js?v=5"></script>
     <script src="js/permissions.js?v=3"></script>
     <script src="js/backoffice-nav.js?v=21"></script>
-    <script src="js/alert-center.js?v=10"></script>
+    <script src="js/alert-center.js?v=11"></script>
+    <script src="js/sos-mh-alert-modal.js?v=3"></script>
 </body>
 </html>

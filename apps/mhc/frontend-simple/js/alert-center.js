@@ -115,7 +115,7 @@
         kpis();
         const rows = filtered();
         document.getElementById('alertRows').innerHTML = rows.map(a =>
-            '<tr>' +
+            '<tr onclick="openPanel(' + a.id + ')" style="cursor:pointer" title="Ouvrir le panneau de traitement">' +
             '<td>' + prio(a) + '<span class="num">' + (a.numero_alerte || 'URG-' + a.id) + '</span></td>' +
             '<td class="muted">' + fmt(a.created_at) + '</td>' +
             '<td>' + depuis(a) + '</td>' +
@@ -124,18 +124,39 @@
             '<td>' + (a.assigned_hospital ? a.assigned_hospital.nom : '—') + '</td>' +
             '<td>' + (a.assigned_hospital ? (a.assigned_hospital.pays || '—') : '—') + '</td>' +
             '<td>' + badge(a.statut) + '</td>' +
-            '<td><a class="act-link" onclick="openPanel(' + a.id + ')" title="Aperçu">👁</a> ' +
-            '<a class="act-link" href="alert-detail.html?id=' + a.id + '">Détails</a> ' +
-            '<a class="act-link" href="sos-alerts-map.html?alert_id=' + a.id + '" title="Voir sur la carte">🗺</a></td>' +
+            '<td><a class="act-link" onclick="event.stopPropagation();openPanel(' + a.id + ')" title="Aperçu">👁</a> ' +
+            '<a class="act-link" href="alert-detail.html?id=' + a.id + '" onclick="event.stopPropagation()">Détails</a> ' +
+            '<a class="act-link" href="sos-alerts-map.html?alert_id=' + a.id + '" onclick="event.stopPropagation()" title="Voir sur la carte">🗺</a></td>' +
             '</tr>'
         ).join('') || '<tr><td colspan="9" class="muted" style="text-align:center;padding:1.4rem">Aucune alerte dans votre périmètre.</td></tr>';
         document.getElementById('countLabel').textContent = 'Affichage de ' + rows.length + ' résultat(s)';
     }
 
+    // Détection des nouvelles alertes actives → événement consommé par
+    // sos-mh-alert-modal.js (modal « Cas à prendre en charge »), même
+    // mécanisme que la carte SOS — indépendant du WebSocket.
+    function emitNewActiveAlertsForModal(isFirstLoad) {
+        const active = (allAlertes || []).filter(a => ['en_attente', 'en_cours'].includes(a.statut));
+        const idsNow = new Set(active.map(a => a.id));
+        const prev = window.__mhAlertCenterActiveIds;
+        window.__mhAlertCenterActiveIds = idsNow;
+        if (isFirstLoad || !(prev instanceof Set)) return;
+        active.forEach(a => {
+            if (!prev.has(a.id)) {
+                window.dispatchEvent(new CustomEvent('mh-sos-new-active-alert', {
+                    detail: { alerte_id: a.id, alert: a }
+                }));
+            }
+        });
+    }
+
     async function load() {
+        const isFirst = !load._once;
         const res = await fetch(API + '/sos/?limit=200', { headers: { Authorization: 'Bearer ' + token() } });
         if (!res.ok) { document.getElementById('alertRows').innerHTML = '<tr><td colspan="9">Erreur de chargement (HTTP ' + res.status + ')</td></tr>'; return; }
         allAlertes = await res.json();
+        emitNewActiveAlertsForModal(isFirst);
+        load._once = true;
         render();
     }
 
@@ -384,6 +405,13 @@
 
     ['fSearch', 'fStatut', 'fType', 'fFrom', 'fTo'].forEach(id =>
         document.getElementById(id).addEventListener('input', render));
+
+    // Quand le modal sonore « nouvelle alerte » se déclenche (WebSocket),
+    // la liste se recharge pour faire apparaître le dossier immédiatement.
+    window.addEventListener('mh-sos-refresh-alerts', () => { load(); });
+
+    // Polling : nouvelles alertes détectées → modal + liste à jour.
+    setInterval(() => { if (!document.hidden) load(); }, 15000);
 
     document.addEventListener('DOMContentLoaded', async () => {
         if (!(await requireBackoffice('index.html'))) return;

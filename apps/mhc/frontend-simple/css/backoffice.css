@@ -1579,3 +1579,131 @@ body[data-backoffice] main .table-wrapper:has(.finance-table) {
     main { margin: 0 !important; padding: 0 !important; }
     .bo-card { box-shadow: none !important; border: 1px solid #ddd; }
 }
+
+/* ---------- Modal sonore « nouvelle alerte SOS » (sos-mh-alert-modal.js) ---------- */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    overflow: auto;
+}
+.modal-content {
+    background: white;
+    margin: 5% auto;
+    padding: 2rem;
+    border-radius: 8px;
+    max-width: 600px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.modal-header h3 { margin: 0; color: var(--primary-color); }
+.close {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    border: none;
+    background: none;
+}
+.close:hover { color: var(--dark-text); }
+
+.mh-sos-sound-toggle.mh-sos-sound-toggle--on {
+    border-color: var(--primary-color);
+    color: var(--primary-dark, #166b5c);
+    background: rgba(20, 174, 152, 0.10);
+}
+
+.mh-sos-alert-modal { z-index: 11000; display: none; background: rgba(15, 23, 42, 0.58); }
+.mh-sos-alert-modal__content {
+    max-width: min(94vw, 920px);
+    width: 100%;
+    margin: 4vh auto;
+    padding: 2.25rem 2.5rem;
+    position: relative;
+    border-radius: 16px;
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.35);
+    border: 2px solid rgba(185, 28, 28, 0.35);
+}
+.mh-sos-alert-modal .modal-header { margin-bottom: 1.75rem; padding-bottom: 1.25rem; }
+.mh-sos-alert-modal .modal-header h3.mh-sos-alert-modal__title {
+    color: #b91c1c;
+    font-size: 1.55rem;
+    line-height: 1.25;
+}
+.mh-sos-alert-modal .close { font-size: 2.25rem; line-height: 1; padding: 0.25rem 0.5rem; }
+.mh-sos-alert-modal__title { color: #b91c1c; font-size: 1.55rem; }
+.mh-sos-alert-modal__body { margin-bottom: 1.5rem; }
+.mh-sos-audio-unlock {
+    margin-bottom: 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 10px;
+    border: 2px solid #f59e0b;
+    background: #fffbeb;
+    color: #78350f;
+}
+.mh-sos-audio-unlock p { margin: 0 0 0.75rem; font-size: 0.95rem; line-height: 1.45; }
+.mh-sos-audio-unlock .btn { width: 100%; max-width: 100%; }
+.mh-sos-alert-modal__badge {
+    display: inline-block;
+    margin-bottom: 0.85rem;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #fff;
+    background: linear-gradient(135deg, #b91c1c, #dc2626);
+}
+.mh-sos-alert-modal__intro { margin: 0 0 0.85rem; font-size: 1.1rem; font-weight: 600; color: #4b4360; line-height: 1.5; }
+.mh-sos-alert-modal__numero { margin: 0 0 0.35rem; font-size: 1.45rem; font-weight: 800; color: #1f1630; letter-spacing: 0.02em; word-break: break-all; }
+.mh-sos-alert-modal__statusline { margin: 0 0 0.85rem; font-size: 1.05rem; }
+.mh-sos-alert-modal__divider { height: 1px; background: #e7e3ee; margin: 0.85rem 0; }
+.mh-sos-alert-modal__details p { margin: 0.45rem 0; font-size: 1.08rem; line-height: 1.45; }
+.mh-sos-alert-modal__phone { margin: 0.35rem 0 0; font-size: 1.08rem; }
+.mh-sos-alert-modal__meta { font-weight: 700; color: #1f1630; font-size: 1.15rem; }
+.mh-sos-alert-modal__patient {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.35rem;
+    margin: 1.15rem 0;
+    padding: 1rem 0;
+    border-top: 1px solid #e7e3ee;
+    border-bottom: 1px solid #e7e3ee;
+}
+.mh-sos-alert-modal__photo {
+    width: 104px;
+    height: 104px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 3px solid #2a9d8f;
+}
+.mh-sos-alert-modal__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 104px;
+    height: 104px;
+    border-radius: 50%;
+    background: #2a9d8f;
+    color: #fff;
+    font-size: 1.85rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.mh-sos-alert-modal__name { margin: 0 0 0.35rem; }
+.mh-sos-alert-modal__actions { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: flex-end; }
+.mh-sos-alert-modal__actions .btn { font-size: 1.05rem; padding: 0.65rem 1.35rem; min-height: 48px; }
