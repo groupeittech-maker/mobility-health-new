@@ -11,7 +11,7 @@
     const TABS = [
         { key: 'toutes', label: 'Toutes les alertes', match: () => true },
         { key: 'en_traitement', label: 'En traitement', match: a => a.statut === 'en_cours' },
-        { key: 'a_valider', label: 'À valider', match: a => a.statut === 'en_attente' },
+        { key: 'a_valider', label: 'À valider', match: a => ['en_attente', 'en_cours'].includes(a.statut) },
         { key: 'validees', label: 'Validées', match: a => a.statut === 'resolue' },
         { key: 'refusees', label: 'Refusées', match: a => a.statut === 'annulee' },
         { key: 'cloturees', label: 'Clôturées', match: a => a.statut === 'cloturee' },
