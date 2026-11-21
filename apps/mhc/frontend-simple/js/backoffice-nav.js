@@ -347,9 +347,7 @@
         aside.className = 'bo-sidebar';
         aside.innerHTML =
             '<div class="bo-brand">' +
-            '  <img src="assets/logo_mobility_healthcare_officiel.png" alt="Mobility Health Care">' +
-            '  <div><a class="bo-brand-name" href="#">Mobility Health Care</a>' +
-            '  <div class="bo-brand-tag">Travel safe. Live free.</div></div>' +
+            '  <img src="assets/logo_mhc_blanc.png" alt="Mobility Health Care">' +
             '</div>';
         aside.appendChild(renderMenu());
         const foot = document.createElement('div');

@@ -36,30 +36,16 @@ body[data-backoffice] > nav.navbar {
 .bo-brand {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 1.1rem 1.2rem 1rem;
+    padding: 0.9rem 1.2rem 0.9rem;
     color: #fff;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .bo-brand img {
-    width: 34px;
-    height: 34px;
+    width: 178px;
+    height: auto;
     object-fit: contain;
-}
-
-.bo-brand .bo-brand-name {
-    font-weight: 700;
-    font-size: 0.95rem;
-    line-height: 1.15;
-    color: #fff;
-    text-decoration: none;
-}
-
-.bo-brand .bo-brand-tag {
-    font-size: 0.68rem;
-    color: var(--bo-sidebar-text);
-    letter-spacing: 0.02em;
+    display: block;
 }
 
 .bo-menu {
