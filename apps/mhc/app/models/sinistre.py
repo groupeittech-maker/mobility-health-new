@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, Text
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Numeric, Text
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.models.base import TimestampMixin
@@ -25,7 +25,14 @@ class Sinistre(Base, TimestampMixin):
     decision_mc = Column(String(20), nullable=True)
     decision_mc_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     decision_mc_at = Column(DateTime, nullable=True)
-    
+
+    # Blocage conformité — un dossier bloqué ne peut plus progresser
+    # (workflow / clôture refusés) tant qu'il n'est pas débloqué.
+    bloque = Column(Boolean, nullable=False, default=False, server_default="false")
+    motif_blocage = Column(Text, nullable=True)
+    bloque_par = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    bloque_le = Column(DateTime, nullable=True)
+
     # Relations
     alerte = relationship("Alerte", back_populates="sinistres")
     souscription = relationship("Souscription", foreign_keys=[souscription_id])

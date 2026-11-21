@@ -61,6 +61,16 @@
     const MENU = [
         { id: 'dashboard', label: 'Tableau de bord', icon: 'dashboard', href: 'bo-dashboard.html', dynamicDashboard: true },
         {
+            id: 'pole_pilotage',
+            label: 'Pilotage',
+            icon: 'dashboard',
+            internalOnly: true,
+            children: [
+                { label: 'Notifications', href: 'bo-notifications.html', feature: 'alerte_sos' },
+                { label: 'Journal des actions', href: 'bo-journal.html', roles: ['admin', 'superviseur_technique', 'superviseur_comptable', 'superviseur_affaires_medicales', 'agent_conformite_production', 'agent_conformite_sinistre', 'agent_conformite_medical', 'agent_conformite_comptable'] },
+            ],
+        },
+        {
             id: 'pole_inscriptions',
             label: 'Gestion des inscriptions',
             icon: 'users',
@@ -465,6 +475,162 @@
             window.MhPermissions.applyDom(document);
         }
     });
+
+    // ======================================================================
+    // UX transverse : toasts, recherche globale, notifications, badge de droit
+    // ======================================================================
+
+    window.mhcToast = function (msg, isErr) {
+        let wrap = document.getElementById('mhcToasts');
+        if (!wrap) {
+            wrap = document.createElement('div');
+            wrap.id = 'mhcToasts';
+            wrap.className = 'mhc-toasts';
+            document.body.appendChild(wrap);
+        }
+        const t = document.createElement('div');
+        t.className = 'mhc-toast' + (isErr ? ' err' : '');
+        t.textContent = msg;
+        wrap.appendChild(t);
+        setTimeout(() => t.remove(), isErr ? 5200 : 3200);
+    };
+
+    // ---- Recherche globale -------------------------------------------------
+    const SEARCH_ICONS = { souscription: '📄', alerte: '🚨', assure: '👤', facture: '🧾' };
+
+    function wireGlobalSearch(bar) {
+        const input = bar.querySelector('.bo-search input');
+        if (!input || typeof apiCall !== 'function') return;
+        const box = document.createElement('div');
+        box.className = 'bo-search-results';
+        input.parentElement.appendChild(box);
+        let timer = null;
+        input.addEventListener('input', () => {
+            clearTimeout(timer);
+            const q = input.value.trim();
+            if (q.length < 2) { box.innerHTML = ''; return; }
+            timer = setTimeout(() => {
+                apiCall('/admin/statistics/search?q=' + encodeURIComponent(q))
+                    .then(data => {
+                        const rows = (data && data.results) || [];
+                        box.innerHTML = rows.slice(0, 10).map(r =>
+                            '<div class="bo-sres" data-href="' + r.href + '">' +
+                            '<span>' + (SEARCH_ICONS[r.type] || '📁') + '</span>' +
+                            '<span><b>' + (r.numero || r.label) + '</b>' + (r.numero ? ' — ' + r.label : '') +
+                            '<br><small>' + (r.sub || '') + '</small></span></div>'
+                        ).join('') || '<div class="bo-sres"><small>Aucun résultat dans votre périmètre.</small></div>';
+                        box.querySelectorAll('.bo-sres[data-href]').forEach(el =>
+                            el.addEventListener('click', () => {
+                                window.location.href = el.getAttribute('data-href');
+                            }));
+                    })
+                    .catch(() => { box.innerHTML = ''; });
+            }, 300);
+        });
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.bo-search')) box.innerHTML = '';
+        });
+    }
+
+    // ---- Notifications -----------------------------------------------------
+    function notifHref(n) {
+        const t = (n.lien_relation_type || '').toLowerCase();
+        if (t === 'sinistre' || t === 'alerte') return 'alert-center.html';
+        if (t === 'souscription' || t === 'avenant') return 'admin-subscriptions.html';
+        if (t === 'facture' || t === 'invoice') return 'sinistre-invoices.html';
+        return 'bo-notifications.html';
+    }
+
+    function wireNotifications(bar) {
+        const bell = bar.querySelector('.bo-bell');
+        if (!bell || typeof apiCall !== 'function') return;
+        const dot = bell.querySelector('.bo-dot');
+        const drop = document.createElement('div');
+        drop.className = 'bo-notif-drop';
+        bell.parentElement.appendChild(drop);
+
+        function refresh() {
+            apiCall('/notifications/?is_read=false&limit=50').then(list => {
+                const n = (list || []).length;
+                if (dot) {
+                    dot.textContent = n > 99 ? '99+' : String(n);
+                    dot.classList.toggle('has', n > 0);
+                }
+                drop.innerHTML = '<div class="bo-notif-h">Notifications non lues (' + n + ')</div>' +
+                    (list || []).slice(0, 8).map(x =>
+                        '<div class="bo-notif" data-id="' + x.id + '" data-href="' + notifHref(x) + '">' +
+                        '<span class="dot"></span><div><b>' + (x.titre || 'Notification') + '</b>' +
+                        '<br><small>' + (x.created_at || '').slice(0, 16).replace('T', ' ') + '</small></div></div>'
+                    ).join('') +
+                    '<a class="bo-notif-all" href="bo-notifications.html">Tout voir →</a>';
+                drop.querySelectorAll('.bo-notif[data-id]').forEach(el =>
+                    el.addEventListener('click', () => {
+                        apiCall('/notifications/' + el.getAttribute('data-id') + '/read', { method: 'PATCH' }).catch(() => {});
+                        window.location.href = el.getAttribute('data-href');
+                    }));
+            }).catch(() => { if (dot) dot.classList.remove('has'); });
+        }
+
+        bell.addEventListener('click', e => {
+            e.stopPropagation();
+            const open = drop.classList.toggle('open');
+            if (open) refresh();
+        });
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.bo-top-actions')) drop.classList.remove('open');
+        });
+        refresh();
+        setInterval(refresh, 60 * 1000);
+    }
+
+    // ---- Badge de droit dans l'en-tête -------------------------------------
+    const RIGHT_LABELS = { edition: 'Édition', controle: 'Contrôle', consultation: 'Consultation' };
+
+    function currentMenuEntry() {
+        const here = location.pathname.split('/').pop() + location.search;
+        let best = null, bestLen = -1;
+        MENU.forEach(item => {
+            (item.children || [item]).forEach(child => {
+                if (!child.href) return;
+                const base = location.pathname.split('/').pop() + (location.search || '');
+                if (base === child.href && child.href.length > bestLen) { best = child; bestLen = child.href.length; }
+            });
+        });
+        if (best) return best;
+        // Repli : correspondance fichier seul (page sans query dans le menu)
+        const file = location.pathname.split('/').pop();
+        MENU.forEach(item => {
+            (item.children || [item]).forEach(child => {
+                if (child.href && child.href.split('?')[0] === file) best = best || child;
+            });
+        });
+        return best;
+    }
+
+    function injectRightBadge() {
+        const head = document.querySelector('.bo-page-head h1');
+        if (!head || head.querySelector('.bo-right-badge')) return;
+        const entry = currentMenuEntry();
+        if (!entry || !entry.feature || !window.MhPermissions) return;
+        const lvl = window.MhPermissions.level(entry.feature);
+        const lbl = RIGHT_LABELS[lvl];
+        if (!lbl) return;
+        const s = document.createElement('span');
+        s.className = 'bo-right-badge';
+        s.textContent = 'Droit : ' + lbl;
+        head.appendChild(s);
+    }
+
+    // ---- Branchement après injection du shell ------------------------------
+    const _origInject = injectShell;
+    injectShell = function () {
+        _origInject();
+        const bar = document.querySelector('.bo-topbar');
+        if (!bar) return;
+        wireGlobalSearch(bar);
+        wireNotifications(bar);
+        injectRightBadge();
+    };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', injectShell);

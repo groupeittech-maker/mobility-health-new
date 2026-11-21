@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications — Mobility Health Care</title>
+    <link rel="stylesheet" href="css/style.css?v=20261027">
+    <link rel="stylesheet" href="css/backoffice.css?v=11">
+    <style>
+        .bo-notif-row { display: flex; gap: 12px; padding: 12px 18px; border-bottom: 1px solid #f0f1f6; align-items: flex-start; cursor: pointer; }
+        .bo-notif-row:hover { background: #faf8fe; }
+        .bo-notif-row.unread { background: #fdf5f5; }
+        .bo-notif-row .dot { width: 9px; height: 9px; border-radius: 50%; background: #c81e1e; margin-top: 6px; flex-shrink: 0; }
+        .bo-notif-row.read .dot { background: #d7d9e4; }
+        .bo-notif-row .tx { flex: 1; font-size: 0.84rem; color: #2a2f45; }
+        .bo-notif-row .tx small { color: #8a8fa3; }
+        .bo-notif-row .tx .msg { white-space: pre-line; font-size: 0.78rem; color: #555; margin-top: 2px; }
+    </style>
+</head>
+<body data-backoffice>
+    <main>
+        <div class="bo-page-head">
+            <div>
+                <div class="bo-breadcrumb">Pilotage</div>
+                <h1>🔔 Notifications</h1>
+                <p class="sub">Vos notifications métier — cliquez pour ouvrir le dossier concerné.</p>
+            </div>
+            <div class="actions">
+                <button class="export" id="markAllBtn">Tout marquer comme lu</button>
+            </div>
+        </div>
+        <div class="bo-card">
+            <div class="bo-card-h">
+                <span class="bo-card-title">Notifications</span>
+                <label style="font-size:0.78rem;display:flex;align-items:center;gap:6px;">
+                    <input type="checkbox" id="unreadOnly" checked> Non lues uniquement
+                </label>
+            </div>
+            <div id="notifList"><div style="padding:2rem;text-align:center;color:#8a8fa3">Chargement…</div></div>
+        </div>
+    </main>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=5"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=14"></script>
+    <script>
+    (function () {
+        const LIST = document.getElementById('notifList');
+        let notifs = [];
+
+        function href(n) {
+            const t = (n.lien_relation_type || '').toLowerCase();
+            if (t === 'sinistre' || t === 'alerte') return 'alert-center.html';
+            if (t === 'souscription' || t === 'avenant') return 'admin-subscriptions.html';
+            if (t === 'facture' || t === 'invoice') return 'sinistre-invoices.html';
+            return null;
+        }
+        function fmt(dt) { return dt ? dt.slice(0, 16).replace('T', ' ') : ''; }
+
+        function render() {
+            const unread = document.getElementById('unreadOnly').checked;
+            const rows = notifs.filter(n => !unread || !n.is_read);
+            LIST.innerHTML = rows.map(n =>
+                '<div class="bo-notif-row ' + (n.is_read ? 'read' : 'unread') + '" data-id="' + n.id + '" data-href="' + (href(n) || '') + '">' +
+                '<span class="dot"></span><div class="tx"><b>' + (n.titre || 'Notification') + '</b>' +
+                '<div class="msg">' + (n.message || '') + '</div>' +
+                '<small>' + fmt(n.created_at) + '</small></div></div>'
+            ).join('') || '<div style="padding:2.4rem;text-align:center;color:#8a8fa3">Aucune notification.</div>';
+            LIST.querySelectorAll('.bo-notif-row').forEach(el => el.addEventListener('click', () => {
+                const id = el.getAttribute('data-id');
+                apiCall('/notifications/' + id + '/read', { method: 'PATCH' }).catch(() => {});
+                const h = el.getAttribute('data-href');
+                if (h) window.location.href = h;
+                else { const n = notifs.find(x => x.id == id); if (n) n.is_read = true; render(); }
+            }));
+        }
+
+        async function load() {
+            try {
+                notifs = await apiCall('/notifications/?limit=100');
+            } catch (e) {
+                LIST.innerHTML = '<div style="padding:2rem;text-align:center;color:#c81e1e">Impossible de charger les notifications.</div>';
+                return;
+            }
+            render();
+        }
+        document.getElementById('unreadOnly').addEventListener('change', render);
+        document.getElementById('markAllBtn').addEventListener('click', async () => {
+            const unread = notifs.filter(n => !n.is_read);
+            for (const n of unread) { apiCall('/notifications/' + n.id + '/read', { method: 'PATCH' }).catch(() => {}); n.is_read = true; }
+            render();
+            if (window.mhcToast) mhcToast(unread.length + ' notification(s) marquée(s) comme lue(s).');
+        });
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!(await requireBackoffice('login.html'))) return;
+            load();
+        });
+        if (document.readyState !== 'loading') load();
+    })();
+    </script>
+</body>
+</html>

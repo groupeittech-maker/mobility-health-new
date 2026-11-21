@@ -1517,3 +1517,47 @@ body[data-backoffice] main .table-wrapper:has(.finance-table) {
     line-height: 1.3;
 }
 .bo-count-group:not([hidden]) ~ .bo-chevron { margin-left: 0.4rem; }
+
+/* ---------- UX transverse : toasts, recherche, notifications, droit ---------- */
+.mhc-toasts { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 9990; }
+.mhc-toast { background: #1e1650; color: #fff; padding: 12px 16px; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.18); font-size: 0.82rem; max-width: 380px; border-left: 4px solid #14AE98; animation: mhcToastIn .2s ease-out; }
+.mhc-toast.err { border-left-color: #c81e1e; }
+@keyframes mhcToastIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.bo-search { position: relative; }
+.bo-search-results { position: absolute; top: 42px; left: 0; right: 0; background: #fff; border: 1px solid #e2e4f0; border-radius: 12px; box-shadow: 0 10px 34px rgba(30,22,80,.14); max-height: 380px; overflow: auto; z-index: 60; }
+.bo-search-results:empty { display: none; }
+.bo-sres { padding: 9px 12px; border-bottom: 1px solid #f0f1f6; cursor: pointer; display: flex; gap: 10px; align-items: center; font-size: 0.82rem; }
+.bo-sres:hover { background: #f4f0fb; }
+.bo-sres small { color: #8a8fa3; }
+
+.bo-top-actions { position: relative; }
+.bo-notif-drop { position: absolute; top: 46px; right: 0; width: 340px; background: #fff; border: 1px solid #e2e4f0; border-radius: 12px; box-shadow: 0 10px 34px rgba(30,22,80,.14); z-index: 60; display: none; max-height: 420px; overflow: auto; }
+.bo-notif-drop.open { display: block; }
+.bo-notif-h { padding: 12px 14px; font-size: 0.78rem; font-weight: 700; color: #1e1650; border-bottom: 1px solid #f0f1f6; }
+.bo-notif { display: flex; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #f6f7fb; cursor: pointer; font-size: 0.8rem; }
+.bo-notif:hover { background: #f4f0fb; }
+.bo-notif .dot { width: 8px; height: 8px; border-radius: 50%; background: #c81e1e; margin-top: 5px; flex-shrink: 0; }
+.bo-notif small { color: #8a8fa3; }
+.bo-notif-all { display: block; text-align: center; padding: 10px; font-size: 0.78rem; font-weight: 600; color: #4e267c; text-decoration: none; }
+.bo-notif-all:hover { background: #f4f0fb; }
+.bo-bell .bo-dot { display: none; position: absolute; top: -4px; right: -4px; background: #c81e1e; color: #fff; font-size: 0.6rem; border-radius: 99px; padding: 1px 6px; font-weight: 700; }
+.bo-bell .bo-dot.has { display: inline-block; }
+.bo-bell { position: relative; }
+
+.bo-right-badge { display: inline-flex; align-items: center; gap: 6px; background: #e6f7f4; color: #0f766e; font-weight: 600; font-size: 0.68rem; padding: 3px 9px; border-radius: 99px; margin-left: 10px; vertical-align: middle; }
+
+.mhc-lock { display: inline-flex; align-items: center; gap: 5px; color: #8a8fa3; font-style: italic; font-size: 0.75rem; background: repeating-linear-gradient(45deg, #f3f1f6, #f3f1f6 6px, #ebe8f0 6px, #ebe8f0 12px); padding: 2px 8px; border-radius: 6px; }
+.depuis { font-weight: 700; font-size: 0.78rem; color: #1e1650; white-space: nowrap; }
+.depuis.late { color: #c81e1e; }
+
+.chip-bloque { display: inline-flex; align-items: center; gap: 4px; background: #fde8e8; color: #c81e1e; font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 99px; }
+
+/* ---------- Impression ---------- */
+@media print {
+    .bo-sidebar, .bo-topbar, .mhc-toasts, .bo-burger, .bo-notif-drop,
+    .bo-quick, .act-link, button, .bo-page-head .actions { display: none !important; }
+    body { background: #fff !important; }
+    main { margin: 0 !important; padding: 0 !important; }
+    .bo-card { box-shadow: none !important; border: 1px solid #ddd; }
+}

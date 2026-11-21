@@ -103,6 +103,14 @@
         });
     }
 
+    function depuis(a) {
+        const t = new Date(a.created_at).getTime();
+        if (!t || ['resolue', 'annulee', 'cloturee'].includes(a.statut)) return '—';
+        const mins = Math.max(0, Math.floor((Date.now() - t) / 60000));
+        const lbl = mins < 60 ? mins + ' min' : mins < 1440 ? Math.floor(mins / 60) + ' h ' + (mins % 60) + 'm' : Math.floor(mins / 1440) + ' j';
+        return '<span class="depuis' + (mins > 30 ? ' late' : '') + '">' + lbl + '</span>';
+    }
+
     function render() {
         kpis();
         const rows = filtered();
@@ -110,6 +118,7 @@
             '<tr>' +
             '<td>' + prio(a) + '<span class="num">' + (a.numero_alerte || 'URG-' + a.id) + '</span></td>' +
             '<td class="muted">' + fmt(a.created_at) + '</td>' +
+            '<td>' + depuis(a) + '</td>' +
             '<td>' + (a.user_full_name || '—') + '</td>' +
             '<td>' + typeUrgence(a) + '</td>' +
             '<td>' + (a.assigned_hospital ? a.assigned_hospital.nom : '—') + '</td>' +
@@ -118,13 +127,13 @@
             '<td><a class="act-link" onclick="openPanel(' + a.id + ')">👁</a> ' +
             '<a class="act-link" href="alert-detail.html?id=' + a.id + '">Détails</a></td>' +
             '</tr>'
-        ).join('') || '<tr><td colspan="8" class="muted" style="text-align:center;padding:1.4rem">Aucune alerte</td></tr>';
+        ).join('') || '<tr><td colspan="9" class="muted" style="text-align:center;padding:1.4rem">Aucune alerte dans votre périmètre.</td></tr>';
         document.getElementById('countLabel').textContent = 'Affichage de ' + rows.length + ' résultat(s)';
     }
 
     async function load() {
         const res = await fetch(API + '/sos/?limit=200', { headers: { Authorization: 'Bearer ' + token() } });
-        if (!res.ok) { document.getElementById('alertRows').innerHTML = '<tr><td colspan="8">Erreur de chargement (HTTP ' + res.status + ')</td></tr>'; return; }
+        if (!res.ok) { document.getElementById('alertRows').innerHTML = '<tr><td colspan="9">Erreur de chargement (HTTP ' + res.status + ')</td></tr>'; return; }
         allAlertes = await res.json();
         render();
     }
@@ -144,6 +153,12 @@
 
         document.getElementById('dpTag').textContent = STATUT_BADGE[a.statut] || a.statut;
         document.getElementById('dpTag').className = 'dp-tag';
+        if (d.sinistre_bloque) {
+            const b = document.createElement('span');
+            b.className = 'chip-bloque';
+            b.textContent = '🔒 Bloqué' + (d.motif_blocage ? ' — ' + d.motif_blocage : '');
+            document.getElementById('dpTag').after(b);
+        }
 
         document.getElementById('dpAssure').innerHTML =
             '<h4>👤 Informations assuré</h4>' +
@@ -153,13 +168,18 @@
             '<div class="dp-row"><span class="k">Téléphone</span><span class="v">' + (as.telephone || '—') + '</span></div>';
 
         const sm = d.statut_medical || {};
+        const descHtml = d.medical_masque
+            ? '<span class="mhc-lock">🔒 Donnée réservée au pôle médical</span>'
+            : (a.description || '—');
         document.getElementById('dpMedical').innerHTML =
             '<h4>📋 Informations médicales</h4>' +
             '<div class="dp-row"><span class="k">Type d\'urgence</span><span class="v">' + typeUrgence(a) + '</span></div>' +
-            '<div class="dp-row"><span class="k">Description</span><span class="v" style="max-width:55%">' + (a.description || '—') + '</span></div>' +
+            '<div class="dp-row"><span class="k">Description</span><span class="v" style="max-width:55%">' + descHtml + '</span></div>' +
             '<div class="dp-row"><span class="k">Établissement</span><span class="v">' + (h.nom || '—') + '</span></div>' +
             '<div class="dp-row"><span class="k">Date et heure</span><span class="v">' + fmt(a.created_at) + '</span></div>' +
-            (sm.etat_patient ? '<div class="dp-row"><span class="k">État patient</span><span class="v">' + sm.etat_patient + '</span></div>' : '');
+            '<div class="dp-row"><span class="k">Depuis</span><span class="v">' + depuis(a) + '</span></div>' +
+            (sm.etat_patient ? '<div class="dp-row"><span class="k">État patient</span><span class="v">' + sm.etat_patient + '</span></div>' : '') +
+            (d.medical_masque ? '' : (sm.motifs_symptomes ? '<div class="dp-row"><span class="k">Symptômes</span><span class="v">' + sm.motifs_symptomes + '</span></div>' : ''));
 
         const docs = d.documents || {};
         const docList = [...(docs.care_documents || []), ...(docs.attachments || [])];
@@ -172,11 +192,42 @@
         const canEdit = window.MhPermissions
             ? window.MhPermissions.can('alerte_sos', 'edition')
             : true;
-        document.getElementById('dpActions').innerHTML = canEdit
+        const role = localStorage.getItem('user_role') || '';
+        let blocageBtn = '';
+        if (d.sinistre_id) {
+            if (d.sinistre_bloque && ['admin', 'superviseur_technique'].includes(role)) {
+                blocageBtn = '<button class="btn btn-outline" onclick="debloquerSinistre(' + d.sinistre_id + ',' + id + ')">🔓 Débloquer le dossier</button>';
+            } else if (!d.sinistre_bloque && ['admin', 'superviseur_technique', 'agent_conformite_sinistre'].includes(role)) {
+                blocageBtn = '<button class="btn btn-danger" onclick="bloquerSinistre(' + d.sinistre_id + ',' + id + ')">⛔ Bloquer le dossier</button>';
+            }
+        }
+        document.getElementById('dpActions').innerHTML = (canEdit
             ? '<a class="btn btn-primary" href="alert-detail.html?id=' + id + '" style="text-decoration:none;text-align:center">✓ Traiter l\'alerte</a>' +
             '<button class="btn btn-outline" onclick="askInfo(' + id + ')">Demander des informations</button>' +
             '<button class="btn btn-danger" onclick="refuseAlert(' + id + ')">Refuser la prise en charge</button>'
-            : '<a class="btn btn-outline" href="alert-detail.html?id=' + id + '" style="text-decoration:none;text-align:center">Voir le détail</a>';
+            : '<a class="btn btn-outline" href="alert-detail.html?id=' + id + '" style="text-decoration:none;text-align:center">Voir le détail</a>') + blocageBtn;
+    };
+
+    window.bloquerSinistre = async function (sinistreId, alerteId) {
+        const motif = prompt('Motif du blocage (obligatoire pour la conformité) :');
+        if (motif === null) return;
+        const res = await fetch(API + '/admin/sinistres/sinistres/' + sinistreId + '/bloquer', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
+            body: JSON.stringify({ motif }),
+        });
+        if (res.ok) { if (window.mhcToast) mhcToast('Dossier bloqué.'); openPanel(alerteId); }
+        else { const e = await res.json().catch(() => ({})); if (window.mhcToast) mhcToast(e.detail || 'Blocage impossible', true); }
+    };
+
+    window.debloquerSinistre = async function (sinistreId, alerteId) {
+        if (!confirm('Débloquer ce dossier ?')) return;
+        const res = await fetch(API + '/admin/sinistres/sinistres/' + sinistreId + '/debloquer', {
+            method: 'PUT',
+            headers: { Authorization: 'Bearer ' + token() },
+        });
+        if (res.ok) { if (window.mhcToast) mhcToast('Dossier débloqué.'); openPanel(alerteId); }
+        else { const e = await res.json().catch(() => ({})); if (window.mhcToast) mhcToast(e.detail || 'Déblocage impossible', true); }
     };
 
     window.closePanel = function () {
@@ -297,7 +348,10 @@
     document.addEventListener('DOMContentLoaded', async () => {
         if (!(await requireBackoffice('index.html'))) return;
         initDeclaration();
-        load();
+        await load();
+        // Lien profond depuis la recherche globale : ouvrir le panneau de l'alerte.
+        const focus = new URLSearchParams(location.search).get('focus');
+        if (focus) openPanel(Number(focus));
     });
     if (document.readyState !== 'loading') load();
 })();

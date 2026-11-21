@@ -218,3 +218,156 @@ async def nav_counts(
         "encaissements_attente": n(db.query(func.count(Paiement.id)).filter(
             Paiement.statut == "en_attente")),
     }
+
+
+# ---------------------------------------------------------------------------
+# Recherche globale back-office + journal des actions (UX transverse)
+# ---------------------------------------------------------------------------
+
+@router.get("/search")
+async def admin_global_search(
+    q: str = Query(..., min_length=2, max_length=80),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_backoffice()),
+):
+    """Recherche transverse : souscriptions, alertes, assurés, factures."""
+    from sqlalchemy import or_
+    from app.models.alerte import Alerte
+    from app.models.invoice import Invoice
+    from app.models.souscription import Souscription
+
+    term = f"%{q.strip()}%"
+    results = []
+
+    subs = (
+        db.query(Souscription, User)
+        .join(User, Souscription.user_id == User.id)
+        .filter(or_(
+            Souscription.numero_souscription.ilike(term),
+            User.full_name.ilike(term),
+        ))
+        .order_by(Souscription.created_at.desc())
+        .limit(8)
+        .all()
+    )
+    for s, u in subs:
+        results.append({
+            "type": "souscription", "id": s.id,
+            "numero": s.numero_souscription or f"SUB-{s.id}",
+            "label": u.full_name or u.username or "—",
+            "sub": str(s.statut.value if hasattr(s.statut, "value") else s.statut),
+            "href": "admin-subscriptions.html",
+        })
+
+    alertes = (
+        db.query(Alerte, User)
+        .join(User, Alerte.user_id == User.id)
+        .filter(or_(
+            Alerte.numero_alerte.ilike(term),
+            User.full_name.ilike(term),
+        ))
+        .order_by(Alerte.created_at.desc())
+        .limit(8)
+        .all()
+    )
+    for a, u in alertes:
+        results.append({
+            "type": "alerte", "id": a.id,
+            "numero": a.numero_alerte or f"URG-{a.id}",
+            "label": u.full_name or u.username or "—",
+            "sub": a.statut,
+            "href": f"alert-center.html?focus={a.id}",
+        })
+
+    assures = (
+        db.query(User)
+        .filter(User.role == Role.USER, or_(
+            User.full_name.ilike(term),
+            User.email.ilike(term),
+            User.username.ilike(term),
+        ))
+        .order_by(User.created_at.desc())
+        .limit(8)
+        .all()
+    )
+    for u in assures:
+        results.append({
+            "type": "assure", "id": u.id,
+            "numero": None,
+            "label": u.full_name or u.username or "—",
+            "sub": u.email or "",
+            "href": "admin-users.html?role=user",
+        })
+
+    factures = (
+        db.query(Invoice)
+        .filter(Invoice.numero_facture.ilike(term))
+        .order_by(Invoice.created_at.desc())
+        .limit(8)
+        .all()
+    )
+    for f in factures:
+        results.append({
+            "type": "facture", "id": f.id,
+            "numero": f.numero_facture,
+            "label": "Facture hospitalière",
+            "sub": str(f.statut.value if hasattr(f.statut, "value") else f.statut),
+            "href": "sinistre-invoices.html",
+        })
+
+    return {"results": results[:24]}
+
+
+_JOURNAL_ROLES = {
+    Role.ADMIN, Role.SUPERVISEUR_TECHNIQUE, Role.SUPERVISEUR_COMPTABLE,
+    Role.SUPERVISEUR_AFFAIRES_MEDICALES,
+    Role.AGENT_CONFORMITE_PRODUCTION, Role.AGENT_CONFORMITE_SINISTRE,
+    Role.AGENT_CONFORMITE_MEDICAL, Role.AGENT_CONFORMITE_COMPTABLE,
+}
+
+
+@router.get("/audit-journal")
+async def admin_audit_journal(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    method: Optional[str] = None,
+    path: Optional[str] = None,
+    status_code: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_backoffice()),
+):
+    """Journal des actions (audit API) — lecture seule, corps exclus."""
+    if current_user.role not in _JOURNAL_ROLES:
+        raise HTTPException(status_code=403, detail="Journal réservé à la direction et à la conformité")
+    from app.models.audit import AuditLog
+
+    query = db.query(AuditLog).order_by(AuditLog.timestamp.desc())
+    if method:
+        query = query.filter(AuditLog.method == method.upper())
+    if path:
+        query = query.filter(AuditLog.path.ilike(f"%{path}%"))
+    if status_code is not None:
+        query = query.filter(AuditLog.status_code == status_code)
+
+    rows = query.offset(skip).limit(limit).all()
+    user_ids = {r.user_id for r in rows if r.user_id}
+    names = {
+        u.id: (u.full_name or u.username or f"#{u.id}")
+        for u in db.query(User).filter(User.id.in_(user_ids)).all()
+    } if user_ids else {}
+
+    return [
+        {
+            "id": r.id,
+            "timestamp": r.timestamp.isoformat() if r.timestamp else None,
+            "method": r.method,
+            "path": r.path,
+            "status_code": r.status_code,
+            "duration_ms": r.duration_ms,
+            "user_id": r.user_id,
+            "user_name": names.get(r.user_id, "—" if r.user_id is None else f"#{r.user_id}"),
+            "user_role": r.user_role,
+            "client_ip": r.client_ip,
+        }
+        for r in rows
+    ]

@@ -156,6 +156,12 @@ async def close_sinistre(
             detail="Sinistre non trouvé"
         )
     
+    if sinistre.bloque:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Dossier bloqué par la conformité : {sinistre.motif_blocage or 'sans motif'}",
+        )
+
     sinistre.statut = "resolu"
     if request.notes:
         existing_notes = sinistre.notes or ""
@@ -225,6 +231,12 @@ async def update_workflow_step_status(
             detail="Sinistre non trouvé"
         )
 
+    if sinistre.bloque:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Dossier bloqué par la conformité : {sinistre.motif_blocage or 'sans motif'}",
+        )
+
     alerte = db.query(Alerte).filter(Alerte.id == sinistre.alerte_id).first()
 
     try:
@@ -247,3 +259,66 @@ async def update_workflow_step_status(
 
     return step
 
+
+
+# ---------------------------------------------------------------------------
+# Blocage conformité — un dossier bloqué ne peut plus progresser tant que la
+# conformité (ou la supervision) ne l'a pas débloqué.
+# ---------------------------------------------------------------------------
+
+_BLOCAGE_ROLES = {
+    Role.ADMIN, Role.SUPERVISEUR_TECHNIQUE, Role.AGENT_CONFORMITE_SINISTRE,
+}
+_DEBLOCAGE_ROLES = {Role.ADMIN, Role.SUPERVISEUR_TECHNIQUE}
+
+
+class BlocageRequest(BaseModel):
+    motif: Optional[str] = None
+
+
+def _get_sinistre_or_404(db: Session, sinistre_id: int) -> Sinistre:
+    sinistre = db.query(Sinistre).filter(Sinistre.id == sinistre_id).first()
+    if not sinistre:
+        raise HTTPException(status_code=404, detail="Sinistre non trouvé")
+    return sinistre
+
+
+@router.put("/sinistres/{sinistre_id}/bloquer", response_model=SinistreResponse)
+async def bloquer_sinistre(
+    sinistre_id: int,
+    request: BlocageRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_bo_permission(F_SINISTRES, LEVEL_CONSULTATION)),
+):
+    """Bloquer un sinistre (conformité / supervision)."""
+    if current_user.role not in _BLOCAGE_ROLES:
+        raise HTTPException(status_code=403, detail="Blocage réservé à la conformité et à la supervision")
+    sinistre = _get_sinistre_or_404(db, sinistre_id)
+    if sinistre.bloque:
+        return sinistre
+    sinistre.bloque = True
+    sinistre.motif_blocage = request.motif or None
+    sinistre.bloque_par = current_user.id
+    sinistre.bloque_le = datetime.utcnow()
+    db.commit()
+    db.refresh(sinistre)
+    return sinistre
+
+
+@router.put("/sinistres/{sinistre_id}/debloquer", response_model=SinistreResponse)
+async def debloquer_sinistre(
+    sinistre_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_bo_permission(F_SINISTRES, LEVEL_CONSULTATION)),
+):
+    """Débloquer un sinistre (supervision uniquement)."""
+    if current_user.role not in _DEBLOCAGE_ROLES:
+        raise HTTPException(status_code=403, detail="Déblocage réservé à la supervision")
+    sinistre = _get_sinistre_or_404(db, sinistre_id)
+    sinistre.bloque = False
+    sinistre.motif_blocage = None
+    sinistre.bloque_par = None
+    sinistre.bloque_le = None
+    db.commit()
+    db.refresh(sinistre)
+    return sinistre

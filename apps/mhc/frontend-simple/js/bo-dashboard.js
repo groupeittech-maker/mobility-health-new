@@ -243,6 +243,9 @@
             '<td><a class="act-link" href="alert-detail.html?id=' + a.id + '">Voir</a></td></tr>'
         ).join('') || '<tr><td colspan="6" class="muted" style="text-align:center;padding:1rem">Aucune alerte active</td></tr>';
 
+        // À traiter en priorité — notifications non lues (top 5)
+        loadPriority();
+
         // Actions rapides
         const qa = (QUICK_BY_ROLE[grpKey] || QUICK_BY_ROLE.default).filter(q => {
             if (!q.feature) return true;
@@ -252,6 +255,26 @@
         document.getElementById('quickActions').innerHTML = qa.map(q =>
             '<a href="' + q.href + '"><span class="qi" style="background:#efeaf9">' + q.ico + '</span>' + q.label + '</a>'
         ).join('');
+    }
+
+    async function loadPriority() {
+        const el = document.getElementById('priorityCard');
+        if (!el || typeof apiCall !== 'function') return;
+        try {
+            const list = await apiCall('/notifications/?is_read=false&limit=5');
+            if (!list || !list.length) { el.innerHTML = ''; return; }
+            el.innerHTML =
+                '<div class="bo-card" style="margin-bottom:1rem">' +
+                '<div class="bo-card-h"><span class="bo-card-title">🔔 À traiter en priorité (' + list.length + ')</span>' +
+                '<a class="bo-link-all" href="bo-notifications.html">Tout voir →</a></div>' +
+                '<div class="bo-card-b" style="padding:0;">' +
+                list.map(n =>
+                    '<a class="bo-notif" href="bo-notifications.html" style="text-decoration:none;color:inherit">' +
+                    '<span class="dot"></span><div><b>' + (n.titre || 'Notification') + '</b>' +
+                    '<br><small>' + (n.created_at || '').slice(0, 16).replace('T', ' ') + '</small></div></a>'
+                ).join('') +
+                '</div></div>';
+        } catch (e) { el.innerHTML = ''; }
     }
 
     document.addEventListener('DOMContentLoaded', async () => {

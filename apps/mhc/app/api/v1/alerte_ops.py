@@ -15,8 +15,10 @@ from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
 from app.api.v1.sos import (
+    MEDICAL_MASK,
     _build_alertes_query_for_user,
     calculate_distance,
+    can_see_medical_details,
     generate_numero_sinistre,
     notify_hospital_reception,
 )
@@ -223,6 +225,7 @@ async def get_alerte_detail_complet(
     hospital = db.query(Hospital).filter(Hospital.id == sinistre.hospital_id).first() if sinistre and sinistre.hospital_id else None
     medecin = db.query(User).filter(User.id == sinistre.medecin_referent_id).first() if sinistre and sinistre.medecin_referent_id else None
 
+    medical_ok = can_see_medical_details(current_user)
     return {
         "alerte": {
             "id": alerte.id,
@@ -232,9 +235,12 @@ async def get_alerte_detail_complet(
             "latitude": float(alerte.latitude) if alerte.latitude is not None else None,
             "longitude": float(alerte.longitude) if alerte.longitude is not None else None,
             "adresse": alerte.adresse,
-            "description": alerte.description,
+            "description": alerte.description if medical_ok else MEDICAL_MASK,
             "created_at": alerte.created_at.isoformat() if alerte.created_at else None,
         },
+        "medical_masque": not medical_ok,
+        "sinistre_bloque": bool(getattr(sinistre, "bloque", False)),
+        "motif_blocage": getattr(sinistre, "motif_blocage", None),
         "etape_courante": _current_step(db, alerte, sinistre),
         "assure": _assure_payload(alerte, souscription),
         "statut_medical": (
@@ -247,7 +253,7 @@ async def get_alerte_detail_complet(
                 "updated_by_name": statut_medical.updated_by_name,
                 "updated_at": statut_medical.updated_at.isoformat() if statut_medical.updated_at else None,
             }
-            if statut_medical else None
+            if statut_medical and medical_ok else None
         ),
         "hospital_assigne": (
             {"id": hospital.id, "nom": hospital.nom, "adresse": hospital.adresse, "ville": hospital.ville, "telephone": hospital.telephone}

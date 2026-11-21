@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journal des actions — Mobility Health Care</title>
+    <link rel="stylesheet" href="css/style.css?v=20261027">
+    <link rel="stylesheet" href="css/backoffice.css?v=11">
+</head>
+<body data-backoffice>
+    <main>
+        <div class="bo-page-head">
+            <div>
+                <div class="bo-breadcrumb">Pilotage</div>
+                <h1>🧾 Journal des actions</h1>
+                <p class="sub">Traçabilité des opérations API — lecture seule, corps des requêtes exclus.</p>
+            </div>
+        </div>
+        <div class="bo-card">
+            <div class="bo-filters">
+                <select id="fMethod" class="inp">
+                    <option value="">Méthode : toutes</option>
+                    <option>GET</option><option>POST</option><option>PUT</option>
+                    <option>PATCH</option><option>DELETE</option>
+                </select>
+                <input type="search" id="fPath" placeholder="Chemin contient… (ex: /alertes)">
+                <select id="fStatus" class="inp">
+                    <option value="">Statut : tous</option>
+                    <option value="4">4xx — Erreur client</option>
+                    <option value="5">5xx — Erreur serveur</option>
+                </select>
+                <button class="export" id="searchBtn" style="margin-left:auto">Filtrer</button>
+            </div>
+            <div class="bo-card-b" style="padding:0;">
+                <table class="bo-table">
+                    <thead><tr>
+                        <th>Date et heure</th><th>Méthode</th><th>Chemin</th>
+                        <th>Statut</th><th>Acteur</th><th>Rôle</th><th>Durée</th>
+                    </tr></thead>
+                    <tbody id="rows"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=5"></script>
+    <script src="js/permissions.js?v=3"></script>
+    <script src="js/backoffice-nav.js?v=14"></script>
+    <script>
+    (function () {
+        function statusChip(code) {
+            const cls = code >= 500 ? 'refusee' : code >= 400 ? 'en_attente' : 'validee';
+            return '<span class="bo-badge ' + cls + '">' + code + '</span>';
+        }
+        async function load() {
+            const m = document.getElementById('fMethod').value;
+            const p = document.getElementById('fPath').value.trim();
+            const s = document.getElementById('fStatus').value;
+            let url = '/admin/statistics/audit-journal?limit=100';
+            if (m) url += '&method=' + m;
+            if (p) url += '&path=' + encodeURIComponent(p);
+            try {
+                let rows = await apiCall(url);
+                if (s === '4') rows = rows.filter(r => r.status_code >= 400 && r.status_code < 500);
+                if (s === '5') rows = rows.filter(r => r.status_code >= 500);
+                document.getElementById('rows').innerHTML = rows.map(r =>
+                    '<tr><td class="muted">' + (r.timestamp || '').slice(0, 19).replace('T', ' ') + '</td>' +
+                    '<td><b>' + r.method + '</b></td><td class="num">' + (r.path || '') + '</td>' +
+                    '<td>' + statusChip(r.status_code) + '</td><td>' + (r.user_name || '—') + '</td>' +
+                    '<td class="muted">' + (r.user_role || '—') + '</td>' +
+                    '<td class="muted">' + (r.duration_ms != null ? r.duration_ms + ' ms' : '—') + '</td></tr>'
+                ).join('') || '<tr><td colspan="7" class="muted" style="text-align:center;padding:2rem">Aucune entrée dans votre périmètre.</td></tr>';
+            } catch (e) {
+                document.getElementById('rows').innerHTML =
+                    '<tr><td colspan="7" style="text-align:center;color:#c81e1e;padding:2rem">' + (e && e.message ? e.message : 'Accès refusé ou erreur de chargement') + '</td></tr>';
+            }
+        }
+        document.getElementById('searchBtn').addEventListener('click', load);
+        document.getElementById('fPath').addEventListener('keydown', e => { if (e.key === 'Enter') load(); });
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!(await requireBackoffice('login.html'))) return;
+            load();
+        });
+        if (document.readyState !== 'loading') load();
+    })();
+    </script>
+</body>
+</html>

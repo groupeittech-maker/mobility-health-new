@@ -941,6 +941,34 @@ async def get_referent_pipeline_counts(
     return counts
 
 
+# Profils habilités à voir les données médicales (motif/description) des
+# alertes — les autres profils voient un verrou (RGPD / besoin d'en connaître).
+MEDICAL_DATA_ROLES = {
+    Role.ADMIN, Role.SOS_OPERATOR,
+    Role.AGENT_SINISTRE_MH, Role.AGENT_SINISTRE_ASSUREUR,
+    Role.AGENT_SINISTRE_COURTIER, Role.AGENT_CONFORMITE_SINISTRE,
+    Role.MEDECIN_REFERENT_MH, Role.MEDECIN_HOPITAL,
+    Role.AGENT_MEDICAL_MHC, Role.AGENT_MEDICAL_ASSUREUR,
+    Role.AGENT_CONFORMITE_MEDICAL, Role.SUPERVISEUR_AFFAIRES_MEDICALES,
+    Role.HOSPITAL_ADMIN, Role.AGENT_RECEPTION_HOPITAL,
+}
+
+MEDICAL_MASK = "🔒 Donnée réservée au pôle médical"
+
+
+def can_see_medical_details(user: User) -> bool:
+    return getattr(user, "role", None) in MEDICAL_DATA_ROLES
+
+
+def _mask_medical_fields(alertes, user: User) -> None:
+    """Masque la description (motif) pour les profils non médicaux/sinistre.
+    À appeler APRÈS le commit d'hydratation (attribut transitoire, non persisté)."""
+    if can_see_medical_details(user):
+        return
+    for a in alertes:
+        a.description = MEDICAL_MASK
+
+
 @router.get("", response_model=List[AlerteResponse])
 @router.get("/", response_model=List[AlerteResponse])
 async def get_alertes(
@@ -986,6 +1014,7 @@ async def get_alertes(
         logger.exception("Hydratation des alertes échouée — retour des données brutes")
         db.rollback()
 
+    _mask_medical_fields(alertes, current_user)
     return alertes
 
 
@@ -1055,6 +1084,7 @@ async def get_alerte(
     if workflow_modified:
         db.commit()
 
+    _mask_medical_fields([alerte], current_user)
     return alerte
 
 

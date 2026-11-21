@@ -23,6 +23,9 @@ class SinistreResponse(SinistreBase):
     numero_sinistre: Optional[str] = None
     agent_sinistre_id: Optional[int] = None
     medecin_referent_id: Optional[int] = None
+    bloque: bool = False
+    motif_blocage: Optional[str] = None
+    bloque_le: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     
