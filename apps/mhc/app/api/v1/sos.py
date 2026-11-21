@@ -1465,6 +1465,7 @@ async def search_assures(
             "souscription_active": {
                 "id": souscription.id,
                 "numero": souscription.numero_souscription,
+                "date_debut": souscription.date_debut.strftime("%d/%m/%Y") if souscription.date_debut else None,
             } if souscription else None,
         })
     return results
@@ -1501,6 +1502,17 @@ async def declaration_manuelle(
         .order_by(Souscription.created_at.desc())
         .first()
     )
+    # Même règle que POST /sos/trigger : pas de déclaration tant que la
+    # couverture n'a pas débuté — le canal « médecin-conseil » ne contourne
+    # pas le blocage appliqué à l'assuré.
+    if souscription and souscription.date_debut and souscription.date_debut.date() > datetime.utcnow().date():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "La couverture de cet assuré n'a pas encore commencé (début le "
+                f"{souscription.date_debut:%d/%m/%Y}) : la déclaration d'alerte est bloquée jusque-là."
+            ),
+        )
 
     numero_alerte = f"ALERT-{uuid.uuid4().hex[:8].upper()}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
     description = payload.description or f"Déclaration manuelle par {current_user.full_name or current_user.email}"

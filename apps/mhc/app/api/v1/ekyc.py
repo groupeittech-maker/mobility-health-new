@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.permissions import can_act_for_third_party
 from app.api.v1.auth import get_current_user
 from app.models.ekyc_session import EkycSession
 from app.models.souscription import Souscription
@@ -23,6 +24,33 @@ def _is_mobile_client(request: Request) -> bool:
     return (request.headers.get("x-client-platform") or "").strip().lower() == "mobile"
 
 
+def _ekyc_subject(souscription: Souscription, current_user: User) -> User:
+    """Utilisateur dont l'identité est vérifiée par la session eKYC.
+
+    L'assuré propriétaire de la souscription se vérifie lui-même ; un agent
+    habilité à souscrire pour un tiers (guichet production) lance la session
+    au nom de l'assuré — la vérification porte toujours sur l'assuré.
+    """
+    if souscription.user_id == current_user.id:
+        return current_user
+    if not can_act_for_third_party(current_user.role):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Souscription invalide ou non autorisée",
+        )
+    subject = souscription.user
+    if subject is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Titulaire de la souscription introuvable",
+        )
+    return subject
+
+
+def _can_access_session(session: EkycSession, current_user: User) -> bool:
+    return session.user_id == current_user.id or can_act_for_third_party(current_user.role)
+
+
 @router.post("/ekyc/sessions", status_code=status.HTTP_201_CREATED, response_model=EkycSessionResponse)
 def create_ekyc_session(
     payload: EkycSessionCreate,
@@ -36,23 +64,25 @@ def create_ekyc_session(
     dans le navigateur / webview de l'utilisateur.
     """
     souscription = None
+    subject = current_user
     if payload.souscription_id:
         souscription = db.get(Souscription, payload.souscription_id)
-        if souscription is None or souscription.user_id != current_user.id:
+        if souscription is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Souscription invalide ou non autorisée",
             )
+        subject = _ekyc_subject(souscription, current_user)
 
     mobile = _is_mobile_client(request)
     session = ekyc_service.get_or_create_for_souscription(
         db,
-        user=current_user,
+        user=subject,
         souscription=souscription,
         mobile=mobile,
     ) if souscription else ekyc_service.create_session(
         db,
-        user=current_user,
+        user=subject,
         souscription=None,
         flow="TRAVEL_INSURANCE",
         mobile=mobile,
@@ -76,8 +106,9 @@ def get_latest_ekyc_for_souscription(
     « Vérifier mon identité » du détail de souscription (mode pilote :
     visible tant que le dernier verdict n'est pas VERIFIED)."""
     souscription = db.get(Souscription, souscription_id)
-    if souscription is None or souscription.user_id != current_user.id:
+    if souscription is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Souscription non autorisée")
+    _ekyc_subject(souscription, current_user)
     session = (
         db.query(EkycSession)
         .filter(EkycSession.souscription_id == souscription_id)
@@ -102,10 +133,8 @@ def get_ekyc_session(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """Récupère l'état d'une session eKYC (avec polling live si non terminal)."""
-    session = db.query(EkycSession).filter_by(
-        session_id=session_id, user_id=current_user.id
-    ).first()
-    if session is None:
+    session = db.query(EkycSession).filter_by(session_id=session_id).first()
+    if session is None or not _can_access_session(session, current_user):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Session eKYC introuvable")
 
     result = ekyc_service.poll_result(db, session)
