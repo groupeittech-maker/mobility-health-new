@@ -1040,23 +1040,29 @@ body[data-backoffice] main .act-link {
     inset: 0;
     background: rgba(20, 15, 60, 0.45);
     display: none;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
+    justify-content: flex-end;
     z-index: 2000;
-    padding: 1.2rem;
+    padding: 0;
 }
 .bo-modal-backdrop.open { display: flex; }
+@keyframes bo-modal-slide-in {
+    from { transform: translateX(60px); opacity: 0.4; }
+    to { transform: none; opacity: 1; }
+}
 .bo-modal {
     background: #fff;
-    border-radius: 0.9rem;
-    width: 640px;
+    border-radius: 0;
+    width: 520px;
     max-width: 96vw;
-    max-height: 88vh;
+    height: 100%;
+    max-height: none;
     overflow-y: auto;
-    padding: 1.2rem 1.3rem 1.4rem;
-    box-shadow: 0 20px 60px rgba(20, 15, 60, 0.25);
+    padding: 1.4rem 1.5rem 2rem;
+    box-shadow: -16px 0 50px rgba(20, 15, 60, 0.22);
+    animation: bo-modal-slide-in 0.22s ease;
 }
-.bo-modal.wide { width: 860px; }
+.bo-modal.wide { width: 720px; }
 .bo-modal-head {
     display: flex;
     align-items: center;

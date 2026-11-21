@@ -711,8 +711,16 @@ function renderReceptionActions() {
     populateDoctorsSelect();
 
     const form = document.getElementById('orientationForm');
-    if (form) {
-        form.addEventListener('submit', handleOrientationSubmit, { once: true });
+    if (form && !form.dataset.bound) {
+        form.dataset.bound = '1';
+        form.addEventListener('submit', handleOrientationSubmit);
+    }
+    const openBtn = document.getElementById('openOrientationBtn');
+    if (openBtn) {
+        openBtn.onclick = () => {
+            populateDoctorsSelect();
+            document.getElementById('orientationModal')?.classList.add('open');
+        };
     }
 }
 
@@ -777,6 +785,7 @@ async function handleOrientationSubmit(event) {
             }),
         });
         showAlert('Patient orienté vers le médecin sélectionné.', 'success');
+        document.getElementById('orientationModal')?.classList.remove('open');
         document.getElementById('orientationNotes').value = '';
         if (document.getElementById('orientationService')) document.getElementById('orientationService').value = '';
         if (document.getElementById('orientationChambre')) document.getElementById('orientationChambre').value = '';
@@ -792,7 +801,6 @@ async function handleOrientationSubmit(event) {
     } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Orienter le patient';
-        event.target.addEventListener('submit', handleOrientationSubmit, { once: true });
     }
 }
 

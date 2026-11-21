@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Réception Hôpital - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css?v=20261028">
-    <link rel="stylesheet" href="css/admin.css?v=3">
-    <link rel="stylesheet" href="css/backoffice.css?v=20">
+    <link rel="stylesheet" href="css/admin.css?v=4">
+    <link rel="stylesheet" href="css/backoffice.css?v=21">
 </head>
 <body class="protected hospital-reception" data-backoffice>
     <nav class="navbar">
@@ -189,28 +189,42 @@
                 </div>
                 <div class="action-card">
                     <h4>Orientation vers un médecin</h4>
-                    <form id="orientationForm">
-                        <div class="form-group">
-                            <label for="doctorSelect">Médecin hospitalier</label>
-                            <select id="doctorSelect" required></select>
-                        </div>
-                        <div class="form-group">
-                            <label for="orientationService">Service concerné</label>
-                            <input type="text" id="orientationService" placeholder="Ex. Urgences, médecine interne">
-                        </div>
-                        <div class="form-group">
-                            <label for="orientationChambre">Chambre / unité (si connue)</label>
-                            <input type="text" id="orientationChambre" placeholder="Ex. 204, USI">
-                        </div>
-                        <div class="form-group">
-                            <label for="orientationNotes">Notes pour le médecin</label>
-                            <textarea id="orientationNotes" rows="3" placeholder="Informations utiles pour la prise en charge"></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-success">Orienter le patient</button>
-                    </form>
+                    <p class="muted">Affecter le patient à un médecin de l'établissement.</p>
+                    <button class="btn btn-success" id="openOrientationBtn" type="button">👨‍⚕️ Orienter le patient</button>
                 </div>
             </div>
         </section>
+
+        <div class="bo-modal-backdrop" id="orientationModal">
+            <div class="bo-modal" style="max-width:520px;">
+                <div class="bo-modal-head">
+                    <h3>Orienter le patient vers un médecin</h3>
+                    <button type="button" class="bo-modal-close" onclick="document.getElementById('orientationModal').classList.remove('open')">&times;</button>
+                </div>
+                <form id="orientationForm">
+                    <div class="form-group">
+                        <label for="doctorSelect">Médecin hospitalier</label>
+                        <select id="doctorSelect" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="orientationService">Service concerné</label>
+                        <input type="text" id="orientationService" placeholder="Ex. Urgences, médecine interne">
+                    </div>
+                    <div class="form-group">
+                        <label for="orientationChambre">Chambre / unité (si connue)</label>
+                        <input type="text" id="orientationChambre" placeholder="Ex. 204, USI">
+                    </div>
+                    <div class="form-group">
+                        <label for="orientationNotes">Notes pour le médecin</label>
+                        <textarea id="orientationNotes" rows="3" placeholder="Informations utiles pour la prise en charge"></textarea>
+                    </div>
+                    <div class="bo-modal-actions">
+                        <button type="submit" class="btn btn-success">Orienter le patient</button>
+                        <button type="button" class="btn btn-outline" onclick="document.getElementById('orientationModal').classList.remove('open')">Annuler</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </main>
 
     <footer>
@@ -378,7 +392,7 @@
     <script src="js/auth.js?v=5"></script>
     <script src="js/permissions.js?v=4"></script>
     <script src="js/backoffice-nav.js?v=21"></script>
-    <script src="js/hospital-reception.js?v=6"></script>
+    <script src="js/hospital-reception.js?v=7"></script>
 </body>
 </html>
 

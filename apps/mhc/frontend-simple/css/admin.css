@@ -2357,16 +2357,32 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
     width: 100%;
     height: 100%;
     background: rgba(0,0,0,0.5);
-    overflow: auto;
+    overflow: hidden;
+}
+
+@keyframes modal-slide-in {
+    from { transform: translateX(60px); opacity: 0.4; }
+    to { transform: none; opacity: 1; }
 }
 
 .modal-content {
     background: white;
-    margin: 5% auto;
+    margin: 0 0 0 auto;
+    height: 100%;
+    overflow-y: auto;
     padding: 2rem;
+    border-radius: 0;
+    width: 560px;
+    max-width: 96vw;
+    box-shadow: -16px 0 50px rgba(20, 15, 60, 0.22);
+    animation: modal-slide-in 0.22s ease;
+}
+
+.modal-full .modal-content {
+    margin: 5% auto;
+    height: auto;
     border-radius: 8px;
-    max-width: 600px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    animation: none;
 }
 
 .modal-header {
