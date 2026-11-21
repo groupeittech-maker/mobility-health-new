@@ -622,7 +622,7 @@ function renderActTarifsTable() {
                 <td>${tarif.code ? escapeHtml(tarif.code) : '—'}</td>
                 <td>${formatCurrency(tarif.montant)}</td>
                 <td>
-                    <select class="action-select"><option value="">Actions</option><option data-act="del-tarif" data-arg="act:${tarif.id}">Supprimer</option></select>
+                    <select class="action-select"><option value="">⚙️ Actions</option><option data-act="del-tarif" data-arg="act:${tarif.id}">🗑 Supprimer</option></select>
                 </td>
             </tr>
         `,
@@ -690,7 +690,7 @@ function renderExamTarifsTable() {
                 <td>${escapeHtml(tarif.nom || '')}</td>
                 <td>${formatCurrency(tarif.montant)}</td>
                 <td>
-                    <select class="action-select"><option value="">Actions</option><option data-act="del-tarif" data-arg="exam:${tarif.id}">Supprimer</option></select>
+                    <select class="action-select"><option value="">⚙️ Actions</option><option data-act="del-tarif" data-arg="exam:${tarif.id}">🗑 Supprimer</option></select>
                 </td>
             </tr>
         `,

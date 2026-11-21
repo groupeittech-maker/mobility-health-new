@@ -297,10 +297,10 @@ function renderUsersTable(users) {
                 <td>${formatCreatedAt((assuresActivity[user.id] || {}).derniere_activite)}</td>` : ''}
                 ${canManage ? `<td class="table-actions">
                     <select class="action-select" data-user-id="${user.id}" data-user-name="${encodedName}">
-                        <option value="">Actions</option>
-                        <option value="edit-user">Modifier</option>
-                        <option value="reset-password">Réinitialiser</option>
-                        <option value="delete-user">Supprimer</option>
+                        <option value="">⚙️ Actions</option>
+                        <option value="edit-user">✏️ Modifier</option>
+                        <option value="reset-password">🔑 Réinitialiser</option>
+                        <option value="delete-user">🗑 Supprimer</option>
                     </select>
                 </td>` : ''}
             </tr>

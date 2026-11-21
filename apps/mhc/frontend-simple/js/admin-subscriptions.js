@@ -262,8 +262,8 @@ function renderSubscriptionsTable() {
                 <td>${date}</td>
                 <td class="table-actions">
                     <select class="action-select" data-subscription-id="${sub.id}">
-                        <option value="">Actions</option>
-                        <option value="view">Voir</option>
+                        <option value="">⚙️ Actions</option>
+                        <option value="view">👁 Voir</option>
                     </select>
                 </td>
             </tr>
@@ -690,9 +690,9 @@ function renderAnnulationRequests(avenants) {
             <td>${montant}<br><span class="muted-text">${remboursement}</span></td>
             <td class="table-actions">
                 <select class="action-select">
-                    <option value="">Actions</option>
-                    <option data-act="approuver" data-arg="${a.id}">Approuver</option>
-                    <option data-act="refuser" data-arg="${a.id}">Refuser</option>
+                    <option value="">⚙️ Actions</option>
+                    <option data-act="approuver" data-arg="${a.id}">✅ Approuver</option>
+                    <option data-act="refuser" data-arg="${a.id}">❌ Refuser</option>
                 </select>
             </td>
         </tr>`;

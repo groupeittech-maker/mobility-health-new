@@ -404,9 +404,9 @@ function buildAlertRow(alert) {
             <td>${stateBadge}</td>
             <td class="table-actions">
                 <select class="action-select">
-                    <option value="">Actions</option>
-                    <option data-act="preview" data-arg="${alert.id}">Aperçu</option>
-                    <option data-href="${dossierUrl}">Détails</option>
+                    <option value="">⚙️ Actions</option>
+                    <option data-act="preview" data-arg="${alert.id}">👁 Aperçu</option>
+                    <option data-href="${dossierUrl}">📄 Détails</option>
                 </select>
             </td>
         </tr>

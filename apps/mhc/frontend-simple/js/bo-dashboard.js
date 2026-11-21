@@ -62,8 +62,8 @@
     }
 
     const actSel = (href, label) =>
-        '<td class="table-actions"><select class="action-select"><option value="">Actions</option>' +
-        '<option data-href="' + href + '">' + (label || 'Voir') + '</option></select></td>';
+        '<td class="table-actions"><select class="action-select"><option value="">⚙️ Actions</option>' +
+        '<option data-href="' + href + '">' + (label || '👁 Voir') + '</option></select></td>';
 
     const LIST_BY_ROLE = {
         production: {

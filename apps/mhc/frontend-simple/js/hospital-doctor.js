@@ -422,10 +422,10 @@ function buildDoctorToTreatCard(alert, sinistre) {
             <td>${stayStatus}</td>
             <td class="table-actions">
                 <select class="action-select">
-                    <option value="">Actions</option>
-                    <option data-act="preview" data-arg="${alert.id}">Aperçu</option>
-                    <option data-href="hospital-doctor-report.html?alert_id=${alert.id}">Traiter</option>
-                    <option data-href="${dossierUrl}">Détails</option>
+                    <option value="">⚙️ Actions</option>
+                    <option data-act="preview" data-arg="${alert.id}">👁 Aperçu</option>
+                    <option data-href="hospital-doctor-report.html?alert_id=${alert.id}">📋 Traiter</option>
+                    <option data-href="${dossierUrl}">📄 Détails</option>
                 </select>
             </td>
         </tr>
@@ -570,7 +570,7 @@ function buildDoctorHistoryCard(alert, sinistre) {
             <td>${escapeHtml(hospital.nom || '—')}</td>
             <td>${escapeHtml(hospital.pays || '—')}</td>
             <td>${statusBadge}<div class="muted" style="font-size:.7rem;margin-top:.15rem">Rapport : ${reportStatus}</div></td>
-            <td class="table-actions"><select class="action-select"><option value="">Actions</option><option data-href="${dossierUrl}">Détails</option></select></td>
+            <td class="table-actions"><select class="action-select"><option value="">⚙️ Actions</option><option data-href="${dossierUrl}">📄 Détails</option></select></td>
         </tr>
     `;
 }

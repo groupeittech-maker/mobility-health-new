@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Réassureurs — Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css?v=20261028">
-    <link rel="stylesheet" href="css/backoffice.css?v=19">
+    <link rel="stylesheet" href="css/backoffice.css?v=20">
     <style>
         .rs-page { padding: 1.2rem 1.4rem 3rem; }
         .rs-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
@@ -103,8 +103,8 @@
                     <td><span class="badge ${r.est_actif ? 'on' : 'off'}">${r.est_actif ? 'Actif' : 'Inactif'}</span></td>
                     <td class="table-actions">
                         ${canEdit() ? `<select class="action-select">
-                            <option value="">Actions</option>
-                            <option data-edit='${JSON.stringify(r).replace(/'/g, '&#39;')}'>Modifier</option>
+                            <option value="">⚙️ Actions</option>
+                            <option data-edit='${JSON.stringify(r).replace(/'/g, '&#39;')}'>✏️ Modifier</option>
                             <option data-del="${r.id}">${r.est_actif ? 'Désactiver' : 'Supprimer'}</option>
                         </select>` : '—'}
                     </td>

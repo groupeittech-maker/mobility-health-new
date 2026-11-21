@@ -306,9 +306,9 @@ function renderList() {
                             <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${adresse}">${adresse}</td>
                             <td class="table-actions">
                                 ${canEdit ? `<select class="action-select">
-                                    <option value="">Actions</option>
-                                    <option data-edit="${c.id}">Modifier</option>
-                                    <option data-delete="${c.id}">Supprimer</option>
+                                    <option value="">⚙️ Actions</option>
+                                    <option data-edit="${c.id}">✏️ Modifier</option>
+                                    <option data-delete="${c.id}">🗑 Supprimer</option>
                                 </select>` : '—'}
                             </td>
                         </tr>`;

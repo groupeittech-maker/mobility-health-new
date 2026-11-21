@@ -80,7 +80,7 @@ function renderReclamationsTable() {
                         <td>${_recDate(r.created_at)}</td>
                         <td>${_recDate(r.echeance_premiere_reponse)}</td>
                         <td>${_recDate(r.echeance_resolution)}</td>
-                        <td class="table-actions"><select class="action-select"><option value="">Actions</option><option data-call="openReclamation" data-arg="${r.id}">Traiter</option></select></td>
+                        <td class="table-actions"><select class="action-select"><option value="">⚙️ Actions</option><option data-call="openReclamation" data-arg="${r.id}">📋 Traiter</option></select></td>
                     </tr>`).join('')}
             </tbody>
         </table>`;

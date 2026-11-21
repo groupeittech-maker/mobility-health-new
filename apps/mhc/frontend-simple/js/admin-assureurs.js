@@ -272,9 +272,9 @@ function renderAssureurList(list) {
                             <td>${agentsLabel}</td>
                             <td class="table-actions">
                                 ${canEdit ? `<select class="action-select">
-                                    <option value="">Actions</option>
-                                    <option data-edit-assureur="${assureur.id}">Modifier</option>
-                                    <option data-delete-assureur="${assureur.id}">Supprimer</option>
+                                    <option value="">⚙️ Actions</option>
+                                    <option data-edit-assureur="${assureur.id}">✏️ Modifier</option>
+                                    <option data-delete-assureur="${assureur.id}">🗑 Supprimer</option>
                                 </select>` : '—'}
                             </td>
                         </tr>`;

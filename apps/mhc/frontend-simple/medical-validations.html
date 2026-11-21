@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Validations médicales — Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css?v=20261028">
-    <link rel="stylesheet" href="css/backoffice.css?v=19">
+    <link rel="stylesheet" href="css/backoffice.css?v=20">
     <style>
         .mv-page { padding: 1.2rem 1.4rem 3rem; }
         .mv-page h1 { font-size: 1.35rem; color: #1e1650; margin: 0 0 .2rem; }
@@ -76,9 +76,9 @@
                     <td style="max-width:320px">${esc((r.resume || '').slice(0, 140))}${r.escalated ? ' <span class="badge b-esc">escaladé</span>' : ''}</td>
                     <td><span class="badge b-${r.statut}">${r.statut === 'soumis' ? 'Attente 1re val.' : 'Attente 2e val.'}</span></td>
                     <td class="table-actions">
-                        <select class="action-select"><option value="">Actions</option>
-                            <option data-act="report-accorde" data-arg="${r.id}">Accorder</option>
-                            <option data-act="report-refuse" data-arg="${r.id}">Refuser</option>
+                        <select class="action-select"><option value="">⚙️ Actions</option>
+                            <option data-act="report-accorde" data-arg="${r.id}">✅ Accorder</option>
+                            <option data-act="report-refuse" data-arg="${r.id}">❌ Refuser</option>
                         </select>
                     </td>
                 </tr>`).join('') || '<tr><td colspan="6" style="color:#8a8fa3">Aucun rapport en attente</td></tr>';
@@ -93,9 +93,9 @@
                     <td>${esc(d.numero)}</td>
                     <td>${esc(d.groupe_attendu)}</td>
                     <td class="table-actions">
-                        <select class="action-select"><option value="">Actions</option>
-                            <option data-act="doc-accorde" data-arg="${d.document_id}">Valider</option>
-                            <option data-act="doc-refuse" data-arg="${d.document_id}">Refuser</option>
+                        <select class="action-select"><option value="">⚙️ Actions</option>
+                            <option data-act="doc-accorde" data-arg="${d.document_id}">✅ Valider</option>
+                            <option data-act="doc-refuse" data-arg="${d.document_id}">❌ Refuser</option>
                         </select>
                     </td>
                 </tr>`).join('') || '<tr><td colspan="6" style="color:#8a8fa3">Aucun document en attente</td></tr>';

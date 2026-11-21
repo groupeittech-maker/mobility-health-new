@@ -56,7 +56,7 @@ function renderProfileChangesTable() {
                         <td>${r.piece_identite ? 'Oui' : '—'}</td>
                         <td><span class="status-badge ${PC_STATUT_CLASS[r.statut] || ''}">${_pcEsc(PC_STATUT_LABELS[r.statut] || r.statut)}</span></td>
                         <td>${_pcDate(r.created_at)}</td>
-                        <td class="table-actions"><select class="action-select"><option value="">Actions</option><option data-call="openProfileChange" data-arg="${r.id}">Examiner</option></select></td>
+                        <td class="table-actions"><select class="action-select"><option value="">⚙️ Actions</option><option data-call="openProfileChange" data-arg="${r.id}">🔍 Examiner</option></select></td>
                     </tr>`).join('')}
             </tbody>
         </table>`;

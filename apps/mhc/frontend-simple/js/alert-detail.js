@@ -216,7 +216,7 @@
                 <td><span class="fac-status">${esc(h.disponibilite)}</span></td>
                 <td class="table-actions">${h.id === selectedHospitalId
                     ? '<span class="fac-select selected" style="display:inline-block;padding:.3rem .7rem;font-size:.75rem">Sélectionné</span>'
-                    : `<select class="action-select"><option value="">Actions</option><option data-act="pick-hospital" data-arg="${h.id}">Sélectionner</option></select>`}</td>
+                    : `<select class="action-select"><option value="">⚙️ Actions</option><option data-act="pick-hospital" data-arg="${h.id}">☑️ Sélectionner</option></select>`}</td>
             </tr>`).join('');
     }
 

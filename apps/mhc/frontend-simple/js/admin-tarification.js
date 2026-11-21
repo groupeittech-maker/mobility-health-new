@@ -92,10 +92,10 @@ function renderZones() {
             <td>${escapeHtml(z.nom)}</td>
             <td>${n} pays</td>
             <td class="table-actions">
-                <select class="action-select"><option value="">Actions</option>
-                    <option data-act="zone-pays" data-arg="${z.id}">Pays</option>
-                    <option data-act="zone-edit" data-arg="${z.id}">Renommer</option>
-                    <option data-act="zone-del" data-arg="${z.id}">Supprimer</option>
+                <select class="action-select"><option value="">⚙️ Actions</option>
+                    <option data-act="zone-pays" data-arg="${z.id}">🌍 Pays</option>
+                    <option data-act="zone-edit" data-arg="${z.id}">✏️ Renommer</option>
+                    <option data-act="zone-del" data-arg="${z.id}">🗑 Supprimer</option>
                 </select>
             </td>
         `;
@@ -243,7 +243,7 @@ async function refreshFenetres() {
             <td>${f.duree_min_jours}</td>
             <td>${f.duree_max_jours}</td>
             <td>${f.ordre_priorite}</td>
-            <td class="table-actions"><select class="action-select"><option value="">Actions</option><option data-act="del-fenetre" data-arg="${f.id}">Supprimer</option></select></td>
+            <td class="table-actions"><select class="action-select"><option value="">⚙️ Actions</option><option data-act="del-fenetre" data-arg="${f.id}">🗑 Supprimer</option></select></td>
         `;
         tbody.appendChild(tr);
     });
@@ -317,7 +317,7 @@ async function refreshTranches() {
             <td>${t.age_max ?? '—'}</td>
             <td>${t.coefficient}</td>
             <td>${t.ordre_priorite}</td>
-            <td class="table-actions"><select class="action-select"><option value="">Actions</option><option data-act="del-tranche" data-arg="${t.id}">Supprimer</option></select></td>
+            <td class="table-actions"><select class="action-select"><option value="">⚙️ Actions</option><option data-act="del-tranche" data-arg="${t.id}">🗑 Supprimer</option></select></td>
         `;
         tbody.appendChild(tr);
     });
@@ -518,7 +518,7 @@ function renderGrilleFinale() {
             <td>${escapeHtml(tlab)}</td>
             <td>${L.coefficient_age}</td>
             <td><strong>${L.tarif_final}</strong></td>
-            <td class="table-actions"><select class="action-select"><option value="">Actions</option><option data-act="del-grille" data-arg="${L.zone_id},${L.fenetre_duree_id},${L.tranche_age_id}">Supprimer</option></select></td>
+            <td class="table-actions"><select class="action-select"><option value="">⚙️ Actions</option><option data-act="del-grille" data-arg="${L.zone_id},${L.fenetre_duree_id},${L.tranche_age_id}">🗑 Supprimer</option></select></td>
         `;
         tbody.appendChild(tr);
     });

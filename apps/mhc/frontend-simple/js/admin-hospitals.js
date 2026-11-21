@@ -337,7 +337,7 @@ function renderHospitalsTable() {
                 <td class="table-actions">
                     ${canEdit ? `
                     <select class="action-select" data-hospital-id="${hospital.id}">
-                        <option value="">Actions</option>
+                        <option value="">⚙️ Actions</option>
                         <option value="edit">Modifier</option>
                         <option value="tarifs">Tarifs médicaux</option>
                     </select>` : '—'}
@@ -648,7 +648,7 @@ function renderTarifs() {
                 <tr>
                     <td>${escapeHtml(t.nom)}</td>
                     <td>${Number(t.montant).toLocaleString('fr-FR')} F</td>
-                    <td><select class="action-select"><option value="">Actions</option><option data-act="del-tarif" data-arg="act:${t.id}">Supprimer</option></select></td>
+                    <td><select class="action-select"><option value="">⚙️ Actions</option><option data-act="del-tarif" data-arg="act:${t.id}">🗑 Supprimer</option></select></td>
                 </tr>
             `).join('')
             : '<tr><td colspan="3" class="muted">Aucun acte tarifé.</td></tr>';
@@ -659,7 +659,7 @@ function renderTarifs() {
                 <tr>
                     <td>${escapeHtml(t.nom)}</td>
                     <td>${Number(t.montant).toLocaleString('fr-FR')} F</td>
-                    <td><select class="action-select"><option value="">Actions</option><option data-act="del-tarif" data-arg="exam:${t.id}">Supprimer</option></select></td>
+                    <td><select class="action-select"><option value="">⚙️ Actions</option><option data-act="del-tarif" data-arg="exam:${t.id}">🗑 Supprimer</option></select></td>
                 </tr>
             `).join('')
             : '<tr><td colspan="3" class="muted">Aucun examen tarifé.</td></tr>';

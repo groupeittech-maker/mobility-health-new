@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Paiements sortants — Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css?v=20261028">
-    <link rel="stylesheet" href="css/backoffice.css?v=19">
+    <link rel="stylesheet" href="css/backoffice.css?v=20">
     <style>
         .fo-page { padding: 1.2rem 1.4rem 3rem; }
         .fo-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
@@ -196,10 +196,10 @@
                     <td class="table-actions">
                         ${(() => {
                             const opts = [];
-                            if (p.statut === 'a_payer' && canType(p.type_paiement, 'controle')) opts.push(`<option data-act="control" data-arg="${p.id}">Contrôler</option>`);
-                            if ((p.statut === 'a_payer' || p.statut === 'controle') && canType(p.type_paiement, 'edition')) opts.push(`<option data-act="pay" data-arg="${p.id}">Payer</option>`);
-                            if (p.statut !== 'paye' && p.statut !== 'annule' && canType(p.type_paiement, 'edition')) opts.push(`<option data-act="cancel" data-arg="${p.id}">Annuler</option>`);
-                            return opts.length ? `<select class="action-select"><option value="">Actions</option>${opts.join('')}</select>` : '—';
+                            if (p.statut === 'a_payer' && canType(p.type_paiement, 'controle')) opts.push(`<option data-act="control" data-arg="${p.id}">🔍 Contrôler</option>`);
+                            if ((p.statut === 'a_payer' || p.statut === 'controle') && canType(p.type_paiement, 'edition')) opts.push(`<option data-act="pay" data-arg="${p.id}">💳 Payer</option>`);
+                            if (p.statut !== 'paye' && p.statut !== 'annule' && canType(p.type_paiement, 'edition')) opts.push(`<option data-act="cancel" data-arg="${p.id}">❌ Annuler</option>`);
+                            return opts.length ? `<select class="action-select"><option value="">⚙️ Actions</option>${opts.join('')}</select>` : '—';
                         })()}
                     </td>
                 </tr>`).join('') || '<tr><td colspan="7" style="color:#8a8fa3">Aucun flux</td></tr>';
@@ -243,11 +243,11 @@
                         ${r.statut === 'a_rembourser' && canRefund('edition') ? `
                             <select id="moyen-${r.id}" style="font-size:.72rem;border:1px solid #e2e4f0;border-radius:.4rem;padding:.2rem;">${moyens}</select>
                             <input id="ref-${r.id}" placeholder="Réf. opération" style="font-size:.72rem;border:1px solid #e2e4f0;border-radius:.4rem;padding:.2rem;width:7rem;">
-                            <select class="action-select"><option value="">Actions</option>
-                                <option data-act="ristourne-confirm" data-arg="${r.id}">Confirmer le remboursement</option>
+                            <select class="action-select"><option value="">⚙️ Actions</option>
+                                <option data-act="ristourne-confirm" data-arg="${r.id}">✅ Confirmer le remboursement</option>
                             </select>` : ''}
-                        ${r.statut === 'rembourse' ? `<select class="action-select"><option value="">Actions</option>
-                            <option data-act="ristourne-quittance" data-arg="${r.id}">Quittance</option>
+                        ${r.statut === 'rembourse' ? `<select class="action-select"><option value="">⚙️ Actions</option>
+                            <option data-act="ristourne-quittance" data-arg="${r.id}">🧾 Quittance</option>
                         </select>` : ''}
                     </td>
                 </tr>`).join('') || '<tr><td colspan="9" style="color:#8a8fa3">Aucun remboursement</td></tr>';

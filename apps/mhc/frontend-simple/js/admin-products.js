@@ -379,7 +379,7 @@ function renderProductsTable() {
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                 <td class="table-actions">
                     <select class="action-select" data-product-id="${product.id}">
-                        <option value="">Actions</option>
+                        <option value="">⚙️ Actions</option>
                         <option value="edit">Modifier</option>
                         <option value="delete">Supprimer</option>
                     </select>
@@ -818,7 +818,7 @@ function appendTarifMatrixRow(row = {}) {
         <td><input type="number" data-tf="age_max" class="tarif-input" min="0" max="120" style="width:64px" value="${row.age_max ?? ''}" placeholder="—"></td>
         <td><input type="number" data-tf="prix" class="tarif-input" min="0" step="1" style="width:100px" value="${row.prix ?? ''}"></td>
         <td><input type="number" data-tf="ordre" class="tarif-input" min="0" style="width:64px" value="${row.ordre_priorite ?? 0}"></td>
-        <td><select class="action-select"><option value="">Actions</option><option data-act="del-tarif-row">Supprimer</option></select></td>
+        <td><select class="action-select"><option value="">⚙️ Actions</option><option data-act="del-tarif-row">🗑 Supprimer</option></select></td>
     `;
     tr.querySelectorAll('input[data-tf]').forEach((inp) => {
         inp.addEventListener('blur', () => saveTarifMatrixRow(tr));
@@ -996,7 +996,7 @@ function renderProductGrilleFinale() {
             <td>${escapeHtml(tlab)}</td>
             <td>${L.coefficient_age}</td>
             <td><strong>${L.tarif_final}</strong></td>
-            <td><select class="action-select"><option value="">Actions</option><option data-act="pgf-del" data-arg="${L.zone_id},${L.fenetre_duree_id},${L.tranche_age_id}">Supprimer</option></select></td>
+            <td><select class="action-select"><option value="">⚙️ Actions</option><option data-act="pgf-del" data-arg="${L.zone_id},${L.fenetre_duree_id},${L.tranche_age_id}">🗑 Supprimer</option></select></td>
         `;
         tbody.appendChild(tr);
     });

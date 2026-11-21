@@ -123,7 +123,7 @@
             const rows = (g && g.rows) || [];
             if (!rows.length) return;
             $('tarifsBody').innerHTML = rows.slice(0, 40).map(r =>
-                `<tr><td>${esc(r.zone_nom || r.zone_id)}</td><td>${esc(r.fenetre_label || r.fenetre_duree_id)}</td><td>${esc(r.tranche_label || r.tranche_age_id)}</td><td style="text-align:right">${fmt(r.prix)} ${esc(r.devise || 'XAF')}</td><td><select class="action-select"><option value="">Actions</option><option data-href="admin-tarification.html">Modifier</option></select></td></tr>`
+                `<tr><td>${esc(r.zone_nom || r.zone_id)}</td><td>${esc(r.fenetre_label || r.fenetre_duree_id)}</td><td>${esc(r.tranche_label || r.tranche_age_id)}</td><td style="text-align:right">${fmt(r.prix)} ${esc(r.devise || 'XAF')}</td><td><select class="action-select"><option value="">⚙️ Actions</option><option data-href="admin-tarification.html">✏️ Modifier</option></select></td></tr>`
             ).join('');
         } catch (_) { /* laisser le message par défaut */ }
     }
@@ -140,7 +140,7 @@
                 </select></td>
                 <td><input type="number" value="${s.taux_pct ?? 0}" data-i="${i}" data-f="taux_pct" class="sp-in" step="0.01" min="0"></td>
                 <td><input type="number" value="${s.montant_fixe ?? ''}" data-i="${i}" data-f="montant_fixe" class="sp-in" step="0.01" min="0"></td>
-                <td><select class="action-select"><option value="">Actions</option><option data-act="del-surprime" data-arg="${i}">Supprimer</option></select></td>
+                <td><select class="action-select"><option value="">⚙️ Actions</option><option data-act="del-surprime" data-arg="${i}">🗑 Supprimer</option></select></td>
             </tr>`).join('');
         $('surprimesBody').querySelectorAll('.sp-in').forEach(el => el.addEventListener('change', e => {
             const i = +e.target.dataset.i, f = e.target.dataset.f;

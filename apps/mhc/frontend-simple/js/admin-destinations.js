@@ -193,9 +193,9 @@ function renderCountries() {
                     </div>
                     <div class="item-actions" onclick="event.stopPropagation()">
                         <select class="action-select" data-requires-permission="comptes_produits:edition">
-                            <option value="">Actions</option>
-                            <option data-call="editCountry" data-arg="${countryId}">Modifier</option>
-                            <option data-call="deleteCountry" data-arg="${countryId}" data-arg2="${countryName}">Supprimer</option>
+                            <option value="">⚙️ Actions</option>
+                            <option data-call="editCountry" data-arg="${countryId}">✏️ Modifier</option>
+                            <option data-call="deleteCountry" data-arg="${countryId}" data-arg2="${countryName}">🗑 Supprimer</option>
                         </select>
                     </div>
                 </div>
@@ -329,9 +329,9 @@ function renderCitiesList() {
             </div>
             <div class="item-actions">
                 <select class="action-select" data-requires-permission="comptes_produits:edition">
-                    <option value="">Actions</option>
-                    <option data-call="editCity" data-arg="${ville.id}">Modifier</option>
-                    <option data-call="deleteCity" data-arg="${ville.id}" data-arg2="${escapeHtml(ville.nom || '')}">Supprimer</option>
+                    <option value="">⚙️ Actions</option>
+                    <option data-call="editCity" data-arg="${ville.id}">✏️ Modifier</option>
+                    <option data-call="deleteCity" data-arg="${ville.id}" data-arg2="${escapeHtml(ville.nom || '')}">🗑 Supprimer</option>
                 </select>
             </div>
         </div>

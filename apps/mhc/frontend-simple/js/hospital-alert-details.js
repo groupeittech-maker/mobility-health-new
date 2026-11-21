@@ -473,7 +473,7 @@ function buildAssignedAlertRow(alert) {
             <td>${status}</td>
             <td>${created}</td>
             <td class="table-actions">
-                <select class="action-select"><option value="">Actions</option><option data-href="${link}">Ouvrir</option></select>
+                <select class="action-select"><option value="">⚙️ Actions</option><option data-href="${link}">📂 Ouvrir</option></select>
             </td>
         </tr>
     `;
