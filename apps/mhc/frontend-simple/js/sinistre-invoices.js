@@ -25,8 +25,19 @@ let searchTerm = '';
 let currentUserRole = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const allowed = await requirePermission('sinistres', 'consultation', 'bo-dashboard.html');
+    const isValid = await requireAuth();
+    // Même règle que le backend (_invoice_query_with_access) : la consultation
+    // des factures hospitalières exige facturation_medicale OU sinistres —
+    // le médecin-conseil (medecin_referent_mh) y accède pour la validation.
+    const allowed = isValid && window.MhPermissions && (
+        window.MhPermissions.can('facturation_medicale', 'consultation') ||
+        window.MhPermissions.can('sinistres', 'consultation')
+    );
     if (!allowed) {
+        if (isValid) {
+            alert('Accès refusé. Permission requise : facturation_medicale ou sinistres (consultation).');
+            redirectForbidden('bo-dashboard.html');
+        }
         return;
     }
     currentUserRole = localStorage.getItem('user_role');
@@ -37,8 +48,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function updateSosNavCounts() {
     try {
+        // Le médecin-conseil traite l'étape « accord médical » (pending_medical),
+        // les affaires médicales l'étape sinistre (pending_sinistre).
+        const pendingStage = (localStorage.getItem('user_role') === 'medecin_referent_mh') ? 'medical' : 'sinistre';
         const [invoicesData, alertesData] = await Promise.all([
-            apiCall('/invoices?stage=sinistre&limit=200'),
+            apiCall(`/invoices?stage=${pendingStage}&limit=200`),
             apiCall('/sos/?realtime=true&limit=500'),
         ]);
         const facturesCount = Array.isArray(invoicesData) ? invoicesData.length : 0;
@@ -239,7 +253,7 @@ function renderInvoiceDetail() {
         </div>
     `;
 
-    const canAct = canValidateInvoiceSinistre(invoice);
+    const canAct = canValidateInvoiceMedical(invoice) || canValidateInvoiceSinistre(invoice);
     const approveBtn = document.getElementById('sinistreApproveBtn');
     const rejectBtn = document.getElementById('sinistreRejectBtn');
     const notesField = document.getElementById('sinistreDecisionNotes');
@@ -316,6 +330,15 @@ function renderTimelineItem(label, state) {
     `;
 }
 
+function canValidateInvoiceMedical(invoice) {
+    // Étape 9 : première validation — médecin-conseil (require_medecin_conseil).
+    return (
+        invoice &&
+        invoice.statut === 'pending_medical' &&
+        ['medecin_referent_mh', 'admin'].includes(currentUserRole || '')
+    );
+}
+
 function canValidateInvoiceSinistre(invoice) {
     return (
         invoice &&
@@ -332,13 +355,16 @@ async function handleSinistreInvoiceDecision(approve) {
     const rejectBtn = document.getElementById('sinistreRejectBtn');
     if (approveBtn) approveBtn.disabled = true;
     if (rejectBtn) rejectBtn.disabled = true;
+    const invoice = invoices.find(i => i.id === selectedInvoiceId);
+    const endpoint = invoice && invoice.statut === 'pending_medical' ? 'validate_medical' : 'validate_sinistre';
     try {
-        await apiCall(`/invoices/${selectedInvoiceId}/validate_sinistre`, {
+        await apiCall(`/invoices/${selectedInvoiceId}/${endpoint}`, {
             method: 'POST',
             body: JSON.stringify({ approve, notes }),
         });
+        const actor = endpoint === 'validate_medical' ? 'le médecin-conseil' : 'les affaires médicales';
         showAlert(
-            approve ? 'Facture validée par les affaires médicales.' : 'Facture refusée par les affaires médicales.',
+            approve ? `Facture validée par ${actor}.` : `Facture refusée par ${actor}.`,
             approve ? 'success' : 'warning'
         );
         await fetchSinistreInvoices();
