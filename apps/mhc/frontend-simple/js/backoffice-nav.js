@@ -60,23 +60,6 @@
     const MENU = [
         { id: 'dashboard', label: 'Tableau de bord', icon: 'dashboard', href: 'bo-dashboard.html', dynamicDashboard: true },
         {
-            id: 'pole_technique',
-            label: 'Pôle technique',
-            icon: 'gear',
-            internalOnly: true,
-            children: [
-                { section: 'Produit' },
-                { label: 'Produits & garanties', href: 'admin-products.html', feature: 'comptes_produits', minLevel: 'edition' },
-                { label: 'Tarifaire commun', href: 'admin-tarification.html', feature: 'comptes_produits', minLevel: 'edition' },
-                { label: 'Frais et taxes', href: 'admin-tarification-frais.html', feature: 'comptes_produits', minLevel: 'edition' },
-                { label: 'Destinations & pays', href: 'admin-destinations.html', feature: 'comptes_produits', minLevel: 'edition' },
-                { label: 'Modèles d’attestations', href: 'admin-attestations.html', feature: 'comptes_produits', minLevel: 'edition' },
-                { section: 'Opérations terrain' },
-                { label: 'Hôtels & hébergements', href: 'admin-ops.html', feature: 'alerte_sos' },
-                { label: 'Transporteurs médicaux', href: 'admin-ops.html?tab=providers', feature: 'alerte_sos' },
-            ],
-        },
-        {
             id: 'pole_inscriptions',
             label: 'Gestion des inscriptions',
             icon: 'users',
@@ -147,6 +130,23 @@
                 { label: 'Courtiers & intermédiaires', href: 'admin-courtiers.html', feature: 'comptes_intermediaires' },
                 { label: 'Réassureurs', href: 'admin-reassureurs.html', feature: 'comptes_reassureurs' },
                 { label: 'Partenaires santé', href: 'admin-hospitals.html', feature: 'comptes_partenaires_sante' },
+            ],
+        },
+        {
+            id: 'pole_parametrage',
+            label: 'Paramétrage',
+            icon: 'gear',
+            internalOnly: true,
+            children: [
+                { section: 'Produit' },
+                { label: 'Produits & garanties', href: 'admin-products.html', feature: 'comptes_produits', minLevel: 'edition' },
+                { label: 'Tarifaire commun', href: 'admin-tarification.html', feature: 'comptes_produits', minLevel: 'edition' },
+                { label: 'Frais et taxes', href: 'admin-tarification-frais.html', feature: 'comptes_produits', minLevel: 'edition' },
+                { label: 'Destinations & pays', href: 'admin-destinations.html', feature: 'comptes_produits', minLevel: 'edition' },
+                { label: 'Modèles d’attestations', href: 'admin-attestations.html', feature: 'comptes_produits', minLevel: 'edition' },
+                { section: 'Opérations terrain' },
+                { label: 'Hôtels & hébergements', href: 'admin-ops.html', feature: 'alerte_sos' },
+                { label: 'Transporteurs médicaux', href: 'admin-ops.html?tab=providers', feature: 'alerte_sos' },
             ],
         },
         {
