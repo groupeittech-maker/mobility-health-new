@@ -4,7 +4,7 @@
  * Dépend de : js/api.js (apiCall, getSosWebSocketUrl), utilisateur authentifié.
  */
 (function () {
-    const ROLES = ['agent_sinistre_mh', 'sos_operator', 'medecin_referent_mh', 'admin'];
+    const ROLES = ['agent_sinistre_mh', 'sos_operator', 'medecin_referent_mh', 'admin', 'agent_reception_hopital', 'hospital_admin', 'medecin_hopital'];
     /** Polling rapide si WebSocket indisponible (Nginx /ws/ manquant, etc.) */
     const POLL_FAST_MS = 4000;
     const POLL_SLOW_MS = 18000;
