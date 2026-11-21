@@ -204,7 +204,11 @@ async def nav_counts(
         "souscriptions_attente": n(db.query(func.count(Souscription.id)).filter(
             Souscription.statut == "en_attente_validation")),
         "avenants_en_cours": n(db.query(func.count(Avenant.id)).filter(
-            Avenant.statut.like("attente%"))),
+            Avenant.statut.like("attente%"),
+            Avenant.type_avenant != "annulation")),
+        "annulations_attente": n(db.query(func.count(Avenant.id)).filter(
+            Avenant.statut.like("attente%"),
+            Avenant.type_avenant == "annulation")),
         "reclamations_ouvertes": n(db.query(func.count(Reclamation.id)).filter(
             Reclamation.statut.in_(["recue", "en_cours"]))),
         "alertes_actives": n(db.query(func.count(Alerte.id)).filter(

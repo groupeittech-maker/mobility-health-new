@@ -87,6 +87,7 @@
             internalOnly: true,
             children: [
                 { label: 'Validation des souscriptions', href: 'admin-subscriptions.html', feature: 'production', badge: 'souscriptions_attente,avenants_en_cours' },
+                { label: 'Annulations à valider', href: 'admin-subscriptions.html#avenants', feature: 'production', badge: 'annulations_attente' },
                 { label: 'Réclamations', href: 'admin-reclamations.html', feature: 'production', badge: 'reclamations_ouvertes' },
             ],
         },
