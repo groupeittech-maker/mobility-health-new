@@ -205,23 +205,30 @@
         return decodeURIComponent(path.substring(path.lastIndexOf('/') + 1)) || 'index.html';
     }
 
-    function linkIsActive(href) {
-        if (!href) return false;
-        const file = href.split('?')[0].split('#')[0];
-        return file === currentFile();
-    }
-
-    // Correspondance exacte fichier + query + ancre : permet d'avoir plusieurs
-    // entrées vers la même page (vues différentes) sans sélection multiple.
-    function hrefKey(href) {
-        if (!href) return '';
-        const hashSplit = href.split('#');
-        const qSplit = hashSplit[0].split('?');
-        return qSplit[0] + '?' + qSplit.slice(1).join('?') + '#' + hashSplit.slice(1).join('#');
-    }
-
     function currentKey() {
         return currentFile() + window.location.search + window.location.hash;
+    }
+
+    // Une seule entrée active dans tout le menu :
+    // 1. correspondance exacte fichier + query + ancre,
+    // 2. sinon entrée canonique (href sans query/ancre) du même fichier,
+    // 3. sinon première entrée pointant vers le même fichier.
+    function computeActiveEntry() {
+        const all = [];
+        MENU.forEach(item => (item.children || [item]).forEach(c => {
+            if (c && c.href && !c.section) all.push(c);
+        }));
+        const exactKey = currentKey();
+        let active = all.find(c => c.href === exactKey);
+        if (!active) {
+            const file = currentFile();
+            active = all.find(c =>
+                c.href.indexOf('?') < 0 && c.href.indexOf('#') < 0 && c.href === file);
+            if (!active) {
+                active = all.find(c => c.href.split('?')[0].split('#')[0] === file);
+            }
+        }
+        return active;
     }
 
     function icon(name) {
@@ -249,6 +256,7 @@
         const ul = document.createElement('ul');
         ul.className = 'bo-menu';
         const openGroups = getOpenGroups();
+        const activeEntry = computeActiveEntry();
         MENU.forEach(item => {
             if (!canSee(item)) return;
             const li = document.createElement('li');
@@ -259,12 +267,8 @@
             if (item.children && item.children.length) {
                 const visibleChildren = pruneSections(item.children.filter(canSee));
                 if (!visibleChildren.length) return;
-                // Un seul lien actif : si une entrée correspond exactement à
-                // l'URL courante (fichier + query + ancre), elle seule est
-                // marquée — sinon repli sur la correspondance par fichier.
-                const exactKey = currentKey();
-                const hasExact = visibleChildren.some(c => !c.section && hrefKey(c.href) === exactKey);
-                const childActive = c => hasExact ? hrefKey(c.href) === exactKey : linkIsActive(c.href);
+                // Un seul lien actif dans tout le menu (calcul global).
+                const childActive = c => c === activeEntry;
                 const anyChildActive = visibleChildren.some(childActive);
                 // Ouvert si : groupe contenant la page active OU préalablement ouvert par l'utilisateur
                 const isOpen = anyChildActive || openGroups.includes(item.id);
@@ -311,7 +315,7 @@
                 li.appendChild(sub);
             } else {
                 const a = document.createElement('a');
-                a.className = 'bo-link' + (linkIsActive(href) ? ' active' : '');
+                a.className = 'bo-link' + (item === activeEntry || (item.dynamicDashboard && activeEntry && activeEntry.href === href) ? ' active' : '');
                 a.href = href;
                 a.innerHTML = icon(item.icon) + '<span>' + item.label + '</span>';
                 li.appendChild(a);
