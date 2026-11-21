@@ -1147,7 +1147,9 @@ function updateMapMarkers(alerts = alertsCache) {
                 offset: L.point(0, 40),
             });
             marker.addTo(hospitalMarkersLayer);
-            bounds.push([coords.lat, coords.lon]);
+            /* Les hôpitaux non assignés restent visibles mais n'entrent pas
+               dans les bounds : sinon fitBounds encadre toute la région au
+               lieu de centrer sur les alertes. */
         });
     }
 

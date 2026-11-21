@@ -705,6 +705,7 @@ body[data-backoffice] > main {
 body[data-backoffice].sos-alerts-map-page { display: block; }
 body[data-backoffice].sos-alerts-map-page > main.sos-alerts-map-main {
     max-width: none;
+    width: auto; /* admin.css impose width:100% → déborde à droite avec le margin-left sidebar */
     margin-left: var(--bo-sidebar-w);
     margin-top: var(--bo-topbar-h);
     margin-right: 1.4rem;

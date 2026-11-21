@@ -98,7 +98,6 @@
             internalOnly: true,
             children: [
                 { label: 'Validation des alertes', href: 'alert-center.html?tab=a_valider', feature: 'alerte_sos', badge: 'alertes_actives' },
-                { label: 'Carte des alertes', href: 'sos-alerts-map.html', feature: 'alerte_sos' },
                 { label: 'Validation des rapports médicaux', href: 'medical-validations.html', feature: 'prise_en_charge', badge: 'validations_medicales' },
                 { label: 'Validation des factures hospitalières', href: 'sinistre-invoices.html', feature: 'facturation_medicale', badge: 'factures_attente' },
             ],

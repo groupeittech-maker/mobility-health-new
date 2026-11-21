@@ -240,27 +240,6 @@
             } catch (err) { toast(err.message || 'Erreur', true); }
         });
 
-        $('btnRespond').addEventListener('click', async () => {
-            try {
-                await apiCall(`/alertes/${alerteId}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'en_cours', commentaire: 'Prise en charge par l\'opérateur' }) });
-                toast('Vous avez répondu à l\'alerte');
-                await reload();
-            } catch (err) { toast(err.message || 'Erreur', true); }
-        });
-
-        $('btnTransfer').addEventListener('click', () => $('transferModal').classList.add('open'));
-        $('btnDoTransfer').addEventListener('click', async () => {
-            try {
-                await apiCall(`/alertes/${alerteId}/transfer`, {
-                    method: 'POST',
-                    body: JSON.stringify({ cible: $('transferTarget').value, commentaire: $('transferComment').value || null }),
-                });
-                $('transferModal').classList.remove('open');
-                toast('Alerte transférée');
-                await reload();
-            } catch (err) { toast(err.message || 'Erreur', true); }
-        });
-
         $('editStatutMedical').addEventListener('click', e => { e.preventDefault(); $('smModal').classList.add('open'); });
         $('btnSaveSm').addEventListener('click', async () => {
             try {
