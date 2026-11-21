@@ -20,13 +20,10 @@
         .ad-badge.elevee { background: #fdf0dc; color: #b45309; }
         .ad-badge.normale, .ad-badge.faible { background: #e8f0fe; color: #2d5bd7; }
 
-        .ad-timer { display: flex; align-items: center; gap: .55rem; background: #fff; border: 1px solid #f3c2c2; border-radius: .7rem; padding: .5rem .9rem; }
+        .ad-timer { display: flex; align-items: center; gap: .55rem; background: #fff; border: 1px solid #f3c2c2; border-radius: .7rem; padding: .5rem .9rem; margin-left: auto; }
         .ad-timer svg { color: #e23d3d; }
         .ad-timer .t { font-size: 1.05rem; font-weight: 700; color: #e23d3d; font-variant-numeric: tabular-nums; }
         .ad-timer small { display: block; font-size: .65rem; color: #b08080; }
-        .ad-status { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
-        .ad-status label { font-size: .75rem; color: #8a8fa3; }
-        .ad-status select { padding: .45rem .7rem; border: 1px solid #e6e7f0; border-radius: .55rem; font-size: .82rem; background: #fffbe9; }
         .btn { display: inline-flex; align-items: center; gap: .45rem; border: none; border-radius: .6rem; padding: .6rem 1.1rem; font-size: .83rem; font-weight: 600; cursor: pointer; }
         .btn-primary { background: #6c5ce7; color: #fff; }
         .btn-outline { background: #fff; color: #333; border: 1px solid #e2e4f0; }
@@ -156,15 +153,6 @@
             <div class="ad-timer">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 14.5 15"/><line x1="9" y1="2" x2="15" y2="2"/></svg>
                 <div><span class="t" id="alertTimer">00:00:00</span><small>Depuis réception</small></div>
-            </div>
-            <div class="ad-status">
-                <label for="statutSelect">Statut</label>
-                <select id="statutSelect">
-                    <option value="en_attente">En attente</option>
-                    <option value="en_cours">En cours de traitement</option>
-                    <option value="resolue">Résolue</option>
-                    <option value="annulee">Annulée</option>
-                </select>
             </div>
         </div>
 
@@ -380,6 +368,6 @@
     <script src="js/permissions.js?v=3"></script>
     <script src="js/backoffice-nav.js?v=21"></script>
     <script src="vendor/leaflet/leaflet.js"></script>
-    <script src="js/alert-detail.js?v=5"></script>
+    <script src="js/alert-detail.js?v=6"></script>
 </body>
 </html>

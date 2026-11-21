@@ -80,7 +80,6 @@
         pr.textContent = (a.priorite || 'normale').charAt(0).toUpperCase() + (a.priorite || 'normale').slice(1);
         pr.className = 'ad-badge ' + (a.priorite || 'normale');
         $('alertDate').textContent = 'Reçue le ' + fmtDateTime(a.created_at);
-        $('statutSelect').value = a.statut;
         startTimer(a.created_at);
         renderStepper(d.etape_courante || 1);
 
@@ -232,14 +231,6 @@
 
     // ---------- Actions ----------
     function wireActions() {
-        $('statutSelect').addEventListener('change', async e => {
-            try {
-                await apiCall(`/alertes/${alerteId}/statut`, { method: 'PUT', body: JSON.stringify({ statut: e.target.value }) });
-                toast('Statut mis à jour');
-                await reload();
-            } catch (err) { toast(err.message || 'Erreur', true); }
-        });
-
         $('editStatutMedical').addEventListener('click', e => { e.preventDefault(); $('smModal').classList.add('open'); });
         $('btnSaveSm').addEventListener('click', async () => {
             try {
