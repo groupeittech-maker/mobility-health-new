@@ -417,22 +417,7 @@
     setInterval(() => { if (!document.hidden) load(); }, 15000);
 
     document.addEventListener('DOMContentLoaded', async () => {
-        const isValid = await requireAuth();
-        // Profils internes MHC + personnel des hôpitaux partenaires : les
-        // alertes orientées vers un établissement remontent à sa réception.
-        const HOSPITAL_ALERT_ROLES = ['hospital_admin', 'agent_reception_hopital', 'medecin_hopital'];
-        const role = (localStorage.getItem('user_role') || '').toLowerCase();
-        const allowed = isValid && (
-            (window.MhPermissions && window.MhPermissions.isInternalBackoffice()) ||
-            HOSPITAL_ALERT_ROLES.includes(role)
-        );
-        if (!allowed) {
-            if (isValid) {
-                alert('Accès refusé. Ce contenu est réservé aux profils internes MHC et au personnel hospitalier.');
-                redirectForbidden('index.html');
-            }
-            return;
-        }
+        if (!(await requireBackoffice('index.html'))) return;
         initDeclaration();
         await load();
         // Lien profond depuis la recherche globale : ouvrir le panneau de l'alerte.
