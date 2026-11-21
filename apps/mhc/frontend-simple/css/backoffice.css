@@ -695,6 +695,13 @@ body[data-backoffice] > main {
     transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 .export:hover { border-color: #522880; color: #522880; background: #faf9fc; }
+.export--primary { background: #522880; border-color: #522880; color: #fff; }
+.export--primary:hover { background: #432070; border-color: #432070; color: #fff; }
+.export--secondary { background: #14AE98; border-color: #14AE98; color: #fff; }
+.export--secondary:hover { background: #0f8f7d; border-color: #0f8f7d; color: #fff; }
+.export--muted { background: #f6f4f9; border-color: #e7e3ee; color: #7c7590; }
+.export--muted:hover { border-color: #522880; color: #522880; background: #efe9f6; }
+.mh-sos-sound-toggle.mh-sos-sound-toggle--on.export--muted { background: #fdecec; border-color: #f3c7c7; color: #d64545; }
 .bo-filters .export { margin-left: auto; }
 .btn-sos {
     background: #d64545; color: #fff; border: none; border-radius: 0.55rem;
