@@ -689,8 +689,11 @@ function renderAnnulationRequests(avenants) {
             <td>${_fmtDossierDate(a.created_at)}</td>
             <td>${montant}<br><span class="muted-text">${remboursement}</span></td>
             <td class="table-actions">
-                <button class="btn btn-primary btn-sm" onclick="decideAnnulation(${a.id}, true)">Approuver</button>
-                <button class="btn btn-danger btn-sm" onclick="decideAnnulation(${a.id}, false)">Refuser</button>
+                <select class="action-select">
+                    <option value="">Actions</option>
+                    <option data-act="approuver" data-arg="${a.id}">Approuver</option>
+                    <option data-act="refuser" data-arg="${a.id}">Refuser</option>
+                </select>
             </td>
         </tr>`;
     }).join('');
@@ -698,6 +701,12 @@ function renderAnnulationRequests(avenants) {
         <th>Police</th><th>Demande</th><th>Motif de l'assuré</th><th>Reçue le</th><th>Ajustement</th><th>Décision</th>
     </tr></thead><tbody>${rows}</tbody></table></div>`;
 }
+
+// Actions du tableau des annulations (select « Décision »).
+window.mhRowAction = function (act, arg) {
+    if (act === 'approuver') decideAnnulation(Number(arg), true);
+    else if (act === 'refuser') decideAnnulation(Number(arg), false);
+};
 
 async function decideAnnulation(avenantId, approuver) {
     let motif = null;

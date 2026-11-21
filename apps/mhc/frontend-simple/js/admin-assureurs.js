@@ -270,22 +270,27 @@ function renderAssureurList(list) {
                             <td><div style="display:flex;align-items:center;gap:.55rem;">${logo}<strong>${displayName}</strong></div></td>
                             <td>${pays}</td>
                             <td>${agentsLabel}</td>
-                            <td>
-                                ${canEdit ? `<button type="button" class="act" data-edit-assureur="${assureur.id}" style="color:#6c5ce7;font-size:.76rem;font-weight:600;background:none;border:none;cursor:pointer;margin-right:.6rem;">Modifier</button>
-                                <button type="button" class="act" data-delete-assureur="${assureur.id}" style="color:#c81e1e;font-size:.76rem;font-weight:600;background:none;border:none;cursor:pointer;">Supprimer</button>` : '—'}
+                            <td class="table-actions">
+                                ${canEdit ? `<select class="action-select">
+                                    <option value="">Actions</option>
+                                    <option data-edit-assureur="${assureur.id}">Modifier</option>
+                                    <option data-delete-assureur="${assureur.id}">Supprimer</option>
+                                </select>` : '—'}
                             </td>
                         </tr>`;
                 }).join('')}
             </tbody>
         </table>`;
-    elements.assureursList.querySelectorAll('[data-edit-assureur]').forEach((btn) => {
-        btn.addEventListener('click', () => selectAssureur(Number(btn.getAttribute('data-edit-assureur'))));
-    });
-    elements.assureursList.querySelectorAll('[data-delete-assureur]').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-            const assureurId = Number(btn.getAttribute('data-delete-assureur'));
-            const assureur = assureursCache.find((item) => item.id === assureurId);
-            await deleteAssureur(assureur);
+    elements.assureursList.querySelectorAll('select.action-select').forEach((sel) => {
+        sel.addEventListener('change', async () => {
+            const opt = sel.options[sel.selectedIndex];
+            if (!opt || !opt.dataset) return;
+            if (opt.dataset.editAssureur) {
+                selectAssureur(Number(opt.dataset.editAssureur));
+            } else if (opt.dataset.deleteAssureur) {
+                const assureur = assureursCache.find((item) => item.id === Number(opt.dataset.deleteAssureur));
+                await deleteAssureur(assureur);
+            }
         });
     });
 }

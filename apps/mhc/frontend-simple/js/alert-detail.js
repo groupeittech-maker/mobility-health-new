@@ -214,15 +214,18 @@
                 <td>${h.temps_min} min</td>
                 <td>${(h.specialites || []).slice(0, 2).map(esc).join('<br>') || '—'}</td>
                 <td><span class="fac-status">${esc(h.disponibilite)}</span></td>
-                <td><button class="fac-select ${h.id === selectedHospitalId ? 'selected' : ''}" data-hid="${h.id}" type="button">${h.id === selectedHospitalId ? 'Sélectionné' : 'Sélectionner'}</button></td>
+                <td class="table-actions">${h.id === selectedHospitalId
+                    ? '<span class="fac-select selected" style="display:inline-block;padding:.3rem .7rem;font-size:.75rem">Sélectionné</span>'
+                    : `<select class="action-select"><option value="">Actions</option><option data-act="pick-hospital" data-arg="${h.id}">Sélectionner</option></select>`}</td>
             </tr>`).join('');
-        body.querySelectorAll('.fac-select').forEach(btn => {
-            btn.addEventListener('click', () => {
-                selectedHospitalId = parseInt(btn.dataset.hid, 10);
-                renderFacilities();
-            });
-        });
     }
+
+    window.mhRowAction = function (act, arg) {
+        if (act === 'pick-hospital') {
+            selectedHospitalId = parseInt(arg, 10);
+            renderFacilities();
+        }
+    };
 
     async function reload() {
         detail = await apiCall(`/alertes/${alerteId}/detail-complet`);

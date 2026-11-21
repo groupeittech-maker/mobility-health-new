@@ -1707,3 +1707,31 @@ body[data-backoffice] main .table-wrapper:has(.finance-table) {
 .mh-sos-alert-modal__name { margin: 0 0 0.35rem; }
 .mh-sos-alert-modal__actions { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: flex-end; }
 .mh-sos-alert-modal__actions .btn { font-size: 1.05rem; padding: 0.65rem 1.35rem; min-height: 48px; }
+
+/* ---------- Select d'actions de ligne (tous les tableaux) ---------- */
+.table-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; justify-content: center; }
+.action-select {
+    min-width: 140px;
+    padding: 0.45rem 0.875rem;
+    padding-right: 2.4rem;
+    border: 1.5px solid var(--border-color, #e7e3ee);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--dark-text, #1f1630);
+    background-color: white;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2314AE98' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Inter', sans-serif;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+.action-select:hover { border-color: var(--primary-color, #14AE98); background-color: var(--light-bg, #faf9fc); }
+.action-select:focus { outline: none; border-color: var(--primary-color, #14AE98); box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1); background-color: white; }
+.action-select option { padding: 0.5rem; font-weight: 500; }
+.action-select option[value=""] { color: var(--muted-text, #7c7590); font-style: italic; }

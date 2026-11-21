@@ -304,38 +304,42 @@ function renderList() {
                             <td>${telephone}</td>
                             <td>${comptableLabel}</td>
                             <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${adresse}">${adresse}</td>
-                            <td>
-                                ${canEdit ? `<button class="act" data-edit="${c.id}" style="color:#6c5ce7;font-size:.76rem;font-weight:600;background:none;border:none;cursor:pointer;margin-right:.6rem;">Modifier</button>
-                                <button class="act" data-delete="${c.id}" style="color:#c81e1e;font-size:.76rem;font-weight:600;background:none;border:none;cursor:pointer;">Supprimer</button>` : '—'}
+                            <td class="table-actions">
+                                ${canEdit ? `<select class="action-select">
+                                    <option value="">Actions</option>
+                                    <option data-edit="${c.id}">Modifier</option>
+                                    <option data-delete="${c.id}">Supprimer</option>
+                                </select>` : '—'}
                             </td>
                         </tr>`;
                 })
                 .join('')}
             </tbody>
         </table>`;
-    document.querySelectorAll('[data-edit]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const id = Number(btn.getAttribute('data-edit'));
-            const c = courtiers.find((x) => x.id === id);
-            fillFormForEdit(c);
-        });
-    });
-    document.querySelectorAll('[data-delete]').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-            const id = Number(btn.getAttribute('data-delete'));
-            const c = courtiers.find((x) => Number(x.id) === id);
-            if (!c) return;
-            if (!confirm(`Supprimer le courtier "${c.nom}" ?`)) return;
-            try {
-                await courtiersApi.delete(id);
-                courtiers = courtiers.filter((x) => Number(x.id) !== id);
-                if (String(fieldValue('courtierId', '')) === String(id)) {
-                    resetForm();
+    document.querySelectorAll('select.action-select').forEach((sel) => {
+        sel.addEventListener('change', async () => {
+            const opt = sel.options[sel.selectedIndex];
+            if (!opt || !opt.dataset) return;
+            if (opt.dataset.edit) {
+                const id = Number(opt.dataset.edit);
+                const c = courtiers.find((x) => x.id === id);
+                fillFormForEdit(c);
+            } else if (opt.dataset.delete) {
+                const id = Number(opt.dataset.delete);
+                const c = courtiers.find((x) => Number(x.id) === id);
+                if (!c) return;
+                if (!confirm(`Supprimer le courtier "${c.nom}" ?`)) return;
+                try {
+                    await courtiersApi.delete(id);
+                    courtiers = courtiers.filter((x) => Number(x.id) !== id);
+                    if (String(fieldValue('courtierId', '')) === String(id)) {
+                        resetForm();
+                    }
+                    renderList();
+                    showAlert('Courtier supprimé.', 'success');
+                } catch (err) {
+                    showAlert(err.message || 'Erreur suppression courtier', 'error');
                 }
-                renderList();
-                showAlert('Courtier supprimé.', 'success');
-            } catch (err) {
-                showAlert(err.message || 'Erreur suppression courtier', 'error');
             }
         });
     });

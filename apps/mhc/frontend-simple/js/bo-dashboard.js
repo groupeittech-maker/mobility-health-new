@@ -61,6 +61,10 @@
         return 'production';
     }
 
+    const actSel = (href, label) =>
+        '<td class="table-actions"><select class="action-select"><option value="">Actions</option>' +
+        '<option data-href="' + href + '">' + (label || 'Voir') + '</option></select></td>';
+
     const LIST_BY_ROLE = {
         production: {
             title: '📋 Souscriptions récentes', link: 'admin-subscriptions.html', feature: 'production',
@@ -68,7 +72,7 @@
             rows: d => (d.souscriptions_recentes || []).map(s =>
                 '<tr><td class="num">' + s.numero + '</td><td class="muted">' + s.date + '</td><td>' + s.assure +
                 '</td><td>' + s.prix.toLocaleString('fr-FR') + ' FCFA</td><td>' + badge(s.statut) + '</td>' +
-                '<td><a class="act-link" href="admin-subscriptions.html">Voir</a></td></tr>'
+                actSel('admin-subscriptions.html') + '</tr>'
             ).join(''),
         },
         finance: {
@@ -77,7 +81,7 @@
             rows: d => (d.paiements_recents || []).map(p =>
                 '<tr><td class="num">' + p.reference + '</td><td class="muted">' + p.date + '</td><td>' +
                 p.montant.toLocaleString('fr-FR') + ' FCFA</td><td>SUB-' + (p.souscription_id || '—') + '</td><td>' + badge(p.statut) + '</td>' +
-                '<td><a class="act-link" href="finance-outbound.html">Voir</a></td></tr>'
+                actSel('finance-outbound.html') + '</tr>'
             ).join(''),
         },
         admin: {
@@ -86,7 +90,7 @@
             rows: d => (d.souscriptions_recentes || []).map(s =>
                 '<tr><td class="num">' + s.numero + '</td><td class="muted">' + s.date + '</td><td>' + s.assure +
                 '</td><td>' + s.prix.toLocaleString('fr-FR') + ' FCFA</td><td>' + badge(s.statut) + '</td>' +
-                '<td><a class="act-link" href="admin-subscriptions.html">Voir</a></td></tr>'
+                actSel('admin-subscriptions.html') + '</tr>'
             ).join(''),
         },
         default: {
@@ -95,7 +99,7 @@
             rows: d => (d.demandes_recentes || []).map(s =>
                 '<tr><td class="num">' + s.numero + '</td><td class="muted">' + s.date + '</td><td>' + s.assure +
                 '</td><td>' + s.type + '</td><td>' + badge(s.statut) + '</td>' +
-                '<td><a class="act-link" href="medical-validations.html">Voir</a></td></tr>'
+                actSel('medical-validations.html') + '</tr>'
             ).join(''),
         },
     };
@@ -264,7 +268,7 @@
                 '<tr><td><span class="bo-prio ' + a.priorite + '"></span><span class="num">' + a.numero + '</span></td>' +
                 '<td class="muted">' + a.date + '</td><td>' + a.assure + '</td><td>' + (a.motif || '—') + '</td>' +
                 '<td>' + badge(a.statut) + '</td>' +
-                '<td><a class="act-link" href="alert-center.html?focus=' + a.id + '">Voir</a></td></tr>'
+                actSel('alert-center.html?focus=' + a.id) + '</tr>'
             ).join('') || '<tr><td colspan="6" class="muted" style="text-align:center;padding:1rem">Aucune alerte active</td></tr>';
         }
 

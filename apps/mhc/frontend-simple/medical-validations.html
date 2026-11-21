@@ -51,7 +51,7 @@
 
     <script src="js/api.js?v=20261013"></script>
     <script src="js/auth.js?v=5"></script>
-    <script src="js/permissions.js?v=3"></script>
+    <script src="js/permissions.js?v=4"></script>
     <script src="js/backoffice-nav.js?v=21"></script>
     <script>
         const $ = id => document.getElementById(id);
@@ -75,9 +75,11 @@
                     <td>${r.report_type === 'final' ? 'Rapport final' : "Rapport d'étape"}</td>
                     <td style="max-width:320px">${esc((r.resume || '').slice(0, 140))}${r.escalated ? ' <span class="badge b-esc">escaladé</span>' : ''}</td>
                     <td><span class="badge b-${r.statut}">${r.statut === 'soumis' ? 'Attente 1re val.' : 'Attente 2e val.'}</span></td>
-                    <td>
-                        <button class="btn btn-ok" data-v="${r.id}:accorde">Accorder</button>
-                        <button class="btn btn-ko" data-v="${r.id}:refuse">Refuser</button>
+                    <td class="table-actions">
+                        <select class="action-select"><option value="">Actions</option>
+                            <option data-act="report-accorde" data-arg="${r.id}">Accorder</option>
+                            <option data-act="report-refuse" data-arg="${r.id}">Refuser</option>
+                        </select>
                     </td>
                 </tr>`).join('') || '<tr><td colspan="6" style="color:#8a8fa3">Aucun rapport en attente</td></tr>';
 
@@ -90,28 +92,27 @@
                     <td>${esc(d.document_type)}</td>
                     <td>${esc(d.numero)}</td>
                     <td>${esc(d.groupe_attendu)}</td>
-                    <td>
-                        <button class="btn btn-ok" data-doc="${d.document_id}:accorde">Valider</button>
-                        <button class="btn btn-ko" data-doc="${d.document_id}:refuse">Refuser</button>
+                    <td class="table-actions">
+                        <select class="action-select"><option value="">Actions</option>
+                            <option data-act="doc-accorde" data-arg="${d.document_id}">Valider</option>
+                            <option data-act="doc-refuse" data-arg="${d.document_id}">Refuser</option>
+                        </select>
                     </td>
                 </tr>`).join('') || '<tr><td colspan="6" style="color:#8a8fa3">Aucun document en attente</td></tr>';
-
-            document.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', async () => {
-                const [id, decision] = b.dataset.v.split(':');
-                const commentaire = decision === 'refuse' ? prompt('Motif du refus :') : null;
-                try {
-                    await apiCall(`/medical/medical-reports/${id}/validate`, { method: 'POST', body: JSON.stringify({ decision, commentaire }) });
-                    toast('Validation enregistrée'); load();
-                } catch (e) { toast(e.message || 'Erreur', true); }
-            }));
-            document.querySelectorAll('[data-doc]').forEach(b => b.addEventListener('click', async () => {
-                const [id, decision] = b.dataset.doc.split(':');
-                try {
-                    await apiCall(`/mhc/care-documents/${id}/validation`, { method: 'POST', body: JSON.stringify({ approve: decision === 'accorde' }) });
-                    toast('Validation enregistrée'); load();
-                } catch (e) { toast(e.message || 'Erreur', true); }
-            }));
         }
+
+        window.mhRowAction = async (act, id) => {
+            try {
+                if (act === 'report-accorde' || act === 'report-refuse') {
+                    const decision = act === 'report-accorde' ? 'accorde' : 'refuse';
+                    const commentaire = decision === 'refuse' ? prompt('Motif du refus :') : null;
+                    await apiCall(`/medical/medical-reports/${id}/validate`, { method: 'POST', body: JSON.stringify({ decision, commentaire }) });
+                } else {
+                    await apiCall(`/mhc/care-documents/${id}/validation`, { method: 'POST', body: JSON.stringify({ approve: act === 'doc-accorde' }) });
+                }
+                toast('Validation enregistrée'); load();
+            } catch (e) { toast(e.message || 'Erreur', true); }
+        };
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!(await requireBackoffice('index.html'))) return;

@@ -62,6 +62,28 @@
 
     window.MhPermissions = { can, level, applyDom, getPermissions, isInternalBackoffice, INTERNAL_BACKOFFICE_ROLES };
 
+    // Menu d'actions de ligne générique : <select class="action-select">.
+    // Options reconnues sur chaque <option> :
+    //   data-href="page.html?x=1"          → navigation directe
+    //   data-call="fn" data-arg="v" [data-arg2] → window.fn(arg[, arg2])
+    //   data-act="clé" data-arg="v"        → window.mhRowAction(act, arg, select, option)
+    //                                        (handler métier défini par la page)
+    // Le select revient toujours sur son libellé « Actions » après le choix.
+    // N'interfère pas avec les selects qui ont leur propre listener
+    // (admin-users, admin-subscriptions…) : leurs options n'ont pas ces
+    // attributs data-* et leur handler lit la valeur avant ce reset.
+    document.addEventListener('change', function (event) {
+        const sel = event.target && event.target.closest ? event.target.closest('select.action-select') : null;
+        if (!sel || sel.disabled) return;
+        const opt = sel.options[sel.selectedIndex];
+        sel.selectedIndex = 0;
+        if (!opt || !opt.dataset) return;
+        const d = opt.dataset;
+        if (d.href) { window.location.href = d.href; return; }
+        if (d.call && typeof window[d.call] === 'function') { window[d.call](d.arg, d.arg2); return; }
+        if (d.act && typeof window.mhRowAction === 'function') { window.mhRowAction(d.act, d.arg, sel, opt); }
+    });
+
     document.addEventListener('DOMContentLoaded', function () {
         applyDom(document);
     });

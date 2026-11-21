@@ -349,8 +349,7 @@ function bindCatalogEvents() {
     });
     actForm?.addEventListener('submit', handleActFormSubmit);
     examForm?.addEventListener('submit', handleExamFormSubmit);
-    actTableBody?.addEventListener('click', (event) => handleCatalogDelete(event, 'act'));
-    examTableBody?.addEventListener('click', (event) => handleCatalogDelete(event, 'exam'));
+    // Suppressions : gérées par window.mhRowAction (selects .action-select).
     document.querySelectorAll('.catalog-toggle').forEach((button) => {
         button.addEventListener('click', () => {
             const section = button.getAttribute('data-section');
@@ -437,15 +436,14 @@ async function handleExamFormSubmit(event) {
     }
 }
 
-async function handleCatalogDelete(event, entity) {
-    const target = event.target;
-    if (!(target instanceof HTMLButtonElement)) {
-        return;
-    }
-    if (!target.classList.contains('tarif-delete-btn')) {
-        return;
-    }
-    const tarifId = target.getAttribute('data-tarif-id');
+// Action « Supprimer » des selects du catalogue (actes / examens).
+window.mhRowAction = function (act, arg) {
+    if (act !== 'del-tarif') return;
+    const [entity, tarifId] = String(arg).split(':');
+    deleteCatalogTarif(entity, tarifId);
+};
+
+async function deleteCatalogTarif(entity, tarifId) {
     if (!tarifId || !state.hospitalId) {
         return;
     }
@@ -624,9 +622,7 @@ function renderActTarifsTable() {
                 <td>${tarif.code ? escapeHtml(tarif.code) : '—'}</td>
                 <td>${formatCurrency(tarif.montant)}</td>
                 <td>
-                    <button type="button" class="danger-button tarif-delete-btn" data-tarif-id="${tarif.id}">
-                        Supprimer
-                    </button>
+                    <select class="action-select"><option value="">Actions</option><option data-act="del-tarif" data-arg="act:${tarif.id}">Supprimer</option></select>
                 </td>
             </tr>
         `,
@@ -694,9 +690,7 @@ function renderExamTarifsTable() {
                 <td>${escapeHtml(tarif.nom || '')}</td>
                 <td>${formatCurrency(tarif.montant)}</td>
                 <td>
-                    <button type="button" class="danger-button tarif-delete-btn" data-tarif-id="${tarif.id}">
-                        Supprimer
-                    </button>
+                    <select class="action-select"><option value="">Actions</option><option data-act="del-tarif" data-arg="exam:${tarif.id}">Supprimer</option></select>
                 </td>
             </tr>
         `,

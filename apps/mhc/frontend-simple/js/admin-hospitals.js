@@ -648,12 +648,10 @@ function renderTarifs() {
                 <tr>
                     <td>${escapeHtml(t.nom)}</td>
                     <td>${Number(t.montant).toLocaleString('fr-FR')} F</td>
-                    <td><button type="button" class="btn btn-outline btn-sm tarif-delete" data-kind="act" data-id="${t.id}">✕</button></td>
+                    <td><select class="action-select"><option value="">Actions</option><option data-act="del-tarif" data-arg="act:${t.id}">Supprimer</option></select></td>
                 </tr>
             `).join('')
             : '<tr><td colspan="3" class="muted">Aucun acte tarifé.</td></tr>';
-        actTarifsBodyEl.querySelectorAll('.tarif-delete').forEach(btn =>
-            btn.addEventListener('click', () => deleteTarif('act', btn.dataset.id)));
     }
     if (examTarifsBodyEl) {
         examTarifsBodyEl.innerHTML = tarifsState.examTarifs.length
@@ -661,14 +659,18 @@ function renderTarifs() {
                 <tr>
                     <td>${escapeHtml(t.nom)}</td>
                     <td>${Number(t.montant).toLocaleString('fr-FR')} F</td>
-                    <td><button type="button" class="btn btn-outline btn-sm tarif-delete" data-kind="exam" data-id="${t.id}">✕</button></td>
+                    <td><select class="action-select"><option value="">Actions</option><option data-act="del-tarif" data-arg="exam:${t.id}">Supprimer</option></select></td>
                 </tr>
             `).join('')
             : '<tr><td colspan="3" class="muted">Aucun examen tarifé.</td></tr>';
-        examTarifsBodyEl.querySelectorAll('.tarif-delete').forEach(btn =>
-            btn.addEventListener('click', () => deleteTarif('exam', btn.dataset.id)));
     }
 }
+
+window.mhRowAction = function (act, arg) {
+    if (act !== 'del-tarif') return;
+    const [kind, tarifId] = String(arg).split(':');
+    deleteTarif(kind, tarifId);
+};
 
 async function handleActTarifSubmit(event) {
     event.preventDefault();

@@ -160,9 +160,7 @@ function renderSubscriptionsTable() {
                     <td>${escapeHtml(dateDebut)}</td>
                     <td>${escapeHtml(dateFin)}</td>
                     <td>${statutLabel}</td>
-                    <td>
-                        <button class="btn btn-sm" onclick="viewSubscriptionWorkflow(${subscription.id})">Voir workflow</button>
-                    </td>
+                    <td class="table-actions"><select class="action-select"><option value="">Actions</option><option data-call="viewSubscriptionWorkflow" data-arg="${subscription.id}">Voir workflow</option></select></td>
                 </tr>
             `;
         })

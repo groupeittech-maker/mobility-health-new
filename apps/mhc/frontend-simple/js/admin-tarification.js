@@ -91,22 +91,15 @@ function renderZones() {
             <td><strong>${escapeHtml(z.code)}</strong></td>
             <td>${escapeHtml(z.nom)}</td>
             <td>${n} pays</td>
-            <td>
-                <button type="button" class="btn btn-outline btn-sm" data-action="pays" data-id="${z.id}">Pays</button>
-                <button type="button" class="btn btn-outline btn-sm" data-action="edit" data-id="${z.id}">Renommer</button>
-                <button type="button" class="icon-button" data-action="del" data-id="${z.id}" title="Supprimer">&times;</button>
+            <td class="table-actions">
+                <select class="action-select"><option value="">Actions</option>
+                    <option data-act="zone-pays" data-arg="${z.id}">Pays</option>
+                    <option data-act="zone-edit" data-arg="${z.id}">Renommer</option>
+                    <option data-act="zone-del" data-arg="${z.id}">Supprimer</option>
+                </select>
             </td>
         `;
         tbody.appendChild(tr);
-    });
-    tbody.querySelectorAll('button[data-action]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const id = Number(btn.dataset.id);
-            const action = btn.dataset.action;
-            if (action === 'pays') openZonePaysModal(id);
-            if (action === 'edit') editZoneNom(id);
-            if (action === 'del') deleteZone(id);
-        });
     });
 }
 
@@ -250,9 +243,8 @@ async function refreshFenetres() {
             <td>${f.duree_min_jours}</td>
             <td>${f.duree_max_jours}</td>
             <td>${f.ordre_priorite}</td>
-            <td><button type="button" class="icon-button" data-fdel="${f.id}">&times;</button></td>
+            <td class="table-actions"><select class="action-select"><option value="">Actions</option><option data-act="del-fenetre" data-arg="${f.id}">Supprimer</option></select></td>
         `;
-        tr.querySelector('[data-fdel]')?.addEventListener('click', () => deleteFenetre(f.id));
         tbody.appendChild(tr);
     });
 }
@@ -325,9 +317,8 @@ async function refreshTranches() {
             <td>${t.age_max ?? '—'}</td>
             <td>${t.coefficient}</td>
             <td>${t.ordre_priorite}</td>
-            <td><button type="button" class="icon-button" data-tdel="${t.id}">&times;</button></td>
+            <td class="table-actions"><select class="action-select"><option value="">Actions</option><option data-act="del-tranche" data-arg="${t.id}">Supprimer</option></select></td>
         `;
-        tr.querySelector('[data-tdel]')?.addEventListener('click', () => deleteTranche(t.id));
         tbody.appendChild(tr);
     });
 }
@@ -527,11 +518,8 @@ function renderGrilleFinale() {
             <td>${escapeHtml(tlab)}</td>
             <td>${L.coefficient_age}</td>
             <td><strong>${L.tarif_final}</strong></td>
-            <td><button type="button" class="icon-button" title="Supprimer" data-gfdel="${L.zone_id}" data-gff="${L.fenetre_duree_id}" data-gft="${L.tranche_age_id}">&times;</button></td>
+            <td class="table-actions"><select class="action-select"><option value="">Actions</option><option data-act="del-grille" data-arg="${L.zone_id},${L.fenetre_duree_id},${L.tranche_age_id}">Supprimer</option></select></td>
         `;
-        tr.querySelector('[data-gfdel]')?.addEventListener('click', () =>
-            deleteGrilleFinaleCell(L.zone_id, L.fenetre_duree_id, L.tranche_age_id)
-        );
         tbody.appendChild(tr);
     });
     if (!(grilleFinaleLignes || []).length) {
@@ -635,3 +623,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     await refreshGrille();
     await refreshGrilleFinale();
 });
+
+// Actions de ligne (selects) — suppressions de la grille tarifaire.
+window.mhRowAction = function (act, arg) {
+    if (act === 'zone-pays') openZonePaysModal(Number(arg));
+    else if (act === 'zone-edit') editZoneNom(Number(arg));
+    else if (act === 'zone-del') deleteZone(Number(arg));
+    else if (act === 'del-fenetre') deleteFenetre(Number(arg));
+    else if (act === 'del-tranche') deleteTranche(Number(arg));
+    else if (act === 'del-grille') {
+        const [z, f, t] = String(arg).split(',').map(Number);
+        deleteGrilleFinaleCell(z, f, t);
+    }
+};

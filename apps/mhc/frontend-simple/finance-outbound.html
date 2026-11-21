@@ -127,7 +127,7 @@
 
     <script src="js/api.js?v=20261013"></script>
     <script src="js/auth.js?v=5"></script>
-    <script src="js/permissions.js?v=3"></script>
+    <script src="js/permissions.js?v=4"></script>
     <script src="js/backoffice-nav.js?v=21"></script>
     <script>
         const $ = id => document.getElementById(id);
@@ -142,6 +142,28 @@
             facture_hopital: 'Facture hôpital',
         };
         const STATUT_LABELS = { a_payer: 'À payer', controle: 'Contrôlé', paye: 'Payé', annule: 'Annulé' };
+        // Actions des lignes (selects) — paiements et ristournes.
+        window.mhRowAction = async (act, id) => {
+            try {
+                if (act === 'ristourne-confirm') {
+                    if (!confirm('Confirmer que ce remboursement a été effectué ? La quittance de ristourne sera générée.')) return;
+                    await apiCall(`/ristournes/${id}/confirmer`, { method: 'POST', body: JSON.stringify({
+                        moyen_remboursement: $(`moyen-${id}`).value, reference: $(`ref-${id}`).value || null,
+                    }) });
+                    toast('Remboursement confirmé — quittance générée'); loadRistournes();
+                    return;
+                }
+                if (act === 'ristourne-quittance') {
+                    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+                    const res = await fetch(`${API_BASE_URL}/ristournes/${id}/download`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                    if (!res.ok) throw new Error('Quittance indisponible');
+                    window.open(URL.createObjectURL(await res.blob()), '_blank', 'noopener');
+                    return;
+                }
+                await apiCall(`/finance/outbound/${id}/${act}`, { method: 'POST' }); toast('Fait'); load();
+            }
+            catch (e) { toast(e.message || 'Erreur', true); }
+        };
         const TYPE_FEATURES = {
             cession_reassurance: 'paiement_cession_reassurance', retention_assureur: 'paiement_retention_assureur',
             commission_cession: 'paiement_commission_cession', commission_courtage: 'paiement_commission_courtage',
@@ -171,18 +193,16 @@
                     <td>${fmt(p.montant)} ${esc(p.devise)}</td>
                     <td>${esc(p.periode || '—')}</td>
                     <td><span class="badge b-${p.statut}">${STATUT_LABELS[p.statut] || p.statut}</span></td>
-                    <td>
-                        ${p.statut === 'a_payer' && canType(p.type_paiement, 'controle') ? `<button class="btn btn-c" data-act="control:${p.id}">Contrôler</button>` : ''}
-                        ${(p.statut === 'a_payer' || p.statut === 'controle') && canType(p.type_paiement, 'edition') ? `<button class="btn btn-p" data-act="pay:${p.id}">Payer</button>` : ''}
-                        ${p.statut !== 'paye' && p.statut !== 'annule' && canType(p.type_paiement, 'edition') ? `<button class="btn btn-x" data-act="cancel:${p.id}">Annuler</button>` : ''}
+                    <td class="table-actions">
+                        ${(() => {
+                            const opts = [];
+                            if (p.statut === 'a_payer' && canType(p.type_paiement, 'controle')) opts.push(`<option data-act="control" data-arg="${p.id}">Contrôler</option>`);
+                            if ((p.statut === 'a_payer' || p.statut === 'controle') && canType(p.type_paiement, 'edition')) opts.push(`<option data-act="pay" data-arg="${p.id}">Payer</option>`);
+                            if (p.statut !== 'paye' && p.statut !== 'annule' && canType(p.type_paiement, 'edition')) opts.push(`<option data-act="cancel" data-arg="${p.id}">Annuler</option>`);
+                            return opts.length ? `<select class="action-select"><option value="">Actions</option>${opts.join('')}</select>` : '—';
+                        })()}
                     </td>
                 </tr>`).join('') || '<tr><td colspan="7" style="color:#8a8fa3">Aucun flux</td></tr>';
-            document.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', async () => {
-                const [act, id] = b.dataset.act.split(':');
-                try { await apiCall(`/finance/outbound/${id}/${act}`, { method: 'POST' }); toast('Fait'); load(); }
-                catch (e) { toast(e.message || 'Erreur', true); }
-            }));
-
             try {
                 const r = await apiCall('/finance/reconciliation' + ($('fPeriode').value ? `?periode=${$('fPeriode').value}` : ''));
                 $('kpiEmises').textContent = r.polices_emises;
@@ -219,32 +239,18 @@
                     <td>${fmt(Number(r.montant_taxes))}</td>
                     <td><strong>${fmt(Number(r.montant_total))} ${esc(r.devise)}</strong></td>
                     <td><span class="badge ${r.statut === 'rembourse' ? 'b-paye' : 'b-a_payer'}">${RISTOURNE_LABELS[r.statut] || r.statut}</span>${r.numero ? `<div style="font-size:.7rem;color:#8a8fa3">${esc(r.numero)}</div>` : ''}</td>
-                    <td>
+                    <td class="table-actions">
                         ${r.statut === 'a_rembourser' && canRefund('edition') ? `
                             <select id="moyen-${r.id}" style="font-size:.72rem;border:1px solid #e2e4f0;border-radius:.4rem;padding:.2rem;">${moyens}</select>
                             <input id="ref-${r.id}" placeholder="Réf. opération" style="font-size:.72rem;border:1px solid #e2e4f0;border-radius:.4rem;padding:.2rem;width:7rem;">
-                            <button class="btn btn-p" data-ristourne="${r.id}">Confirmer le remboursement</button>` : ''}
-                        ${r.statut === 'rembourse' ? `<button class="btn btn-c" data-quittance="${r.id}">Quittance</button>` : ''}
+                            <select class="action-select"><option value="">Actions</option>
+                                <option data-act="ristourne-confirm" data-arg="${r.id}">Confirmer le remboursement</option>
+                            </select>` : ''}
+                        ${r.statut === 'rembourse' ? `<select class="action-select"><option value="">Actions</option>
+                            <option data-act="ristourne-quittance" data-arg="${r.id}">Quittance</option>
+                        </select>` : ''}
                     </td>
                 </tr>`).join('') || '<tr><td colspan="9" style="color:#8a8fa3">Aucun remboursement</td></tr>';
-            document.querySelectorAll('[data-ristourne]').forEach(b => b.addEventListener('click', async () => {
-                const id = b.dataset.ristourne;
-                if (!confirm('Confirmer que ce remboursement a été effectué ? La quittance de ristourne sera générée.')) return;
-                try {
-                    await apiCall(`/ristournes/${id}/confirmer`, { method: 'POST', body: JSON.stringify({
-                        moyen_remboursement: $(`moyen-${id}`).value, reference: $(`ref-${id}`).value || null,
-                    }) });
-                    toast('Remboursement confirmé — quittance générée'); loadRistournes();
-                } catch (e) { toast(e.message || 'Erreur', true); }
-            }));
-            document.querySelectorAll('[data-quittance]').forEach(b => b.addEventListener('click', async () => {
-                const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-                try {
-                    const res = await fetch(`${API_BASE_URL}/ristournes/${b.dataset.quittance}/download`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-                    if (!res.ok) throw new Error('Quittance indisponible');
-                    window.open(URL.createObjectURL(await res.blob()), '_blank', 'noopener');
-                } catch (e) { toast(e.message, true); }
-            }));
         }
 
         document.addEventListener('DOMContentLoaded', async () => {

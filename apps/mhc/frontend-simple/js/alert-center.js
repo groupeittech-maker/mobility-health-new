@@ -124,9 +124,12 @@
             '<td>' + (a.assigned_hospital ? a.assigned_hospital.nom : '—') + '</td>' +
             '<td>' + (a.assigned_hospital ? (a.assigned_hospital.pays || '—') : '—') + '</td>' +
             '<td>' + badge(a.statut) + '</td>' +
-            '<td><a class="act-link" onclick="event.stopPropagation();openPanel(' + a.id + ')" title="Aperçu">👁</a> ' +
-            '<a class="act-link" href="alert-detail.html?id=' + a.id + '" onclick="event.stopPropagation()">Détails</a> ' +
-            '<a class="act-link" href="sos-alerts-map.html?alert_id=' + a.id + '" onclick="event.stopPropagation()" title="Voir sur la carte">🗺</a></td>' +
+            '<td class="table-actions"><select class="action-select" onclick="event.stopPropagation()">' +
+            '<option value="">Actions</option>' +
+            '<option data-call="openPanel" data-arg="' + a.id + '">Aperçu</option>' +
+            '<option data-href="alert-detail.html?id=' + a.id + '">Détails</option>' +
+            '<option data-href="sos-alerts-map.html?alert_id=' + a.id + '">Carte</option>' +
+            '</select></td>' +
             '</tr>'
         ).join('') || '<tr><td colspan="9" class="muted" style="text-align:center;padding:1.4rem">Aucune alerte dans votre périmètre.</td></tr>';
         document.getElementById('countLabel').textContent = 'Affichage de ' + rows.length + ' résultat(s)';

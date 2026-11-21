@@ -192,12 +192,11 @@ function renderCountries() {
                         <div class="country-code">Code: ${countryCode}${medecinConseilLabel(country) ? ` · Médecin-conseil: ${escapeHtml(medecinConseilLabel(country))}` : ''}</div>
                     </div>
                     <div class="item-actions" onclick="event.stopPropagation()">
-                        <button class="btn-icon edit" onclick="editCountry(${countryId})" title="Modifier" data-requires-permission="comptes_produits:edition">
-                            ✏️
-                        </button>
-                        <button class="btn-icon delete" onclick="deleteCountry(${countryId}, '${countryNameAttr}')" title="Supprimer" data-requires-permission="comptes_produits:edition">
-                            🗑️
-                        </button>
+                        <select class="action-select" data-requires-permission="comptes_produits:edition">
+                            <option value="">Actions</option>
+                            <option data-call="editCountry" data-arg="${countryId}">Modifier</option>
+                            <option data-call="deleteCountry" data-arg="${countryId}" data-arg2="${countryName}">Supprimer</option>
+                        </select>
                     </div>
                 </div>
                 `;
@@ -279,7 +278,7 @@ async function loadCitiesForCountry(countryId) {
     container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
     
     try {
-        const country = countriesData.find(c => c.id === countryId);
+        const country = countriesData.find(c => c.id === Number(countryId));
         if (!country || !country.villes) {
             citiesListData = [];
             container.innerHTML = '<div class="empty-state"><p>Aucune ville trouvée</p></div>';
@@ -329,12 +328,11 @@ function renderCitiesList() {
                 ${ville.medecin_conseil?.nom ? `<div class="city-medecin" style="font-size:.75rem;color:#7c3aed;">👨‍⚕️ ${escapeHtml(ville.medecin_conseil.nom)}</div>` : ''}
             </div>
             <div class="item-actions">
-                <button class="btn-icon edit" onclick="editCity(${ville.id})" title="Modifier" data-requires-permission="comptes_produits:edition">
-                    ✏️
-                </button>
-                <button class="btn-icon delete" onclick="deleteCity(${ville.id}, '${(ville.nom || '').replace(/'/g, "\\'")}')" title="Supprimer" data-requires-permission="comptes_produits:edition">
-                    🗑️
-                </button>
+                <select class="action-select" data-requires-permission="comptes_produits:edition">
+                    <option value="">Actions</option>
+                    <option data-call="editCity" data-arg="${ville.id}">Modifier</option>
+                    <option data-call="deleteCity" data-arg="${ville.id}" data-arg2="${escapeHtml(ville.nom || '')}">Supprimer</option>
+                </select>
             </div>
         </div>
     `).join('');
@@ -374,7 +372,7 @@ function showCountryModal(countryId = null) {
     
     if (countryId) {
         title.textContent = 'Modifier un pays';
-        const country = countriesData.find(c => c.id === countryId);
+        const country = countriesData.find(c => c.id === Number(countryId));
         if (country) {
             document.getElementById('countryId').value = country.id;
             document.getElementById('countryCode').value = country.code;
@@ -495,7 +493,7 @@ async function deleteCountry(countryId, countryName) {
         });
         showAlert('Pays supprimé avec succès', 'success');
         
-        if (currentSelectedCountryId === countryId) {
+        if (Number(currentSelectedCountryId) === Number(countryId)) {
             currentSelectedCountryId = null;
             document.getElementById('selectedCountryInfo').style.display = 'none';
             document.getElementById('addCityBtn').disabled = true;
@@ -526,7 +524,7 @@ function showCityModal(cityId = null) {
     if (cityId) {
         title.textContent = 'Modifier une ville';
         const country = countriesData.find(c => c.id === currentSelectedCountryId);
-        const city = country?.villes?.find(v => v.id === cityId);
+        const city = country?.villes?.find(v => v.id === Number(cityId));
         if (city) {
             document.getElementById('cityId').value = city.id;
             document.getElementById('cityName').value = city.nom;

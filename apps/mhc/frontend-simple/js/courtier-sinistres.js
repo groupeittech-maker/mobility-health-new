@@ -159,9 +159,7 @@ function renderSinistresTable() {
                     <td>${escapeHtml(assure)}</td>
                     <td>${escapeHtml(dateDeclenchement)}</td>
                     <td>${statutLabel}</td>
-                    <td>
-                        <button class="btn btn-sm" onclick="viewSinistreWorkflow(${sinistre.id})">Voir workflow</button>
-                    </td>
+                    <td class="table-actions"><select class="action-select"><option value="">Actions</option><option data-call="viewSinistreWorkflow" data-arg="${sinistre.id}">Voir workflow</option></select></td>
                 </tr>
             `;
         })

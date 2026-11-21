@@ -72,7 +72,7 @@
 
     <script src="js/api.js?v=20261013"></script>
     <script src="js/auth.js?v=5"></script>
-    <script src="js/permissions.js?v=3"></script>
+    <script src="js/permissions.js?v=4"></script>
     <script src="js/backoffice-nav.js?v=21"></script>
     <script>
         let editingId = null;
@@ -101,13 +101,19 @@
                     <td>${r.cession_defaut_pct != null ? r.cession_defaut_pct + ' %' : '—'}</td>
                     <td>${r.commission_cession_defaut_pct != null ? r.commission_cession_defaut_pct + ' %' : '—'}</td>
                     <td><span class="badge ${r.est_actif ? 'on' : 'off'}">${r.est_actif ? 'Actif' : 'Inactif'}</span></td>
-                    <td>
-                        ${canEdit() ? `<button class="act" data-edit='${JSON.stringify(r).replace(/'/g, '&#39;')}'>Modifier</button>
-                        <button class="act del" data-del="${r.id}">${r.est_actif ? 'Désactiver' : 'Supprimer'}</button>` : '—'}
+                    <td class="table-actions">
+                        ${canEdit() ? `<select class="action-select">
+                            <option value="">Actions</option>
+                            <option data-edit='${JSON.stringify(r).replace(/'/g, '&#39;')}'>Modifier</option>
+                            <option data-del="${r.id}">${r.est_actif ? 'Désactiver' : 'Supprimer'}</option>
+                        </select>` : '—'}
                     </td>
                 </tr>`).join('') || '<tr><td colspan="8" style="color:#8a8fa3">Aucun réassureur</td></tr>';
-            $('rows').querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openEdit(JSON.parse(b.dataset.edit))));
-            $('rows').querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => remove(+b.dataset.del)));
+            $('rows').querySelectorAll('select.action-select').forEach(sel => sel.addEventListener('change', () => {
+                const opt = sel.options[sel.selectedIndex];
+                if (opt && opt.dataset.edit) openEdit(JSON.parse(opt.dataset.edit));
+                else if (opt && opt.dataset.del) remove(+opt.dataset.del);
+            }));
         }
 
         function openEdit(r) {

@@ -332,6 +332,7 @@ function renderAlertsTable() {
         row.addEventListener('click', (event) => {
             if (
                 event.target.closest('a') ||
+                event.target.closest('select') ||
                 event.target.closest('[data-open-alert]')
             ) {
                 return;
@@ -401,9 +402,12 @@ function buildAlertRow(alert) {
             <td>${escapeHtml(hospital.nom || '—')}</td>
             <td>${escapeHtml(hospital.pays || '—')}</td>
             <td>${stateBadge}</td>
-            <td>
-                <a class="act-link" data-open-alert data-alert-id="${alert.id}" title="Aperçu du dossier">👁</a>
-                <a class="act-link" href="${dossierUrl}">Détails</a>
+            <td class="table-actions">
+                <select class="action-select">
+                    <option value="">Actions</option>
+                    <option data-act="preview" data-arg="${alert.id}">Aperçu</option>
+                    <option data-href="${dossierUrl}">Détails</option>
+                </select>
             </td>
         </tr>
     `;
@@ -1351,4 +1355,8 @@ function setHidden(element, hidden) {
 // Exposer les fonctions globalement pour les boutons HTML
 window.closeAlertDetails = closeAlertDetails;
 window.selectAlert = selectAlert;
+// Actions de ligne (select) : « Aperçu » ouvre le dossier en place.
+window.mhRowAction = function (act, arg) {
+    if (act === 'preview') selectAlert(Number(arg));
+};
 

@@ -818,12 +818,11 @@ function appendTarifMatrixRow(row = {}) {
         <td><input type="number" data-tf="age_max" class="tarif-input" min="0" max="120" style="width:64px" value="${row.age_max ?? ''}" placeholder="—"></td>
         <td><input type="number" data-tf="prix" class="tarif-input" min="0" step="1" style="width:100px" value="${row.prix ?? ''}"></td>
         <td><input type="number" data-tf="ordre" class="tarif-input" min="0" style="width:64px" value="${row.ordre_priorite ?? 0}"></td>
-        <td><button type="button" class="icon-button" data-action="del-tarif" aria-label="Supprimer">&times;</button></td>
+        <td><select class="action-select"><option value="">Actions</option><option data-act="del-tarif-row">Supprimer</option></select></td>
     `;
     tr.querySelectorAll('input[data-tf]').forEach((inp) => {
         inp.addEventListener('blur', () => saveTarifMatrixRow(tr));
     });
-    tr.querySelector('[data-action="del-tarif"]')?.addEventListener('click', () => deleteTarifMatrixRow(tr));
     tbody.appendChild(tr);
 }
 
@@ -878,6 +877,16 @@ async function saveTarifMatrixRow(tr) {
         showAlert(e.message || 'Sauvegarde de la ligne tarifaire impossible.', 'error');
     }
 }
+
+window.mhRowAction = function (act, arg, sel) {
+    if (act === 'del-tarif-row') {
+        const tr = sel && sel.closest('tr');
+        if (tr) deleteTarifMatrixRow(tr);
+    } else if (act === 'pgf-del') {
+        const [z, f, t] = String(arg).split(',').map(Number);
+        deletePgfGrilleFinaleCell(z, f, t);
+    }
+};
 
 async function deleteTarifMatrixRow(tr) {
     const productId = document.getElementById('productId')?.value;
@@ -987,11 +996,8 @@ function renderProductGrilleFinale() {
             <td>${escapeHtml(tlab)}</td>
             <td>${L.coefficient_age}</td>
             <td><strong>${L.tarif_final}</strong></td>
-            <td><button type="button" class="icon-button" title="Supprimer" data-pgf-del="${L.zone_id}" data-pgf-f="${L.fenetre_duree_id}" data-pgf-t="${L.tranche_age_id}">&times;</button></td>
+            <td><select class="action-select"><option value="">Actions</option><option data-act="pgf-del" data-arg="${L.zone_id},${L.fenetre_duree_id},${L.tranche_age_id}">Supprimer</option></select></td>
         `;
-        tr.querySelector('[data-pgf-del]')?.addEventListener('click', () =>
-            deletePgfGrilleFinaleCell(L.zone_id, L.fenetre_duree_id, L.tranche_age_id)
-        );
         tbody.appendChild(tr);
     });
     if (!(pfGrilleFinaleLignes || []).length) {
