@@ -17,6 +17,10 @@
         { key: 'cloturees', label: 'Clôturées', match: a => a.statut === 'cloturee' },
     ];
 
+    // Onglet initial via ?tab= (deep-link depuis la sidebar / autres écrans).
+    const urlTab = new URLSearchParams(window.location.search).get('tab');
+    if (urlTab && TABS.some(t => t.key === urlTab)) activeTab = urlTab;
+
     const STATUT_BADGE = {
         en_attente: 'Urgente',
         en_cours: 'En traitement',
@@ -68,7 +72,13 @@
             t.label + ' (' + allAlertes.filter(t.match).length + ')</button>'
         ).join('');
         document.querySelectorAll('#filterTabs .bo-tab').forEach(b =>
-            b.addEventListener('click', () => { activeTab = b.dataset.tab; render(); }));
+            b.addEventListener('click', () => {
+                activeTab = b.dataset.tab;
+                // Reflète l'onglet dans l'URL (deep-link partageable, état actif sidebar).
+                const qs = activeTab === 'toutes' ? '' : '?tab=' + activeTab;
+                history.replaceState(null, '', location.pathname + qs);
+                render();
+            }));
     }
 
     function filtered() {

@@ -87,12 +87,9 @@
             internalOnly: true,
             children: [
                 { section: 'Alertes & urgences' },
-                { label: 'Validation des alertes', href: 'alert-center.html', feature: 'alerte_sos', badge: 'alertes_actives' },
+                { label: 'Validation des alertes', href: 'alert-center.html?tab=a_valider', feature: 'alerte_sos', badge: 'alertes_actives' },
+                { label: 'Toutes les alertes', href: 'alert-center.html', feature: 'alerte_sos' },
                 { label: 'Carte des alertes', href: 'sos-alerts-map.html', feature: 'alerte_sos' },
-                { section: 'Traitement' },
-                { label: 'Prise en charge', href: 'alert-center.html', feature: 'prise_en_charge' },
-                { label: 'Hospitalisations', href: 'alert-center.html', feature: 'hospitalisation' },
-                { label: 'Rapatriements', href: 'alert-center.html', feature: 'rapatriement' },
                 { section: 'Clôture' },
                 { label: 'Validation des rapports médicaux', href: 'medical-validations.html', feature: 'prise_en_charge', badge: 'validations_medicales' },
                 { label: 'Validation des factures hospitalières', href: 'sinistre-invoices.html', feature: 'facturation_medicale', badge: 'factures_attente' },
@@ -216,6 +213,19 @@
         return file === currentFile();
     }
 
+    // Correspondance exacte fichier + query + ancre : permet d'avoir plusieurs
+    // entrées vers la même page (vues différentes) sans sélection multiple.
+    function hrefKey(href) {
+        if (!href) return '';
+        const hashSplit = href.split('#');
+        const qSplit = hashSplit[0].split('?');
+        return qSplit[0] + '?' + qSplit.slice(1).join('?') + '#' + hashSplit.slice(1).join('#');
+    }
+
+    function currentKey() {
+        return currentFile() + window.location.search + window.location.hash;
+    }
+
     function icon(name) {
         return ICO[name] || ICO.doc;
     }
@@ -251,7 +261,13 @@
             if (item.children && item.children.length) {
                 const visibleChildren = pruneSections(item.children.filter(canSee));
                 if (!visibleChildren.length) return;
-                const anyChildActive = visibleChildren.some(c => linkIsActive(c.href));
+                // Un seul lien actif : si une entrée correspond exactement à
+                // l'URL courante (fichier + query + ancre), elle seule est
+                // marquée — sinon repli sur la correspondance par fichier.
+                const exactKey = currentKey();
+                const hasExact = visibleChildren.some(c => !c.section && hrefKey(c.href) === exactKey);
+                const childActive = c => hasExact ? hrefKey(c.href) === exactKey : linkIsActive(c.href);
+                const anyChildActive = visibleChildren.some(childActive);
                 // Ouvert si : groupe contenant la page active OU préalablement ouvert par l'utilisateur
                 const isOpen = anyChildActive || openGroups.includes(item.id);
                 li.className = 'bo-group' + (isOpen ? ' open' : '');
@@ -280,7 +296,7 @@
                         cli.textContent = child.section;
                     } else {
                         const a = document.createElement('a');
-                        a.className = 'bo-link' + (linkIsActive(child.href) ? ' active' : '');
+                        a.className = 'bo-link' + (childActive(child) ? ' active' : '');
                         a.href = child.href;
                         a.textContent = child.label;
                         if (child.badge) {
