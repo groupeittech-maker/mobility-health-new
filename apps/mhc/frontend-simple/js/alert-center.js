@@ -194,6 +194,25 @@
             ? window.MhPermissions.can('alerte_sos', 'edition')
             : true;
         const role = localStorage.getItem('user_role') || '';
+
+        // Vérification de véracité (médecin-conseil / affaires médicales) :
+        // mêmes boutons Accepter/Refuser que la fiche dossier ouverte
+        // depuis le tableau de bord — sinon le choix n'apparaît pas ici.
+        let verifHtml = '';
+        const VERIF_ROLES = ['medecin_referent_mh', 'doctor', 'agent_medical_mhc', 'superviseur_affaires_medicales', 'admin'];
+        if (d.sinistre_id && VERIF_ROLES.includes(role) && ['en_attente', 'en_cours'].includes(a.statut)) {
+            const r2 = await fetch(API + '/sos/' + id, { headers: { Authorization: 'Bearer ' + token() } });
+            if (r2.ok) {
+                const al = await r2.json();
+                const step = (al.workflow_steps || []).find(s => s.step_key === 'verification_urgence');
+                if (!step || !['completed', 'cancelled'].includes(step.statut)) {
+                    verifHtml =
+                        '<button class="btn btn-primary" onclick="verifyAlert(' + d.sinistre_id + ',true,' + id + ')">✓ Accepter la prise en charge</button>' +
+                        '<button class="btn btn-danger" onclick="verifyAlert(' + d.sinistre_id + ',false,' + id + ')">✗ Alerte non avérée</button>';
+                }
+            }
+        }
+
         let blocageBtn = '';
         if (d.sinistre_id) {
             if (d.sinistre_bloque && ['admin', 'superviseur_technique'].includes(role)) {
@@ -202,7 +221,7 @@
                 blocageBtn = '<button class="btn btn-danger" onclick="bloquerSinistre(' + d.sinistre_id + ',' + id + ')">⛔ Bloquer le dossier</button>';
             }
         }
-        document.getElementById('dpActions').innerHTML = (canEdit
+        document.getElementById('dpActions').innerHTML = verifHtml + (canEdit
             ? '<a class="btn btn-primary" href="alert-detail.html?id=' + id + '" style="text-decoration:none;text-align:center">✓ Traiter l\'alerte</a>' +
             '<button class="btn btn-outline" onclick="askInfo(' + id + ')">Demander des informations</button>' +
             '<button class="btn btn-danger" onclick="refuseAlert(' + id + ')">Refuser la prise en charge</button>'
@@ -233,6 +252,26 @@
 
     window.closePanel = function () {
         document.getElementById('detailPanel').classList.remove('open');
+    };
+
+    window.verifyAlert = async function (sinistreId, approve, alerteId) {
+        const notes = prompt(approve
+            ? 'Commentaire (optionnel) — confirmer la prise en charge :'
+            : 'Motif du refus — alerte non avérée :');
+        if (notes === null) return;
+        const res = await fetch(API + '/sos/sinistres/' + sinistreId + '/verification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
+            body: JSON.stringify({ approve, notes: notes || undefined }),
+        });
+        if (res.ok) {
+            if (window.mhcToast) mhcToast(approve ? 'Prise en charge confirmée.' : 'Alerte marquée non avérée.');
+            closePanel();
+            load();
+        } else {
+            const e = await res.json().catch(() => ({}));
+            if (window.mhcToast) mhcToast(e.detail || 'Action impossible', true);
+        }
     };
 
     window.askInfo = async function (id) {
