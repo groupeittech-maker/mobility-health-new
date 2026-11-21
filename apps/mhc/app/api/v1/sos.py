@@ -561,6 +561,19 @@ def generate_numero_sinistre() -> str:
     return f"SIN-{uuid.uuid4().hex[:8].upper()}-{datetime.utcnow().strftime('%Y%m%d')}"
 
 
+ALERTE_STATUTS_ACTIFS = {"en_attente", "en_cours"}
+
+
+def _alerte_en_cours(db: Session, user_id: int) -> Optional[Alerte]:
+    """Alerte SOS encore ouverte (en attente ou en cours) pour un assuré."""
+    return (
+        db.query(Alerte)
+        .filter(Alerte.user_id == user_id, Alerte.statut.in_(ALERTE_STATUTS_ACTIFS))
+        .order_by(Alerte.created_at.desc())
+        .first()
+    )
+
+
 @router.post("/trigger", response_model=AlerteResponse, status_code=status.HTTP_201_CREATED)
 async def trigger_sos(
     alerte_data: AlerteCreate,
@@ -613,6 +626,16 @@ async def trigger_sos(
             detail=(
                 "Votre couverture n'a pas encore commencé (début le "
                 f"{souscription.date_debut:%d/%m/%Y}) : les nouvelles demandes d'assistance sont bloquées jusque-là."
+            ),
+        )
+
+    alerte_ouverte = _alerte_en_cours(db, current_user.id)
+    if alerte_ouverte:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Une alerte SOS est déjà en cours pour cet assuré (#{alerte_ouverte.numero_alerte}). "
+                "Patientez sa prise en charge ou contactez l'assistance avant d'en déclencher une autre."
             ),
         )
 
@@ -1511,6 +1534,16 @@ async def declaration_manuelle(
             detail=(
                 "La couverture de cet assuré n'a pas encore commencé (début le "
                 f"{souscription.date_debut:%d/%m/%Y}) : la déclaration d'alerte est bloquée jusque-là."
+            ),
+        )
+
+    alerte_ouverte = _alerte_en_cours(db, assure.id)
+    if alerte_ouverte:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Cet assuré a déjà une alerte SOS en cours (#{alerte_ouverte.numero_alerte}). "
+                "Complétez ce dossier avant d'en ouvrir un autre."
             ),
         )
 
