@@ -232,12 +232,9 @@
         }
     }
 
-    function setGroupOpen(id, isOpen) {
-        const groups = getOpenGroups();
-        const idx = groups.indexOf(id);
-        if (isOpen && idx === -1) groups.push(id);
-        if (!isOpen && idx !== -1) groups.splice(idx, 1);
-        sessionStorage.setItem(OPEN_STATE_KEY, JSON.stringify(groups));
+    function setGroupOpen(id) {
+        // Un seul accordéon ouvert à la fois : on ne mémorise que celui-ci.
+        sessionStorage.setItem(OPEN_STATE_KEY, JSON.stringify(id ? [id] : []));
     }
 
     function renderMenu() {
@@ -264,8 +261,13 @@
                 btn.innerHTML = icon(item.icon) + '<span>' + item.label + '</span>' +
                     '<svg class="bo-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
                 btn.addEventListener('click', () => {
-                    const nowOpen = li.classList.toggle('open');
-                    setGroupOpen(item.id, nowOpen);
+                    const willOpen = !li.classList.contains('open');
+                    // Ferme les autres groupes ouverts (comportement accordéon).
+                    ul.querySelectorAll('.bo-group.open').forEach(g => {
+                        if (g !== li) g.classList.remove('open');
+                    });
+                    li.classList.toggle('open', willOpen);
+                    setGroupOpen(willOpen ? item.id : null);
                 });
                 li.appendChild(btn);
                 const sub = document.createElement('ul');
