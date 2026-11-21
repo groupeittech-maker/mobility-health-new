@@ -257,8 +257,7 @@
                 li.className = 'bo-group open' + (anyChildActive ? ' has-active' : '');
                 const head = document.createElement('div');
                 head.className = 'bo-group-head' + (anyChildActive ? ' active' : '');
-                head.innerHTML = icon(item.icon) + '<span>' + item.label + '</span>' +
-                    '<span class="bo-count bo-count-group" hidden></span>';
+                head.innerHTML = icon(item.icon) + '<span>' + item.label + '</span>';
                 li.appendChild(head);
                 const sub = document.createElement('ul');
                 sub.className = 'bo-sub';
@@ -310,17 +309,6 @@
             if (!b) return;
             b.textContent = n > 99 ? '99+' : String(n);
             b.hidden = n <= 0;
-        });
-        document.querySelectorAll('.bo-group').forEach(g => {
-            let total = 0;
-            g.querySelectorAll('[data-badge-key]').forEach(el => {
-                total += el.getAttribute('data-badge-key').split(',')
-                    .reduce((s, k) => s + (counts[k.trim()] || 0), 0);
-            });
-            const b = g.querySelector('.bo-count-group');
-            if (!b) return;
-            b.textContent = total > 99 ? '99+' : String(total);
-            b.hidden = total <= 0;
         });
     }
 
