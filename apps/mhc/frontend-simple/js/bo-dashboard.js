@@ -104,48 +104,6 @@
         },
     };
 
-    const QUICK_BY_ROLE = {
-        medical: [
-            { href: 'alert-center.html', ico: '🚨', label: "Traiter les alertes", feature: 'alerte_sos' },
-            { href: 'medical-validations.html', ico: '✔️', label: 'Validations en attente', feature: 'prise_en_charge' },
-            { href: 'sinistre-invoices.html', ico: '📄', label: 'Factures à valider', feature: 'facturation_medicale' },
-            { href: 'admin-ops.html', ico: '🏨', label: 'Hôtels & transport', feature: 'alerte_sos' },
-        ],
-        production: [
-            { href: 'admin-users.html', ico: '👤', label: 'Créer un compte utilisateur', feature: 'comptes_utilisateurs', minLevel: 'edition' },
-            { href: 'admin-subscriptions.html', ico: '📋', label: 'Coordonner une souscription', feature: 'production' },
-            { href: 'admin-attestations.html', ico: '📄', label: 'Attestations', feature: 'comptes_produits' },
-            { href: 'admin-products.html', ico: '💠', label: 'Produits', feature: 'comptes_produits' },
-        ],
-        sinistre: [
-            { href: 'sinistre-invoices.html', ico: '📁', label: 'Suivi des sinistres', feature: 'sinistres' },
-            { href: 'alert-center.html', ico: '🚨', label: "Alertes", feature: 'alerte_sos' },
-            { href: 'finance-outbound.html', ico: '💰', label: 'Paiements', feature: 'paiement_sinistre' },
-        ],
-        alertes: [
-            { href: 'alert-center.html?tab=a_valider', ico: '✔️', label: 'Alertes à valider', feature: 'alerte_sos' },
-            { href: 'alert-center.html', ico: '🚨', label: 'Centre d\'alertes', feature: 'alerte_sos' },
-            { href: 'sos-alerts-map.html', ico: '🗺️', label: 'Carte des alertes', feature: 'alerte_sos' },
-            { href: 'medical-validations.html', ico: '🩺', label: 'Validations médicales', feature: 'prise_en_charge' },
-        ],
-        finance: [
-            { href: 'finance-dashboard.html', ico: '💰', label: 'Tableau financier', feature: 'encaissement_prime' },
-            { href: 'finance-outbound.html', ico: '💳', label: 'Encaissements & paiements', feature: 'encaissement_prime' },
-            { href: 'accounting-portal.html', ico: '📒', label: 'Portail comptable', feature: 'encaissement_prime' },
-            { href: 'mh-invoices.html', ico: '📄', label: 'Factures médicales', feature: 'facturation_medicale' },
-        ],
-        admin: [
-            { href: 'admin-users.html', ico: '👤', label: 'Comptes & utilisateurs', feature: 'comptes_utilisateurs' },
-            { href: 'admin-subscriptions.html', ico: '📋', label: 'Souscriptions', feature: 'production' },
-            { href: 'alert-center.html', ico: '🚨', label: 'Centre d\'alertes', feature: 'alerte_sos' },
-            { href: 'statistics-portal.html', ico: '📊', label: 'Reporting global', feature: 'encaissement_prime' },
-        ],
-        default: [
-            { href: 'alert-center.html', ico: '🚨', label: 'Centre d\'alertes', feature: 'alerte_sos' },
-            { href: 'admin-users.html', ico: '👤', label: 'Utilisateurs', feature: 'comptes_utilisateurs' },
-            { href: 'statistics-portal.html', ico: '📊', label: 'Reporting', feature: 'encaissement_prime' },
-        ],
-    };
 
     const ROLE_LABELS = {
         admin: 'Vue d\'ensemble — direction & administration.',
@@ -275,17 +233,6 @@
         // À traiter en priorité — notifications non lues (top 5)
         loadPriority();
 
-        // Actions rapides — filtrées par prérogatives ; carte masquée si vide
-        const qa = (QUICK_BY_ROLE[grpKey] || QUICK_BY_ROLE.default).filter(q =>
-            !q.feature || can(q.feature, q.minLevel));
-        const quickCard = document.getElementById('quickCard');
-        if (quickCard && !qa.length) {
-            quickCard.style.display = 'none';
-        } else {
-            document.getElementById('quickActions').innerHTML = qa.map(q =>
-                '<a href="' + q.href + '"><span class="qi" style="background:#efe9f6">' + q.ico + '</span>' + q.label + '</a>'
-            ).join('');
-        }
     }
 
     async function loadPriority() {
