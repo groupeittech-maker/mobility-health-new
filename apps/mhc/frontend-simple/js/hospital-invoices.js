@@ -1,4 +1,4 @@
-const ACCOUNTANT_ROLES = ['agent_comptable_hopital', 'hospital_admin'];
+const ACCOUNTANT_ROLES = ['agent_comptable_hopital', 'hospital_admin', 'medecin_hopital', 'medecin_referent_mh'];
 const DEFAULT_TVA = 0.18;
 const HOURLY_RATE = 15000;
 const DEFAULT_ACT_PRICE = 20000;
@@ -69,6 +69,7 @@ let currentPageStays = 0;
 
 const state = {
     hospitalId: null,
+    canInvoice: true,
     stays: [],
     filters: {
         status: 'all',
@@ -118,6 +119,9 @@ async function initHospitalInvoicesPage() {
     if (!allowed) {
         return;
     }
+    // Médecin / réception hôpital : consultation — la création exige
+    // facturation_medicale (édition), réservée au comptable et à l'admin.
+    state.canInvoice = !window.MhPermissions || window.MhPermissions.can('facturation_medicale', 'edition');
 
     const hospitalId = parseInt(localStorage.getItem('hospital_id') || '', 10);
     if (!hospitalId) {
@@ -982,9 +986,15 @@ function renderInvoicePreview(stay) {
         stay &&
         !stay.invoice &&
         preview.lines.length &&
-        !state.isSubmitting
+        !state.isSubmitting &&
+        state.canInvoice
     );
     generateBtn.disabled = !canGenerate;
+    if (!state.canInvoice) {
+        generateBtn.title = 'Consultation seule — la saisie de facture est réservée au comptable de l\'établissement.';
+    } else {
+        generateBtn.title = '';
+    }
     infoEl.hidden = !stay.invoice;
     updateValidationBadges(stay.invoice);
     if (stay.invoice) {

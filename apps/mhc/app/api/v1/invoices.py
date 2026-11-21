@@ -388,6 +388,8 @@ def _invoice_query_with_access(db: Session, current_user: User):
     hospital_roles = {
         Role.HOSPITAL_ADMIN,
         Role.AGENT_COMPTABLE_HOPITAL,
+        Role.AGENT_RECEPTION_HOPITAL,
+        Role.MEDECIN_HOPITAL,
     }
 
     if current_user.role in central_roles:
