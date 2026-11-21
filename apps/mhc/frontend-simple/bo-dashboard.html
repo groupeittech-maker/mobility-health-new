@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tableau de bord — Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css?v=20261027">
-    <link rel="stylesheet" href="css/backoffice.css?v=12">
+    <link rel="stylesheet" href="css/backoffice.css?v=13">
 </head>
 <body data-backoffice>
     <main>
@@ -16,8 +16,8 @@
                 <p class="sub">Bienvenue sur l'espace de gestion MHC — suivi en temps réel des opérations.</p>
             </div>
             <div style="text-align:right">
-                <div style="font-size:0.85rem;font-weight:700;color:#1e1650;">Des soins sans frontières</div>
-                <div style="font-size:0.75rem;color:#8a8fa3;">pour un monde en mouvement</div>
+                <div style="font-size:0.85rem;font-weight:700;color:#1f1630;">Des soins sans frontières</div>
+                <div style="font-size:0.75rem;color:#7c7590;">pour un monde en mouvement</div>
                 <div class="bo-badge en_analyse" id="todayLabel" style="margin-top:0.3rem;"></div>
             </div>
         </div>
@@ -43,7 +43,7 @@
                     </div>
                 </div>
 
-                <div class="bo-card">
+                <div class="bo-card" id="alertsCard">
                     <div class="bo-card-h">
                         <span class="bo-card-title">🚨 Alertes urgences</span>
                         <a class="bo-link-all" href="alert-center.html">Voir tout</a>
@@ -60,7 +60,7 @@
             </div>
 
             <div>
-                <div class="bo-card">
+                <div class="bo-card" id="donutCard">
                     <div class="bo-card-h"><span class="bo-card-title">📊 Répartition des demandes</span></div>
                     <div class="bo-card-b">
                         <div class="bo-donut-wrap">
@@ -70,14 +70,14 @@
                     </div>
                 </div>
 
-                <div class="bo-card">
+                <div class="bo-card" id="statusCard">
                     <div class="bo-card-h"><span class="bo-card-title">📈 Statut global</span></div>
                     <div class="bo-card-b">
                         <ul class="bo-legend" id="globalStatus"></ul>
                     </div>
                 </div>
 
-                <div class="bo-card">
+                <div class="bo-card" id="quickCard">
                     <div class="bo-card-h"><span class="bo-card-title">⚡ Actions rapides</span></div>
                     <div class="bo-card-b">
                         <div class="bo-quick" id="quickActions"></div>
@@ -91,6 +91,6 @@
     <script src="js/auth.js?v=5"></script>
     <script src="js/permissions.js?v=3"></script>
     <script src="js/backoffice-nav.js?v=16"></script>
-    <script src="js/bo-dashboard.js?v=4"></script>
+    <script src="js/bo-dashboard.js?v=5"></script>
 </body>
 </html>

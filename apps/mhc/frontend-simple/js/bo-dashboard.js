@@ -6,48 +6,49 @@
     const role = localStorage.getItem('user_role') || 'user';
     const name = localStorage.getItem('user_name') || '';
 
+    // Chaque KPI porte la feature requise : filtrage par prérogatives dans load().
     const KPIS_BY_ROLE = {
         medical: [
-            { key: 'demandes_medicales.total_mois', label: 'Demandes médicales', ico: '📋', color: 'purple' },
-            { key: 'demandes_medicales.prises_en_charge_emises', label: 'Prises en charge émises', ico: '✅', color: 'teal' },
-            { key: 'demandes_medicales.refus_emis', label: 'Refus émis', ico: '🚫', color: 'red' },
-            { key: 'demandes_medicales.hospitalisations', label: 'Hospitalisations', ico: '🛏️', color: 'blue' },
-            { key: 'demandes_medicales.rapatriements', label: 'Rapatriements', ico: '✈️', color: 'slate' },
+            { key: 'demandes_medicales.total_mois', label: 'Demandes médicales', ico: '📋', color: 'purple', feature: 'prise_en_charge' },
+            { key: 'demandes_medicales.prises_en_charge_emises', label: 'Prises en charge émises', ico: '✅', color: 'teal', feature: 'prise_en_charge' },
+            { key: 'demandes_medicales.refus_emis', label: 'Refus émis', ico: '🚫', color: 'red', feature: 'prise_en_charge' },
+            { key: 'demandes_medicales.hospitalisations', label: 'Hospitalisations', ico: '🛏️', color: 'blue', feature: 'hospitalisation' },
+            { key: 'demandes_medicales.rapatriements', label: 'Rapatriements', ico: '✈️', color: 'slate', feature: 'rapatriement' },
         ],
         production: [
-            { key: 'production.comptes_crees', label: 'Nouveaux comptes créés', ico: '👤', color: 'purple' },
-            { key: 'production.souscriptions', label: 'Souscriptions coordonnées', ico: '📄', color: 'teal' },
-            { key: 'production.avenants', label: 'Avenants traités', ico: '📝', color: 'blue' },
-            { key: 'production.primes_encaissees', label: 'Primes encaissées', ico: '💰', color: 'teal', fmt: v => (v || 0).toLocaleString('fr-FR') + ' FCFA' },
-            { key: 'production.remboursements', label: 'Remboursements / annulations', ico: '🔄', color: 'red' },
+            { key: 'production.comptes_crees', label: 'Nouveaux comptes créés', ico: '👤', color: 'purple', feature: 'comptes_utilisateurs' },
+            { key: 'production.souscriptions', label: 'Souscriptions coordonnées', ico: '📄', color: 'teal', feature: 'production' },
+            { key: 'production.avenants', label: 'Avenants traités', ico: '📝', color: 'blue', feature: 'production' },
+            { key: 'production.primes_encaissees', label: 'Primes encaissées', ico: '💰', color: 'teal', fmt: v => (v || 0).toLocaleString('fr-FR') + ' FCFA', feature: 'encaissement_prime' },
+            { key: 'production.remboursements', label: 'Remboursements / annulations', ico: '🔄', color: 'red', feature: 'remboursement' },
         ],
         sinistre: [
-            { key: 'sinistres.total', label: 'Sinistres total', ico: '📁', color: 'purple' },
-            { key: 'sinistres.en_cours', label: 'En cours', ico: '⏳', color: 'amber' },
-            { key: 'sinistres.resolus', label: 'Réglés', ico: '✅', color: 'teal' },
-            { key: 'alertes.en_traitement', label: 'Alertes en traitement', ico: '🚨', color: 'red' },
+            { key: 'sinistres.total', label: 'Sinistres total', ico: '📁', color: 'purple', feature: 'sinistres' },
+            { key: 'sinistres.en_cours', label: 'En cours', ico: '⏳', color: 'amber', feature: 'sinistres' },
+            { key: 'sinistres.resolus', label: 'Réglés', ico: '✅', color: 'teal', feature: 'sinistres' },
+            { key: 'alertes.en_traitement', label: 'Alertes en traitement', ico: '🚨', color: 'red', feature: 'alerte_sos' },
         ],
         alertes: [
-            { key: 'alertes.recues', label: 'Alertes reçues', ico: '🚨', color: 'red' },
-            { key: 'alertes.en_traitement', label: 'En traitement', ico: '⏱️', color: 'amber' },
-            { key: 'alertes.valides', label: 'Prises en charge validées', ico: '✅', color: 'teal' },
-            { key: 'alertes.refusees', label: 'Alertes refusées', ico: '🚫', color: 'red' },
-            { key: 'alertes.cloturees', label: 'Alertes clôturées', ico: '📁', color: 'slate' },
+            { key: 'alertes.recues', label: 'Alertes reçues', ico: '🚨', color: 'red', feature: 'alerte_sos' },
+            { key: 'alertes.en_traitement', label: 'En traitement', ico: '⏱️', color: 'amber', feature: 'alerte_sos' },
+            { key: 'alertes.valides', label: 'Prises en charge validées', ico: '✅', color: 'teal', feature: 'prise_en_charge' },
+            { key: 'alertes.refusees', label: 'Alertes refusées', ico: '🚫', color: 'red', feature: 'alerte_sos' },
+            { key: 'alertes.cloturees', label: 'Alertes clôturées', ico: '📁', color: 'slate', feature: 'alerte_sos' },
         ],
         finance: [
-            { key: 'finance.encaissements_attente', label: 'Encaissements en attente', ico: '⏳', color: 'amber' },
-            { key: 'finance.primes_mois', label: 'Primes encaissées (mois)', ico: '💰', color: 'teal', fmt: v => (v || 0).toLocaleString('fr-FR') + ' FCFA' },
-            { key: 'finance.remboursements_attente', label: 'Remboursements à valider', ico: '🔄', color: 'red' },
-            { key: 'finance.factures_attente', label: 'Factures en attente', ico: '📄', color: 'blue' },
-            { key: 'finance.paiements_mois', label: 'Paiements du mois', ico: '💳', color: 'purple' },
+            { key: 'finance.encaissements_attente', label: 'Encaissements en attente', ico: '⏳', color: 'amber', feature: 'encaissement_prime' },
+            { key: 'finance.primes_mois', label: 'Primes encaissées (mois)', ico: '💰', color: 'teal', fmt: v => (v || 0).toLocaleString('fr-FR') + ' FCFA', feature: 'encaissement_prime' },
+            { key: 'finance.remboursements_attente', label: 'Remboursements à valider', ico: '🔄', color: 'red', feature: 'remboursement' },
+            { key: 'finance.factures_attente', label: 'Factures en attente', ico: '📄', color: 'blue', feature: 'facturation_medicale' },
+            { key: 'finance.paiements_mois', label: 'Paiements du mois', ico: '💳', color: 'purple', feature: 'paiement_sinistre' },
         ],
         admin: [
-            { key: 'production.comptes_crees', label: 'Nouveaux comptes', ico: '👤', color: 'purple' },
-            { key: 'production.souscriptions', label: 'Souscriptions (mois)', ico: '📄', color: 'teal' },
-            { key: 'production.primes_encaissees', label: 'Primes encaissées (mois)', ico: '💰', color: 'teal', fmt: v => (v || 0).toLocaleString('fr-FR') + ' FCFA' },
-            { key: 'alertes.en_traitement', label: 'Alertes actives', ico: '🚨', color: 'red' },
-            { key: 'sinistres.en_cours', label: 'Sinistres en cours', ico: '📁', color: 'amber' },
-            { key: 'taches.comptes_en_attente', label: 'Inscriptions en attente', ico: '⏳', color: 'blue' },
+            { key: 'production.comptes_crees', label: 'Nouveaux comptes', ico: '👤', color: 'purple', feature: 'comptes_utilisateurs' },
+            { key: 'production.souscriptions', label: 'Souscriptions (mois)', ico: '📄', color: 'teal', feature: 'production' },
+            { key: 'production.primes_encaissees', label: 'Primes encaissées (mois)', ico: '💰', color: 'teal', fmt: v => (v || 0).toLocaleString('fr-FR') + ' FCFA', feature: 'encaissement_prime' },
+            { key: 'alertes.en_traitement', label: 'Alertes actives', ico: '🚨', color: 'red', feature: 'alerte_sos' },
+            { key: 'sinistres.en_cours', label: 'Sinistres en cours', ico: '📁', color: 'amber', feature: 'sinistres' },
+            { key: 'taches.comptes_en_attente', label: 'Inscriptions en attente', ico: '⏳', color: 'blue', feature: 'comptes_utilisateurs' },
         ],
     };
 
@@ -62,7 +63,7 @@
 
     const LIST_BY_ROLE = {
         production: {
-            title: '📋 Souscriptions récentes', link: 'admin-subscriptions.html',
+            title: '📋 Souscriptions récentes', link: 'admin-subscriptions.html', feature: 'production',
             headers: ['N° souscription', 'Date', 'Assuré', 'Prix', 'Statut', 'Actions'],
             rows: d => (d.souscriptions_recentes || []).map(s =>
                 '<tr><td class="num">' + s.numero + '</td><td class="muted">' + s.date + '</td><td>' + s.assure +
@@ -71,7 +72,7 @@
             ).join(''),
         },
         finance: {
-            title: '💳 Paiements récents', link: 'finance-outbound.html',
+            title: '💳 Paiements récents', link: 'finance-outbound.html', feature: 'encaissement_prime',
             headers: ['Référence', 'Date', 'Montant', 'Dossier', 'Statut', 'Actions'],
             rows: d => (d.paiements_recents || []).map(p =>
                 '<tr><td class="num">' + p.reference + '</td><td class="muted">' + p.date + '</td><td>' +
@@ -80,7 +81,7 @@
             ).join(''),
         },
         admin: {
-            title: '📋 Souscriptions récentes', link: 'admin-subscriptions.html',
+            title: '📋 Souscriptions récentes', link: 'admin-subscriptions.html', feature: 'production',
             headers: ['N° souscription', 'Date', 'Assuré', 'Prix', 'Statut', 'Actions'],
             rows: d => (d.souscriptions_recentes || []).map(s =>
                 '<tr><td class="num">' + s.numero + '</td><td class="muted">' + s.date + '</td><td>' + s.assure +
@@ -89,12 +90,12 @@
             ).join(''),
         },
         default: {
-            title: '📋 Demandes récentes', link: 'admin-subscriptions.html',
+            title: '📋 Demandes récentes', link: 'medical-validations.html', feature: 'prise_en_charge',
             headers: ['N° demande', 'Date et heure', 'Assuré', 'Type de demande', 'Statut', 'Actions'],
             rows: d => (d.demandes_recentes || []).map(s =>
                 '<tr><td class="num">' + s.numero + '</td><td class="muted">' + s.date + '</td><td>' + s.assure +
                 '</td><td>' + s.type + '</td><td>' + badge(s.statut) + '</td>' +
-                '<td><a class="act-link" href="admin-subscriptions.html">Voir</a></td></tr>'
+                '<td><a class="act-link" href="medical-validations.html">Voir</a></td></tr>'
             ).join(''),
         },
     };
@@ -127,7 +128,7 @@
             { href: 'finance-dashboard.html', ico: '💰', label: 'Tableau financier', feature: 'encaissement_prime' },
             { href: 'finance-outbound.html', ico: '💳', label: 'Encaissements & paiements', feature: 'encaissement_prime' },
             { href: 'accounting-portal.html', ico: '📒', label: 'Portail comptable', feature: 'encaissement_prime' },
-            { href: 'mh-invoices.html', ico: '📄', label: 'Factures médicales', feature: 'paiement_facture_mhc' },
+            { href: 'mh-invoices.html', ico: '📄', label: 'Factures médicales', feature: 'facturation_medicale' },
         ],
         admin: [
             { href: 'admin-users.html', ico: '👤', label: 'Comptes & utilisateurs', feature: 'comptes_utilisateurs' },
@@ -178,10 +179,20 @@
         });
         if (!res.ok) { document.getElementById('kpis').innerHTML = '<p style="color:#c81e1e">Impossible de charger les données.</p>'; return; }
         const d = await res.json();
+        const perms = window.MhPermissions;
+        const can = (f, lvl) => !f || (perms && perms.can && perms.can(f, lvl || 'consultation'));
 
-        // KPIs par groupe de profil
+        // KPIs par groupe de profil, filtrés par prérogatives de la feature
         const grpKey = roleGroup(role);
-        const grp = KPIS_BY_ROLE[grpKey] || KPIS_BY_ROLE.production;
+        let grp = (KPIS_BY_ROLE[grpKey] || KPIS_BY_ROLE.production)
+            .filter(k => can(k.feature) && get(d, k.key) !== undefined);
+        if (!grp.length) {
+            grp = [
+                { key: 'taches.comptes_en_attente', label: 'Inscriptions en attente', ico: '⏳', color: 'blue', feature: 'comptes_utilisateurs' },
+                { key: 'taches.souscriptions_en_cours', label: 'Souscriptions en cours', ico: '📄', color: 'teal', feature: 'production' },
+                { key: 'taches.remboursements_a_valider', label: 'Remboursements à valider', ico: '🔄', color: 'red', feature: 'remboursement' },
+            ].filter(k => can(k.feature) && get(d, k.key) !== undefined);
+        }
         const sub = document.querySelector('.bo-page-head .sub');
         if (sub && ROLE_LABELS[grpKey]) sub.textContent = ROLE_LABELS[grpKey];
         document.getElementById('kpis').innerHTML = grp.map(k => {
@@ -189,72 +200,88 @@
             const val = k.fmt ? k.fmt(raw) : raw;
             return '<div class="bo-kpi"><div class="bo-kpi-ico ' + k.color + '">' + k.ico + '</div>' +
                 '<div><div class="l">' + k.label + '</div><div class="v">' + (val ?? '—') + '</div></div></div>';
-        }).join('');
+        }).join('') || '<div class="bo-card" style="padding:1rem 1.2rem;color:#7c7590">Aucun indicateur dans votre périmètre.</div>';
 
-        // Donut répartition
-        const parts = d.repartition_demandes || [];
-        const total = parts.reduce((s, p) => s + p.value, 0);
-        let acc = 0;
-        const segs = parts.filter(p => p.value > 0).map(p => {
-            const from = acc / Math.max(total, 1) * 360;
-            acc += p.value;
-            return p.color + ' ' + from + 'deg ' + (acc / Math.max(total, 1) * 360) + 'deg';
-        });
-        document.getElementById('donut').style.background =
-            'conic-gradient(' + (segs.length ? segs.join(',') : '#eceef6 0 360deg') + ')';
-        document.getElementById('donutCenter').innerHTML = total + '<small>demandes</small>';
-        document.getElementById('donutLegend').innerHTML = parts.map(p =>
-            '<li><span class="dot" style="background:' + p.color + '"></span>' + p.label +
-            '<span class="pct">' + (total ? Math.round(p.value / total * 100) : 0) + '%</span></li>'
-        ).join('');
+        // Donut répartition + statut global — uniquement si le périmètre médical est accessible
+        const donutCard = document.getElementById('donutCard');
+        const statusCard = document.getElementById('statusCard');
+        if (d.repartition_demandes) {
+            const parts = d.repartition_demandes || [];
+            const total = parts.reduce((s, p) => s + p.value, 0);
+            let acc = 0;
+            const segs = parts.filter(p => p.value > 0).map(p => {
+                const from = acc / Math.max(total, 1) * 360;
+                acc += p.value;
+                return p.color + ' ' + from + 'deg ' + (acc / Math.max(total, 1) * 360) + 'deg';
+            });
+            document.getElementById('donut').style.background =
+                'conic-gradient(' + (segs.length ? segs.join(',') : '#eeedf2 0 360deg') + ')';
+            document.getElementById('donutCenter').innerHTML = total + '<small>demandes</small>';
+            document.getElementById('donutLegend').innerHTML = parts.map(p =>
+                '<li><span class="dot" style="background:' + p.color + '"></span>' + p.label +
+                '<span class="pct">' + (total ? Math.round(p.value / total * 100) : 0) + '%</span></li>'
+            ).join('');
+        } else if (donutCard) { donutCard.style.display = 'none'; }
 
-        // Statut global
-        const sg = d.statut_global || {};
-        const sgTotal = Math.max((sg.validees || 0) + (sg.en_analyse || 0) + (sg.refusees || 0) + (sg.en_attente || 0) + (sg.cloturees || 0), 1);
-        const rows = [
-            ['Validées', sg.validees, '#0a9b6c'],
-            ['En analyse', sg.en_analyse, '#e8a13a'],
-            ['Refusées', sg.refusees, '#e23d3d'],
-            ['En attente', sg.en_attente, '#2d5bd7'],
-            ['Clôturées', sg.cloturees, '#64748b'],
-        ];
-        document.getElementById('globalStatus').innerHTML = rows.map(r =>
-            '<li><span class="dot" style="background:' + r[2] + '"></span>' + r[0] +
-            '<span class="pct">' + (r[1] || 0) + ' <span class="muted">' + Math.round((r[1] || 0) / sgTotal * 100) + '%</span></span></li>'
-        ).join('');
+        if (d.statut_global) {
+            const sg = d.statut_global;
+            const sgTotal = Math.max((sg.validees || 0) + (sg.en_analyse || 0) + (sg.refusees || 0) + (sg.en_attente || 0) + (sg.cloturees || 0), 1);
+            const rows = [
+                ['Validées', sg.validees, '#1f9d55'],
+                ['En analyse', sg.en_analyse, '#d98a10'],
+                ['Refusées', sg.refusees, '#d64545'],
+                ['En attente', sg.en_attente, '#2f6fd6'],
+                ['Clôturées', sg.cloturees, '#7c7590'],
+            ];
+            document.getElementById('globalStatus').innerHTML = rows.map(r =>
+                '<li><span class="dot" style="background:' + r[2] + '"></span>' + r[0] +
+                '<span class="pct">' + (r[1] || 0) + ' <span class="muted">' + Math.round((r[1] || 0) / sgTotal * 100) + '%</span></span></li>'
+            ).join('');
+        } else if (statusCard) { statusCard.style.display = 'none'; }
 
-        // Première liste : adaptée au profil (souscriptions, paiements, demandes)
-        const listCfg = LIST_BY_ROLE[grpKey] || LIST_BY_ROLE.default;
+        // Première liste : adaptée au profil et à ses prérogatives
+        // (sinon repli sur la liste demandes médicales, sinon carte masquée).
         const listCard = document.getElementById('recentCard');
-        if (listCard) {
+        const candidates = [LIST_BY_ROLE[grpKey], LIST_BY_ROLE.default].filter(Boolean);
+        const listCfg = candidates.find(l => can(l.feature));
+        if (listCard && !listCfg) {
+            listCard.style.display = 'none';
+        } else if (listCard) {
             listCard.querySelector('.bo-card-title').textContent = listCfg.title;
             const link = listCard.querySelector('.bo-link-all');
             if (link) link.href = listCfg.link;
             listCard.querySelector('thead tr').innerHTML = listCfg.headers.map(h => '<th>' + h + '</th>').join('');
+            document.getElementById('recentRows').innerHTML = listCfg.rows(d) ||
+                '<tr><td colspan="6" class="muted" style="text-align:center;padding:1rem">Aucun élément dans votre périmètre</td></tr>';
         }
-        document.getElementById('recentRows').innerHTML = listCfg.rows(d) ||
-            '<tr><td colspan="6" class="muted" style="text-align:center;padding:1rem">Aucun élément</td></tr>';
 
-        // Alertes urgences
-        document.getElementById('alertRows').innerHTML = (d.alertes_urgences || []).map(a =>
-            '<tr><td><span class="bo-prio ' + a.priorite + '"></span><span class="num">' + a.numero + '</span></td>' +
-            '<td class="muted">' + a.date + '</td><td>' + a.assure + '</td><td>' + (a.motif || '—') + '</td>' +
-            '<td>' + badge(a.statut) + '</td>' +
-            '<td><a class="act-link" href="alert-detail.html?id=' + a.id + '">Voir</a></td></tr>'
-        ).join('') || '<tr><td colspan="6" class="muted" style="text-align:center;padding:1rem">Aucune alerte active</td></tr>';
+        // Alertes urgences — masquée si le périmètre alertes n'est pas accessible
+        const alertsCard = document.getElementById('alertsCard');
+        if (alertsCard && !d.alertes_urgences) {
+            alertsCard.style.display = 'none';
+        } else {
+            document.getElementById('alertRows').innerHTML = (d.alertes_urgences || []).map(a =>
+                '<tr><td><span class="bo-prio ' + a.priorite + '"></span><span class="num">' + a.numero + '</span></td>' +
+                '<td class="muted">' + a.date + '</td><td>' + a.assure + '</td><td>' + (a.motif || '—') + '</td>' +
+                '<td>' + badge(a.statut) + '</td>' +
+                '<td><a class="act-link" href="alert-center.html?focus=' + a.id + '">Voir</a></td></tr>'
+            ).join('') || '<tr><td colspan="6" class="muted" style="text-align:center;padding:1rem">Aucune alerte active</td></tr>';
+        }
 
         // À traiter en priorité — notifications non lues (top 5)
         loadPriority();
 
-        // Actions rapides
-        const qa = (QUICK_BY_ROLE[grpKey] || QUICK_BY_ROLE.default).filter(q => {
-            if (!q.feature) return true;
-            const perms = window.MhPermissions;
-            return perms && perms.can && perms.can(q.feature, q.minLevel || 'consultation');
-        });
-        document.getElementById('quickActions').innerHTML = qa.map(q =>
-            '<a href="' + q.href + '"><span class="qi" style="background:#efeaf9">' + q.ico + '</span>' + q.label + '</a>'
-        ).join('');
+        // Actions rapides — filtrées par prérogatives ; carte masquée si vide
+        const qa = (QUICK_BY_ROLE[grpKey] || QUICK_BY_ROLE.default).filter(q =>
+            !q.feature || can(q.feature, q.minLevel));
+        const quickCard = document.getElementById('quickCard');
+        if (quickCard && !qa.length) {
+            quickCard.style.display = 'none';
+        } else {
+            document.getElementById('quickActions').innerHTML = qa.map(q =>
+                '<a href="' + q.href + '"><span class="qi" style="background:#efe9f6">' + q.ico + '</span>' + q.label + '</a>'
+            ).join('');
+        }
     }
 
     async function loadPriority() {
