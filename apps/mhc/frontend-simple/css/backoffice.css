@@ -403,7 +403,7 @@ body[data-backoffice] > main {
 .bo-kpi-ico.red { background: #fdecec; color: #d64545; }
 .bo-kpi-ico.blue { background: #e8f0fd; color: #2f6fd6; }
 .bo-kpi-ico.amber { background: #fff4e0; color: #d98a10; }
-.bo-kpi-ico.slate { background: #eeedf2; color: #475569; }
+.bo-kpi-ico.slate { background: #eeedf2; color: #4b4360; }
 
 .bo-kpi .l { font-size: 0.72rem; color: #7c7590; line-height: 1.25; }
 .bo-kpi .v { font-size: 1.05rem; font-weight: 700; color: #1f1630; line-height: 1.15; font-variant-numeric: tabular-nums; }
@@ -485,7 +485,7 @@ body[data-backoffice] > main {
 .bo-badge.validee, .bo-badge.valide, .bo-badge.validee_am, .bo-badge.a_valider { background: #e6f6ec; color: #1f9d55; }
 .bo-badge.a_valider { background: #e8f0fd; color: #2f6fd6; }
 .bo-badge.refusee, .bo-badge.refuse { background: #fdecec; color: #d64545; }
-.bo-badge.cloturee, .bo-badge.resolue, .bo-badge.complete { background: #eeedf2; color: #475569; }
+.bo-badge.cloturee, .bo-badge.resolue, .bo-badge.complete { background: #eeedf2; color: #4b4360; }
 .bo-badge.a_payer { background: #fff4e0; color: #d98a10; }
 .bo-badge.paye { background: #e6f6ec; color: #1f9d55; }
 .bo-badge.annule, .bo-badge.annulee { background: #e7e3ee; color: #7c7590; }
@@ -1272,10 +1272,14 @@ body[data-backoffice] main .filters-field {
     gap: 0.25rem;
 }
 body[data-backoffice] main .filters-field > span,
-body[data-backoffice] main .filters-row label {
-    font-size: 0.74rem;
-    font-weight: 600;
-    color: #555;
+body[data-backoffice] main .filters-row label,
+body[data-backoffice] main .filter-group label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #7c7590;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
 }
 body[data-backoffice] main .filters-actions {
     display: flex;
@@ -1481,7 +1485,7 @@ body[data-backoffice] main .table-wrapper:has(.finance-table) {
     padding: 0;
     max-height: 180px;
     overflow-y: auto;
-    border: 1px solid var(--border, #e5e7eb);
+    border: 1px solid var(--border, #e7e3ee);
     border-radius: 8px;
     background: #fff;
 }

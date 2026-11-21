@@ -17,7 +17,7 @@ body {
 
 .eyebrow {
     text-transform: uppercase;
-    color: #6b7280;
+    color: #7c7590;
     font-weight: 600;
     letter-spacing: 0.08em;
     font-size: 0.85rem;
@@ -27,7 +27,7 @@ body {
 .subtitle {
     margin: 0;
     max-width: 720px;
-    color: #4b5563;
+    color: #4b4360;
 }
 
 .summary-cards {
@@ -47,7 +47,7 @@ body {
 
 .summary-label {
     font-size: 0.85rem;
-    color: #6b7280;
+    color: #7c7590;
 }
 
 .summary-value {
@@ -57,19 +57,21 @@ body {
 
 .filters-panel {
     background: #fff;
-    border-radius: 12px;
+    border: 1px solid #e7e3ee;
+    border-radius: 14px;
     padding: 1rem 1.25rem;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+    gap: 0.8rem 1rem;
+    box-shadow: 0 1px 2px rgba(40, 20, 70, 0.06), 0 4px 16px rgba(40, 20, 70, 0.06);
 }
 
 .catalog-panel {
     background: #fff;
-    border-radius: 16px;
-    padding: 1.5rem;
-    box-shadow: 0 15px 35px rgba(15, 23, 42, 0.08);
+    border: 1px solid #e7e3ee;
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 1px 2px rgba(40, 20, 70, 0.06), 0 4px 16px rgba(40, 20, 70, 0.06);
     display: flex;
     flex-direction: column;
     gap: 1rem;
@@ -100,10 +102,10 @@ body {
 }
 
 .default-card {
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e7e3ee;
     border-radius: 12px;
     padding: 0.85rem 1rem;
-    background: #f8fafc;
+    background: #faf9fc;
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
@@ -111,7 +113,7 @@ body {
 
 .default-card span {
     font-size: 0.85rem;
-    color: #6b7280;
+    color: #7c7590;
 }
 
 .default-card strong {
@@ -126,7 +128,7 @@ body {
 }
 
 .catalog-card {
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e7e3ee;
     border-radius: 16px;
     padding: 1rem;
     background: #fdfdff;
@@ -156,7 +158,7 @@ body {
 .catalog-subtitle {
     margin: 0.2rem 0 0;
     font-size: 0.85rem;
-    color: #6b7280;
+    color: #7c7590;
 }
 
 .catalog-toggle-meta {
@@ -168,8 +170,8 @@ body {
 .catalog-chevron {
     width: 18px;
     height: 18px;
-    border-right: 2px solid #9ca3af;
-    border-bottom: 2px solid #9ca3af;
+    border-right: 2px solid #8f87a3;
+    border-bottom: 2px solid #8f87a3;
     transform: rotate(45deg);
     transition: transform 0.2s ease;
 }
@@ -191,7 +193,7 @@ body {
 .catalog-table {
     width: 100%;
     border-collapse: collapse;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e7e3ee;
     border-radius: 12px;
     overflow: hidden;
 }
@@ -199,13 +201,13 @@ body {
 .catalog-table th,
 .catalog-table td {
     padding: 0.65rem 0.85rem;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid #f6f4f9;
     text-align: left;
     font-size: 0.9rem;
 }
 
 .catalog-table thead {
-    background: #f8fafc;
+    background: #faf9fc;
 }
 
 .catalog-form {
@@ -222,7 +224,7 @@ body {
 
 .catalog-form input,
 .catalog-form textarea {
-    border: 1px solid #d1d5db;
+    border: 1px solid #e7e3ee;
     border-radius: 8px;
     padding: 0.55rem 0.75rem;
     font-size: 0.95rem;
@@ -240,7 +242,7 @@ body {
 }
 
 .catalog-card .panel-empty small {
-    color: #94a3b8;
+    color: #8f87a3;
 }
 
 .secondary-button,
@@ -280,18 +282,30 @@ body {
 }
 
 .filter-group label {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--primary-color);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #7c7590;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
 }
 
 .filter-group select,
 .filter-group input {
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    padding: 0.55rem 0.75rem;
-    font-size: 0.95rem;
+    border: 1px solid #e7e3ee;
+    border-radius: 0.55rem;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.8rem;
     background: #fff;
+    color: #4b4360;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filter-group select:focus,
+.filter-group input:focus {
+    outline: none;
+    border-color: #522880;
+    box-shadow: 0 0 0 3px rgba(82, 40, 128, 0.1);
 }
 
 .content-grid {
@@ -316,11 +330,11 @@ body {
 }
 
 .panel-empty {
-    background: #f8fafc;
+    background: #faf9fc;
     border: 1px dashed #cbd5f5;
     border-radius: 12px;
     padding: 1.25rem;
-    color: #475569;
+    color: #4b4360;
     text-align: center;
 }
 
@@ -335,7 +349,7 @@ body {
 
 .stay-card {
     border: 1px solid transparent;
-    border-left: 4px solid #e5e7eb;
+    border-left: 4px solid #e7e3ee;
     border-radius: 12px;
     padding: 0.85rem;
     background: #fdfdff;
@@ -433,7 +447,7 @@ body {
 
 .report-grid dt {
     font-size: 0.75rem;
-    color: #94a3b8;
+    color: #8f87a3;
     text-transform: uppercase;
 }
 
@@ -507,14 +521,14 @@ body {
 }
 
 .ghost-button:hover {
-    background: #f1f5f9;
-    color: #0f172a;
+    background: #f6f4f9;
+    color: #1f1630;
 }
 
 .invoice-table {
     width: 100%;
     border-collapse: collapse;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e7e3ee;
     border-radius: 12px;
     overflow: hidden;
 }
@@ -522,17 +536,17 @@ body {
 .invoice-table th,
 .invoice-table td {
     padding: 0.75rem;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid #f6f4f9;
     text-align: left;
 }
 
 .invoice-table thead {
-    background: #f8fafc;
+    background: #faf9fc;
 }
 
 .invoice-line-input {
     width: 100%;
-    border: 1px solid #d1d5db;
+    border: 1px solid #e7e3ee;
     border-radius: 8px;
     padding: 0.45rem 0.6rem;
     font-size: 0.9rem;
@@ -541,8 +555,8 @@ body {
 }
 
 .invoice-line-input:disabled {
-    background: #f8fafc;
-    color: #94a3b8;
+    background: #faf9fc;
+    color: #8f87a3;
 }
 
 .line-label-input {
@@ -580,7 +594,7 @@ body {
 .icon-button {
     border: none;
     background: transparent;
-    color: #9ca3af;
+    color: #8f87a3;
     cursor: pointer;
     padding: 0.2rem;
     border-radius: 6px;
@@ -609,7 +623,7 @@ body {
 }
 
 .notes-field textarea {
-    border: 1px solid #d1d5db;
+    border: 1px solid #e7e3ee;
     border-radius: 8px;
     padding: 0.65rem 0.8rem;
     resize: vertical;
@@ -621,7 +635,7 @@ body {
     border: 1px solid #e0e7ff;
     border-radius: 12px;
     padding: 1rem 1.25rem;
-    background: #f8fafc;
+    background: #faf9fc;
 }
 
 .validation-list {
@@ -638,7 +652,7 @@ body {
     justify-content: space-between;
     gap: 0.75rem;
     font-size: 0.9rem;
-    color: #475569;
+    color: #4b4360;
 }
 
 .validation-pill {
@@ -729,7 +743,7 @@ body {
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e7e3ee;
 }
 
 .invoice-workflow-step {
@@ -737,7 +751,7 @@ body {
     align-items: center;
     gap: 0.65rem;
     font-weight: 600;
-    color: #64748b;
+    color: #7c7590;
     font-size: 0.95rem;
 }
 
@@ -752,8 +766,8 @@ body {
     width: 1.75rem;
     height: 1.75rem;
     border-radius: 50%;
-    background: #e2e8f0;
-    color: #475569;
+    background: #e7e3ee;
+    color: #4b4360;
     font-size: 0.85rem;
     font-weight: 700;
 }
@@ -764,7 +778,7 @@ body {
 }
 
 .invoice-workflow-arrow {
-    color: #cbd5e1;
+    color: #d9d4e3;
     font-size: 1.1rem;
     user-select: none;
 }
@@ -777,7 +791,7 @@ body {
     margin-top: 0.5rem;
     background: #fff;
     border-radius: 16px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e7e3ee;
     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
     overflow: hidden;
 }
@@ -788,7 +802,7 @@ body {
     cursor: pointer;
     list-style: none;
     color: var(--dark-text, #1f2937);
-    background: #f8fafc;
+    background: #faf9fc;
 }
 
 .catalog-details-summary::-webkit-details-marker {
@@ -796,7 +810,7 @@ body {
 }
 
 .catalog-details-block[open] .catalog-details-summary {
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e7e3ee;
 }
 
 .catalog-details-block .catalog-panel {

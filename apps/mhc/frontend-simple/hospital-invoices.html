@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Facturation hospitalière - Mobility Health Care</title>
-    <link rel="stylesheet" href="css/style.css?v=20261027">
-    <link rel="stylesheet" href="css/admin.css">
-    <link rel="stylesheet" href="css/backoffice.css?v=15">
-    <link rel="stylesheet" href="css/hospital-invoices.css">
+    <link rel="stylesheet" href="css/style.css?v=20261028">
+    <link rel="stylesheet" href="css/admin.css?v=2">
+    <link rel="stylesheet" href="css/backoffice.css?v=16">
+    <link rel="stylesheet" href="css/hospital-invoices.css?v=2">
 </head>
 <body class="protected" data-backoffice>
     <nav class="navbar">
@@ -58,34 +58,34 @@
         </div>
 
         <section class="filters-panel">
-            <p class="filters-panel-hint muted">Filtres appliqués à la liste à gauche. Réglage initial : séjours validés, rapport validé, facture à générer.</p>
+            <p class="filters-panel-hint muted">Filtres appliqués à la liste à gauche. Réglage initial : tous les séjours.</p>
             <div class="filter-group">
                 <label for="filterStatus">Statut du séjour</label>
                 <select id="filterStatus">
+                    <option value="all" selected>Tous</option>
                     <option value="validated">Validés</option>
                     <option value="awaiting_validation">En validation</option>
                     <option value="in_progress">En cours</option>
-                    <option value="all">Tous</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label for="filterReport">Rapport médical</label>
                 <select id="filterReport">
+                    <option value="all" selected>Tous</option>
                     <option value="approved">Validé</option>
                     <option value="submitted">Soumis</option>
-                    <option value="all">Tous</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label for="filterInvoice">Facture</label>
                 <select id="filterInvoice">
+                    <option value="all" selected>Tous</option>
                     <option value="none">À générer</option>
                     <option value="pending_medical">En attente accord médical</option>
                     <option value="pending_sinistre">En attente affaires médicales</option>
                     <option value="pending_compta">En attente comptabilité MH</option>
                     <option value="validated">Validées</option>
                     <option value="rejected">Refusées</option>
-                    <option value="all">Tous</option>
                 </select>
             </div>
             <div class="filter-group search-group">
@@ -385,7 +385,7 @@
     <script src="js/auth.js?v=5"></script>
     <script src="js/permissions.js?v=3"></script>
     <script src="js/backoffice-nav.js?v=20"></script>
-    <script src="js/hospital-invoices.js?v=2"></script>
+    <script src="js/hospital-invoices.js?v=3"></script>
 </body>
 </html>
 

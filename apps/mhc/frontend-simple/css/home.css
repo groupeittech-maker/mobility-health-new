@@ -699,7 +699,7 @@
 .product-detail-table td {
     padding: 0.6rem 0.75rem;
     text-align: left;
-    border-bottom: 1px solid var(--light-bg, #e2e8f0);
+    border-bottom: 1px solid var(--light-bg, #e7e3ee);
 }
 
 .product-detail-table th {

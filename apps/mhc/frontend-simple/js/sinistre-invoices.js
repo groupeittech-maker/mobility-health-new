@@ -20,7 +20,7 @@ const HISTORY_ACTION_LABELS = {
 let invoices = [];
 let filteredInvoices = [];
 let selectedInvoiceId = null;
-let currentStageFilter = 'sinistre';
+let currentStageFilter = 'all';
 let searchTerm = '';
 let currentUserRole = null;
 

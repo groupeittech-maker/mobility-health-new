@@ -21,7 +21,7 @@ const MH_HISTORY_ACTIONS = {
 let mhInvoices = [];
 let mhFilteredInvoices = [];
 let mhSelectedInvoiceId = null;
-let mhStageFilter = 'validated';
+let mhStageFilter = 'all';
 let mhSearchTerm = '';
 let mhUserRole = null;
 

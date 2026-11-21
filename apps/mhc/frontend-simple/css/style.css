@@ -22,12 +22,12 @@
     /* Surfaces (îlots) — aligné mobile */
     --card-bg: rgba(255, 255, 255, 0.98);
     --field-fill: #ffffff;
-    --field-border: #e2e8f0;
-    --dark-text: #0f172a;
-    --muted-text: #64748b;
-    --border-color: #e2e8f0;
-    --shadow-color: rgba(15, 23, 42, 0.08);
-    --shadow-lg: rgba(15, 23, 42, 0.12);
+    --field-border: #e7e3ee;
+    --dark-text: #1f1630;
+    --muted-text: #7c7590;
+    --border-color: #e7e3ee;
+    --shadow-color: rgba(40, 20, 70, 0.08);
+    --shadow-lg: rgba(40, 20, 70, 0.12);
     /* Surlignage texte sur fond motif (lavande brand) */
     --text-highlight-bg: rgba(237, 233, 254, 0.92);
     --text-highlight-bg-strong: rgba(237, 233, 254, 0.97);

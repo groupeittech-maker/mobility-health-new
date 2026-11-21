@@ -71,9 +71,9 @@ const state = {
     hospitalId: null,
     stays: [],
     filters: {
-        status: 'validated',
-        report: 'approved',
-        invoice: 'none',
+        status: 'all',
+        report: 'all',
+        invoice: 'all',
         search: '',
     },
     selectedStayId: null,
