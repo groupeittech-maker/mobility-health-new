@@ -6,7 +6,7 @@
     <title>Réception Hôpital - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css?v=20261028">
     <link rel="stylesheet" href="css/admin.css?v=4">
-    <link rel="stylesheet" href="css/backoffice.css?v=22">
+    <link rel="stylesheet" href="css/backoffice.css?v=23">
 </head>
 <body class="protected hospital-reception" data-backoffice>
     <nav class="navbar">
@@ -144,7 +144,9 @@
             <div id="receptionAlertsPagination" class="table-pagination-wrapper" hidden></div>
         </section>
 
-        <!-- Dossier sélectionné et traitement (affichés en bas quand un dossier est ouvert) -->
+        <!-- Dossier sélectionné et traitement — panneau latéral (maquette) -->
+        <div class="bo-detail-panel bo-panel-wide" id="receptionPanel">
+        <button class="dp-close" onclick="closeAlertDetails()">✕</button>
         <section class="dashboard-section" id="alertDetailsSection" hidden>
             <a id="treatment-section-anchor" style="position: absolute; top: -100px; visibility: hidden;"></a>
             <div class="section-header">
@@ -194,6 +196,7 @@
                 </div>
             </div>
         </section>
+        </div>
 
         <div class="bo-modal-backdrop" id="orientationModal">
             <div class="bo-modal" style="max-width:520px;">
@@ -392,7 +395,7 @@
     <script src="js/auth.js?v=5"></script>
     <script src="js/permissions.js?v=4"></script>
     <script src="js/backoffice-nav.js?v=21"></script>
-    <script src="js/hospital-reception.js?v=7"></script>
+    <script src="js/hospital-reception.js?v=8"></script>
 </body>
 </html>
 

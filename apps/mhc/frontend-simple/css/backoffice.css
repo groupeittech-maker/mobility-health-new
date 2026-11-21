@@ -543,6 +543,12 @@ body[data-backoffice] > main {
     padding: 1.1rem 1.2rem 2rem;
 }
 .bo-detail-panel.open { transform: none; }
+.bo-detail-panel.bo-panel-wide { width: 700px; max-width: 96vw; }
+.bo-detail-panel .dashboard-section {
+    box-shadow: none; border: none; border-radius: 0; padding: 0 0 1.1rem;
+    margin: 0 0 1.1rem; background: transparent;
+}
+.bo-detail-panel .dashboard-section[hidden] { display: none !important; }
 .bo-detail-panel .dp-close {
     position: absolute;
     top: 0.9rem; right: 0.9rem;

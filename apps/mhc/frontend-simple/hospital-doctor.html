@@ -6,7 +6,7 @@
     <title>Traitement hospitalier - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css?v=20261028">
     <link rel="stylesheet" href="css/admin.css?v=4">
-    <link rel="stylesheet" href="css/backoffice.css?v=22">
+    <link rel="stylesheet" href="css/backoffice.css?v=23">
 </head>
 <body class="protected hospital-doctor" data-backoffice>
     <nav class="navbar">
@@ -106,6 +106,9 @@
             </div>
         </section>
 
+        <!-- Dossier sélectionné — panneau latéral (maquette) -->
+        <div class="bo-detail-panel bo-panel-wide" id="doctorCasePanel">
+        <button class="dp-close" onclick="closeDoctorCase()">✕</button>
         <section class="dashboard-section" id="caseDetailsSection" hidden>
             <div class="section-header">
                 <div>
@@ -187,6 +190,7 @@
                 </div>
             </div>
         </section>
+        </div>
     </main>
 
     <footer>
@@ -205,7 +209,7 @@
         .bo-table tbody tr.selected td:first-child { box-shadow: inset 3px 0 0 #6c5ce7; }
         .bo-table tbody tr[data-row-alert-id]:hover { cursor: pointer; }
     </style>
-    <script src="js/hospital-doctor.js?v=4"></script>
+    <script src="js/hospital-doctor.js?v=5"></script>
 </body>
 </html>
 

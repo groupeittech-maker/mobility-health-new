@@ -293,6 +293,7 @@ async function loadDoctorCases(showToast = false) {
             if (!stillExists) {
                 selectedCaseId = null;
                 document.getElementById('caseDetailsSection').hidden = true;
+                document.getElementById('doctorCasePanel')?.classList.remove('open');
             }
         }
 
@@ -649,6 +650,17 @@ function getStayStatusBadge(status) {
     return `<span class="status-badge ${cls}">${escapeHtml(label)}</span>`;
 }
 
+function closeDoctorCase() {
+    document.getElementById('doctorCasePanel')?.classList.remove('open');
+    const section = document.getElementById('caseDetailsSection');
+    if (section) {
+        section.hidden = true;
+    }
+    selectedCaseId = null;
+    document.querySelectorAll('tr[data-row-alert-id]').forEach((row) => row.classList.remove('selected'));
+}
+window.closeDoctorCase = closeDoctorCase;
+
 function selectDoctorCase(alertId) {
     const match = doctorCases.find((item) => item.alert.id === Number(alertId));
     if (!match) {
@@ -671,6 +683,8 @@ function renderSelectedCase(caseEntry) {
     section.hidden = false;
 
     const { alert, sinistre } = caseEntry;
+    // Le dossier s'ouvre en panneau latéral (maquette).
+    document.getElementById('doctorCasePanel')?.classList.add('open');
     renderCaseMeta(alert, sinistre);
     renderCaseOverview(alert, sinistre);
     renderPatientDetails(alert, sinistre);
@@ -1096,6 +1110,7 @@ async function refreshSelectedCase() {
         if (!sinistre?.hospital_stay || !canAccessCase(sinistre)) {
             doctorCases = doctorCases.filter((item) => item.alert.id !== entry.alert.id);
             document.getElementById('caseDetailsSection').hidden = true;
+            document.getElementById('doctorCasePanel')?.classList.remove('open');
             selectedCaseId = null;
             renderDoctorCases();
             updateStats();

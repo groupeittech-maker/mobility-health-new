@@ -549,53 +549,17 @@ function renderSelectedAlert() {
     }
 
     renderReceptionActions();
-    
-    // Faire défiler vers la section de traitement (informations et actions)
-    // Approche simple : défiler vers le haut puis vers la section
-    const scrollToTreatmentSection = () => {
-        const targetSection = document.getElementById('alertDetailsSection');
-        if (!targetSection) {
-            return;
-        }
-        
-        // S'assurer que la section est visible
-        targetSection.hidden = false;
-        targetSection.style.display = 'block';
-        targetSection.style.visibility = 'visible';
-        
-        // Forcer un reflow pour que le navigateur calcule les positions
-        void targetSection.offsetHeight;
-        
-        // Méthode 1: scrollIntoView (le plus simple)
-        targetSection.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start'
-        });
-        
-        // Méthode 2: Calcul manuel avec scrollTo (fallback)
-        setTimeout(() => {
-            const navbar = document.querySelector('.navbar');
-            const navbarHeight = (navbar ? navbar.offsetHeight : 80) + 20;
-            const rect = targetSection.getBoundingClientRect();
-            const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
-            const targetScroll = currentScroll + rect.top - navbarHeight;
-            
-            if (targetScroll >= 0 && Math.abs(currentScroll - targetScroll) > 5) {
-                window.scrollTo({
-                    top: targetScroll,
-                    behavior: 'smooth'
-                });
-            }
-        }, 100);
-    };
-    
-    // Défiler après un court délai pour laisser le temps au DOM de se mettre à jour
-    setTimeout(scrollToTreatmentSection, 50);
-    setTimeout(scrollToTreatmentSection, 200);
-    setTimeout(scrollToTreatmentSection, 400);
+
+    // Le dossier s'ouvre en panneau latéral (maquette) — plus de scroll.
+    const section = document.getElementById('alertDetailsSection');
+    if (section) {
+        section.hidden = false;
+    }
+    document.getElementById('receptionPanel')?.classList.add('open');
 }
 
 function resetAlertDetails() {
+    document.getElementById('receptionPanel')?.classList.remove('open');
     const section = document.getElementById('alertDetailsSection');
     if (section) {
         section.hidden = true;
@@ -628,17 +592,6 @@ function closeAlertDetails() {
     if (cardList) {
         cardList.querySelectorAll('tr[data-row-alert-id]').forEach((row) => {
             row.classList.remove('selected');
-        });
-    }
-    // Faire défiler vers la liste des alertes
-    const alertsSection = document.getElementById('alertsListSection');
-    if (alertsSection) {
-        const navbar = document.querySelector('.navbar');
-        const navbarHeight = navbar ? navbar.offsetHeight : 80;
-        const targetPosition = alertsSection.getBoundingClientRect().top + window.pageYOffset - navbarHeight - 20;
-        window.scrollTo({
-            top: Math.max(0, targetPosition),
-            behavior: 'smooth'
         });
     }
 }
