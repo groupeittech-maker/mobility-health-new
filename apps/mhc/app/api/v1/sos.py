@@ -1525,6 +1525,11 @@ async def declaration_manuelle(
         .order_by(Souscription.created_at.desc())
         .first()
     )
+    if not souscription:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Aucune souscription active pour cet assuré : la déclaration d'alerte nécessite une couverture en cours.",
+        )
     # Même règle que POST /sos/trigger : pas de déclaration tant que la
     # couverture n'a pas débuté — le canal « médecin-conseil » ne contourne
     # pas le blocage appliqué à l'assuré.

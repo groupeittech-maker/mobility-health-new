@@ -1519,6 +1519,8 @@ body[data-backoffice] main .table-wrapper:has(.finance-table) {
 }
 .declare-item:hover { background: #f6f4f9; }
 .declare-item.selected { border-color: #522880; background: #efe9f6; }
+.declare-item.disabled { opacity: 0.55; cursor: not-allowed; }
+.declare-item.disabled:hover { background: none; }
 
 /* ---------- Compteurs de navigation (badges sidebar) ---------- */
 .bo-count {

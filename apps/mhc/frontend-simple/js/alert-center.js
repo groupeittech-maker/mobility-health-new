@@ -356,14 +356,14 @@
         const users = await res.json();
         if (!users.length) { box.innerHTML = '<div class="muted">Aucun assuré trouvé.</div>'; return; }
         box.innerHTML = users.map(u =>
-            '<div class="declare-item" data-uid="' + u.id + '">' +
+            '<div class="declare-item' + (u.souscription_active ? '' : ' disabled') + '" data-uid="' + u.id + '">' +
             '<strong>' + (u.nom || '—') + '</strong> <span class="muted">' + (u.email || '') + ' ' + (u.telephone || '') + '</span>' +
             (u.souscription_active
                 ? ' <span class="bo-badge resolue">Couvert — ' + (u.souscription_active.numero || '') + '</span>'
                 : ' <span class="bo-badge annulee">Sans souscription active</span>') +
             '</div>'
         ).join('');
-        box.querySelectorAll('.declare-item').forEach(el => el.addEventListener('click', () => {
+        box.querySelectorAll('.declare-item:not(.disabled)').forEach(el => el.addEventListener('click', () => {
             box.querySelectorAll('.declare-item').forEach(x => x.classList.remove('selected'));
             el.classList.add('selected');
             declareSelectedUserId = Number(el.dataset.uid);
