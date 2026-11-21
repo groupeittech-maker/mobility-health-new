@@ -18,6 +18,7 @@ from app.models.assureur_agent import AssureurAgent
 from app.models.courtier import Courtier
 from app.models.projet_voyage import ProjetVoyage
 from app.models.questionnaire import Questionnaire
+from app.models.ekyc_session import EkycSession
 from app.models.finance_refund import Refund
 from pydantic import BaseModel, Field, ConfigDict
 from app.services.attestation_service import AttestationService
@@ -1331,6 +1332,34 @@ async def confirm_payment(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La souscription n'est pas en attente de paiement"
         )
+
+    # eKYC obligatoire pour les souscriptions voyage (même règle web et
+    # mobile) : le paiement exige une identité VERIFIED — un dossier en
+    # revue manuelle (REVIEW) doit attendre le verdict.
+    if souscription.projet_voyage_id:
+        latest_ekyc = (
+            db.query(EkycSession)
+            .filter(EkycSession.souscription_id == souscription.id)
+            .order_by(EkycSession.created_at.desc())
+            .first()
+        )
+        if not latest_ekyc or latest_ekyc.status != "VERIFIED":
+            if latest_ekyc and latest_ekyc.status == "REVIEW":
+                detail = (
+                    "Votre vérification d'identité est en cours d'analyse par nos équipes. "
+                    "Vous pourrez payer dès qu'elle sera validée."
+                )
+            elif latest_ekyc and latest_ekyc.status in {"REJECTED", "EXPIRED"}:
+                detail = (
+                    "Votre vérification d'identité a échoué ou a expiré. "
+                    "Veuillez la recommencer avant de payer."
+                )
+            else:
+                detail = "La vérification d'identité (eKYC) est requise avant le paiement."
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=detail,
+            )
 
     # Vérifier que le montant correspond au prix de la souscription (tolérance de 0.01)
     if abs(float(request.montant) - float(souscription.prix_applique)) > 0.01:

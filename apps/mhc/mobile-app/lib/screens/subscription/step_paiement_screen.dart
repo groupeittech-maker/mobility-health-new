@@ -10,6 +10,7 @@ import '../../core/constants/mh_layout.dart';
 import '../../core/utils/api_error_helper.dart';
 import '../../core/widgets/mh_text_highlight.dart';
 import '../../services/api_services.dart';
+import '../../services/ekyc_session_service.dart';
 
 /// Étape 4 : Paiement – "Payer maintenant" appelle le backend pour confirmer le paiement
 /// et générer l'attestation provisoire (une seule source, comme l'app web).
@@ -185,6 +186,27 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
     });
     try {
       final subscription = await _subscriptionsService.getSubscription(widget.subscriptionId);
+      // eKYC obligatoire (souscriptions voyage) : le paiement exige une
+      // identité VERIFIED — en revue manuelle, l'assuré attend le verdict.
+      // Le backend applique la même règle (409) ; ce pré-contrôle évite
+      // de lancer AfriPaie et clarifie l'attente.
+      if (subscription.projetVoyageId != null) {
+        final ekyc = await EkycSessionService.instance
+            .getLatestForSouscription(widget.subscriptionId);
+        if (ekyc == null || ekyc.status.toUpperCase() != 'VERIFIED') {
+          final st = ekyc?.status.toUpperCase();
+          final message = st == 'REVIEW'
+              ? 'Votre vérification d\'identité est en cours d\'analyse par nos équipes. Vous pourrez payer dès qu\'elle sera validée.'
+              : (st == 'REJECTED' || st == 'EXPIRED')
+                  ? 'Votre vérification d\'identité a échoué ou a expiré. Veuillez la recommencer avant de payer.'
+                  : 'La vérification d\'identité (eKYC) est requise avant le paiement.';
+          setState(() {
+            _loading = false;
+            _error = message;
+          });
+          return;
+        }
+      }
       double montant = subscription.prixApplique > 0 ? subscription.prixApplique : widget.montant;
       if (montant <= 0 &&
           subscription.primeAssurance != null &&

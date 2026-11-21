@@ -1198,7 +1198,7 @@
         $('ekycVerified').style.display = s === 'VERIFIED' ? 'block' : 'none';
         $('ekycRejected').style.display = (s === 'REJECTED' || s === 'EXPIRED') ? 'block' : 'none';
         // VERIFIED → suite directe ; REVIEW → suite possible (refus auto géré côté serveur si échec final).
-        $('ekycContinueBtn').style.display = (s === 'VERIFIED' || s === 'REVIEW') ? 'block' : 'none';
+        $('ekycContinueBtn').style.display = (s === 'VERIFIED') ? 'block' : 'none';
     }
 
     async function pollEkycStatus() {
