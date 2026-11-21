@@ -79,10 +79,87 @@
         sel.selectedIndex = 0;
         if (!opt || !opt.dataset) return;
         const d = opt.dataset;
-        if (d.href) { window.location.href = d.href; return; }
+        if (d.href) { openLateralPage(d.href); return; }
         if (d.call && typeof window[d.call] === 'function') { window[d.call](d.arg, d.arg2); return; }
         if (d.act && typeof window.mhRowAction === 'function') { window.mhRowAction(d.act, d.arg, sel, opt); }
     });
+
+    // Panneau latéral « page » : les options data-href des selects d'actions
+    // ouvrent la page cible dans un drawer coulissant (maquette) plutôt que
+    // de quitter la liste. Liens externes → navigation normale.
+    const MH_DRAWER_ID = 'mhPageDrawer';
+    const MH_DRAWER_CSS =
+        '#' + MH_DRAWER_ID + '{position:fixed;inset:0;z-index:3000;pointer-events:none;}' +
+        '#' + MH_DRAWER_ID + ' .mh-pd-bg{position:absolute;inset:0;background:rgba(20,15,60,.4);opacity:0;transition:opacity .2s ease;}' +
+        '#' + MH_DRAWER_ID + ' .mh-pd-panel{position:absolute;top:0;right:0;bottom:0;width:min(1150px,94vw);background:#fff;' +
+        'box-shadow:-16px 0 50px rgba(20,15,60,.22);transform:translateX(103%);transition:transform .25s ease;display:flex;flex-direction:column;}' +
+        '#' + MH_DRAWER_ID + ' .mh-pd-head{display:flex;align-items:center;justify-content:space-between;padding:.55rem .9rem;' +
+        'border-bottom:1px solid #e7e3ee;background:#faf9fc;}' +
+        '#' + MH_DRAWER_ID + ' .mh-pd-title{font-size:.8rem;font-weight:700;color:#522880;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
+        '#' + MH_DRAWER_ID + ' .mh-pd-tools{display:flex;gap:.4rem;}' +
+        '#' + MH_DRAWER_ID + ' .mh-pd-btn{border:1px solid #e7e3ee;background:#fff;border-radius:.45rem;padding:.3rem .6rem;' +
+        'font-size:.74rem;font-weight:600;color:#522880;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;}' +
+        '#' + MH_DRAWER_ID + ' .mh-pd-btn:hover{background:#efe9f6;}' +
+        '#' + MH_DRAWER_ID + ' iframe{flex:1;border:0;width:100%;background:#fff;}' +
+        '#' + MH_DRAWER_ID + '.open{pointer-events:auto;}' +
+        '#' + MH_DRAWER_ID + '.open .mh-pd-bg{opacity:1;}' +
+        '#' + MH_DRAWER_ID + '.open .mh-pd-panel{transform:none;}';
+
+    function ensureLateralDrawer() {
+        let wrap = document.getElementById(MH_DRAWER_ID);
+        if (wrap) return wrap;
+        const style = document.createElement('style');
+        style.textContent = MH_DRAWER_CSS;
+        document.head.appendChild(style);
+        wrap = document.createElement('div');
+        wrap.id = MH_DRAWER_ID;
+        wrap.innerHTML =
+            '<div class="mh-pd-bg"></div>' +
+            '<div class="mh-pd-panel" role="dialog" aria-modal="true">' +
+            '<div class="mh-pd-head">' +
+            '<span class="mh-pd-title"></span>' +
+            '<span class="mh-pd-tools">' +
+            '<a class="mh-pd-btn mh-pd-full" href="#" target="_blank" rel="noopener">↗ Plein écran</a>' +
+            '<button type="button" class="mh-pd-btn mh-pd-close">✕ Fermer</button>' +
+            '</span></div>' +
+            '<iframe title="Contenu du dossier" src="about:blank"></iframe>' +
+            '</div>';
+        document.body.appendChild(wrap);
+        const close = () => closeLateralPage();
+        wrap.querySelector('.mh-pd-bg').addEventListener('click', close);
+        wrap.querySelector('.mh-pd-close').addEventListener('click', close);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && wrap.classList.contains('open')) close();
+        });
+        return wrap;
+    }
+
+    function openLateralPage(href) {
+        if (!href) return;
+        if (/^(https?:)?\/\//i.test(href) || href.startsWith('mailto:') || href.startsWith('tel:')) {
+            window.location.href = href;
+            return;
+        }
+        const wrap = ensureLateralDrawer();
+        const frame = wrap.querySelector('iframe');
+        const full = wrap.querySelector('.mh-pd-full');
+        const title = wrap.querySelector('.mh-pd-title');
+        if (full) full.href = href;
+        if (title) title.textContent = href.split('?')[0];
+        if (frame) frame.src = href;
+        wrap.classList.add('open');
+    }
+
+    function closeLateralPage() {
+        const wrap = document.getElementById(MH_DRAWER_ID);
+        if (!wrap) return;
+        wrap.classList.remove('open');
+        const frame = wrap.querySelector('iframe');
+        if (frame) frame.src = 'about:blank';
+    }
+
+    window.openLateralPage = openLateralPage;
+    window.closeLateralPage = closeLateralPage;
 
     document.addEventListener('DOMContentLoaded', function () {
         applyDom(document);
