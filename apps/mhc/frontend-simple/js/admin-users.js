@@ -189,6 +189,7 @@ let allUsers = [];
 const roleFilterParam = new URLSearchParams(window.location.search).get('role');
 
 const ROLE_PAGE_TITLES = {
+    user: 'Assurés',
     medecin_referent_mh: 'Médecins-conseil',
     doctor: 'Médecins',
     medecin_hopital: 'Médecins hôpital',
