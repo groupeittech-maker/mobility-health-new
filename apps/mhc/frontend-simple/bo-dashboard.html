@@ -26,57 +26,52 @@
 
         <div id="priorityCard"></div>
 
-        <div class="bo-2col">
-            <div>
-                <div class="bo-card" id="recentCard">
-                    <div class="bo-card-h">
-                        <span class="bo-card-title">📋 Demandes récentes</span>
-                        <a class="bo-link-all" href="admin-subscriptions.html">Voir tout</a>
-                    </div>
-                    <div class="bo-card-b" style="padding:0;">
-                        <table class="bo-table">
-                            <thead><tr>
-                                <th>N° demande</th><th>Date et heure</th><th>Assuré</th><th>Type de demande</th><th>Statut</th><th>Actions</th>
-                            </tr></thead>
-                            <tbody id="recentRows"></tbody>
-                        </table>
-                    </div>
-                </div>
+        <div class="bo-card" id="recentCard">
+            <div class="bo-card-h">
+                <span class="bo-card-title">📋 Demandes récentes</span>
+                <a class="bo-link-all" href="admin-subscriptions.html">Voir tout</a>
+            </div>
+            <div class="bo-card-b" style="padding:0;">
+                <table class="bo-table">
+                    <thead><tr>
+                        <th>N° demande</th><th>Date et heure</th><th>Assuré</th><th>Type de demande</th><th>Statut</th><th>Actions</th>
+                    </tr></thead>
+                    <tbody id="recentRows"></tbody>
+                </table>
+            </div>
+        </div>
 
-                <div class="bo-card" id="alertsCard">
-                    <div class="bo-card-h">
-                        <span class="bo-card-title">🚨 Alertes urgences</span>
-                        <a class="bo-link-all" href="alert-center.html">Voir tout</a>
-                    </div>
-                    <div class="bo-card-b" style="padding:0;">
-                        <table class="bo-table">
-                            <thead><tr>
-                                <th>N° alerte</th><th>Date et heure</th><th>Assuré</th><th>Motif</th><th>Priorité</th><th>Actions</th>
-                            </tr></thead>
-                            <tbody id="alertRows"></tbody>
-                        </table>
+        <div class="bo-2col">
+            <div class="bo-card" id="donutCard">
+                <div class="bo-card-h"><span class="bo-card-title">📊 Répartition des demandes</span></div>
+                <div class="bo-card-b">
+                    <div class="bo-donut-wrap">
+                        <div class="bo-donut" id="donut"><div class="bo-donut-center" id="donutCenter">—</div></div>
+                        <ul class="bo-legend" id="donutLegend"></ul>
                     </div>
                 </div>
             </div>
 
-            <div>
-                <div class="bo-card" id="donutCard">
-                    <div class="bo-card-h"><span class="bo-card-title">📊 Répartition des demandes</span></div>
-                    <div class="bo-card-b">
-                        <div class="bo-donut-wrap">
-                            <div class="bo-donut" id="donut"><div class="bo-donut-center" id="donutCenter">—</div></div>
-                            <ul class="bo-legend" id="donutLegend"></ul>
-                        </div>
-                    </div>
+            <div class="bo-card" id="statusCard">
+                <div class="bo-card-h"><span class="bo-card-title">📈 Statut global</span></div>
+                <div class="bo-card-b">
+                    <ul class="bo-legend" id="globalStatus"></ul>
                 </div>
+            </div>
+        </div>
 
-                <div class="bo-card" id="statusCard">
-                    <div class="bo-card-h"><span class="bo-card-title">📈 Statut global</span></div>
-                    <div class="bo-card-b">
-                        <ul class="bo-legend" id="globalStatus"></ul>
-                    </div>
-                </div>
-
+        <div class="bo-card" id="alertsCard">
+            <div class="bo-card-h">
+                <span class="bo-card-title">🚨 Alertes urgences</span>
+                <a class="bo-link-all" href="alert-center.html">Voir tout</a>
+            </div>
+            <div class="bo-card-b" style="padding:0;">
+                <table class="bo-table">
+                    <thead><tr>
+                        <th>N° alerte</th><th>Date et heure</th><th>Assuré</th><th>Motif</th><th>Priorité</th><th>Actions</th>
+                    </tr></thead>
+                    <tbody id="alertRows"></tbody>
+                </table>
             </div>
         </div>
     </main>
