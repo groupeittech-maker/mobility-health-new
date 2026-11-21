@@ -682,10 +682,14 @@ body[data-backoffice] > main {
     font-size: 0.78rem; background: #fff; min-width: 120px;
 }
 .bo-filters .grow { flex: 1; min-width: 200px; }
-.bo-filters .export {
-    margin-left: auto; border: 1px solid #e7e3ee; background: #fff; border-radius: 0.55rem;
+.export {
+    border: 1px solid #e7e3ee; background: #fff; border-radius: 0.55rem;
     padding: 0.5rem 0.85rem; font-size: 0.78rem; font-weight: 600; color: #555; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 0.35rem; text-decoration: none;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
+.export:hover { border-color: #522880; color: #522880; background: #faf9fc; }
+.bo-filters .export { margin-left: auto; }
 .btn-sos {
     background: #d64545; color: #fff; border: none; border-radius: 0.55rem;
     padding: 0.55rem 1rem; font-size: 0.82rem; font-weight: 700; cursor: pointer;

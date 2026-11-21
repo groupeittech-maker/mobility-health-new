@@ -158,7 +158,7 @@
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
             btn.classList.toggle('mh-sos-sound-toggle--on', on);
             btn.classList.toggle('mh-sos-sound-toggle--off', !on);
-            btn.textContent = on ? 'Son des alertes : activé' : 'Son des alertes : désactivé';
+            btn.textContent = on ? '🔊 Son des alertes : activé' : '🔇 Son des alertes : désactivé';
         });
     }
 
