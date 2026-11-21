@@ -75,8 +75,7 @@
             icon: 'production',
             internalOnly: true,
             children: [
-                { label: 'Validation des souscriptions', href: 'admin-subscriptions.html', feature: 'production', badge: 'souscriptions_attente' },
-                { label: 'Coordination des avenants', href: 'admin-subscriptions.html#avenants', feature: 'production', badge: 'avenants_en_cours' },
+                { label: 'Validation des souscriptions', href: 'admin-subscriptions.html', feature: 'production', badge: 'souscriptions_attente,avenants_en_cours' },
                 { label: 'Réclamations', href: 'admin-reclamations.html', feature: 'production', badge: 'reclamations_ouvertes' },
             ],
         },
@@ -87,7 +86,6 @@
             internalOnly: true,
             children: [
                 { label: 'Validation des alertes', href: 'alert-center.html?tab=a_valider', feature: 'alerte_sos', badge: 'alertes_actives' },
-                { label: 'Toutes les alertes', href: 'alert-center.html', feature: 'alerte_sos' },
                 { label: 'Carte des alertes', href: 'sos-alerts-map.html', feature: 'alerte_sos' },
                 { label: 'Validation des rapports médicaux', href: 'medical-validations.html', feature: 'prise_en_charge', badge: 'validations_medicales' },
                 { label: 'Validation des factures hospitalières', href: 'sinistre-invoices.html', feature: 'facturation_medicale', badge: 'factures_attente' },
@@ -101,9 +99,7 @@
             internalOnly: true,
             children: [
                 { label: 'Tableau financier', href: 'finance-dashboard.html', feature: 'encaissement_prime' },
-                { label: 'Encaissements primes', href: 'finance-outbound.html#encaissements', feature: 'encaissement_prime', badge: 'encaissements_attente' },
-                { label: 'Paiements & Flux sortants', href: 'finance-outbound.html', feature: 'paiement_sinistre' },
-                { label: 'Remboursements', href: 'finance-outbound.html#remboursements', feature: 'remboursement', badge: 'remboursements_attente' },
+                { label: 'Encaissements, paiements & remboursements', href: 'finance-outbound.html', anyFeatures: ['encaissement_prime', 'paiement_sinistre', 'remboursement'], badge: 'encaissements_attente,remboursements_attente' },
                 { label: 'Factures médicales', href: 'mh-invoices.html', feature: 'facturation_medicale' },
                 { label: 'Grand livre', href: 'accounting-ledger.html', feature: 'retrocession_mhc' },
                 { label: 'Portail comptable', href: 'accounting-portal.html', feature: 'encaissement_prime' },
@@ -134,8 +130,7 @@
                 { label: 'Frais et taxes', href: 'admin-tarification-frais.html', feature: 'comptes_produits', minLevel: 'edition' },
                 { label: 'Destinations & pays', href: 'admin-destinations.html', feature: 'comptes_produits', minLevel: 'edition' },
                 { label: 'Modèles d’attestations', href: 'admin-attestations.html', feature: 'comptes_produits', minLevel: 'edition' },
-                { label: 'Hôtels & hébergements', href: 'admin-ops.html', feature: 'alerte_sos' },
-                { label: 'Transporteurs médicaux', href: 'admin-ops.html?tab=providers', feature: 'alerte_sos' },
+                { label: 'Hôtels & transporteurs médicaux', href: 'admin-ops.html', feature: 'alerte_sos' },
             ],
         },
         {
@@ -171,9 +166,12 @@
         if (item.section) return true;
         if (item.roles && !item.roles.includes(currentRole())) return false;
         if (item.internalOnly && !(window.MhPermissions && window.MhPermissions.isInternalBackoffice())) return false;
-        if (!item.feature) return true;
+        if (!item.feature && !item.anyFeatures) return true;
         const perms = window.MhPermissions;
         if (!perms || !perms.can) return currentRole() === 'admin';
+        if (item.anyFeatures) {
+            return item.anyFeatures.some(f => perms.can(f, item.minLevel || 'consultation'));
+        }
         return perms.can(item.feature, item.minLevel || 'consultation');
     }
 
@@ -320,7 +318,8 @@
 
     function applyNavCounts(counts) {
         document.querySelectorAll('[data-badge-key]').forEach(el => {
-            const n = counts[el.getAttribute('data-badge-key')] || 0;
+            const n = el.getAttribute('data-badge-key').split(',')
+                .reduce((s, k) => s + (counts[k.trim()] || 0), 0);
             const b = el.querySelector('.bo-count');
             if (!b) return;
             b.textContent = n > 99 ? '99+' : String(n);
@@ -329,7 +328,8 @@
         document.querySelectorAll('.bo-group').forEach(g => {
             let total = 0;
             g.querySelectorAll('[data-badge-key]').forEach(el => {
-                total += counts[el.getAttribute('data-badge-key')] || 0;
+                total += el.getAttribute('data-badge-key').split(',')
+                    .reduce((s, k) => s + (counts[k.trim()] || 0), 0);
             });
             const b = g.querySelector('.bo-count-group');
             if (!b) return;
