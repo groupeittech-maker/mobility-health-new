@@ -673,6 +673,12 @@ body[data-backoffice] > main {
     margin-left: auto; border: 1px solid #e2e4f0; background: #fff; border-radius: 0.55rem;
     padding: 0.5rem 0.85rem; font-size: 0.78rem; font-weight: 600; color: #555; cursor: pointer;
 }
+.btn-sos {
+    background: #c81e1e; color: #fff; border: none; border-radius: 0.55rem;
+    padding: 0.55rem 1rem; font-size: 0.82rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 2px 6px rgba(200, 30, 30, 0.35);
+}
+.btn-sos:hover { background: #a01717; }
 
 /* ---------- Page header ---------- */
 .bo-page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
