@@ -170,3 +170,51 @@ async def ekyc_statistics(
     if period and period != "custom":
         start_date, end_date = _resolve_period(period)
     return StatisticsService.ekyc(db, start_date, end_date)
+
+
+@router.get("/nav-counts", summary="Compteurs en attente pour les badges de navigation")
+async def nav_counts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_backoffice()),
+):
+    """Compteurs légers des files de travail en attente — alimente les badges
+    de la sidebar back-office (un appel, mis en cache côté client)."""
+    from sqlalchemy import func
+    from app.models.souscription import Souscription
+    from app.models.avenant import Avenant
+    from app.models.reclamation import Reclamation
+    from app.models.alerte import Alerte
+    from app.models.invoice import Invoice
+    from app.models.ristourne import Ristourne
+    from app.models.profile_change import ProfileChangeRequest
+    from app.models.paiement import Paiement
+    from app.models.medical_workflow import HospitalMedicalReport
+    from sqlalchemy import text as _text
+
+    def n(query) -> int:
+        return int(query.scalar() or 0)
+
+    return {
+        "inscriptions_attente": n(db.query(func.count(User.id)).filter(
+            User.validation_inscription == "pending",
+            _text("LOWER(CAST(users.role AS TEXT)) = 'user'"),
+        )),
+        "profils_attente": n(db.query(func.count(ProfileChangeRequest.id)).filter(
+            ProfileChangeRequest.statut == "pending")),
+        "souscriptions_attente": n(db.query(func.count(Souscription.id)).filter(
+            Souscription.statut == "en_attente_validation")),
+        "avenants_en_cours": n(db.query(func.count(Avenant.id)).filter(
+            Avenant.statut.like("attente%"))),
+        "reclamations_ouvertes": n(db.query(func.count(Reclamation.id)).filter(
+            Reclamation.statut.in_(["recue", "en_cours"]))),
+        "alertes_actives": n(db.query(func.count(Alerte.id)).filter(
+            Alerte.statut.in_(["en_attente", "en_cours"]))),
+        "validations_medicales": n(db.query(func.count(HospitalMedicalReport.id)).filter(
+            HospitalMedicalReport.statut.in_(["soumis", "validee_mc"]))),
+        "factures_attente": n(db.query(func.count(Invoice.id)).filter(
+            Invoice.statut.like("pending%"))),
+        "remboursements_attente": n(db.query(func.count(Ristourne.id)).filter(
+            Ristourne.statut == "a_rembourser")),
+        "encaissements_attente": n(db.query(func.count(Paiement.id)).filter(
+            Paiement.statut == "en_attente")),
+    }

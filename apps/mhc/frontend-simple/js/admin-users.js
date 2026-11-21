@@ -214,6 +214,22 @@ function applyRoleFilterTitle() {
     if (searchInput) searchInput.placeholder = 'Rechercher par nom, email, username ou rôle...';
 }
 
+// Agrégats métier des assurés (vue role=user) : nb de dossiers + dernière activité.
+let assuresActivity = {};
+let assuresActivityLoaded = false;
+
+async function loadAssuresActivity() {
+    if (assuresActivityLoaded || roleFilterParam !== 'user') return;
+    assuresActivityLoaded = true;
+    try {
+        const rows = await apiCall('/users/assures-activity');
+        (rows || []).forEach((r) => { assuresActivity[r.user_id] = r; });
+        renderUsersTable(allUsers);
+    } catch (e) {
+        // Vue enrichie facultative — le tableau reste utilisable sans.
+    }
+}
+
 // Charger les utilisateurs
 async function loadUsers() {
     const container = document.getElementById('usersTableContainer');
@@ -224,6 +240,7 @@ async function loadUsers() {
         allUsers = roleFilterParam
             ? users.filter((user) => user.role === roleFilterParam)
             : users;
+        loadAssuresActivity();
         
         if (allUsers.length === 0) {
             container.innerHTML = '<p>Aucun utilisateur trouvé.</p>';
@@ -255,8 +272,11 @@ function renderUsersTable(users) {
     const newUserBtn = document.getElementById('newUserBtn');
     if (newUserBtn) newUserBtn.style.display = canManage ? '' : 'none';
 
+    const isAssureView = roleFilterParam === 'user';
     let html = '<div class="table-wrapper" style="overflow-x: scroll !important;"><table class="data-table" style="min-width: 100%;"><thead><tr>';
-    html += '<th>Email</th><th>Téléphone</th><th>Username</th><th>Rôle</th><th>Statut</th><th>Date création</th>' + (canManage ? '<th>Actions</th>' : '');
+    html += '<th>Email</th><th>Téléphone</th><th>Username</th><th>Rôle</th><th>Statut</th><th>Date création</th>' +
+        (isAssureView ? '<th>Dossiers</th><th>Dernière activité</th>' : '') +
+        (canManage ? '<th>Actions</th>' : '');
     html += '</tr></thead><tbody>';
     
     pageData.forEach(user => {
@@ -273,6 +293,8 @@ function renderUsersTable(users) {
                 <td>${roleLabel}</td>
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                 <td>${formatCreatedAt(user.created_at)}</td>
+                ${isAssureView ? `<td>${(assuresActivity[user.id] || {}).nb_souscriptions ?? '—'}</td>
+                <td>${formatCreatedAt((assuresActivity[user.id] || {}).derniere_activite)}</td>` : ''}
                 ${canManage ? `<td class="table-actions">
                     <select class="action-select" data-user-id="${user.id}" data-user-name="${encodedName}">
                         <option value="">Actions</option>

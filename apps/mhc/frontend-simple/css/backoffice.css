@@ -1495,3 +1495,19 @@ body[data-backoffice] main .table-wrapper:has(.finance-table) {
 }
 .declare-item:hover { background: #f6f7fc; }
 .declare-item.selected { border-color: #6c5ce7; background: #f0eeff; }
+
+/* ---------- Compteurs de navigation (badges sidebar) ---------- */
+.bo-count {
+    display: inline-block;
+    min-width: 1.3rem;
+    margin-left: auto;
+    padding: 0.12rem 0.42rem;
+    border-radius: 0.7rem;
+    background: #c81e1e;
+    color: #fff;
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.3;
+}
+.bo-count-group:not([hidden]) ~ .bo-chevron { margin-left: 0.4rem; }

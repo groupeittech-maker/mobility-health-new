@@ -6,7 +6,7 @@ from typing import List, Union, Optional
 from datetime import datetime, date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, text
+from sqlalchemy import or_, text, func
 from app.core.database import get_db
 from app.core.enums import Role
 from app.core.permissions import (
@@ -520,6 +520,37 @@ async def search_user_by_username(
         )
     
     return user
+
+
+@router.get("/assures-activity")
+async def assures_activity(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Agrégats métier des assurés (nombre de dossiers, dernière activité) —
+    alimente la vue « Liste des assurés » du back-office."""
+    if not is_internal_backoffice_role(_role_value(getattr(current_user, "role", None))):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions",
+        )
+    rows = (
+        db.query(
+            Souscription.user_id,
+            func.count(Souscription.id),
+            func.max(Souscription.updated_at),
+        )
+        .group_by(Souscription.user_id)
+        .all()
+    )
+    return [
+        {
+            "user_id": uid,
+            "nb_souscriptions": int(nb or 0),
+            "derniere_activite": act.isoformat() if act else None,
+        }
+        for uid, nb, act in rows
+    ]
 
 
 @router.get("/{user_id}", response_model=UserResponse)

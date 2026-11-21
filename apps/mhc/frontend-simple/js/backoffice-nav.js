@@ -30,17 +30,17 @@
     const DASHBOARD_BY_ROLE = {
         admin: 'bo-dashboard.html',
         superviseur_technique: 'bo-dashboard.html',
-        production_agent: 'bo-dashboard.html',
-        agent_conformite_production: 'bo-dashboard.html',
-        agent_sinistre_mh: 'bo-dashboard.html',
-        agent_conformite_sinistre: 'bo-dashboard.html',
-        superviseur_affaires_medicales: 'bo-dashboard.html',
-        agent_medical_mhc: 'bo-dashboard.html',
-        agent_conformite_medical: 'bo-dashboard.html',
-        superviseur_comptable: 'bo-dashboard.html',
-        agent_comptable_mh: 'bo-dashboard.html',
-        agent_conformite_comptable: 'bo-dashboard.html',
-        medecin_referent_mh: 'bo-dashboard.html',
+        production_agent: 'admin-subscriptions.html',
+        agent_conformite_production: 'admin-subscriptions.html',
+        agent_sinistre_mh: 'alert-center.html',
+        agent_conformite_sinistre: 'alert-center.html',
+        superviseur_affaires_medicales: 'alert-center.html',
+        agent_medical_mhc: 'medical-validations.html',
+        agent_conformite_medical: 'medical-validations.html',
+        superviseur_comptable: 'finance-dashboard.html',
+        agent_comptable_mh: 'finance-dashboard.html',
+        agent_conformite_comptable: 'finance-dashboard.html',
+        medecin_referent_mh: 'medical-validations.html',
         doctor: 'doctor-dashboard.html',
         hospital_admin: 'hospital-dashboard.html',
         medecin_hopital: 'hospital-doctor.html',
@@ -65,8 +65,8 @@
             icon: 'users',
             internalOnly: true,
             children: [
-                { label: 'Liste des assurés', href: 'admin-users.html?role=user', feature: 'comptes_utilisateurs' },
-                { label: 'Modifications de profil', href: 'admin-profile-changes.html', feature: 'comptes_utilisateurs' },
+                { label: 'Liste des assurés', href: 'admin-users.html?role=user', feature: 'comptes_utilisateurs', badge: 'inscriptions_attente' },
+                { label: 'Modifications de profil', href: 'admin-profile-changes.html', feature: 'comptes_utilisateurs', badge: 'profils_attente' },
             ],
         },
         {
@@ -75,9 +75,9 @@
             icon: 'production',
             internalOnly: true,
             children: [
-                { label: 'Validation des souscriptions', href: 'admin-subscriptions.html', feature: 'production' },
-                { label: 'Coordination des avenants', href: 'admin-subscriptions.html#avenants', feature: 'production' },
-                { label: 'Réclamations', href: 'admin-reclamations.html', feature: 'production' },
+                { label: 'Validation des souscriptions', href: 'admin-subscriptions.html', feature: 'production', badge: 'souscriptions_attente' },
+                { label: 'Coordination des avenants', href: 'admin-subscriptions.html#avenants', feature: 'production', badge: 'avenants_en_cours' },
+                { label: 'Réclamations', href: 'admin-reclamations.html', feature: 'production', badge: 'reclamations_ouvertes' },
             ],
         },
         {
@@ -87,15 +87,15 @@
             internalOnly: true,
             children: [
                 { section: 'Alertes & urgences' },
-                { label: 'Validation des alertes', href: 'alert-center.html', feature: 'alerte_sos' },
+                { label: 'Validation des alertes', href: 'alert-center.html', feature: 'alerte_sos', badge: 'alertes_actives' },
                 { label: 'Carte des alertes', href: 'sos-alerts-map.html', feature: 'alerte_sos' },
                 { section: 'Traitement' },
                 { label: 'Prise en charge', href: 'alert-center.html', feature: 'prise_en_charge' },
                 { label: 'Hospitalisations', href: 'alert-center.html', feature: 'hospitalisation' },
                 { label: 'Rapatriements', href: 'alert-center.html', feature: 'rapatriement' },
                 { section: 'Clôture' },
-                { label: 'Validation des rapports médicaux', href: 'medical-validations.html', feature: 'prise_en_charge' },
-                { label: 'Validation des factures hospitalières', href: 'sinistre-invoices.html', feature: 'facturation_medicale' },
+                { label: 'Validation des rapports médicaux', href: 'medical-validations.html', feature: 'prise_en_charge', badge: 'validations_medicales' },
+                { label: 'Validation des factures hospitalières', href: 'sinistre-invoices.html', feature: 'facturation_medicale', badge: 'factures_attente' },
             ],
         },
         {
@@ -107,9 +107,9 @@
             children: [
                 { section: 'Gestion' },
                 { label: 'Tableau financier', href: 'finance-dashboard.html', feature: 'encaissement_prime' },
-                { label: 'Encaissements primes', href: 'finance-outbound.html#encaissements', feature: 'encaissement_prime' },
+                { label: 'Encaissements primes', href: 'finance-outbound.html#encaissements', feature: 'encaissement_prime', badge: 'encaissements_attente' },
                 { label: 'Paiements & Flux sortants', href: 'finance-outbound.html', feature: 'paiement_sinistre' },
-                { label: 'Remboursements', href: 'finance-outbound.html#remboursements', feature: 'remboursement' },
+                { label: 'Remboursements', href: 'finance-outbound.html#remboursements', feature: 'remboursement', badge: 'remboursements_attente' },
                 { label: 'Factures médicales', href: 'mh-invoices.html', feature: 'facturation_medicale' },
                 { section: 'Supervision' },
                 { label: 'Grand livre', href: 'accounting-ledger.html', feature: 'retrocession_mhc' },
@@ -259,6 +259,7 @@
                 btn.type = 'button';
                 btn.className = 'bo-group-btn' + (anyChildActive ? ' active' : '');
                 btn.innerHTML = icon(item.icon) + '<span>' + item.label + '</span>' +
+                    '<span class="bo-count bo-count-group" hidden></span>' +
                     '<svg class="bo-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
                 btn.addEventListener('click', () => {
                     const willOpen = !li.classList.contains('open');
@@ -282,6 +283,13 @@
                         a.className = 'bo-link' + (linkIsActive(child.href) ? ' active' : '');
                         a.href = child.href;
                         a.textContent = child.label;
+                        if (child.badge) {
+                            a.setAttribute('data-badge-key', child.badge);
+                            const b = document.createElement('span');
+                            b.className = 'bo-count';
+                            b.hidden = true;
+                            a.appendChild(b);
+                        }
                         cli.appendChild(a);
                     }
                     sub.appendChild(cli);
@@ -297,6 +305,50 @@
             ul.appendChild(li);
         });
         return ul;
+    }
+
+    // Badges de comptage — un appel /admin/statistics/nav-counts, mis en
+    // cache 60 s en session (les pages statiques reconstruisent la sidebar
+    // à chaque navigation).
+    const NAV_COUNTS_KEY = 'bo_nav_counts_v1';
+    const NAV_COUNTS_TTL = 60 * 1000;
+
+    function applyNavCounts(counts) {
+        document.querySelectorAll('[data-badge-key]').forEach(el => {
+            const n = counts[el.getAttribute('data-badge-key')] || 0;
+            const b = el.querySelector('.bo-count');
+            if (!b) return;
+            b.textContent = n > 99 ? '99+' : String(n);
+            b.hidden = n <= 0;
+        });
+        document.querySelectorAll('.bo-group').forEach(g => {
+            let total = 0;
+            g.querySelectorAll('[data-badge-key]').forEach(el => {
+                total += counts[el.getAttribute('data-badge-key')] || 0;
+            });
+            const b = g.querySelector('.bo-count-group');
+            if (!b) return;
+            b.textContent = total > 99 ? '99+' : String(total);
+            b.hidden = total <= 0;
+        });
+    }
+
+    function loadNavCounts() {
+        if (!(window.MhPermissions && window.MhPermissions.isInternalBackoffice())) return;
+        if (typeof apiCall !== 'function') return;
+        try {
+            const cached = JSON.parse(sessionStorage.getItem(NAV_COUNTS_KEY) || 'null');
+            if (cached && Date.now() - cached.ts < NAV_COUNTS_TTL) {
+                applyNavCounts(cached.data || {});
+                return;
+            }
+        } catch (e) { /* cache illisible — on recharge */ }
+        apiCall('/admin/statistics/nav-counts').then(data => {
+            try {
+                sessionStorage.setItem(NAV_COUNTS_KEY, JSON.stringify({ ts: Date.now(), data }));
+            } catch (e) { /* quota — non bloquant */ }
+            applyNavCounts(data || {});
+        }).catch(() => { /* badges facultatifs */ });
     }
 
     function buildSidebar() {
@@ -383,7 +435,10 @@
         if (perms === renderedPermissions) return;
         renderedPermissions = perms;
         const old = document.querySelector('.bo-sidebar');
-        if (old) old.replaceWith(buildSidebar());
+        if (old) {
+            old.replaceWith(buildSidebar());
+            loadNavCounts();
+        }
     }
 
     function injectShell() {
@@ -392,6 +447,7 @@
         renderedPermissions = localStorage.getItem('user_permissions');
         document.body.prepend(buildTopbar());
         document.body.prepend(buildSidebar());
+        loadNavCounts();
         if (window.MhPermissions && window.MhPermissions.applyDom) {
             window.MhPermissions.applyDom(document);
         }
