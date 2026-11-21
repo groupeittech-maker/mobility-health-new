@@ -235,27 +235,9 @@
         return ICO[name] || ICO.doc;
     }
 
-    // État des accordéons persisté en sessionStorage : survit aux navigations
-    // entre les pages statiques (chaque page reconstruit la sidebar).
-    const OPEN_STATE_KEY = 'bo_menu_open_groups';
-
-    function getOpenGroups() {
-        try {
-            return JSON.parse(sessionStorage.getItem(OPEN_STATE_KEY) || '[]');
-        } catch (e) {
-            return [];
-        }
-    }
-
-    function setGroupOpen(id) {
-        // Un seul accordéon ouvert à la fois : on ne mémorise que celui-ci.
-        sessionStorage.setItem(OPEN_STATE_KEY, JSON.stringify(id ? [id] : []));
-    }
-
     function renderMenu() {
         const ul = document.createElement('ul');
         ul.className = 'bo-menu';
-        const openGroups = getOpenGroups();
         const activeEntry = computeActiveEntry();
         MENU.forEach(item => {
             if (!canSee(item)) return;
@@ -270,25 +252,14 @@
                 // Un seul lien actif dans tout le menu (calcul global).
                 const childActive = c => c === activeEntry;
                 const anyChildActive = visibleChildren.some(childActive);
-                // Ouvert si : groupe contenant la page active OU préalablement ouvert par l'utilisateur
-                const isOpen = anyChildActive || openGroups.includes(item.id);
-                li.className = 'bo-group' + (isOpen ? ' open' : '');
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'bo-group-btn' + (anyChildActive ? ' active' : '');
-                btn.innerHTML = icon(item.icon) + '<span>' + item.label + '</span>' +
-                    '<span class="bo-count bo-count-group" hidden></span>' +
-                    '<svg class="bo-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
-                btn.addEventListener('click', () => {
-                    const willOpen = !li.classList.contains('open');
-                    // Ferme les autres groupes ouverts (comportement accordéon).
-                    ul.querySelectorAll('.bo-group.open').forEach(g => {
-                        if (g !== li) g.classList.remove('open');
-                    });
-                    li.classList.toggle('open', willOpen);
-                    setGroupOpen(willOpen ? item.id : null);
-                });
-                li.appendChild(btn);
+                // Menu figé : pas d'accordéon, en-tête de pôle statique,
+                // liens toujours visibles.
+                li.className = 'bo-group open' + (anyChildActive ? ' has-active' : '');
+                const head = document.createElement('div');
+                head.className = 'bo-group-head' + (anyChildActive ? ' active' : '');
+                head.innerHTML = icon(item.icon) + '<span>' + item.label + '</span>' +
+                    '<span class="bo-count bo-count-group" hidden></span>';
+                li.appendChild(head);
                 const sub = document.createElement('ul');
                 sub.className = 'bo-sub';
                 visibleChildren.forEach(child => {

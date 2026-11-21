@@ -111,6 +111,30 @@ body[data-backoffice] > nav.navbar {
     opacity: 0.85;
 }
 
+/* En-tête de pôle statique (menu figé, pas d'accordéon) */
+.bo-group-head {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    border-radius: 0.55rem;
+    color: var(--bo-sidebar-text);
+    font-size: 0.86rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: default;
+    user-select: none;
+}
+
+.bo-group-head.active {
+    background: var(--bo-sidebar-active);
+    color: #fff;
+    box-shadow: inset 3px 0 0 var(--bo-accent);
+}
+
+.bo-group-head .bo-count-group { margin-left: auto; }
+
 .bo-chevron {
     margin-left: auto;
     width: 14px;
