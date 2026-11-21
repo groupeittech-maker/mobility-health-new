@@ -650,6 +650,7 @@ async def trigger_sos(
         latitude=alerte_data.latitude,
         longitude=alerte_data.longitude,
         adresse=alerte_data.adresse,
+        telephone_contact=alerte_data.telephone_contact,
         description=alerte_data.description,
         priorite=alerte_data.priorite,
         statut="en_attente"
@@ -1500,6 +1501,7 @@ class DeclarationManuelleRequest(BaseModel):
     priorite: Optional[str] = "normale"
     hospital_id: Optional[int] = None
     adresse: Optional[str] = None
+    telephone_contact: Optional[str] = None
 
 
 @router.post("/declaration-manuelle", status_code=status.HTTP_201_CREATED)
@@ -1559,6 +1561,7 @@ async def declaration_manuelle(
         souscription_id=souscription.id if souscription else None,
         numero_alerte=numero_alerte,
         adresse=payload.adresse,
+        telephone_contact=payload.telephone_contact,
         description=description,
         priorite=payload.priorite or "normale",
         statut="en_attente",

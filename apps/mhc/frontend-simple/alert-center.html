@@ -69,16 +69,24 @@
                 <button type="button" class="bo-modal-close" onclick="document.getElementById('declareModal').classList.remove('open')">&times;</button>
             </div>
             <div class="form-group">
-                <label for="declareSearch">Rechercher l'assuré (nom, e-mail ou téléphone)</label>
+                <label for="declareSearch">👤 Rechercher l'assuré (nom, e-mail ou téléphone)</label>
                 <input type="search" id="declareSearch" placeholder="Tapez au moins 2 caractères...">
             </div>
             <div id="declareResults" class="declare-results"></div>
             <div class="form-group">
-                <label for="declareDescription">Motif / description de l'urgence</label>
+                <label for="declarePhone">📞 Numéro de téléphone à rappeler</label>
+                <input type="tel" id="declarePhone" placeholder="Ex. +242 06 000 00 00 (pré-rempli avec le n° de l'assuré)">
+            </div>
+            <div class="form-group">
+                <label for="declareAdresse">📍 Adresse / localisation de l'urgence</label>
+                <input type="text" id="declareAdresse" placeholder="Ex. Avenue de la Paix, Brazzaville">
+            </div>
+            <div class="form-group">
+                <label for="declareDescription">📝 Motif / description de l'urgence</label>
                 <textarea id="declareDescription" rows="3" placeholder="Décrit la situation signalée par l'assuré"></textarea>
             </div>
             <div class="form-group">
-                <label for="declarePriorite">Priorité</label>
+                <label for="declarePriorite">⚠️ Priorité</label>
                 <select id="declarePriorite">
                     <option value="normale" selected>Normale</option>
                     <option value="urgente">Urgente</option>
@@ -96,7 +104,7 @@
     <script src="js/auth.js?v=5"></script>
     <script src="js/permissions.js?v=5"></script>
     <script src="js/backoffice-nav.js?v=21"></script>
-    <script src="js/alert-center.js?v=15"></script>
+    <script src="js/alert-center.js?v=16"></script>
     <script src="js/sos-mh-alert-modal.js?v=5"></script>
 </body>
 </html>

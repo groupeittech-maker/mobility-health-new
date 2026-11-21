@@ -235,6 +235,7 @@ async def get_alerte_detail_complet(
             "latitude": float(alerte.latitude) if alerte.latitude is not None else None,
             "longitude": float(alerte.longitude) if alerte.longitude is not None else None,
             "adresse": alerte.adresse,
+            "telephone_contact": alerte.telephone_contact,
             "description": alerte.description if medical_ok else MEDICAL_MASK,
             "created_at": alerte.created_at.isoformat() if alerte.created_at else None,
         },

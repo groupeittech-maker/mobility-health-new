@@ -16,6 +16,7 @@ class Alerte(Base, TimestampMixin):
     latitude = Column(Numeric(10, 8), nullable=True)
     longitude = Column(Numeric(11, 8), nullable=True)
     adresse = Column(String(500), nullable=True)  # Adresse textuelle si disponible
+    telephone_contact = Column(String(40), nullable=True)  # N° à rappeler (déclaration manuelle)
     description = Column(Text, nullable=True)  # Description de l'urgence
     statut = Column(String(20), default="en_attente", nullable=False, index=True)  # en_attente, en_cours, resolue, annulee
     priorite = Column(String(20), default="normale", nullable=False)  # faible, normale, elevee, critique

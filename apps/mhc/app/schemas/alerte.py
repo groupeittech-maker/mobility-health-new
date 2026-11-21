@@ -18,6 +18,7 @@ class AlerteBase(BaseModel):
     latitude: Optional[Decimal] = None
     longitude: Optional[Decimal] = None
     adresse: Optional[str] = None
+    telephone_contact: Optional[str] = None
     description: Optional[str] = None
     priorite: str = "normale"
 

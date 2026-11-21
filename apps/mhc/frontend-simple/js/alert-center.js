@@ -190,7 +190,9 @@
             '<div class="dp-row"><span class="k">Nom complet</span><span class="v">' + (as.nom || '—') + '</span></div>' +
             '<div class="dp-row"><span class="k">N° assuré</span><span class="v">' + (as.numero_souscription || '—') + '</span></div>' +
             '<div class="dp-row"><span class="k">Âge</span><span class="v">' + (as.age ? as.age + ' ans' : '—') + '</span></div>' +
-            '<div class="dp-row"><span class="k">Téléphone</span><span class="v">' + (as.telephone || '—') + '</span></div>';
+            '<div class="dp-row"><span class="k">Téléphone</span><span class="v">' + (as.telephone || '—') + '</span></div>' +
+            (a.telephone_contact ? '<div class="dp-row"><span class="k">📞 N° à rappeler</span><span class="v">' + a.telephone_contact + '</span></div>' : '') +
+            (a.adresse ? '<div class="dp-row"><span class="k">📍 Adresse urgence</span><span class="v">' + a.adresse + '</span></div>' : '');
 
         const sm = d.statut_medical || {};
         const descHtml = d.medical_masque
@@ -335,6 +337,7 @@
             document.getElementById('declareSubmit').disabled = true;
             document.getElementById('declareSearch').value = '';
             document.getElementById('declareResults').innerHTML = '';
+            ['declarePhone', 'declareAdresse', 'declareDescription'].forEach(id => { document.getElementById(id).value = ''; });
             document.getElementById('declareModal').classList.add('open');
         });
         document.getElementById('declareSearch').addEventListener('input', (e) => {
@@ -356,7 +359,7 @@
         const users = await res.json();
         if (!users.length) { box.innerHTML = '<div class="muted">Aucun assuré trouvé.</div>'; return; }
         box.innerHTML = users.map(u =>
-            '<div class="declare-item' + (u.souscription_active ? '' : ' disabled') + '" data-uid="' + u.id + '">' +
+            '<div class="declare-item' + (u.souscription_active ? '' : ' disabled') + '" data-uid="' + u.id + '" data-tel="' + (u.telephone || '') + '">' +
             '<strong>' + (u.nom || '—') + '</strong> <span class="muted">' + (u.email || '') + ' ' + (u.telephone || '') + '</span>' +
             (u.souscription_active
                 ? ' <span class="bo-badge resolue">Couvert — ' + (u.souscription_active.numero || '') + '</span>'
@@ -367,6 +370,7 @@
             box.querySelectorAll('.declare-item').forEach(x => x.classList.remove('selected'));
             el.classList.add('selected');
             declareSelectedUserId = Number(el.dataset.uid);
+            document.getElementById('declarePhone').value = el.dataset.tel || '';
             document.getElementById('declareSubmit').disabled = false;
         }));
     }
@@ -380,6 +384,8 @@
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
             body: JSON.stringify({
                 user_id: declareSelectedUserId,
+                telephone_contact: document.getElementById('declarePhone').value.trim() || undefined,
+                adresse: document.getElementById('declareAdresse').value.trim() || undefined,
                 description: document.getElementById('declareDescription').value.trim() || undefined,
                 priorite: document.getElementById('declarePriorite').value,
             }),
