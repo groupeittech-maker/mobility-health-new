@@ -27,6 +27,8 @@ class EkycClient(Protocol):
         customer_reference: str,
         flow: str,
         metadata: dict[str, Any] | None = None,
+        otp_destination: str | None = None,
+        return_url: str | None = None,
     ) -> EkycSessionResponse: ...
 
     def get_result(self, session_id: str) -> EkycResultResponse: ...

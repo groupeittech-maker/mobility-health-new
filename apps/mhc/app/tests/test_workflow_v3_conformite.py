@@ -194,7 +194,7 @@ class TestChildren:
         born = (datetime.utcnow() - timedelta(days=8 * 365)).date().isoformat()
         r = client.post(
             "/api/v1/users/me/enfants",
-            json={"nom": "Petit", "prenom": "Léo", "date_naissance": born, "numero_piece": "AB123456"},
+            json={"nom": "Petit", "prenom": "Léo", "date_naissance": born, "numero_piece": "AB123456", "lien_parente": "Fils"},
             headers=auth_headers,
         )
         assert r.status_code == 201, r.text
@@ -334,7 +334,7 @@ class TestReclamations:
         meta = client.get("/api/v1/reclamations/categories").json()
         assert {c["code"] for c in meta["categories"]} == {
             "qualite_service", "etablissement_partenaire", "decision_couverture",
-            "paiement_remboursement", "application", "autre",
+            "paiement_remboursement", "application", "modification_infos", "autre",
         }
         assert "SOS" in meta["urgence_medicale"]
         assert client.post("/api/v1/reclamations", json={"categorie": "autre", "objet": "", "description": "x"}, headers=auth_headers).status_code == 400

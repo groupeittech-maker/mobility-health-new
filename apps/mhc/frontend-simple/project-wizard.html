@@ -1,22 +1,15 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="0;url=subscription-wizard.html">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nouvelle souscription - Mobility Health Care</title>
-    <script>
-        (function () {
-            var keep = [];
-            var params = new URLSearchParams(window.location.search);
-            var out = new URLSearchParams();
-            keep.forEach(function (k) { if (params.get(k)) out.set(k, params.get(k)); });
-            var target = 'subscription-wizard.html' + (out.toString() ? '?' + out.toString() : '');
-            window.location.replace(target);
-        })();
-    </script>
+    <title>Redirection - Mobility Health Care</title>
 </head>
 <body>
-    <p>Redirection vers la nouvelle souscription… <a id="fallback" href="subscription-wizard.html">Cliquez ici</a>.</p>
-    <script>document.getElementById('fallback').href = 'subscription-wizard.html' + (window.location.search.includes('subscription_id') ? window.location.search : '');</script>
+    <p style="text-align:center;margin-top:4rem;">
+        Ce parcours a évolué — <a href="subscription-wizard.html">ouvrir le formulaire de souscription</a>.
+    </p>
+    <script>window.location.replace('subscription-wizard.html');</script>
 </body>
 </html>

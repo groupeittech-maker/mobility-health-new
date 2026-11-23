@@ -253,7 +253,7 @@ async def create_medical_questionnaire(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     # Photo e-carte : non exigée à l'enregistrement du questionnaire (ex. app mobile sans champ photo).
-    # Elle reste obligatoire au checkout (/payments/checkout) et pour l'attestation définitive / e-carte.
+    # Elle reste obligatoire au paiement (/payments/confirm) et pour l'attestation définitive / e-carte.
 
     # Vérifier s'il existe déjà un questionnaire médical
     existing_questionnaire = db.query(Questionnaire).filter(

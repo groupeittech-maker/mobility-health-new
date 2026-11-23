@@ -18,10 +18,10 @@ from app.models.assureur_agent import AssureurAgent
 from app.models.courtier import Courtier
 from app.models.projet_voyage import ProjetVoyage
 from app.models.questionnaire import Questionnaire
-from app.models.ekyc_session import EkycSession
 from app.models.finance_refund import Refund
 from pydantic import BaseModel, Field, ConfigDict
 from app.services.attestation_service import AttestationService
+from app.services import ekyc_service
 from app.services.finance_service import FinanceService
 from app.services.notification_service import NotificationService
 from app.services.payment_service import (
@@ -158,41 +158,6 @@ class PaymentStatusResponse(BaseModel):
     subscription_status: str
     created_at: datetime
     
-    class Config:
-        from_attributes = True
-
-
-class PaymentCheckoutRequest(BaseModel):
-    project_id: int
-    produit_assurance_id: int
-    payment_method: TypePaiement = TypePaiement.CARTE_BANCAIRE
-    administrative_form: Dict[str, Any]
-    medical_form: Dict[str, Any]
-    # Caractéristiques pour tarif selon durée, zone et âge (sinon prix de base)
-    destination_country_id: Optional[int] = None
-    destination_country_name: Optional[str] = None
-    zone_code: Optional[str] = None
-    duree_jours: Optional[int] = None
-    age: Optional[int] = None  # Si absent, calculé depuis l'utilisateur connecté (date_naissance)
-    exclusions_acknowledged: bool = False
-
-
-class PaymentCheckoutResponse(BaseModel):
-    subscription_id: int
-    numero_souscription: str
-    decision: str = "approve"  # approve | reject | review
-    primary_step: Optional[str] = None
-    reasons: List[str] = []
-    payment_id: Optional[int] = None
-    payment_status: Optional[StatutPaiement] = None
-    amount: Optional[Decimal] = None
-    payment_url: Optional[str] = None
-    external_reference: Optional[str] = None
-    payment_instructions: Optional[str] = None
-    attestation_id: Optional[int] = None
-    attestation_number: Optional[str] = None
-    attestation_url: Optional[str] = None
-
     class Config:
         from_attributes = True
 
@@ -423,6 +388,13 @@ async def initiate_payment(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La souscription n'est pas en attente de paiement"
+        )
+
+    ekyc_block = ekyc_service.payment_block_reason(db, subscription)
+    if ekyc_block:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=ekyc_block,
         )
 
     # Mode live : le paiement part chez AfriPaie (page hébergée ou push USSD).
@@ -853,387 +825,6 @@ def _map_transaction_action(status: StatutPaiement) -> str:
     return "payé"
 
 
-@router.post("/checkout", response_model=PaymentCheckoutResponse, status_code=status.HTTP_201_CREATED)
-async def checkout_payment(
-    request: PaymentCheckoutRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Étape 1 : Créer la souscription, enregistrer les questionnaires et confirmer le paiement.
-    """
-    projet = db.query(ProjetVoyage).filter(
-        ProjetVoyage.id == request.project_id,
-        ProjetVoyage.user_id == current_user.id
-    ).first()
-    if not projet:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projet de voyage introuvable")
-
-    produit = db.query(ProduitAssurance).filter(
-        ProduitAssurance.id == request.produit_assurance_id,
-        ProduitAssurance.est_actif == True
-    ).first()
-    if not produit:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produit d'assurance introuvable ou inactif")
-
-    _validate_medical_photo_required(request.medical_form)
-    from app.services.medical_eligibility import MedicalEligibilityError, validate_medical_eligibility
-    try:
-        validate_medical_eligibility(request.medical_form)
-    except MedicalEligibilityError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    if not request.exclusions_acknowledged:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Veuillez consulter les exclusions et cocher « J'ai lu les exclusions » avant de poursuivre.",
-        )
-
-    # Âge : depuis la requête ou l'utilisateur connecté (date_naissance)
-    age = request.age
-    if age is None and getattr(current_user, "date_naissance", None):
-        birthdate = current_user.date_naissance
-        if isinstance(birthdate, datetime):
-            birthdate = birthdate.date() if hasattr(birthdate, "date") else birthdate
-        if birthdate:
-            today = date.today()
-            age = (today - birthdate).days // 365
-
-    # Durée et zone : depuis la requête ou le projet
-    duree_jours = request.duree_jours
-    destination_country_id = request.destination_country_id
-    zone_code = request.zone_code
-    if duree_jours is None and projet.date_depart and projet.date_retour:
-        delta = projet.date_retour - projet.date_depart
-        duree_jours = max(1, delta.days)
-
-    # Tarif selon parcours résidence → destination, durée et âge
-    td = resolve_prime_tarif_detail(
-        db,
-        product_id=produit.id,
-        age=age,
-        destination_country_id=destination_country_id,
-        destination_country_name=request.destination_country_name,
-        zone_code=zone_code,
-        duree_jours=duree_jours,
-        projet=projet,
-        user_pays_residence=getattr(current_user, "pays_residence", None),
-    )
-    montant = td.prix
-
-    date_debut = projet.date_depart or datetime.utcnow()
-    date_fin = None
-    if produit.duree_validite_jours:
-        date_fin = date_debut + timedelta(days=produit.duree_validite_jours)
-    elif projet.date_retour:
-        date_fin = projet.date_retour
-
-    numero_souscription = _generate_subscription_number(db, country_name=projet.destination if projet else None)
-
-    # Construire les notes de la souscription
-    subscription_notes = "Souscription générée via checkout"
-    
-    # IMPORTANT: La souscription est TOUJOURS créée au nom de l'utilisateur connecté (abonné)
-    # même si c'est une souscription pour un tiers. Les informations du tiers sont utilisées
-    # uniquement pour les documents (attestations, cartes) mais la souscription reste liée à l'abonné.
-    
-    # Vérifier si c'est une souscription pour un tiers
-    # Les informations du tiers peuvent être dans les notes du projet ou dans le questionnaire administratif
-    is_tier_subscription = False
-    tier_info_from_project = ""
-    if projet.notes and ("Pour un tiers" in projet.notes or "pour un tiers" in projet.notes.lower()):
-        is_tier_subscription = True
-        # C'est une souscription pour un tiers, extraire les informations du tiers depuis les notes du projet
-        # et les ajouter dans les notes de la souscription pour référence future
-        subscription_notes = f"{subscription_notes}\n\n⚠️ SOUSCRIPTION POUR UN TIERS ⚠️\n"
-        subscription_notes += f"Abonné (souscripteur): {current_user.full_name or current_user.username} (ID: {current_user.id})\n"
-        subscription_notes += f"Email abonné: {current_user.email}\n"
-        
-        # Extraire la section des informations du tiers depuis les notes du projet
-        if "=== INFORMATIONS DU TIERS" in projet.notes:
-            # Extraire uniquement la section des informations du tiers
-            tier_section_start = projet.notes.find("=== INFORMATIONS DU TIERS")
-            tier_section_end = projet.notes.find("=== FIN INFORMATIONS DU TIERS")
-            if tier_section_end != -1:
-                tier_section_end += len("=== FIN INFORMATIONS DU TIERS ===\n")
-                tier_info_from_project = projet.notes[tier_section_start:tier_section_end]
-            else:
-                # Si pas de marqueur de fin, prendre jusqu'à la fin ou jusqu'à la prochaine section
-                tier_info_from_project = projet.notes[tier_section_start:]
-        else:
-            # Si pas de section structurée, prendre toutes les notes
-            tier_info_from_project = projet.notes
-        
-        subscription_notes += f"\n{tier_info_from_project}"
-        logger.info(
-            f"📝 Informations du tiers extraites depuis le projet de voyage (longueur: {len(tier_info_from_project)} caractères)"
-        )
-    
-    # Vérifier aussi dans le questionnaire administratif si les informations du tiers y sont
-    if request.administrative_form:
-        personal_info = request.administrative_form.get("personal", {})
-        # Si le questionnaire contient des informations qui indiquent que c'est pour un tiers
-        # (par exemple, si le nom dans le questionnaire est différent de l'utilisateur connecté)
-        if personal_info:
-            tier_name = personal_info.get("fullName", "")
-            if tier_name and tier_name != current_user.full_name:
-                is_tier_subscription = True
-                # Ajouter les informations du tiers dans les notes
-                if not is_tier_subscription or "SOUSCRIPTION POUR UN TIERS" not in subscription_notes:
-                    subscription_notes = f"{subscription_notes}\n\n⚠️ SOUSCRIPTION POUR UN TIERS ⚠️\n"
-                    subscription_notes += f"Abonné (souscripteur): {current_user.full_name or current_user.username} (ID: {current_user.id})\n"
-                    subscription_notes += f"Email abonné: {current_user.email}\n"
-                
-                tier_info_lines = [
-                    f"\nInformations du tiers (bénéficiaire) depuis le questionnaire:",
-                    f"Nom complet: {tier_name}",
-                ]
-                if personal_info.get("birthDate"):
-                    tier_info_lines.append(f"Date de naissance: {personal_info.get('birthDate')}")
-                if personal_info.get("passportNumber"):
-                    tier_info_lines.append(f"Numéro de passeport: {personal_info.get('passportNumber')}")
-                if personal_info.get("passportExpiryDate"):
-                    tier_info_lines.append(f"Date d'expiration du passeport: {personal_info.get('passportExpiryDate')}")
-                if personal_info.get("phone"):
-                    tier_info_lines.append(f"Téléphone: {personal_info.get('phone')}")
-                subscription_notes = f"{subscription_notes}\n" + "\n".join(tier_info_lines)
-
-    # CRITIQUE: La souscription est TOUJOURS créée avec user_id de l'utilisateur connecté (abonné)
-    # Les documents (attestations, cartes) utiliseront les informations du tiers depuis le questionnaire
-    # mais la souscription elle-même reste liée à l'abonné pour la gestion du compte, paiements, etc.
-    logger.info(
-        f"Création de souscription - Abonné (user_id): {current_user.id} ({current_user.full_name or current_user.username}), "
-        f"Pour un tiers: {is_tier_subscription}"
-    )
-    
-    souscription = Souscription(
-        user_id=current_user.id,  # TOUJOURS l'ID de l'utilisateur connecté (abonné)
-        produit_assurance_id=produit.id,
-        projet_voyage_id=projet.id,
-        numero_souscription=numero_souscription,
-        prix_applique=montant,
-        prime_assurance=td.prime_assurance,
-        cout_police=td.cout_police,
-        frais_services=td.frais_services,
-        taxes=td.taxes,
-        taxes_total=td.taxes_total,
-        date_debut=date_debut,
-        date_fin=date_fin,
-        statut=StatutSouscription.EN_ATTENTE,
-        notes=subscription_notes
-    )
-
-    db.add(souscription)
-    db.flush()
-
-    questionnaire_administratif = _upsert_questionnaire(
-        db,
-        souscription.id,
-        "administratif",
-        request.administrative_form,
-    )
-    questionnaire_medical = _upsert_questionnaire(
-        db,
-        souscription.id,
-        "medical",
-        request.medical_form,
-    )
-    if questionnaire_medical and questionnaire_medical.reponses:
-        med_rep = questionnaire_medical.reponses
-        pm = None
-        if isinstance(med_rep, dict):
-            pm = med_rep.get("photoMedicale") or med_rep.get("photo_medicale")
-        pm_len = len(pm) if isinstance(pm, str) else 0
-        logger.info(
-            "Checkout souscription_id=%s: photo médicale dans medical_form: %s (longueur chaîne=%s)",
-            souscription.id,
-            "oui" if pm_len else "non",
-            pm_len,
-        )
-        AttestationService.persist_identity_photo_from_medical_answers(
-            db,
-            souscription.id,
-            questionnaire_medical.reponses,
-            uploaded_by_user_id=current_user.id,
-        )
-
-    _notify_questionnaire_reviewers(
-        db=db,
-        questionnaire=questionnaire_administratif,
-        role=Role.TECHNICAL_REVIEWER,
-        souscription=souscription,
-        label="administratif / technique",
-    )
-    _notify_questionnaire_reviewers(
-        db=db,
-        questionnaire=questionnaire_medical,
-        role=Role.MEDICAL_REVIEWER,
-        souscription=souscription,
-        label="médical",
-    )
-
-    # Évaluation automatique du dossier : acceptation / refus / revue
-    # Si un âge de voyageur est fourni (ex. enfant bénéficiaire), il est utilisé pour la tarif/décision.
-    decision_result = SubscriptionDecisionEngine.evaluate(
-        db,
-        souscription,
-        voyageur_age=request.age,
-    )
-
-    if decision_result.decision == "reject":
-        db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="; ".join(decision_result.reasons),
-        )
-
-    if decision_result.decision == "review":
-        db.commit()
-        return PaymentCheckoutResponse(
-            subscription_id=souscription.id,
-            numero_souscription=souscription.numero_souscription,
-            decision=decision_result.decision,
-            primary_step=decision_result.primary_step,
-            reasons=decision_result.reasons,
-        )
-
-    # Le dossier est approuvé : créer le paiement et finaliser
-    souscription.statut = StatutSouscription.EN_ATTENTE_PAIEMENT
-
-    # Mode live : encaissement réel via AfriPaie — l'attestation et
-    # l'activation seront déclenchées par le webhook payment.succeeded.
-    if settings.PAYMENT_SERVICE_MODE.lower() == "live" and channel_for_payment_type(request.payment_method.value):
-        db.commit()
-        paiement, info = PaymentService.initiate_payment_intent(
-            db=db,
-            user=current_user,
-            subscription=souscription,
-            amount=montant,
-            payment_type=request.payment_method.value,
-            flow="checkout",
-            description=f"Souscription {numero_souscription} — {produit.nom}",
-        )
-        log_transaction(
-            db=db,
-            payment_id=paiement.id,
-            action="checkout_completed",
-            details={
-                "subscription_id": souscription.id,
-                "amount": float(montant),
-                "payment_method": request.payment_method.value,
-                "provider": "afripaie",
-                "external_reference": info.get("external_payment_id"),
-            },
-            user_id=current_user.id,
-        )
-        return PaymentCheckoutResponse(
-            subscription_id=souscription.id,
-            numero_souscription=souscription.numero_souscription,
-            decision="approve",
-            reasons=[],
-            payment_id=paiement.id,
-            payment_status=paiement.statut,
-            amount=montant,
-            payment_url=info.get("checkout_url"),
-            external_reference=info.get("external_payment_id"),
-            payment_instructions=info.get("instructions"),
-        )
-
-    paiement = Paiement(
-        souscription_id=souscription.id,
-        user_id=current_user.id,
-        montant=montant,
-        type_paiement=request.payment_method,
-        statut=StatutPaiement.VALIDE,
-        date_paiement=datetime.utcnow(),
-        reference_transaction=f"TXN-{uuid.uuid4().hex[:16].upper()}"
-    )
-
-    db.add(paiement)
-    db.commit()  # IMPORTANT: Commit pour s'assurer que le questionnaire est bien enregistré
-    db.refresh(souscription)
-    db.refresh(paiement)
-    souscription.produit_assurance = produit
-    souscription.projet_voyage = projet
-    
-    # Vérifier que le questionnaire administratif est bien enregistré avant de créer l'attestation
-    if questionnaire_administratif:
-        db.refresh(questionnaire_administratif)
-        logger.info(
-            f"✅ Questionnaire administratif vérifié - ID: {questionnaire_administratif.id}, "
-            f"fullName dans reponses: '{questionnaire_administratif.reponses.get('personal', {}).get('fullName', 'NOT FOUND') if questionnaire_administratif.reponses else 'NO REPONSES'}'"
-        )
-
-    attestation = AttestationService.create_attestation_definitive(
-        db=db,
-        souscription=souscription,
-        paiement=paiement,
-        user=current_user
-    )
-    souscription.statut = StatutSouscription.ACTIVE
-    try:
-        AttestationService.issue_quittance_paiement(db, souscription, paiement, current_user)
-        db.commit()
-        db.refresh(paiement)
-    except Exception as quittance_error:
-        logger.warning("Quittance non générée pour le paiement %s: %s", paiement.id, quittance_error)
-
-    # Déclencher l'analyse IA automatiquement en arrière-plan
-    try:
-        from app.services.ia_auto_service import IAAutoService
-        from app.core.database import SessionLocal
-        # Lancer en arrière-plan (non bloquant)
-        import threading
-        subscription_id = souscription.id  # Capturer l'ID avant le thread
-        
-        def run_ia_analysis():
-            try:
-                # Créer une nouvelle session pour le thread
-                db_thread = SessionLocal()
-                try:
-                    # Recharger la souscription dans la nouvelle session
-                    souscription_thread = db_thread.query(Souscription).filter(
-                        Souscription.id == subscription_id
-                    ).first()
-                    if souscription_thread:
-                        IAAutoService.trigger_ia_analysis(db=db_thread, souscription=souscription_thread, background=True)
-                finally:
-                    db_thread.close()
-            except Exception as e:
-                logger.error(f"Erreur lors de l'analyse IA en arrière-plan: {e}", exc_info=True)
-        
-        thread = threading.Thread(target=run_ia_analysis)
-        thread.daemon = True
-        thread.start()
-        logger.info(f"🔍 Analyse IA lancée en arrière-plan pour souscription {souscription.id}")
-    except Exception as e:
-        logger.warning(f"Impossible de lancer l'analyse IA automatique: {e}", exc_info=True)
-
-    log_transaction(
-        db=db,
-        payment_id=paiement.id,
-        action="checkout_completed",
-        details={
-            "subscription_id": souscription.id,
-            "amount": float(montant),
-            "payment_method": request.payment_method.value
-        },
-        user_id=current_user.id
-    )
-
-    return PaymentCheckoutResponse(
-        subscription_id=souscription.id,
-        numero_souscription=souscription.numero_souscription,
-        decision="approve",
-        reasons=[],
-        payment_id=paiement.id,
-        payment_status=paiement.statut,
-        amount=montant,
-        attestation_id=attestation.id,
-        attestation_number=attestation.numero_attestation,
-        attestation_url=attestation.url_signee
-    )
-
-
 @router.post("/confirm", response_model=PaymentConfirmResponse, status_code=status.HTTP_201_CREATED)
 async def confirm_payment(
     request: PaymentConfirmRequest,
@@ -1336,30 +927,12 @@ async def confirm_payment(
     # eKYC obligatoire pour les souscriptions voyage (même règle web et
     # mobile) : le paiement exige une identité VERIFIED — un dossier en
     # revue manuelle (REVIEW) doit attendre le verdict.
-    if souscription.projet_voyage_id:
-        latest_ekyc = (
-            db.query(EkycSession)
-            .filter(EkycSession.souscription_id == souscription.id)
-            .order_by(EkycSession.created_at.desc())
-            .first()
+    ekyc_block = ekyc_service.payment_block_reason(db, souscription)
+    if ekyc_block:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=ekyc_block,
         )
-        if not latest_ekyc or latest_ekyc.status != "VERIFIED":
-            if latest_ekyc and latest_ekyc.status == "REVIEW":
-                detail = (
-                    "Votre vérification d'identité est en cours d'analyse par nos équipes. "
-                    "Vous pourrez payer dès qu'elle sera validée."
-                )
-            elif latest_ekyc and latest_ekyc.status in {"REJECTED", "EXPIRED"}:
-                detail = (
-                    "Votre vérification d'identité a échoué ou a expiré. "
-                    "Veuillez la recommencer avant de payer."
-                )
-            else:
-                detail = "La vérification d'identité (eKYC) est requise avant le paiement."
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=detail,
-            )
 
     # Vérifier que le montant correspond au prix de la souscription (tolérance de 0.01)
     if abs(float(request.montant) - float(souscription.prix_applique)) > 0.01:

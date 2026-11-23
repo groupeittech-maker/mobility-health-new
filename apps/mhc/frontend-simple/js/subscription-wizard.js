@@ -1541,6 +1541,13 @@
                 try {
                     const latest = await apiCall(`/ekyc/sessions/by-souscription/${sub.id}`);
                     ekycOk = latest && latest.is_verified === true;
+                    // Retour du parcours hébergé : on reprend l'état connu de la
+                    // session (en cours, en revue…) au lieu de repartir de zéro.
+                    if (latest && !ekycOk && !['REJECTED', 'EXPIRED'].includes(latest.status)) {
+                        state.ekycSessionId = latest.session_id;
+                        state.ekycVerificationUrl = latest.verification_url;
+                        state.ekycStatus = latest.status;
+                    }
                 } catch (_) { /* pas de session → étape eKYC à faire */ }
                 showStep(ekycOk ? 5 : 4);
             } else {

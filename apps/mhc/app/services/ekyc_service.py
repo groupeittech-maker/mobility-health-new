@@ -28,6 +28,9 @@ _PRE_PAYMENT_STATUSES = {
 }
 
 
+_EKYC_REVIEW_NOTE_PREFIX = "Vérification d'identité"
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -66,11 +69,17 @@ def create_session(
     # Le parcours eKYC s'ouvre dans un nouvel onglet : à la fin, le bouton
     # « Retour à l'application » ramène au wizard qui reprend l'étape courante
     # (eKYC si non vérifié, paiement sinon). Sans souscription → dashboard.
-    # Client mobile : deep link mymhc:// qui ramène l'app au premier plan —
-    # le polling interne termine le parcours (pattern checkout AfriPaie).
+    # Client mobile : l'eKYC n'accepte qu'une URL http(s) — on passe par la
+    # page relais ekyc-return.html qui rouvre l'app via le deep link mymhc://
+    # (l'app revient au premier plan, son polling termine le parcours).
     front = (settings.FRONTEND_BASE_URL or "").rstrip("/")
     if mobile:
-        return_url = "mymhc://ekyc/complete"
+        return_url = (
+            f"{front}/ekyc-return.html"
+            + (f"?subscription_id={souscription.id}" if souscription else "")
+            if front
+            else None
+        )
     else:
         return_url = (
             f"{front}/subscription-wizard.html?subscription_id={souscription.id}"
@@ -106,7 +115,7 @@ def create_session(
     return session
 
 
-_NON_TERMINAL_STATUSES = {"CREATED", "PENDING", "IN_PROGRESS", "OTP_SENT"}
+_NON_TERMINAL_STATUSES = {"CREATED", "PENDING", "IN_PROGRESS", "PROCESSING", "OTP_SENT"}
 
 
 def get_or_create_for_souscription(
@@ -157,6 +166,58 @@ def poll_result(db: Session, session: EkycSession) -> EkycResultResponse:
     return result
 
 
+def refresh_session(db: Session, session: EkycSession) -> EkycResultResponse:
+    """Polling persistant : enregistre le statut lu chez eKYC et applique le
+    verdict quand il change vers un statut terminal — le parcours ne dépend
+    plus de la seule arrivée du webhook."""
+    previous = session.status
+    result = poll_result(db, session)
+    if result.is_terminal and result.status != previous:
+        _apply_result(db, session, result)
+        session.processed_at = _now()
+    db.commit()
+    db.refresh(session)
+    return result
+
+
+def identity_cleared(db: Session, souscription: Souscription) -> tuple[bool, EkycSession | None]:
+    """Identité validée pour le paiement : dernière session VERIFIED, ou
+    échec/revue eKYC levé ensuite par la revue production (décision produit :
+    un échec eKYC part en revue manuelle, l'approbation débloque le paiement)."""
+    latest = (
+        db.query(EkycSession)
+        .filter(EkycSession.souscription_id == souscription.id)
+        .order_by(EkycSession.created_at.desc(), EkycSession.id.desc())
+        .first()
+    )
+    if latest is None:
+        return False, None
+    if latest.status == "VERIFIED":
+        return True, latest
+    approved_at = souscription.validation_technique_date
+    if (
+        souscription.validation_technique == "approved"
+        and souscription.validation_technique_par is not None
+        and approved_at is not None
+    ):
+        failed = (
+            db.query(EkycSession)
+            .filter(
+                EkycSession.souscription_id == souscription.id,
+                EkycSession.status.in_(("REJECTED", "REVIEW")),
+            )
+            .all()
+        )
+
+        def _naive(value: datetime | None) -> datetime | None:
+            return value.replace(tzinfo=None) if value is not None and value.tzinfo else value
+
+        limit = _naive(approved_at)
+        if failed and all((_naive(s.created_at) or limit) <= limit for s in failed):
+            return True, latest
+    return False, latest
+
+
 def handle_webhook(
     db: Session,
     headers: dict[str, str],
@@ -187,8 +248,14 @@ def handle_webhook(
         if session is None:
             raise ValueError(f"Session eKYC inconnue: {payload.session_id}")
 
-    # Idempotence
-    if session.webhook_received_at and session.processed_at:
+    # Idempotence : un webhook rejoué pour un statut déjà appliqué est ignoré ;
+    # un changement de verdict (ex. REVIEW → VERIFIED après correction par un
+    # opérateur eKYC) doit en revanche être traité.
+    if (
+        session.webhook_received_at
+        and session.processed_at
+        and (payload.status is None or payload.status == session.status)
+    ):
         return session
 
     session.webhook_received_at = _now()
@@ -261,18 +328,58 @@ def _apply_result(
                 souscription.statut = StatutSouscription.EN_ATTENTE_VALIDATION
             souscription.validation_technique = "pending"
             souscription.validation_technique_notes = (
-                f"Vérification d'identité {result.status} : revue manuelle requise"
+                f"{_EKYC_REVIEW_NOTE_PREFIX} {result.status} : revue manuelle requise"
             )
             db.flush()
         if souscription and result.is_verified:
             # Si la souscription est en attente de validation eKYC, on marque la
             # vérification d'identité comme terminée. La validation finale reste
             # déclenchée par les agents de production.
+            ekyc_hold = souscription.validation_technique == "pending" and (
+                souscription.validation_technique_notes or ""
+            ).startswith(_EKYC_REVIEW_NOTE_PREFIX)
             if souscription.validation_technique in (None, "pending"):
                 souscription.validation_technique = "approved"
                 souscription.validation_technique_date = _now()
                 souscription.validation_technique_notes = "Validé automatiquement via eKYC"
+            # Le dossier n'était en revue qu'à cause d'un échec eKYC antérieur :
+            # la nouvelle vérification réussie le rend au paiement (sinon il
+            # reste « en attente de validation » sans aucune étape en attente).
+            if (
+                ekyc_hold
+                and souscription.statut == StatutSouscription.EN_ATTENTE_VALIDATION
+                and souscription.validation_medicale != "pending"
+                and souscription.validation_finale != "pending"
+                and "rejected" not in (souscription.validation_medicale, souscription.validation_finale)
+            ):
+                souscription.statut = StatutSouscription.EN_ATTENTE_PAIEMENT
+                from app.services.subscription_decision_service import SubscriptionDecisionEngine
+
+                SubscriptionDecisionEngine._notify_client_outcome(db, souscription, approved=True)
             db.flush()
+
+
+def payment_block_reason(db: Session, souscription: Souscription) -> str | None:
+    """Motif de blocage du paiement lié à l'eKYC (None = paiement autorisé).
+
+    eKYC obligatoire pour les souscriptions voyage, même règle sur toutes
+    les routes de paiement d'une souscription existante."""
+    if not souscription.projet_voyage_id:
+        return None
+    cleared, latest = identity_cleared(db, souscription)
+    if cleared:
+        return None
+    if latest and latest.status == "REVIEW":
+        return (
+            "Votre vérification d'identité est en cours d'analyse par nos équipes. "
+            "Vous pourrez payer dès qu'elle sera validée."
+        )
+    if latest and latest.status in {"REJECTED", "EXPIRED"}:
+        return (
+            "Votre vérification d'identité a échoué ou a expiré. "
+            "Veuillez la recommencer avant de payer."
+        )
+    return "La vérification d'identité (eKYC) est requise avant le paiement."
 
 
 def _parse_iso(value: str | None) -> datetime | None:

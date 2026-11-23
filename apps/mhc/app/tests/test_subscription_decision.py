@@ -175,8 +175,8 @@ class TestSubscriptionDecisionEngineEvaluate:
         assert result.decision == "review"
         assert "medical" in result.review_steps
 
-    def test_pregnancy_up_to_five_months_does_not_block_payment(self):
-        """Workflow V3 : seul « Oui » = grossesse ≤ 5 mois → paiement puis validation automatique."""
+    def test_pregnancy_up_to_five_months_goes_to_medical_review(self):
+        """Guide fonctionnel : grossesse ≤ 5 mois → revue médicale (pas de refus auto)."""
         sub = _subscription()
         result = SubscriptionDecisionEngine.evaluate(
             db=None,
@@ -186,8 +186,9 @@ class TestSubscriptionDecisionEngineEvaluate:
             project=_project(),
             questionnaire=_questionnaire({"enceinte": "oui", "mois_grossesse": 5, "maladie_chronique": "non"}),
         )
-        assert result.decision == "approve"
-        assert sub.statut == StatutSouscription.EN_ATTENTE_PAIEMENT
+        assert result.decision == "review"
+        assert result.primary_step == "medical"
+        assert sub.statut == StatutSouscription.EN_ATTENTE_VALIDATION
 
     def test_pregnancy_with_other_yes_goes_to_review(self):
         sub = _subscription()

@@ -537,13 +537,15 @@ class SubscriptionDecisionEngine:
             _is_pregnancy_positive(t, free_text=True) for t in flat
         )
         if pregnant:
-            # Grossesse de 5 mois maximum : ne bloque pas le paiement (pas de revue).
+            # Guide : grossesse ≤ 5 mois → revue médicale (sans refus auto) ;
+            # au-delà, l'éligibilité médicale refuse le dossier plus haut.
             months = parse_pregnancy_months(reponses) if isinstance(reponses, dict) else None
-            if months is not None and 1 <= months <= PREGNANCY_MAX_MONTHS:
-                reasons.append(f"Grossesse déclarée ({months} mois, ≤ {PREGNANCY_MAX_MONTHS}) : pas de revue requise")
-            else:
-                review_steps.add("medical")
-                reasons.append("Grossesse déclarée : revue médicale requise")
+            review_steps.add("medical")
+            reasons.append(
+                f"Grossesse déclarée ({months} mois, ≤ {PREGNANCY_MAX_MONTHS}) : revue médicale requise"
+                if months is not None
+                else "Grossesse déclarée : revue médicale requise"
+            )
 
         if age is not None and age >= 70:
             review_steps.add("medical")

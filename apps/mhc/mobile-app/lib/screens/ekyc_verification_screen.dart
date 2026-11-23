@@ -27,7 +27,8 @@ class EkycVerificationScreen extends StatefulWidget {
   State<EkycVerificationScreen> createState() => _EkycVerificationScreenState();
 }
 
-class _EkycVerificationScreenState extends State<EkycVerificationScreen> {
+class _EkycVerificationScreenState extends State<EkycVerificationScreen>
+    with WidgetsBindingObserver {
   final _service = EkycSessionService.instance;
 
   EkycSession? _session;
@@ -40,13 +41,22 @@ class _EkycVerificationScreenState extends State<EkycVerificationScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _createSession();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _poller?.cancel();
     super.dispose();
+  }
+
+  /// Retour du navigateur (deep link mymhc:// ou bascule manuelle) : on
+  /// interroge tout de suite le statut sans attendre le prochain tick.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _poll();
   }
 
   Future<void> _createSession() async {
@@ -186,10 +196,19 @@ class _EkycVerificationScreenState extends State<EkycVerificationScreen> {
             style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
             onPressed: () {
               Navigator.of(ctx).pop();
-              if (mounted) context.go('/home');
+              if (!mounted) return;
+              // Ouvert depuis le détail de la souscription : on y revient
+              // (l'écran se recharge et propose la suite, ex. le paiement).
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/home');
+              }
             },
-            icon: const Icon(Icons.home_outlined),
-            label: const Text("Retour à l'accueil"),
+            icon: Icon(context.canPop()
+                ? Icons.arrow_forward
+                : Icons.home_outlined),
+            label: Text(context.canPop() ? 'Continuer' : "Retour à l'accueil"),
           ),
         ],
       ),

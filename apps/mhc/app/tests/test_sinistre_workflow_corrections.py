@@ -191,7 +191,15 @@ class TestDeclarationManuelle:
         self, client, db, test_user, test_product, test_hospital
     ):
         sinistre_ref, _, subscription = _open_sinistre(db, test_user, test_product, test_hospital)
+        # Une seule alerte en cours par assuré : le dossier précédent est clos.
+        sinistre_ref.alerte.statut = "resolue"
         db.delete(sinistre_ref)
+        from app.models.attestation import Attestation
+        db.add(Attestation(
+            souscription_id=subscription.id, paiement_id=None, type_attestation="definitive",
+            numero_attestation=f"ATT-WFC-{subscription.id}", chemin_fichier_minio="INLINE_PDF",
+            bucket_minio="inline", est_valide=True,
+        ))
         db.commit()
 
         agent = _make_user(db, Role.AGENT_MEDICAL_MHC, "agentmed")

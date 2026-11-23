@@ -83,3 +83,121 @@ class TestEkycLiveClientTokenCache:
         client._token_expiry = time.time() + 3600
         # No HTTP call should happen
         assert client._access_token() == "cached"
+
+
+# ---------------------------------------------------------------------------
+# Parcours eKYC ↔ souscription (service)
+# ---------------------------------------------------------------------------
+from app.core.config import settings  # noqa: E402
+from app.core.enums import StatutSouscription  # noqa: E402
+from app.integrations.ekyc.schemas import EkycResultResponse  # noqa: E402
+from app.models.ekyc_session import EkycSession  # noqa: E402
+from app.services import ekyc_service  # noqa: E402
+from app.services.subscription_decision_service import SubscriptionDecisionEngine  # noqa: E402
+from app.tests.test_subscription_cleanup import _sous  # noqa: E402
+
+_STATUS_EVENT = {
+    "VERIFIED": "KYC_VERIFIED",
+    "REVIEW": "KYC_REVIEW_REQUIRED",
+    "REJECTED": "KYC_REJECTED",
+}
+
+
+class _FakeClient:
+    def __init__(self, status):
+        self.status = status
+
+    def get_result(self, session_id):
+        return EkycResultResponse(session_id=session_id, flow="TRAVEL_INSURANCE", status=self.status)
+
+
+def _webhook(db, monkeypatch, session_id, status):
+    monkeypatch.setattr(settings, "EKYC_WEBHOOK_SECRET", "s")
+    monkeypatch.setattr(ekyc_service, "get_ekyc_client", lambda: _FakeClient(status))
+    body = json.dumps(
+        {"event": _STATUS_EVENT[status], "session_id": session_id, "status": status}
+    ).encode()
+    ts = str(int(time.time()))
+    sig = "sha256=" + hmac.new(b"s", ts.encode() + b"." + body, hashlib.sha256).hexdigest()
+    return ekyc_service.handle_webhook(
+        db, {"X-EKYC-Signature": sig, "X-EKYC-Timestamp": ts}, body
+    )
+
+
+def _approved_sous(db, user, product, monkeypatch, session_id, with_trip=False):
+    monkeypatch.setattr(
+        SubscriptionDecisionEngine, "_notify_client_outcome", staticmethod(lambda *a, **k: None)
+    )
+    sous = _sous(db, user, product, start_offset_days=10, statut=StatutSouscription.EN_ATTENTE_PAIEMENT)
+    sous.validation_medicale = sous.validation_technique = sous.validation_finale = "approved"
+    db.add(EkycSession(
+        session_id=session_id, customer_reference=session_id, user_id=user.id,
+        souscription_id=sous.id, status="CREATED",
+    ))
+    db.commit()
+    return sous
+
+
+class TestEkycSubscriptionFlow:
+    def test_stub_session_creation_with_return_url(self, db, test_user, monkeypatch):
+        monkeypatch.setattr(settings, "EKYC_SERVICE_MODE", "stub")
+        session = ekyc_service.create_session(db, user=test_user)
+        assert session.status == "CREATED"
+
+    def test_mobile_return_url_is_https_bridge(self, db, test_user, monkeypatch):
+        """L'eKYC n'accepte qu'une return_url http(s) : le mobile passe par la
+        page relais qui rouvre l'app."""
+        captured = {}
+
+        class _Client:
+            def create_session(self, **kwargs):
+                captured.update(kwargs)
+                from app.integrations.ekyc import EkycStubClient
+                return EkycStubClient().create_session(**kwargs)
+
+        monkeypatch.setattr(settings, "FRONTEND_BASE_URL", "https://front.example")
+        monkeypatch.setattr(ekyc_service, "get_ekyc_client", lambda: _Client())
+        ekyc_service.create_session(db, user=test_user, mobile=True)
+        assert captured["return_url"] == "https://front.example/ekyc-return.html"
+
+    def test_verdict_change_webhook_is_processed(self, db, test_user, test_product, monkeypatch):
+        _approved_sous(db, test_user, test_product, monkeypatch, "K-CHG")
+        _webhook(db, monkeypatch, "K-CHG", "REVIEW")
+        session = _webhook(db, monkeypatch, "K-CHG", "VERIFIED")
+        assert session.status == "VERIFIED"
+
+    def test_retry_verified_after_review_returns_to_payment(
+        self, db, test_user, test_product, monkeypatch
+    ):
+        sous = _approved_sous(db, test_user, test_product, monkeypatch, "K-R1")
+        _webhook(db, monkeypatch, "K-R1", "REVIEW")
+        assert sous.statut == StatutSouscription.EN_ATTENTE_VALIDATION
+        db.add(EkycSession(
+            session_id="K-R2", customer_reference="K-R2", user_id=test_user.id,
+            souscription_id=sous.id, status="CREATED",
+        ))
+        db.commit()
+        _webhook(db, monkeypatch, "K-R2", "VERIFIED")
+        db.refresh(sous)
+        assert sous.statut == StatutSouscription.EN_ATTENTE_PAIEMENT
+
+    def test_production_approval_clears_failed_ekyc(self, db, test_user, test_product, monkeypatch):
+        sous = _approved_sous(db, test_user, test_product, monkeypatch, "K-REJ")
+        _webhook(db, monkeypatch, "K-REJ", "REJECTED")
+        assert ekyc_service.identity_cleared(db, sous)[0] is False
+        SubscriptionDecisionEngine.record_review(db, sous, "production", True, test_user.id)
+        db.commit()
+        assert sous.statut == StatutSouscription.EN_ATTENTE_PAIEMENT
+        assert ekyc_service.identity_cleared(db, sous)[0] is True
+
+    def test_refresh_session_persists_and_applies_verdict(
+        self, db, test_user, test_product, monkeypatch
+    ):
+        sous = _approved_sous(db, test_user, test_product, monkeypatch, "K-POLL")
+        monkeypatch.setattr(ekyc_service, "get_ekyc_client", lambda: _FakeClient("VERIFIED"))
+        session = db.query(EkycSession).filter_by(session_id="K-POLL").one()
+        ekyc_service.refresh_session(db, session)
+        db.rollback()
+        db.refresh(session)
+        assert session.status == "VERIFIED"
+        assert ekyc_service.identity_cleared(db, sous)[0] is True

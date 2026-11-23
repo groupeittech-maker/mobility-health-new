@@ -45,6 +45,11 @@
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <!-- Le deep link mymhc:// ramène seulement l'app au premier plan :
+             pas de navigation automatique (l'écran eKYC en cours reste affiché). -->
+        <meta-data
+            android:name="flutter_deeplinking_enabled"
+            android:value="false" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

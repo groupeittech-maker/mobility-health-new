@@ -990,7 +990,9 @@ def _mask_medical_fields(alertes, user: User) -> None:
     if can_see_medical_details(user):
         return
     for a in alertes:
-        a.description = MEDICAL_MASK
+        # L'assuré voit toujours le motif de sa propre alerte.
+        if a.user_id != user.id:
+            a.description = MEDICAL_MASK
 
 
 @router.get("", response_model=List[AlerteResponse])
@@ -1531,6 +1533,19 @@ async def declaration_manuelle(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Aucune souscription active pour cet assuré : la déclaration d'alerte nécessite une couverture en cours.",
+        )
+    if not (
+        db.query(Attestation)
+        .filter(
+            Attestation.souscription_id == souscription.id,
+            Attestation.type_attestation == "definitive",
+            Attestation.est_valide == True,  # noqa: E712
+        )
+        .first()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Une attestation définitive valide est requise pour déclarer une alerte pour cet assuré.",
         )
     # Même règle que POST /sos/trigger : pas de déclaration tant que la
     # couverture n'a pas débuté — le canal « médecin-conseil » ne contourne

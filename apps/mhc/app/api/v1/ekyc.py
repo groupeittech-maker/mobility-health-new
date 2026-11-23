@@ -117,11 +117,19 @@ def get_latest_ekyc_for_souscription(
     )
     if session is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Aucune session eKYC")
+    # Session encore ouverte : on rapatrie le statut réel (l'utilisateur peut
+    # revenir du parcours hébergé avant l'arrivée du webhook). Best-effort.
+    if session.status in ekyc_service._NON_TERMINAL_STATUSES:
+        try:
+            ekyc_service.refresh_session(db, session)
+        except Exception:  # noqa: BLE001 — l'indisponibilité eKYC ne bloque pas la lecture
+            db.rollback()
+    cleared, _ = ekyc_service.identity_cleared(db, souscription)
     return {
         "session_id": session.session_id,
         "status": session.status,
         "verification_url": session.verification_url,
-        "is_verified": session.status == "VERIFIED",
+        "is_verified": cleared,
         "expires_at": session.expires_at.isoformat() if session.expires_at else None,
     }
 
@@ -137,7 +145,7 @@ def get_ekyc_session(
     if session is None or not _can_access_session(session, current_user):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Session eKYC introuvable")
 
-    result = ekyc_service.poll_result(db, session)
+    result = ekyc_service.refresh_session(db, session)
     return {
         "session_id": result.session_id,
         "status": result.status,

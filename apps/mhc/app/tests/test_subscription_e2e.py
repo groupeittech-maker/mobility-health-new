@@ -122,6 +122,14 @@ class TestSubscriptionE2E:
         assert evaluate_response.status_code == status.HTTP_200_OK
         assert evaluate_response.json()["decision"] == "approve"
 
+        # Step 5ter: identité vérifiée (eKYC obligatoire avant paiement voyage)
+        from app.models.ekyc_session import EkycSession
+        db.add(EkycSession(
+            session_id=f"KYC-E2E-{subscription_id}", customer_reference="e2e",
+            user_id=test_user.id, souscription_id=subscription_id, status="VERIFIED",
+        ))
+        db.commit()
+
         # Step 6: Initiate payment
         payment_response = client.post(
             "/api/v1/payments/initiate",
