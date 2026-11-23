@@ -1584,8 +1584,8 @@ body[data-backoffice] main .table-wrapper:has(.finance-table) {
 .bo-notif small { color: #7c7590; }
 .bo-notif-all { display: block; text-align: center; padding: 10px; font-size: 0.78rem; font-weight: 600; color: #522880; text-decoration: none; }
 .bo-notif-all:hover { background: #efe9f6; }
-.bo-bell .bo-dot { display: none; position: absolute; top: 1px; right: 1px; background: #d64545; color: #fff; font-size: 0.6rem; border-radius: 99px; padding: 1px 6px; font-weight: 700; line-height: 1.2; }
-.bo-bell .bo-dot.has { display: inline-block; }
+.bo-bell .bo-dot { display: none; position: absolute; top: -2px; right: -4px; width: auto; height: 16px; min-width: 16px; box-sizing: border-box; align-items: center; justify-content: center; background: #d64545; color: #fff; font-size: 0.6rem; border: 2px solid #fff; border-radius: 99px; padding: 0 3px; font-weight: 700; line-height: 1; white-space: nowrap; }
+.bo-bell .bo-dot.has { display: inline-flex; }
 .bo-bell { position: relative; overflow: visible; }
 
 .bo-right-badge { display: inline-flex; align-items: center; gap: 6px; background: #e6f7f4; color: #0f766e; font-weight: 600; font-size: 0.68rem; padding: 3px 9px; border-radius: 99px; margin-left: 10px; vertical-align: middle; }
