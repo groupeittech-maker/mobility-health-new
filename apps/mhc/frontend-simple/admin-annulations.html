@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Annulations à valider - Back Office</title>
+    <link rel="stylesheet" href="css/style.css?v=20261028">
+    <link rel="stylesheet" href="css/admin.css?v=4">
+    <link rel="stylesheet" href="css/backoffice.css?v=25">
+</head>
+<body data-backoffice>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="assets/logo_mobility_healthcare_officiel.png?v=3" alt="Mobility HealthCare" class="brand-logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-products.html">Produits</a></li>
+                <li><a href="admin-assureurs.html">Assureurs</a></li>
+                <li><a href="admin-courtiers.html">Courtiers</a></li>
+                <li><a href="admin-subscriptions.html">Souscriptions</a></li>
+                <li><a href="admin-users.html">Utilisateurs</a></li>
+                <li><a href="admin-hospitals.html">Hôpitaux</a></li>
+                <li><a href="admin-attestations.html">Attestations</a></li>
+                <li><a href="admin-destinations.html">Destinations</a></li>
+                <li><a href="statistics-portal.html">Statistiques</a></li>
+                <li><a href="#" onclick="logout()">Déconnexion</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <h2>Demandes d'annulation à valider</h2>
+        </div>
+
+        <div class="dashboard-section" data-requires-permission="production:controle">
+            <p class="muted-text" style="margin-bottom:1rem;">
+                Les demandes d'annulation des assurés arrivent ici : l'agent de production les approuve ou les refuse.
+            </p>
+            <div id="annulationRequestsContainer">
+                <div class="loading"><div class="spinner"></div></div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Mobility Health Care. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=5"></script>
+    <script src="js/admin-annulations.js?v=1"></script>
+    <script src="js/table-scrollbar-fix.js?v=2"></script>
+    <script src="js/permissions.js?v=6"></script>
+    <script src="js/backoffice-nav.js?v=23"></script>
+</body>
+</html>
