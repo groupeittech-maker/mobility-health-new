@@ -193,7 +193,12 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
       if (subscription.projetVoyageId != null) {
         final ekyc = await EkycSessionService.instance
             .getLatestForSouscription(widget.subscriptionId);
-        if (ekyc == null || ekyc.status.toUpperCase() != 'VERIFIED') {
+        // is_verified tient compte du cas REVIEW/REJECTED levé par la revue
+        // production (validation_technique approuvée) : le backend autorise
+        // alors le paiement même si le dernier statut eKYC n'est pas VERIFIED.
+        final cleared = ekyc != null &&
+            (ekyc.status.toUpperCase() == 'VERIFIED' || ekyc.isVerified);
+        if (!cleared) {
           final st = ekyc?.status.toUpperCase();
           final message = st == 'REVIEW'
               ? 'Votre vérification d\'identité est en cours d\'analyse par nos équipes. Vous pourrez payer dès qu\'elle sera validée.'
