@@ -1038,7 +1038,9 @@ body[data-backoffice] main a.btn {
 body[data-backoffice] main a.btn-primary,
 body[data-backoffice] main a.btn-secondary,
 body[data-backoffice] main a.btn-success,
-body[data-backoffice] main a.btn-danger {
+body[data-backoffice] main a.btn-danger,
+body[data-backoffice] main a.export--primary,
+body[data-backoffice] main a.export--secondary {
     color: #fff;
 }
 body[data-backoffice] main .act-link {
