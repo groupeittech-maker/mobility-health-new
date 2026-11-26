@@ -659,6 +659,20 @@ def send_subscription_deletion_reminders():
         db.close()
 
 
+@celery_app.task(name="app.workers.tasks.process_ekyc_abandons")
+def process_ekyc_abandons():
+    """Relance eKYC puis abandon à 2 h des souscriptions « en attente »."""
+    from app.services.ekyc_abandon import process_ekyc_abandons as _process
+
+    db = SessionLocal()
+    try:
+        report = _process(db)
+        db.commit()
+        return report
+    finally:
+        db.close()
+
+
 @celery_app.task(name="app.workers.tasks.process_subscription_lifecycle")
 def process_subscription_lifecycle():
     """Demandes d'informations (rappel / refus à 48 h) et passage des polices terminées en « Expirée »."""

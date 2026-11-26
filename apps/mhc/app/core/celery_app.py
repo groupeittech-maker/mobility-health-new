@@ -91,6 +91,11 @@ celery_app.conf.update(
             "schedule": crontab(minute="*/10"),  # Toutes les 10 minutes
             "options": {"queue": "default"},
         },
+        "ekyc-abandons": {
+            "task": "app.workers.tasks.process_ekyc_abandons",
+            "schedule": crontab(minute="*/15"),  # Relance eKYC + abandon à 2 h
+            "options": {"queue": "default"},
+        },
     },
 )
 

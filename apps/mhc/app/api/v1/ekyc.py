@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.enums import StatutSouscription
 from app.core.permissions import can_act_for_third_party
 from app.api.v1.auth import get_current_user
 from app.models.ekyc_session import EkycSession
@@ -71,6 +72,12 @@ def create_ekyc_session(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Souscription invalide ou non autorisée",
+            )
+        if souscription.statut == StatutSouscription.EXPIREE:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cette souscription a expiré (vérification d'identité abandonnée). "
+                "Créez une nouvelle souscription pour repartir.",
             )
         subject = _ekyc_subject(souscription, current_user)
 

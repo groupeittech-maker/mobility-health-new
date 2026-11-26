@@ -122,6 +122,19 @@ class TestSubscriptionE2E:
         assert evaluate_response.status_code == status.HTTP_200_OK
         assert evaluate_response.json()["decision"] == "approve"
 
+        # Step 5ter-bis: sans eKYC vérifiée, le paiement est bloqué (409)
+        blocked = client.post(
+            "/api/v1/payments/initiate",
+            json={
+                "subscription_id": subscription_id,
+                "amount": float(subscription_data["prix_applique"]),
+                "payment_type": "carte_bancaire"
+            },
+            headers=auth_headers
+        )
+        assert blocked.status_code == status.HTTP_409_CONFLICT
+        assert "eKYC" in blocked.json()["detail"]
+
         # Step 5ter: identité vérifiée (eKYC obligatoire avant paiement voyage)
         from app.models.ekyc_session import EkycSession
         db.add(EkycSession(
