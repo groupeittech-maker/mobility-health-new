@@ -59,11 +59,10 @@ def create_session(
         meta["mhc_souscription_id"] = souscription.id
 
     # Destination OTP imposée (l'utilisateur ne peut pas la substituer).
-    # L'email est privilégié : il est vérifié à l'inscription et ne dépend pas
-    # du routage SMS de l'opérateur eKYC — un numéro déclaré différent de celui
-    # saisi par l'utilisateur provoque OTP_DESTINATION_MISMATCH côté eKYC.
+    # Le téléphone est privilégié : la plateforme eKYC livre les codes par SMS
+    # (canal configuré) — le canal email exige un SMTP qui n'est pas déployé.
     otp_destination = (
-        user.email or user.telephone or user.numero_whatsapp or ""
+        user.telephone or user.numero_whatsapp or user.email or ""
     ).strip() or None
 
     # Le parcours eKYC s'ouvre dans un nouvel onglet : à la fin, le bouton
