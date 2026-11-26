@@ -820,6 +820,159 @@ function getMedicalImageDataUrl(value) {
     return null;
 }
 
+/** Questions de la déclaration de santé (souscription mobile / web). */
+const HEALTH_QUESTIONS = [
+    ['malade_souscription', 'Malade au moment de la souscription'],
+    ['malade_12_mois', 'Malade au cours des 12 derniers mois'],
+    ['maladie_chronique', 'Maladie chronique'],
+    ['enceinte', 'Grossesse en cours'],
+    ['voyage_medical', 'Voyage pour raisons médicales'],
+    ['activite_sportive_pro', 'Activité sportive professionnelle'],
+];
+
+/** Le questionnaire enregistre chaque réponse sous deux noms : on n'en garde qu'un. */
+const MEDICAL_KEY_ALIASES = {
+    maladeSouscription: 'malade_souscription',
+    malade12Mois: 'malade_12_mois',
+    maladieChronique: 'maladie_chronique',
+    pregnancy: 'enceinte',
+    voyageMedical: 'voyage_medical',
+    activiteSportivePro: 'activite_sportive_pro',
+    activite: 'activite_sportive_pro',
+    moisGrossesse: 'mois_grossesse',
+};
+
+function normalizeMedicalResponses(raw) {
+    const out = {};
+    Object.entries(raw || {}).forEach(([key, value]) => {
+        const canonical = MEDICAL_KEY_ALIASES[key];
+        if (!canonical) {
+            out[key] = value;
+        } else if (raw[canonical] === undefined && out[canonical] === undefined) {
+            out[canonical] = value;
+        }
+    });
+    return out;
+}
+
+function healthAnswerKind(value) {
+    if (value === true) return 'yes';
+    if (value === false) return 'no';
+    const v = String(value ?? '').trim().toLowerCase();
+    if (v === 'oui') return 'yes';
+    if (v === 'non') return 'no';
+    if (v === 'non_concerne') return 'na';
+    return v ? 'other' : null;
+}
+
+/**
+ * Déclaration de santé : une ligne par question, réponse en badge, précisions
+ * et personnes concernées sous la question. Retourne null si le questionnaire
+ * n'est pas à ce format.
+ */
+function buildHealthDeclaration(responses) {
+    const persons = [];
+    if (responses.adult && typeof responses.adult === 'object') {
+        persons.push({
+            nom: responses.adult.nom || 'Adulte',
+            reponses: normalizeMedicalResponses(responses.adult.reponses),
+        });
+    }
+    (Array.isArray(responses.enfants) ? responses.enfants : []).forEach((child) => {
+        if (child && typeof child === 'object') {
+            persons.push({ nom: child.nom || 'Enfant', reponses: normalizeMedicalResponses(child.reponses) });
+        }
+    });
+
+    const used = new Set(['adult', 'enfants', 'voyageurs', 'adulte_voyage', 'version', 'mois_grossesse']);
+    const rows = [];
+    HEALTH_QUESTIONS.forEach(([key, label]) => {
+        const personKinds = persons.map((person) => healthAnswerKind(person.reponses[key]));
+        let kind = healthAnswerKind(responses[key]);
+        if (!kind) {
+            if (personKinds.includes('yes')) kind = 'yes';
+            else if (personKinds.some(Boolean)) kind = 'no';
+        }
+        used.add(key);
+        used.add(`${key}_precision`);
+        used.add(`${key}_personnes`);
+        if (!kind) {
+            return;
+        }
+        const details = [];
+        if (kind === 'yes') {
+            let concerned = Array.isArray(responses[`${key}_personnes`]) ? responses[`${key}_personnes`] : [];
+            if (!concerned.length) {
+                concerned = persons.filter((_, i) => personKinds[i] === 'yes').map((person) => person.nom);
+            }
+            if (concerned.length && persons.length > 1) {
+                details.push(`<span class="health-decl__detail-label">Concerne</span> ${escapeHtml(concerned.join(', '))}`);
+            }
+            if (key === 'enceinte' && responses.mois_grossesse != null && responses.mois_grossesse !== '') {
+                details.push(`<span class="health-decl__detail-label">Terme</span> ${escapeHtml(String(responses.mois_grossesse))}ᵉ mois`);
+            }
+            const precision =
+                responses[`${key}_precision`] ||
+                persons.map((person) => person.reponses[`${key}_precision`]).find(Boolean);
+            if (precision) {
+                details.push(`<span class="health-decl__detail-label">Précision</span> ${escapeHtml(String(precision))}`);
+            } else if (key !== 'enceinte') {
+                details.push('<span class="health-decl__detail-missing">Aucune précision fournie par l’assuré</span>');
+            }
+        }
+        const badgeText =
+            kind === 'yes' ? 'Oui' : kind === 'no' ? 'Non' : kind === 'na' ? 'Non concerné' : formatPlainValue(responses[key]);
+        rows.push({ kind, html: `
+            <li class="health-decl__row${kind === 'yes' ? ' is-yes' : ''}">
+                <span class="health-decl__q">${escapeHtml(label)}</span>
+                <span class="health-decl__badge health-decl__badge--${kind}">${escapeHtml(badgeText)}</span>
+                ${details.length ? `<div class="health-decl__detail">${details.map((d) => `<div>${d}</div>`).join('')}</div>` : ''}
+            </li>` });
+    });
+    // Anciens questionnaires (texte libre) : une ou deux questions communes ne
+    // suffisent pas à conclure « aucun antécédent ».
+    if (rows.length < 3) {
+        return null;
+    }
+
+    let photoUrl = null;
+    ['photo_medicale', 'photo_identity', 'photoMedicale'].forEach((key) => {
+        photoUrl = photoUrl || getMedicalImageDataUrl(responses[key]);
+        used.add(key);
+    });
+    used.add('declaration_sante');
+    used.add('date_soumission');
+
+    const yesCount = rows.filter((row) => row.kind === 'yes').length;
+    const summary = yesCount
+        ? `<strong>${yesCount} point${yesCount > 1 ? 's' : ''} d’attention</strong><span>sur ${rows.length} questions — détail ci-dessous</span>`
+        : `<strong>Aucun antécédent déclaré</strong><span>${rows.length} questions, toutes négatives</span>`;
+
+    const meta = [];
+    const travelers = Array.isArray(responses.voyageurs) ? responses.voyageurs : persons.map((person) => person.nom);
+    if (travelers.length > 1) {
+        meta.push(`Voyageurs : ${escapeHtml(travelers.join(', '))}`);
+    }
+    if (responses.date_soumission) {
+        const d = new Date(responses.date_soumission);
+        const when = Number.isNaN(d.getTime()) ? '' : ` le ${escapeHtml(d.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }))}`;
+        meta.push(`Déclaré${responses.declaration_sante ? ' et certifié exact' : ''} par l’assuré${when}`);
+    }
+
+    // Les « Oui » remontent en tête de liste.
+    rows.sort((a, b) => (b.kind === 'yes') - (a.kind === 'yes'));
+    const html = `
+        <div class="health-decl">
+            <div class="health-decl__head">
+                ${photoUrl ? `<img class="health-decl__photo" src="${photoUrl.replace(/"/g, '&quot;')}" alt="Photo de l’assuré">` : ''}
+                <div class="health-decl__summary health-decl__summary--${yesCount ? 'alert' : 'ok'}">${summary}</div>
+            </div>
+            <ul class="health-decl__list">${rows.map((row) => row.html).join('')}</ul>
+            ${meta.length ? `<p class="health-decl__meta">${meta.join(' · ')}</p>` : ''}
+        </div>`;
+    return { html, used };
+}
+
 function renderMedicalData(questionnaire) {
     const container = document.getElementById('medicalDataContent');
     if (!container) {
@@ -829,12 +982,19 @@ function renderMedicalData(questionnaire) {
         container.innerHTML = '<p class="muted">Aucune donnée médicale disponible.</p>';
         return;
     }
-    const responses = questionnaire.reponses;
+    const responses = normalizeMedicalResponses(questionnaire.reponses);
+    const declaration = buildHealthDeclaration(responses);
     const entries = Object.entries(responses).filter(
-        ([key]) => key !== 'mode' && !REMOVED_MEDICAL_KEYS.has(key) && !CONSENT_KEYS.has(key)
+        ([key]) =>
+            key !== 'mode' &&
+            !REMOVED_MEDICAL_KEYS.has(key) &&
+            !CONSENT_KEYS.has(key) &&
+            !(declaration && declaration.used.has(key))
     );
     if (!entries.length) {
-        container.innerHTML = '<p class="muted">Aucune donnée médicale disponible.</p>';
+        container.innerHTML = declaration
+            ? declaration.html
+            : '<p class="muted">Aucune donnée médicale disponible.</p>';
         return;
     }
     const map = Object.fromEntries(entries);
@@ -924,7 +1084,7 @@ function renderMedicalData(questionnaire) {
             </div>`;
     }
 
-    let html = '';
+    let html = declaration ? declaration.html : '';
     if (mobilePairs.length > 0) {
         html += subsection(
             'Questionnaire médical (souscription mobile)',
@@ -1021,8 +1181,42 @@ function populateReportForm(stay) {
     buildOptionsChecklist('actesOptions', hospitalStayOptions.actes, stay.report_actes || []);
     buildOptionsChecklist('examensOptions', hospitalStayOptions.examens, stay.report_examens || []);
 
-    const canSubmit = stay.doctor_id === currentUserId;
+    const locked = ['validated', 'invoiced'].includes(stay.status);
+    const canSubmit = stay.doctor_id === currentUserId && !locked;
+    form.querySelectorAll('textarea, input').forEach((field) => {
+        field.disabled = !canSubmit;
+    });
     submitBtn.disabled = !canSubmit;
+    submitBtn.textContent = REPORT_SUBMIT_LABEL;
+    renderReportStatus(stay, locked);
+}
+
+const REPORT_SUBMIT_LABEL = 'Enregistrer et transmettre';
+
+function renderReportStatus(stay, locked) {
+    const banner = document.getElementById('reportStatusBanner');
+    if (!banner) {
+        return;
+    }
+    const submittedAt = stay.report_submitted_at ? formatDateTime(stay.report_submitted_at) : null;
+    let tone = 'draft';
+    let text = 'Rapport non encore transmis. Il sera envoyé au médecin-conseil MHC dès l’enregistrement.';
+    if (locked) {
+        tone = 'validated';
+        text = 'Rapport validé par le médecin-conseil : il ne peut plus être modifié.';
+    } else if (stay.report_status === 'rejected') {
+        tone = 'rejected';
+        text = 'Rapport à corriger à la demande du médecin-conseil.';
+    } else if (stay.report_status === 'submitted') {
+        tone = 'submitted';
+        text = `Rapport transmis au médecin-conseil${submittedAt ? ` le ${submittedAt}` : ''}, en attente de validation. Vous pouvez encore le corriger.`;
+    }
+    const notes = stay.validation_notes
+        ? `<div class="report-status__notes"><strong>Remarque du médecin-conseil :</strong> ${escapeHtml(stay.validation_notes)}</div>`
+        : '';
+    banner.className = `report-status report-status--${tone}`;
+    banner.innerHTML = `<div>${escapeHtml(text)}</div>${notes}`;
+    banner.hidden = false;
 }
 
 function buildOptionsChecklist(containerId, options, selectedValues) {
@@ -1034,9 +1228,9 @@ function buildOptionsChecklist(containerId, options, selectedValues) {
     container.innerHTML = options
         .map(
             (option) => `
-            <label>
+            <label class="option-chip">
                 <input type="checkbox" value="${escapeHtml(option)}" ${selectedSet.has(option) ? 'checked' : ''}>
-                ${escapeHtml(option)}
+                <span>${escapeHtml(option)}</span>
             </label>
         `
         )
@@ -1081,7 +1275,7 @@ async function handleDoctorReportSubmit(event) {
             method: 'PUT',
             body: JSON.stringify(payload)
         });
-        showAlert('Rapport médical enregistré.', 'success');
+        showAlert('Rapport enregistré et transmis au médecin-conseil.', 'success');
         const hadCloture = payload.terminer_sejour === true;
         const reportPage = isDoctorReportPage();
 
@@ -1111,7 +1305,7 @@ async function handleDoctorReportSubmit(event) {
         showAlert(error.message || 'Impossible d’enregistrer le rapport.', 'error');
     } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Enregistrer le rapport';
+        submitBtn.textContent = REPORT_SUBMIT_LABEL;
     }
 }
 
@@ -1243,12 +1437,12 @@ function formatPlainValue(value) {
         if (trimmed.toLowerCase() === 'non_concerne') return 'Non concerné';
         return trimmed;
     }
+    if (Array.isArray(value)) {
+        return value.map((item) => formatPlainValue(item)).join(', ') || '—';
+    }
     if (typeof value === 'object') {
-        try {
-            return JSON.stringify(value);
-        } catch (error) {
-            return String(value);
-        }
+        const parts = Object.entries(value).map(([k, v]) => `${formatKeyLabel(k)} : ${formatPlainValue(v)}`);
+        return parts.join(' · ') || '—';
     }
     return String(value);
 }

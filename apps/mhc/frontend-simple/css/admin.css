@@ -5569,3 +5569,57 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
 .ekyc-artifact img { width: 100%; max-height: 140px; object-fit: contain; border-radius: 8px; border: 1px solid #e7e3ee; background: #faf9fc; }
 .ekyc-artifact figcaption { font-size: 12px; color: #7c7590; margin-top: 4px; }
 .dossier-photo-missing { display: inline-block; padding: 14px 10px; font-size: 11px; color: #8f87a3; border: 1px dashed #e7e3ee; border-radius: 8px; width: 56px; text-align: center; }
+
+/* ---- Dossier médical : déclaration de santé (médecin hospitalier) ---- */
+.health-decl { display: flex; flex-direction: column; gap: 0.75rem; }
+.health-decl__head { display: flex; align-items: center; gap: 0.75rem; }
+.health-decl__photo { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; border: 1px solid #e3e0ea; flex: none; }
+.health-decl__summary { flex: 1; display: flex; flex-direction: column; gap: 0.1rem; padding: 0.65rem 0.9rem; border-radius: 10px; font-size: 0.875rem; }
+.health-decl__summary strong { font-size: 0.95rem; }
+.health-decl__summary span { opacity: 0.85; }
+.health-decl__summary--ok { background: #e6f6ec; color: #17693b; }
+.health-decl__summary--alert { background: #fff4e0; color: #8a5300; }
+.health-decl__list { list-style: none; margin: 0; padding: 0; border: 1px solid #eceff3; border-radius: 10px; overflow: hidden; }
+.health-decl__row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0.25rem 0.75rem; padding: 0.6rem 0.9rem; background: #fff; border-top: 1px solid #eceff3; }
+.health-decl__row:first-child { border-top: 0; }
+.health-decl__row.is-yes { background: #fffaf0; box-shadow: inset 3px 0 0 #d98a10; }
+.health-decl__q { font-size: 0.875rem; font-weight: 500; color: #2e2940; }
+.health-decl__badge { font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 999px; white-space: nowrap; }
+.health-decl__badge--no { background: #eeedf2; color: #4b4360; }
+.health-decl__badge--yes { background: #d98a10; color: #fff; }
+.health-decl__badge--na, .health-decl__badge--other { background: #e8f0fd; color: #2f6fd6; }
+.health-decl__detail { grid-column: 1 / -1; font-size: 0.8125rem; color: #4b4360; line-height: 1.45; display: flex; flex-direction: column; gap: 0.15rem; }
+.health-decl__detail-label { font-weight: 600; color: #7c7590; margin-right: 0.25rem; }
+.health-decl__detail-missing { font-style: italic; color: #8a5300; }
+.health-decl__meta { margin: 0; font-size: 0.78rem; color: #7c7590; }
+
+/* ---- Rédaction du rapport médical ---- */
+.report-form { display: flex; flex-direction: column; gap: 1rem; }
+.report-form__section { border: 1px solid #eceff3; border-radius: 12px; padding: 0.9rem 1rem 1rem; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 0.8rem; }
+.report-form__section legend { padding: 0 0.4rem; font-size: 0.85rem; font-weight: 700; color: var(--primary-color, #522880); }
+.report-form .form-group { display: flex; flex-direction: column; gap: 0.35rem; margin: 0; }
+.report-form label, .report-form__label { font-size: 0.85rem; font-weight: 600; color: #2e2940; }
+.report-form textarea, .report-form input[type="number"] { width: 100%; box-sizing: border-box; padding: 0.55rem 0.7rem; border: 1px solid #d9d5e3; border-radius: 8px; font: inherit; font-size: 0.9rem; line-height: 1.45; resize: vertical; }
+.report-form textarea:focus, .report-form input[type="number"]:focus { outline: none; border-color: var(--primary-color, #522880); box-shadow: 0 0 0 3px rgba(82, 40, 128, 0.12); }
+.report-form textarea:disabled, .report-form input:disabled { background: #f6f4f9; color: #6b6480; }
+.report-form__short { max-width: 220px; }
+.report-form__req { color: #d64545; }
+.report-form__hint { margin: 0; font-size: 0.8rem; color: #7c7590; }
+.options-grid.options-grid--chips { border: 0; padding: 0; flex-direction: row; flex-wrap: wrap; gap: 0.4rem; }
+.options-grid--chips .option-chip { position: relative; cursor: pointer; font-weight: 500; font-size: 0.82rem; }
+.options-grid--chips .option-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.options-grid--chips .option-chip span { display: inline-block; padding: 0.35rem 0.75rem; border: 1px solid #d9d5e3; border-radius: 999px; background: #fff; color: #4b4360; transition: background 0.12s, border-color 0.12s, color 0.12s; }
+.options-grid--chips .option-chip:hover span { border-color: var(--primary-color, #522880); }
+.options-grid--chips .option-chip input:checked + span { background: var(--primary-color, #522880); border-color: var(--primary-color, #522880); color: #fff; }
+.options-grid--chips .option-chip input:checked + span::before { content: "\2713\00a0"; }
+.options-grid--chips .option-chip input:focus-visible + span { box-shadow: 0 0 0 3px rgba(82, 40, 128, 0.25); }
+.options-grid--chips .option-chip input:disabled + span { opacity: 0.6; cursor: not-allowed; }
+.report-form__footer { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.25rem; }
+.report-form__footer .checkbox-label { margin: 0; font-weight: 600; cursor: pointer; }
+.report-form__footer .form-actions { margin: 0.25rem 0 0; }
+.report-status { padding: 0.65rem 0.9rem; border-radius: 10px; font-size: 0.85rem; line-height: 1.45; }
+.report-status--draft { background: #eeedf2; color: #4b4360; }
+.report-status--submitted { background: #e8f0fd; color: #224f9c; }
+.report-status--validated { background: #e6f6ec; color: #17693b; }
+.report-status--rejected { background: #fdecec; color: #a12d2d; }
+.report-status__notes { margin-top: 0.35rem; }
