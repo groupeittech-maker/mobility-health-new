@@ -573,7 +573,6 @@ function renderSelectedAlert() {
     renderReceptionActions();
 
     // Le dossier s'ouvre en panneau latéral (maquette) — plus de scroll.
-    const section = document.getElementById('alertDetailsSection');
     if (section) {
         section.hidden = false;
     }
