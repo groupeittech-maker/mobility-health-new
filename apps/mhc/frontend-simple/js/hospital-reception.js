@@ -13,7 +13,7 @@ let selectedSinistre = null;
 let hospitalDoctors = [];
 let autoRefreshTimer = null;
 
-const currentHospitalId = Number(localStorage.getItem('hospital_id') || 0);
+let currentHospitalId = Number(localStorage.getItem('hospital_id') || 0);
 const currentUserRole = localStorage.getItem('user_role') || '';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,6 +27,12 @@ async function initHospitalReception() {
     }
     displayUserContext();
     bindReceptionEvents();
+
+    // Session établie avant le rattachement de l'hôpital (ou localStorage
+    // incomplet) : re-synchroniser le contexte depuis le profil courant.
+    if (!currentHospitalId) {
+        await backfillHospitalContext();
+    }
 
     if (!currentHospitalId) {
         showAlert('Aucun hôpital n’est associé à votre compte. Contactez un administrateur.', 'error');
@@ -49,6 +55,22 @@ async function initHospitalReception() {
                 window.location.href = mapUrl;
             }
         });
+    }
+}
+
+async function backfillHospitalContext() {
+    try {
+        const user = await apiCall('/auth/me');
+        if (user && user.hospital_id) {
+            localStorage.setItem('hospital_id', user.hospital_id);
+            if (user.hospital_nom) {
+                localStorage.setItem('hospital_name', user.hospital_nom);
+            }
+            currentHospitalId = Number(user.hospital_id);
+            displayUserContext();
+        }
+    } catch (error) {
+        console.error('Impossible de resynchroniser le contexte hôpital:', error);
     }
 }
 
