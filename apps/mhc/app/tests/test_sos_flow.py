@@ -525,3 +525,88 @@ class TestSOSFlow:
         assert medical_questionnaire["id"] == questionnaire.id
         assert medical_questionnaire["type_questionnaire"] == "medical"
 
+
+    def test_sos_payloads_do_not_ship_duplicate_inline_photos(
+        self,
+        client,
+        db,
+        test_user,
+        test_product,
+        test_sos_operator,
+        test_doctor,
+        test_hospital,
+        auth_headers
+    ):
+        """La photo base64 du questionnaire ne doit pas gonfler les réponses SOS."""
+        from app.models.souscription import Souscription
+        from app.models.questionnaire import Questionnaire
+        from app.core.enums import StatutSouscription
+
+        photo = "data:image/jpeg;base64," + "A" * 5000
+        product = test_product(db, code="SOS-PHOTO-001", cout=Decimal("120.00"))
+        subscription = Souscription(
+            user_id=test_user.id,
+            produit_assurance_id=product.id,
+            numero_souscription="SUB-PHOTO-001",
+            prix_applique=product.cout,
+            date_debut=datetime.utcnow() - timedelta(days=1),
+            date_fin=datetime.utcnow() + timedelta(days=20),
+            statut=StatutSouscription.ACTIVE
+        )
+        db.add(subscription)
+        db.commit()
+        db.refresh(subscription)
+        _attach_definitive_attestation(db, subscription)
+
+        db.add(Questionnaire(
+            souscription_id=subscription.id,
+            type_questionnaire="medical",
+            version=1,
+            reponses={
+                "allergies": "aucune",
+                "photo_medicale": photo,
+                "photoMedicale": photo,
+                "photo_identity": photo,
+            },
+            statut="complete"
+        ))
+        db.commit()
+
+        sos_response = client.post(
+            "/api/v1/sos/trigger",
+            json={
+                "souscription_id": subscription.id,
+                "latitude": PARIS_LAT,
+                "longitude": PARIS_LON,
+                "adresse": "Test photo",
+                "description": "Emergency with photo",
+                "priorite": "haute"
+            },
+            headers=auth_headers
+        )
+        assert sos_response.status_code == status.HTTP_201_CREATED
+        alerte_id = sos_response.json()["id"]
+
+        # Liste : aucune photo embarquée.
+        list_response = client.get("/api/v1/sos/?limit=50", headers=auth_headers)
+        assert list_response.status_code == status.HTTP_200_OK
+        assert "data:image" not in list_response.text
+
+        # Détail : un seul exemplaire de la photo.
+        detail = client.get(f"/api/v1/sos/{alerte_id}/sinistre", headers=auth_headers)
+        assert detail.status_code == status.HTTP_200_OK
+        assert detail.text.count("data:image") == 1
+        reponses = detail.json()["medical_questionnaire"]["reponses"]
+        assert reponses["photo_medicale"] == photo
+        assert reponses["allergies"] == "aucune"
+
+        # Détail allégé : aucune photo, le reste intact.
+        light = client.get(f"/api/v1/sos/{alerte_id}/sinistre?light=true", headers=auth_headers)
+        assert light.status_code == status.HTTP_200_OK
+        assert "data:image" not in light.text
+        assert light.json()["medical_questionnaire"]["reponses"]["allergies"] == "aucune"
+
+        # La photo reste intacte en base.
+        stored = db.query(Questionnaire).filter(Questionnaire.souscription_id == subscription.id).first()
+        db.refresh(stored)
+        assert stored.reponses["photo_identity"] == photo

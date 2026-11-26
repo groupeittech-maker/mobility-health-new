@@ -349,14 +349,16 @@ function filterAlertsForDoctor(alerts = []) {
 
 async function fetchDoctorCase(alert) {
     try {
-        const sinistre = await apiCall(`/sos/${alert.id}/sinistre`);
+        // Version allégée (sans photo embarquée) : le dossier complet n'est
+        // chargé qu'à l'ouverture d'un dossier.
+        const sinistre = await apiCall(`/sos/${alert.id}/sinistre?light=true`);
         if (!sinistre?.hospital_stay) {
             return null;
         }
         if (!canAccessCase(sinistre)) {
             return null;
         }
-        return { alert, sinistre };
+        return { alert, sinistre, light: true };
     } catch (error) {
         console.error(`Erreur lors du chargement du sinistre ${alert.id}:`, error);
         return null;
@@ -673,6 +675,22 @@ function selectDoctorCase(alertId) {
         const rowId = Number(card.getAttribute('data-row-alert-id'));
         card.classList.toggle('selected', rowId === Number(alertId));
     });
+    if (match.light) {
+        loadFullDoctorCase(match);
+    }
+}
+
+async function loadFullDoctorCase(entry) {
+    try {
+        const sinistre = await apiCall(`/sos/${entry.alert.id}/sinistre`);
+        entry.sinistre = sinistre;
+        entry.light = false;
+        if (Number(selectedCaseId) === entry.alert.id) {
+            renderMedicalData(sinistre?.medical_questionnaire);
+        }
+    } catch (error) {
+        console.error('Erreur lors du chargement du dossier complet:', error);
+    }
 }
 
 function renderSelectedCase(caseEntry) {
@@ -1117,6 +1135,7 @@ async function refreshSelectedCase() {
             return;
         }
         entry.sinistre = sinistre;
+        entry.light = false;
         renderSelectedCase(entry);
     } catch (error) {
         console.error('Erreur lors de la mise à jour du dossier sélectionné:', error);

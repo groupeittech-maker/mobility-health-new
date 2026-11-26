@@ -198,13 +198,39 @@ def _subscription_identity_photo_url(db: Session, subscription_id: Optional[int]
     return None
 
 
+def _is_inline_image(value) -> bool:
+    return isinstance(value, str) and value.startswith("data:image")
+
+
+def _slim_questionnaire_reponses(reponses, drop_images: bool = False):
+    """Allège les réponses d'un questionnaire : la même photo est souvent stockée
+    en base64 sous plusieurs clés (photo_medicale / photoMedicale / photo_identity),
+    ce qui triple le poids du dossier. On ne garde qu'un exemplaire, ou aucun si
+    drop_images (vues liste)."""
+    if not isinstance(reponses, dict):
+        return reponses
+    seen = set()
+    slim = {}
+    for key, value in reponses.items():
+        if _is_inline_image(value):
+            if drop_images or value in seen:
+                continue
+            seen.add(value)
+        slim[key] = value
+    return slim
+
+
 def enrich_alerte_with_related_data(
     alerte: Alerte,
     sinistre: Optional[Sinistre] = None,
     hospital: Optional[Hospital] = None,
     db: Optional[Session] = None,
+    include_photo: bool = True,
 ):
-    """Injecter les métadonnées (sinistre/hôpital) dans l'objet Alerte."""
+    """Injecter les métadonnées (sinistre/hôpital) dans l'objet Alerte.
+
+    include_photo=False (listes) : pas de photo embarquée en base64 — plusieurs
+    centaines de Ko par alerte, que les tableaux n'affichent pas."""
     if sinistre:
         setattr(alerte, "sinistre_id", sinistre.id)
     else:
@@ -231,7 +257,10 @@ def enrich_alerte_with_related_data(
         setattr(alerte, "user_email", alerte.user.email)
         setattr(alerte, "user_telephone", getattr(alerte.user, "telephone", None))
         user_photo = getattr(alerte.user, "photo_url", None)
-        if not user_photo and db is not None:
+        if not include_photo:
+            if _is_inline_image(user_photo):
+                user_photo = None
+        elif not user_photo and db is not None:
             user_photo = _subscription_identity_photo_url(db, getattr(alerte, "souscription_id", None))
         setattr(alerte, "user_photo_url", user_photo)
         dn = getattr(alerte.user, "date_naissance", None)
@@ -912,7 +941,7 @@ def _hydrate_alertes_for_response(db: Session, alertes: List[Alerte]) -> bool:
         hospital = None
         if sinistre and sinistre.hospital_id:
             hospital = hospital_map.get(sinistre.hospital_id)
-        enrich_alerte_with_related_data(alerte, sinistre, hospital, db)
+        enrich_alerte_with_related_data(alerte, sinistre, hospital, db, include_photo=False)
         setattr(
             alerte,
             "numero_souscription",
@@ -1117,10 +1146,13 @@ async def get_alerte(
 @router.get("/{alerte_id}/sinistre", response_model=SinistreDetailResponse)
 async def get_sinistre_by_alerte(
     alerte_id: int,
+    light: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Obtenir les détails complets du sinistre associé à une alerte"""
+    """Obtenir les détails complets du sinistre associé à une alerte.
+
+    light=true : sans les photos embarquées du questionnaire (vues liste)."""
     alerte = (
         db.query(Alerte)
         .options(joinedload(Alerte.user))
@@ -1224,6 +1256,9 @@ async def get_sinistre_by_alerte(
         latest_questionnaire = get_latest_questionnaire(db, sinistre.souscription_id)
         if latest_questionnaire:
             medical_questionnaire_payload = QuestionnaireResponse.model_validate(latest_questionnaire)
+            medical_questionnaire_payload.reponses = _slim_questionnaire_reponses(
+                medical_questionnaire_payload.reponses, drop_images=light
+            )
     
     patient_info = None
     if hasattr(alerte, "user") and alerte.user:
