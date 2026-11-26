@@ -240,12 +240,17 @@ function populateUserSelects() {
             medecinSelectEl.appendChild(option);
         });
     }
+    const hospitalSuffix = (hospitalId) => {
+        if (!hospitalId) return ' — sans hôpital';
+        const h = (state.hospitals || []).find(x => x.id === hospitalId);
+        return ` — ${h ? h.nom : `hôpital #${hospitalId}`}`;
+    };
     if (receptionistSelectEl) {
         receptionistSelectEl.innerHTML = '';
         state.receptionists.forEach(user => {
             const option = document.createElement('option');
             option.value = user.id;
-            option.textContent = user.full_name || user.email || user.username;
+            option.textContent = (user.full_name || user.email || user.username) + hospitalSuffix(user.hospital_id);
             receptionistSelectEl.appendChild(option);
         });
     }
@@ -254,7 +259,7 @@ function populateUserSelects() {
         state.hospitalDoctorsChoices.forEach(user => {
             const option = document.createElement('option');
             option.value = user.id;
-            option.textContent = user.full_name || user.email || user.username;
+            option.textContent = (user.full_name || user.email || user.username) + hospitalSuffix(user.hospital_id);
             doctorsSelectEl.appendChild(option);
         });
     }
@@ -263,7 +268,7 @@ function populateUserSelects() {
         state.accountants.forEach(user => {
             const option = document.createElement('option');
             option.value = user.id;
-            option.textContent = user.full_name || user.email || user.username;
+            option.textContent = (user.full_name || user.email || user.username) + hospitalSuffix(user.hospital_id);
             accountantsSelectEl.appendChild(option);
         });
     }
