@@ -494,8 +494,35 @@
     }
 
     // ---- Notifications -----------------------------------------------------
+    // Portails partenaires : leurs notifications renvoient vers leur espace —
+    // les pages internes (alert-center, bo-notifications…) sont réservées aux
+    // profils MHC et bloqueraient l'accès au dossier.
+    const EXTERNAL_NOTIF_PAGES = {
+        agent_reception_hopital: 'hospital-reception.html',
+        hospital_admin: 'hospital-dashboard.html',
+        medecin_hopital: 'hospital-doctor.html',
+        agent_comptable_hopital: 'hospital-invoices.html',
+        agent_production_assureur: 'assureur-production.html',
+        assistant_souscription: 'assureur-production.html',
+        agent_sinistre_assureur: 'assureur-sinistres.html',
+        agent_comptable_assureur: 'assureur-accounting.html',
+        agent_medical_assureur: 'assureur-production.html',
+        agent_production_courtier: 'courtier-production.html',
+        agent_sinistre_courtier: 'courtier-sinistres.html',
+        agent_comptable_courtier: 'courtier-production.html',
+        agent_verificateur_reassureur: 'reassureur-portal.html',
+    };
+
     function notifHref(n) {
         const t = (n.lien_relation_type || '').toLowerCase();
+        const role = (localStorage.getItem('user_role') || '').toLowerCase();
+        const external = EXTERNAL_NOTIF_PAGES[role];
+        if (external) {
+            if ((t === 'facture' || t === 'invoice') && role === 'agent_comptable_hopital') {
+                return 'hospital-invoices.html';
+            }
+            return external;
+        }
         if (t === 'sinistre' || t === 'alerte') return 'alert-center.html';
         if (t === 'souscription' || t === 'avenant') return 'admin-subscriptions.html';
         if (t === 'facture' || t === 'invoice') return 'sinistre-invoices.html';
@@ -523,7 +550,9 @@
                         '<span class="dot"></span><div><b>' + (x.titre || 'Notification') + '</b>' +
                         '<br><small>' + (x.created_at || '').slice(0, 16).replace('T', ' ') + '</small></div></div>'
                     ).join('') +
-                    '<a class="bo-notif-all" href="bo-notifications.html">Tout voir →</a>';
+                    '<a class="bo-notif-all" href="' +
+                    (EXTERNAL_NOTIF_PAGES[(localStorage.getItem('user_role') || '').toLowerCase()] || 'bo-notifications.html') +
+                    '">Tout voir →</a>';
                 drop.querySelectorAll('.bo-notif[data-id]').forEach(el =>
                     el.addEventListener('click', () => {
                         apiCall('/notifications/' + el.getAttribute('data-id') + '/read', { method: 'PATCH' }).catch(() => {});
