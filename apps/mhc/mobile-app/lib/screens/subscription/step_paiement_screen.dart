@@ -83,6 +83,15 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
   String _dossierState = 'to_submit';
   List<String> _decisionReasons = const [];
 
+  /// Retour à l'accueil. L'écran peut avoir été ouvert par Navigator.push
+  /// (reprise d'une souscription depuis le tableau de bord, l'historique ou
+  /// la liste filtrée) : context.go() naviguerait sous la route impérative,
+  /// qui resterait affichée — on la dépile donc d'abord.
+  void _goHomeTab(int tab) {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    context.go('/home?tab=$tab&r=${DateTime.now().millisecondsSinceEpoch}');
+  }
+
   /// Paiement externe (AfriPaie) en attente de validation :
   /// push USSD à composer sur le téléphone ou page de checkout ouverte.
   bool _paymentPending = false;
@@ -828,7 +837,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              onPressed: () => context.go('/home?tab=1&r=${DateTime.now().millisecondsSinceEpoch}'),
+              onPressed: () => _goHomeTab(1),
               icon: const Icon(Icons.history, size: 18),
               label: const Text('Voir dans l\'historique'),
               style: TextButton.styleFrom(
@@ -852,7 +861,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
             width: double.infinity,
             height: 46,
             child: ElevatedButton.icon(
-              onPressed: () => context.go('/home?tab=0&r=${DateTime.now().millisecondsSinceEpoch}'),
+              onPressed: () => _goHomeTab(0),
               icon: const Icon(Icons.home_rounded, size: 20),
               label: const Text('Retour à l\'accueil'),
               style: ElevatedButton.styleFrom(
@@ -911,7 +920,7 @@ class _StepPaiementScreenState extends State<StepPaiementScreen> {
             width: double.infinity,
             height: 46,
             child: ElevatedButton.icon(
-              onPressed: () => context.go('/home?tab=0&r=${DateTime.now().millisecondsSinceEpoch}'),
+              onPressed: () => _goHomeTab(0),
               icon: const Icon(Icons.home_rounded, size: 20),
               label: const Text('Retour à l\'accueil'),
               style: ElevatedButton.styleFrom(
