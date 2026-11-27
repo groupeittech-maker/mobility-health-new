@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Facturation hospitalière - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css?v=20261028">
-    <link rel="stylesheet" href="css/admin.css?v=4">
+    <link rel="stylesheet" href="css/admin.css?v=7">
     <link rel="stylesheet" href="css/backoffice.css?v=26">
-    <link rel="stylesheet" href="css/hospital-invoices.css?v=2">
+    <link rel="stylesheet" href="css/hospital-invoices.css?v=3">
 </head>
 <body class="protected" data-backoffice>
     <nav class="navbar">
@@ -108,11 +108,25 @@
                     <p>Aucun séjour ne correspond aux filtres.</p>
                     <small>Modifiez les filtres ou attendez la validation d'un rapport.</small>
                 </div>
-                <ul class="stay-list" id="staysList" hidden></ul>
+                 <div class="table-wrapper" id="staysTableWrapper" hidden>
+                    <table class="data-table" id="staysTable">
+                        <thead>
+                            <tr>
+                                <th>Sinistre</th>
+                                <th>Séjour</th>
+                                <th>Rapport</th>
+                                <th>Facture</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="staysTableBody"></tbody>
+                    </table>
+                </div>
                 <div id="staysPagination" class="table-pagination-wrapper" hidden></div>
             </section>
 
-            <section class="details-panel">
+            <div class="mh-drawer-backdrop" id="stayDrawerBackdrop" hidden></div>
+            <section class="details-panel mh-drawer mh-drawer--wide" id="stayDetailsPanel" hidden>
                 <div id="detailsPlaceholder" class="panel-empty">
                     <p class="eyebrow panel-eyebrow">Étape 2</p>
                     <p>Sélectionnez un dossier dans la liste pour afficher le rapport et préparer la facture.</p>
@@ -127,6 +141,7 @@
                         <div class="status-stack">
                             <span class="status-badge" id="detailStatus">—</span>
                             <span class="status-badge status-invoiced" id="detailInvoiceBadge" hidden></span>
+                            <button type="button" class="btn btn-outline btn-sm" id="closeStayDrawerBtn">✕ Fermer</button>
                         </div>
                     </div>
 
@@ -385,7 +400,7 @@
     <script src="js/auth.js?v=5"></script>
     <script src="js/permissions.js?v=6"></script>
     <script src="js/backoffice-nav.js?v=25"></script>
-    <script src="js/hospital-invoices.js?v=6"></script>
+    <script src="js/hospital-invoices.js?v=7"></script>
 </body>
 </html>
 

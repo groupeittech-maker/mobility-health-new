@@ -220,6 +220,7 @@ function bindFilterEvents() {
 }
 
 function bindInvoiceEvents() {
+    document.getElementById('closeStayDrawerBtn')?.addEventListener('click', closeStayDrawer);
     const tvaInput = document.getElementById('tvaInput');
     const notesInput = document.getElementById('invoiceNotes');
     const generateBtn = document.getElementById('generateInvoiceBtn');
@@ -779,19 +780,20 @@ function renderStats() {
 }
 
 function renderStayList() {
-    const list = document.getElementById('staysList');
+    const list = document.getElementById('staysTableBody');
+    const wrapper = document.getElementById('staysTableWrapper');
     const empty = document.getElementById('staysEmpty');
-    if (!list || !empty) {
+    if (!list || !wrapper || !empty) {
         return;
     }
     if (!state.stays.length) {
-        list.hidden = true;
+        wrapper.hidden = true;
         empty.hidden = false;
         list.innerHTML = '';
         return;
     }
     empty.hidden = true;
-    list.hidden = false;
+    wrapper.hidden = false;
 
     const totalPages = Math.max(1, Math.ceil(state.stays.length / ROWS_PER_PAGE));
     if (currentPageStays > totalPages - 1) {
@@ -805,36 +807,40 @@ function renderStayList() {
         const statusClass = `status-badge ${getStatusClass(stay.status)}`;
         const statusLabel = getStatusLabel(stay.status);
         const reportLabel = getReportStatusLabel(stay.report_status);
-        const doctor = stay.assigned_doctor?.full_name ? `Médecin : ${stay.assigned_doctor.full_name}` : '';
         const factureBadge = stay.invoice
-            ? `<span class="pill pill-success">Facture #${escapeHtml(stay.invoice.numero_facture)} · ${escapeHtml(INVOICE_STATUS_LABELS[stay.invoice.statut] || stay.invoice.statut)}</span>`
-            : '<span class="pill">Facture à créer</span>';
+            ? `<span class="pill pill-success">#${escapeHtml(stay.invoice.numero_facture)} · ${escapeHtml(INVOICE_STATUS_LABELS[stay.invoice.statut] || stay.invoice.statut)}</span>`
+            : '<span class="pill">À créer</span>';
         return `
-            <li class="stay-card ${state.selectedStayId === stay.id ? 'selected' : ''}" data-stay-id="${stay.id}">
-                <div class="stay-card-header">
-                    <strong>${escapeHtml(sinistre)}</strong>
-                    <span class="${statusClass}">${statusLabel}</span>
-                </div>
-                <div class="stay-card-body">
-                    <p class="muted">Rapport : ${reportLabel}</p>
-                    ${doctor ? `<p class="muted">${escapeHtml(doctor)}</p>` : ''}
-                </div>
-                <div class="stay-card-footer">
-                    ${factureBadge}
-                </div>
-            </li>
+            <tr class="${state.selectedStayId === stay.id ? 'row-selected' : ''}" data-stay-id="${stay.id}">
+                <td><strong>${escapeHtml(sinistre)}</strong></td>
+                <td><span class="${statusClass}">${statusLabel}</span></td>
+                <td>${reportLabel}</td>
+                <td>${factureBadge}</td>
+                <td>
+                    <button type="button" class="btn btn-outline btn-sm stay-open-btn" data-stay-id="${stay.id}">
+                        Préparer la facture
+                    </button>
+                </td>
+            </tr>
         `;
     }).join('');
 
-    list.querySelectorAll('.stay-card').forEach((item) => {
-        item.addEventListener('click', () => {
-            const stayId = parseInt(item.getAttribute('data-stay-id'), 10);
-            if (Number.isFinite(stayId) && stayId !== state.selectedStayId) {
-                state.selectedStayId = stayId;
-                resetFormState();
-                renderStayList();
-                renderDetails();
-            }
+    const openStay = (stayId) => {
+        if (!Number.isFinite(stayId)) return;
+        state.selectedStayId = stayId;
+        resetFormState();
+        renderStayList();
+        renderDetails();
+    };
+    list.querySelectorAll('tr[data-stay-id]').forEach((row) => {
+        row.addEventListener('click', (event) => {
+            if (event.target.closest('.stay-open-btn')) return;
+            openStay(parseInt(row.getAttribute('data-stay-id'), 10));
+        });
+    });
+    list.querySelectorAll('.stay-open-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            openStay(parseInt(btn.getAttribute('data-stay-id'), 10));
         });
     });
 
@@ -868,16 +874,32 @@ function renderStayList() {
     }
 }
 
+function closeStayDrawer() {
+    state.selectedStayId = null;
+    renderStayList();
+    renderDetails();
+}
+
 function renderDetails() {
+    const panel = document.getElementById('stayDetailsPanel');
+    const backdrop = document.getElementById('stayDrawerBackdrop');
     const placeholder = document.getElementById('detailsPlaceholder');
     const content = document.getElementById('detailsContent');
     const stay = state.stays.find((s) => s.id === state.selectedStayId);
     if (!stay) {
-        placeholder.hidden = false;
-        content.hidden = true;
+        if (panel) panel.hidden = true;
+        if (backdrop) backdrop.hidden = true;
+        document.body.classList.remove('mh-drawer-open');
+        if (content) content.hidden = true;
         return;
     }
-    placeholder.hidden = true;
+    if (panel) panel.hidden = false;
+    if (backdrop) {
+        backdrop.hidden = false;
+        backdrop.onclick = closeStayDrawer;
+    }
+    document.body.classList.add('mh-drawer-open');
+    if (placeholder) placeholder.hidden = true;
     content.hidden = false;
 
     document.getElementById('detailSinistre').textContent =

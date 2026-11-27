@@ -242,6 +242,10 @@ function renderMhInvoiceDetail() {
                 ${renderMhTimelineItem('Paiement', invoice.statut === 'paid' ? 'approved' : (invoice.statut === 'validated' ? 'pending' : null))}
             </div>
         </div>
+        <div class="history-block">
+            <h4>Historique des actions</h4>
+            <div id="mhHistory" class="history-list"></div>
+        </div>
         <div class="detail-grid">
             <div>
                 <strong>Hôpital</strong>
@@ -269,10 +273,6 @@ function renderMhInvoiceDetail() {
                 <p><strong>TVA :</strong> ${formatCurrency(invoice.montant_tva)}</p>
                 <p><strong>Montant TTC :</strong> ${formatCurrency(invoice.montant_ttc)}</p>
             </div>
-        </div>
-        <div class="history-block">
-            <h4>Historique des actions</h4>
-            <div id="mhHistory" class="history-list"></div>
         </div>
     `;
 

@@ -129,49 +129,63 @@ function applyInvoiceFilter() {
 }
 
 function renderInvoiceList() {
-    const list = document.getElementById('invoiceList');
+    const tbody = document.getElementById('invoiceTableBody');
+    const wrapper = document.getElementById('invoiceTableWrapper');
     const empty = document.getElementById('invoiceListEmpty');
     const counter = document.getElementById('invoiceCount');
-    if (!list || !empty) {
+    if (!tbody || !wrapper || !empty) {
         return;
     }
     empty.hidden = !!filteredInvoices.length;
+    wrapper.hidden = !filteredInvoices.length;
     const countLabel = filteredInvoices.length <= 1 ? 'facture' : 'factures';
     if (counter) {
         counter.textContent = `${filteredInvoices.length} ${countLabel}`;
     }
     if (!filteredInvoices.length) {
-        list.innerHTML = '';
+        tbody.innerHTML = '';
         return;
     }
-    list.innerHTML = filteredInvoices
+    tbody.innerHTML = filteredInvoices
         .map((invoice) => {
             const sinistreLabel =
                 invoice.sinistre?.numero_sinistre || `Sinistre #${invoice.sinistre?.id || '—'}`;
             const hospitalName = invoice.hospital?.nom || `Hôpital #${invoice.hospital_id}`;
-            const selectedClass = invoice.id === selectedInvoiceId ? 'selected' : '';
+            const selectedClass = invoice.id === selectedInvoiceId ? 'row-selected' : '';
             return `
-                <li class="card ${selectedClass}" data-invoice-id="${invoice.id}">
-                    <div class="card-title">
-                        <strong>${escapeHtml(invoice.numero_facture)}</strong>
-                        <span class="status-badge">${escapeHtml(getInvoiceStatusLabel(invoice.statut))}</span>
-                    </div>
-                    <p class="muted">${escapeHtml(sinistreLabel)}</p>
-                    <p class="muted">${escapeHtml(hospitalName)}</p>
-                    <p class="muted">Montant TTC : ${formatCurrency(invoice.montant_ttc)}</p>
-                </li>
+                <tr class="${selectedClass}" data-invoice-id="${invoice.id}">
+                    <td><strong>${escapeHtml(invoice.numero_facture)}</strong></td>
+                    <td>${escapeHtml(sinistreLabel)}</td>
+                    <td>${escapeHtml(hospitalName)}</td>
+                    <td>${formatCurrency(invoice.montant_ttc)}</td>
+                    <td><span class="status-badge">${escapeHtml(getInvoiceStatusLabel(invoice.statut))}</span></td>
+                    <td>${formatDateTime(invoice.created_at)}</td>
+                    <td>
+                        <button type="button" class="btn btn-outline btn-sm sinistre-detail-btn" data-invoice-id="${invoice.id}">
+                            Détails &amp; validation
+                        </button>
+                    </td>
+                </tr>
             `;
         })
         .join('');
 
-    list.querySelectorAll('li.card').forEach((item) => {
-        item.addEventListener('click', () => {
-            const invoiceId = Number(item.getAttribute('data-invoice-id'));
-            if (Number.isFinite(invoiceId)) {
-                selectedInvoiceId = invoiceId;
-                renderInvoiceList();
-                renderInvoiceDetail();
-            }
+    const selectInvoice = (invoiceId) => {
+        if (!Number.isFinite(invoiceId)) return;
+        selectedInvoiceId = invoiceId;
+        renderInvoiceList();
+        renderInvoiceDetail();
+    };
+
+    tbody.querySelectorAll('tr[data-invoice-id]').forEach((row) => {
+        row.addEventListener('click', (event) => {
+            if (event.target.closest('.sinistre-detail-btn')) return;
+            selectInvoice(Number(row.getAttribute('data-invoice-id')));
+        });
+    });
+    tbody.querySelectorAll('.sinistre-detail-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            selectInvoice(Number(btn.getAttribute('data-invoice-id')));
         });
     });
 }
@@ -181,14 +195,32 @@ function renderInvoiceDetail() {
     if (!panel) {
         return;
     }
+    const closeDrawer = () => {
+        panel.hidden = true;
+        panel.innerHTML = '';
+        document.body.classList.remove('mh-drawer-open');
+        const backdrop = document.getElementById('invoiceDrawerBackdrop');
+        if (backdrop) backdrop.hidden = true;
+    };
     if (!selectedInvoiceId) {
-        panel.innerHTML = '<p class="muted">Sélectionnez une facture pour afficher ses détails.</p>';
+        closeDrawer();
         return;
     }
     const invoice = filteredInvoices.find((item) => item.id === selectedInvoiceId);
     if (!invoice) {
-        panel.innerHTML = '<p class="muted">Facture introuvable.</p>';
+        closeDrawer();
         return;
+    }
+    panel.hidden = false;
+    document.body.classList.add('mh-drawer-open');
+    const backdrop = document.getElementById('invoiceDrawerBackdrop');
+    if (backdrop) {
+        backdrop.hidden = false;
+        backdrop.onclick = () => {
+            selectedInvoiceId = null;
+            renderInvoiceList();
+            renderInvoiceDetail();
+        };
     }
 
     const hospitalName = invoice.hospital?.nom || `Hôpital #${invoice.hospital_id}`;
@@ -204,7 +236,10 @@ function renderInvoiceDetail() {
                 <h3>${escapeHtml(invoice.numero_facture)}</h3>
                 <p class="muted">Montant TTC : ${formatCurrency(invoice.montant_ttc)}</p>
             </div>
-            <span class="status-badge">${escapeHtml(getInvoiceStatusLabel(invoice.statut))}</span>
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+                <span class="status-badge">${escapeHtml(getInvoiceStatusLabel(invoice.statut))}</span>
+                <button type="button" class="btn btn-outline btn-sm" id="sinistreCloseDetailBtn">✕ Fermer</button>
+            </div>
         </div>
         <div class="detail-grid">
             <div>
@@ -225,6 +260,28 @@ function renderInvoiceDetail() {
                 <p>${formatDateTime(invoice.created_at)}</p>
             </div>
         </div>
+        <div class="mh-decision-block">
+            <div class="form-group">
+                <label for="sinistreDecisionNotes">Notes pour l\'historique</label>
+                <textarea id="sinistreDecisionNotes" rows="2" placeholder="Commentaire visible par les équipes"></textarea>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-success" id="sinistreApproveBtn">Valider la facture</button>
+                <button class="btn btn-danger" id="sinistreRejectBtn">Rejeter la facture</button>
+            </div>
+        </div>
+        <div class="mh-suivi-block">
+            <h4>Suivi du dossier</h4>
+            <div class="timeline">
+                ${renderTimelineItem('Médecin-conseil', invoice.validation_medicale)}
+                ${renderTimelineItem('Affaires médicales', invoice.validation_sinistre)}
+                ${renderTimelineItem('Comptabilité', invoice.validation_compta)}
+            </div>
+        </div>
+        <div class="history-block">
+            <h4>Historique des actions</h4>
+            <div id="sinistreHistory" class="history-list"></div>
+        </div>
         <div class="invoice-content-block">
             <h4>Contenu de la facture</h4>
             <div id="invoiceItemsContainer"><p class="muted">Chargement du détail...</p></div>
@@ -234,24 +291,16 @@ function renderInvoiceDetail() {
                 <p><strong>Montant TTC :</strong> ${formatCurrency(invoice.montant_ttc)}</p>
             </div>
         </div>
-        <div class="timeline">
-            ${renderTimelineItem('Médecin-conseil', invoice.validation_medicale)}
-            ${renderTimelineItem('Affaires médicales', invoice.validation_sinistre)}
-            ${renderTimelineItem('Comptabilité', invoice.validation_compta)}
-        </div>
-        <div class="history-block">
-            <h4>Historique des actions</h4>
-            <div id="sinistreHistory" class="history-list"></div>
-        </div>
-        <div class="form-group">
-            <label for="sinistreDecisionNotes">Notes pour l\'historique</label>
-            <textarea id="sinistreDecisionNotes" rows="3" placeholder="Commentaire visible par les équipes"></textarea>
-        </div>
-        <div class="form-actions">
-            <button class="btn btn-success" id="sinistreApproveBtn">Valider la facture</button>
-            <button class="btn btn-danger" id="sinistreRejectBtn">Rejeter la facture</button>
-        </div>
     `;
+
+    const closeBtn = document.getElementById('sinistreCloseDetailBtn');
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            selectedInvoiceId = null;
+            renderInvoiceList();
+            renderInvoiceDetail();
+        };
+    }
 
     const canAct = canValidateInvoiceMedical(invoice) || canValidateInvoiceSinistre(invoice);
     const approveBtn = document.getElementById('sinistreApproveBtn');

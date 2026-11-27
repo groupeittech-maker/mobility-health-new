@@ -6018,7 +6018,7 @@ span.wft-doc {
     position: fixed;
     inset: 0;
     background: rgba(20, 10, 40, 0.45);
-    z-index: 900;
+    z-index: 1990;
 }
 
 .mh-drawer {
@@ -6027,7 +6027,7 @@ span.wft-doc {
     right: 0;
     height: 100vh;
     width: min(760px, 96vw);
-    z-index: 950;
+    z-index: 2000;
     overflow-y: auto;
     border-radius: 0;
     box-shadow: -8px 0 32px rgba(20, 10, 40, 0.25);

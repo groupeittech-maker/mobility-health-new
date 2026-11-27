@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portail comptable assureur - Mobility Health Care</title>
     <link rel="stylesheet" href="css/style.css?v=20261028">
-    <link rel="stylesheet" href="css/admin.css?v=4">
+    <link rel="stylesheet" href="css/admin.css?v=7">
     <link rel="stylesheet" href="css/backoffice.css?v=26">
 </head>
 <body class="protected" data-backoffice>
@@ -121,19 +121,32 @@
                 <button class="btn" id="mhRefreshBtn">Actualiser</button>
             </div>
 
-            <div class="panel-grid">
-                <div class="panel list-panel">
-                    <div class="panel-header">
-                        <h4>Factures reçues</h4>
-                        <span class="muted" id="mhInvoiceCount">0 facture</span>
-                    </div>
-                    <p class="muted" id="mhInvoiceEmpty">Aucune facture à afficher.</p>
-                    <ul id="mhInvoiceList" class="card-list"></ul>
+            <div class="panel">
+                <div class="panel-header">
+                    <h4>Factures reçues</h4>
+                    <span class="muted" id="mhInvoiceCount">0 facture</span>
                 </div>
+                <p class="muted" id="mhInvoiceEmpty">Aucune facture à afficher.</p>
+                <div class="table-wrapper" id="mhInvoiceTableWrapper" hidden>
+                    <table class="data-table" id="mhInvoiceTable">
+                        <thead>
+                            <tr>
+                                <th>Facture</th>
+                                <th>Sinistre</th>
+                                <th>Hôpital</th>
+                                <th>Montant TTC</th>
+                                <th>Statut</th>
+                                <th>Créée le</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mhInvoiceTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
 
-                <div class="panel detail-panel" id="mhInvoiceDetail">
-                    <p class="muted">Sélectionnez une facture pour afficher ses détails.</p>
-                </div>
+            <div class="mh-drawer-backdrop" id="mhDrawerBackdrop" hidden></div>
+            <div class="panel detail-panel mh-drawer" id="mhInvoiceDetail" hidden>
             </div>
         </section>
 
@@ -199,7 +212,7 @@
     <script src="js/table-pagination.js"></script>
     <script src="js/table-top-scrollbar.js?v=3"></script>
     <script src="js/accounting-ledger.js"></script>
-    <script src="js/mh-invoices.js?v=6"></script>
+    <script src="js/mh-invoices.js?v=8"></script>
     <script src="js/accounting-portal.js"></script>
 </body>
 </html>

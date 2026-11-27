@@ -820,3 +820,16 @@ body {
     margin: 0;
 }
 
+
+/* ---- Tiroir latéral : la liste des dossiers occupe toute la largeur ---- */
+.content-grid {
+    grid-template-columns: 1fr;
+}
+
+.mh-drawer--wide {
+    width: min(920px, 97vw);
+}
+
+.details-panel.mh-drawer {
+    padding: 1.25rem 1.5rem;
+}
