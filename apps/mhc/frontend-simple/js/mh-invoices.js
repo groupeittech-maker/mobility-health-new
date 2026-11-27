@@ -486,13 +486,10 @@ function renderMhHistoryItem(entry, actionLabels) {
     const notes = entry.notes ? `<div class="history-note">${escapeHtml(entry.notes)}</div>` : '';
     return `
         <li class="history-item">
-            <div class="history-item-header">
-                <strong>${escapeHtml(label)}</strong> <span class="muted">${actor}</span>
-            </div>
-            <div class="history-meta">
-                <span>${formatDateTime(entry.created_at)}</span>
-                ${statusLabel ? `<span class="pill">${escapeHtml(statusLabel)}</span>` : ''}
-            </div>
+            <span class="history-date">${formatDateTime(entry.created_at)}</span>
+            <strong class="history-action">${escapeHtml(label)}</strong>
+            ${statusLabel ? `<span class="pill">${escapeHtml(statusLabel)}</span>` : ''}
+            <span class="history-actor muted">${actor}</span>
             ${notes}
         </li>
     `;
