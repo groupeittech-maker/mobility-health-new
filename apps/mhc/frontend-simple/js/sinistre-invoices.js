@@ -275,7 +275,7 @@ function renderInvoiceDetail() {
             <div class="timeline">
                 ${renderTimelineItem('Médecin-conseil', invoice.validation_medicale)}
                 ${renderTimelineItem('Affaires médicales', invoice.validation_sinistre)}
-                ${renderTimelineItem('Comptabilité', invoice.validation_compta)}
+                ${renderTimelineItem('Comptabilité', comptaTimelineState(invoice))}
             </div>
         </div>
         <div class="history-block">
@@ -362,9 +362,19 @@ async function loadInvoiceItems(invoiceId) {
     }
 }
 
+function comptaTimelineState(invoice) {
+    // Le circuit actuel ne passe plus par validation_compta : la comptabilité
+    // paie directement la facture validée. L'étape suit donc le statut réel —
+    // sinon une facture payée affichait « Non démarré ».
+    if (invoice.statut === 'paid') return 'paid';
+    if (invoice.statut === 'validated') return 'pending';
+    return invoice.validation_compta || null;
+}
+
 function renderTimelineItem(label, state) {
     const map = {
         approved: { text: 'Validé', cls: 'pill-success' },
+        paid: { text: 'Payée', cls: 'pill-success' },
         rejected: { text: 'Rejeté', cls: 'pill-danger' },
         pending: { text: 'En attente', cls: 'pill' },
         null: { text: 'Non démarré', cls: 'pill' },

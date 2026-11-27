@@ -239,7 +239,7 @@ function renderMhInvoiceDetail() {
             <div class="timeline">
                 ${renderMhTimelineItem('Médecin-conseil', invoice.validation_medicale)}
                 ${renderMhTimelineItem('Affaires médicales', invoice.validation_sinistre)}
-                ${renderMhTimelineItem('Paiement', invoice.statut === 'paid' ? 'approved' : (invoice.statut === 'validated' ? 'pending' : null))}
+                ${renderMhTimelineItem('Paiement', invoice.statut === 'paid' ? 'paid' : (invoice.statut === 'validated' ? 'pending' : null))}
             </div>
         </div>
         <div class="history-block">
@@ -364,6 +364,7 @@ async function loadMhInvoiceItems(invoiceId) {
 function renderMhTimelineItem(label, state) {
     const map = {
         approved: { text: 'Validé', cls: 'pill-success' },
+        paid: { text: 'Payée', cls: 'pill-success' },
         rejected: { text: 'Rejeté', cls: 'pill-danger' },
         pending: { text: 'En attente', cls: 'pill' },
         null: { text: 'Non démarré', cls: 'pill' },
