@@ -22,6 +22,16 @@
         .btn { border: none; border-radius: .45rem; padding: .35rem .7rem; font-size: .74rem; font-weight: 600; cursor: pointer; margin-right: .35rem; }
         .btn-ok { background: #0a9b6c; color: #fff; }
         .btn-ko { background: #fde8e8; color: #c81e1e; }
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(20,16,48,.45); z-index: 2500; display: none; align-items: flex-start; justify-content: center; padding: 3rem 1rem; }
+        .modal-backdrop.show { display: flex; }
+        .modal-card { background: #fff; border-radius: .8rem; max-width: 640px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 1.2rem 1.4rem; }
+        .modal-card h2 { font-size: 1.05rem; color: #1e1650; margin: 0 0 .8rem; }
+        .modal-sec { margin-bottom: .9rem; }
+        .modal-sec h3 { font-size: .78rem; color: #8a8fa3; text-transform: uppercase; letter-spacing: .03em; margin: 0 0 .3rem; }
+        .modal-sec p { font-size: .85rem; color: #2c2c3c; margin: 0; white-space: pre-wrap; }
+        .modal-sec ul { margin: 0; padding-left: 1.1rem; font-size: .85rem; color: #2c2c3c; }
+        .modal-meta { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; font-size: .76rem; color: #8a8fa3; margin-bottom: 1rem; }
+        .modal-close { float: right; border: none; background: #eceef6; border-radius: .45rem; padding: .3rem .7rem; cursor: pointer; font-size: .78rem; }
         .toast { position: fixed; bottom: 1.4rem; right: 1.4rem; background: #1e1650; color: #fff; padding: .7rem 1.1rem; border-radius: .6rem; font-size: .82rem; z-index: 3000; display: none; }
         .toast.show { display: block; } .toast.error { background: #c81e1e; }
     </style>
@@ -49,6 +59,15 @@
     </main>
     <div class="toast" id="toast"></div>
 
+    <div class="modal-backdrop" id="reportModal">
+        <div class="modal-card">
+            <button class="modal-close" onclick="document.getElementById('reportModal').classList.remove('show')">✕ Fermer</button>
+            <h2 id="rmTitle">Rapport médical</h2>
+            <div class="modal-meta" id="rmMeta"></div>
+            <div id="rmBody"></div>
+        </div>
+    </div>
+
     <script src="js/api.js?v=20261013"></script>
     <script src="js/auth.js?v=5"></script>
     <script src="js/permissions.js?v=6"></script>
@@ -67,6 +86,7 @@
                 : 'Niveau 1 — validations médecin-conseil';
 
             const reports = data.reports || [];
+            lastReports = reports;
             $('rc').textContent = reports.length;
             $('reportsBody').innerHTML = reports.map(r => `
                 <tr>
@@ -77,6 +97,7 @@
                     <td><span class="badge b-${r.statut}">${r.statut === 'soumis' ? 'Attente 1re val.' : 'Attente 2e val.'}</span></td>
                     <td class="table-actions">
                         <select class="action-select"><option value="">⚙️ Actions</option>
+                            <option data-act="report-view" data-arg="${r.id}">👁️ Consulter</option>
                             <option data-act="report-accorde" data-arg="${r.id}">✅ Accorder</option>
                             <option data-act="report-refuse" data-arg="${r.id}">❌ Refuser</option>
                         </select>
@@ -101,7 +122,32 @@
                 </tr>`).join('') || '<tr><td colspan="6" style="color:#8a8fa3">Aucun document en attente</td></tr>';
         }
 
+        let lastReports = [];
+
+        const listItems = arr => (Array.isArray(arr) && arr.length)
+            ? '<ul>' + arr.map(x => '<li>' + esc(typeof x === 'object' && x !== null ? (x.libelle || x.nom || x.label || JSON.stringify(x)) : x) + '</li>').join('') + '</ul>'
+            : '<p style="color:#8a8fa3">—</p>';
+
+        function openReportModal(id) {
+            const r = lastReports.find(x => String(x.id) === String(id));
+            if (!r) return;
+            $('rmTitle').textContent = (r.report_type === 'final' ? 'Rapport final' : "Rapport d'étape") + ' — séjour #' + r.stay_id;
+            $('rmMeta').innerHTML =
+                '<span>Soumis le ' + (r.created_at ? new Date(r.created_at).toLocaleString('fr-FR') : '—') + '</span>' +
+                '<span>Statut : ' + esc(r.statut) + '</span>' +
+                (r.escalated ? '<span style="color:#c81e1e">Escaladé</span>' : '');
+            $('rmBody').innerHTML =
+                '<div class="modal-sec"><h3>Résumé</h3><p>' + esc(r.resume || '—') + '</p></div>' +
+                '<div class="modal-sec"><h3>Actes effectués</h3>' + listItems(r.actes) + '</div>' +
+                '<div class="modal-sec"><h3>Examens effectués</h3>' + listItems(r.examens) + '</div>' +
+                (r.evolution ? '<div class="modal-sec"><h3>Évolution</h3><p>' + esc(r.evolution) + '</p></div>' : '') +
+                (r.observations ? '<div class="modal-sec"><h3>Observations</h3><p>' + esc(r.observations) + '</p></div>' : '') +
+                (r.refusal_reason ? '<div class="modal-sec"><h3>Motif du refus</h3><p style="color:#c81e1e">' + esc(r.refusal_reason) + '</p></div>' : '');
+            $('reportModal').classList.add('show');
+        }
+
         window.mhRowAction = async (act, id) => {
+            if (act === 'report-view') { openReportModal(id); return; }
             try {
                 if (act === 'report-accorde' || act === 'report-refuse') {
                     const decision = act === 'report-accorde' ? 'accorde' : 'refuse';
@@ -116,6 +162,9 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!(await requireBackoffice('index.html'))) return;
+            $('reportModal').addEventListener('click', e => {
+                if (e.target === $('reportModal')) $('reportModal').classList.remove('show');
+            });
             load();
         });
     </script>

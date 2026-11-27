@@ -623,6 +623,33 @@ async def update_hospital_stay_report(
     previous_report_status = stay.report_status
     # Dès que le médecin hospitalier enregistre le rapport, le dossier passe en "Rapport à valider" pour le médecin référent
     stay.report_status = "submitted"
+
+    # Alimenter la file de validation médecin-conseil (medical-validations) : le
+    # rapport du séjour et la chaîne HospitalMedicalReport sont deux vues du même
+    # document — sans cette ligne, la page des validations restait vide.
+    from app.models.medical_workflow import HospitalMedicalReport
+    pending_report = (
+        db.query(HospitalMedicalReport)
+        .filter(HospitalMedicalReport.stay_id == stay.id, HospitalMedicalReport.statut == "soumis")
+        .first()
+    )
+    report_payload = {
+        "resume": report.resume,
+        "actes": report.actes_effectues or [],
+        "examens": report.examens_effectues or [],
+        "observations": report.observations,
+    }
+    if pending_report:
+        for field, value in report_payload.items():
+            setattr(pending_report, field, value)
+        pending_report.created_by_id = current_user.id
+    else:
+        db.add(HospitalMedicalReport(
+            stay_id=stay.id,
+            report_type="final" if report.terminer_sejour else "etape",
+            created_by_id=current_user.id,
+            **report_payload,
+        ))
     stay.status = "awaiting_validation"
     stay.validated_by_id = None
     stay.validated_at = None

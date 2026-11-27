@@ -233,6 +233,33 @@ async def validate_medical_report(
         if sinistre:
             _log_alerte(db, sinistre.alerte_id, "validation",
                         f"Rapport {report.report_type} : 1re validation ({payload.decision})", current_user)
+        # Cascade vers le séjour : la validation du médecin-conseil est la décision
+        # opérationnelle qui ouvre la facturation (étape 12 du workflow sinistre).
+        if stay is not None and stay.status in {"awaiting_validation", "rejected", "in_progress"}:
+            if payload.decision == "refuse":
+                stay.status = "rejected"
+                stay.report_status = "rejected"
+            else:
+                stay.status = "validated"
+                stay.report_status = "approved"
+                try:
+                    from app.api.v1.hospital_sinistres import _get_users_by_role, _notify_users
+                    from app.core.enums import Role
+                    accountants = _get_users_by_role(db, Role.AGENT_COMPTABLE_HOPITAL, stay.hospital_id)
+                    if accountants and sinistre:
+                        _notify_users(
+                            db,
+                            accountants,
+                            "Rapport hospitalier validé",
+                            f"Le rapport du sinistre #{sinistre.numero_sinistre or sinistre.id} est validé. Vous pouvez créer la facture.",
+                            relation_type="hospital_stay",
+                            relation_id=stay.id,
+                        )
+                except Exception:
+                    logger.exception("Notification comptables après validation rapport impossible")
+            stay.validated_at = now
+            stay.validated_by_id = current_user.id
+            stay.validation_notes = payload.commentaire
 
     elif report.statut == "validee_mc":
         # Niveau 2 — affaires médicales uniquement.
