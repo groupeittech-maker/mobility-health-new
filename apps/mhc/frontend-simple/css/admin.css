@@ -6003,3 +6003,12 @@ span.wft-doc {
 .dossier-tab-panel > .dashboard-section {
     margin: 0;
 }
+
+/* Factures : ligne sélectionnée dans le tableau */
+.data-table tr.row-selected td {
+    background: #efecf8;
+}
+
+.data-table tbody tr[data-invoice-id] {
+    cursor: pointer;
+}

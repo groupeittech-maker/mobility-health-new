@@ -1,3 +1,4 @@
+import math
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional, Tuple
@@ -384,12 +385,16 @@ def _prepare_invoice_lines(stay: HospitalStay) -> List[dict]:
     lines: List[dict] = []
     hours = stay.report_duree_sejour_heures or 0
     if hours:
-        qty = Decimal(str(hours))
+        # Facturation au jour de séjour : 24 h = 1 jour, 48 h = 2 jours —
+        # tout jour commencé est dû (arrondi supérieur).
+        days = max(1, math.ceil(hours / 24))
+        qty = Decimal(days)
         amount = HOSPITAL_STAY_HOURLY_RATE * qty
+        jours_label = f"{days} jour" + ("s" if days > 1 else "")
         lines.append(
             {
-                "libelle": f"Durée de séjour ({hours}h)",
-                "quantite": hours,
+                "libelle": f"Durée de séjour — {jours_label} ({hours}h)",
+                "quantite": days,
                 "prix_unitaire": HOSPITAL_STAY_HOURLY_RATE,
                 "montant_ht": amount,
             }

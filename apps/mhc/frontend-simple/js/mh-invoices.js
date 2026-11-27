@@ -104,49 +104,67 @@ function applyMhInvoiceFilter() {
 }
 
 function renderMhInvoiceList() {
-    const list = document.getElementById('mhInvoiceList');
+    const tbody = document.getElementById('mhInvoiceTableBody');
+    const wrapper = document.getElementById('mhInvoiceTableWrapper');
     const empty = document.getElementById('mhInvoiceEmpty');
     const counter = document.getElementById('mhInvoiceCount');
-    if (!list || !empty) {
+    if (!tbody || !wrapper || !empty) {
         return;
     }
     empty.hidden = !!mhFilteredInvoices.length;
+    wrapper.hidden = !mhFilteredInvoices.length;
     const label = mhFilteredInvoices.length <= 1 ? 'facture' : 'factures';
     if (counter) {
         counter.textContent = `${mhFilteredInvoices.length} ${label}`;
     }
     if (!mhFilteredInvoices.length) {
-        list.innerHTML = '';
+        tbody.innerHTML = '';
         return;
     }
-    list.innerHTML = mhFilteredInvoices
+    tbody.innerHTML = mhFilteredInvoices
         .map((invoice) => {
             const sinistreLabel =
                 invoice.sinistre?.numero_sinistre || `Sinistre #${invoice.sinistre?.id || '—'}`;
             const hospitalName = invoice.hospital?.nom || `Hôpital #${invoice.hospital_id}`;
-            const selectedClass = invoice.id === mhSelectedInvoiceId ? 'selected' : '';
+            const selectedClass = invoice.id === mhSelectedInvoiceId ? 'row-selected' : '';
+            const blocked = invoice.bloquee ? ' <span class="pill pill-danger">Bloquée</span>' : '';
             return `
-                <li class="card ${selectedClass}" data-invoice-id="${invoice.id}">
-                    <div class="card-title">
-                        <strong>${escapeHtml(invoice.numero_facture)}</strong>
-                        <span class="status-badge">${escapeHtml(getInvoiceStatusLabel(invoice.statut))}</span>
-                    </div>
-                    <p class="muted">${escapeHtml(sinistreLabel)}</p>
-                    <p class="muted">${escapeHtml(hospitalName)}</p>
-                    <p class="muted">Montant TTC : ${formatCurrency(invoice.montant_ttc)}</p>
-                </li>
+                <tr class="${selectedClass}" data-invoice-id="${invoice.id}">
+                    <td><strong>${escapeHtml(invoice.numero_facture)}</strong></td>
+                    <td>${escapeHtml(sinistreLabel)}</td>
+                    <td>${escapeHtml(hospitalName)}</td>
+                    <td>${formatCurrency(invoice.montant_ttc)}</td>
+                    <td><span class="status-badge">${escapeHtml(getInvoiceStatusLabel(invoice.statut))}</span>${blocked}</td>
+                    <td>${formatDateTime(invoice.created_at)}</td>
+                    <td>
+                        <button type="button" class="btn btn-outline btn-sm mh-detail-btn" data-invoice-id="${invoice.id}">
+                            Détails &amp; validation
+                        </button>
+                    </td>
+                </tr>
             `;
         })
         .join('');
 
-    list.querySelectorAll('li.card').forEach((item) => {
-        item.addEventListener('click', () => {
-            const invoiceId = Number(item.getAttribute('data-invoice-id'));
-            if (Number.isFinite(invoiceId)) {
-                mhSelectedInvoiceId = invoiceId;
-                renderMhInvoiceList();
-                renderMhInvoiceDetail();
-            }
+    const selectInvoice = (invoiceId, scroll) => {
+        if (!Number.isFinite(invoiceId)) return;
+        mhSelectedInvoiceId = invoiceId;
+        renderMhInvoiceList();
+        renderMhInvoiceDetail();
+        if (scroll) {
+            document.getElementById('mhInvoiceDetail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
+    tbody.querySelectorAll('tr[data-invoice-id]').forEach((row) => {
+        row.addEventListener('click', (event) => {
+            if (event.target.closest('.mh-detail-btn')) return;
+            selectInvoice(Number(row.getAttribute('data-invoice-id')), false);
+        });
+    });
+    tbody.querySelectorAll('.mh-detail-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            selectInvoice(Number(btn.getAttribute('data-invoice-id')), true);
         });
     });
 }
@@ -157,14 +175,17 @@ function renderMhInvoiceDetail() {
         return;
     }
     if (!mhSelectedInvoiceId) {
-        container.innerHTML = '<p class="muted">Sélectionnez une facture pour afficher ses détails.</p>';
+        container.hidden = true;
+        container.innerHTML = '';
         return;
     }
     const invoice = mhFilteredInvoices.find((item) => item.id === mhSelectedInvoiceId);
     if (!invoice) {
-        container.innerHTML = '<p class="muted">Facture introuvable.</p>';
+        container.hidden = true;
+        container.innerHTML = '';
         return;
     }
+    container.hidden = false;
     const hospitalName = invoice.hospital?.nom || `Hôpital #${invoice.hospital_id}`;
     const sinistreLabel =
         invoice.sinistre?.numero_sinistre || `Sinistre #${invoice.sinistre?.id || '—'}`;
@@ -178,7 +199,10 @@ function renderMhInvoiceDetail() {
                 <h3>${escapeHtml(invoice.numero_facture)}</h3>
                 <p class="muted">Montant TTC : ${formatCurrency(invoice.montant_ttc)}</p>
             </div>
-            <span class="status-badge">${escapeHtml(getInvoiceStatusLabel(invoice.statut))}</span>
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+                <span class="status-badge">${escapeHtml(getInvoiceStatusLabel(invoice.statut))}</span>
+                <button type="button" class="btn btn-outline btn-sm" id="mhCloseDetailBtn">✕ Fermer</button>
+            </div>
         </div>
         <div class="detail-grid">
             <div>
@@ -231,6 +255,15 @@ function renderMhInvoiceDetail() {
             <button class="btn btn-success" id="mhAgrementBtn" hidden>Enregistrer l’agrément réassureur</button>
         </div>
     `;
+
+    const closeBtn = document.getElementById('mhCloseDetailBtn');
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            mhSelectedInvoiceId = null;
+            renderMhInvoiceList();
+            renderMhInvoiceDetail();
+        };
+    }
 
     const notesField = document.getElementById('mhDecisionNotes');
     const approveBtn = document.getElementById('mhApproveBtn');
