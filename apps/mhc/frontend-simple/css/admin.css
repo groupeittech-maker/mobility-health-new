@@ -5726,10 +5726,36 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
 .wft-phase__head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0.55rem 1rem;
+    gap: 0.5rem;
+    padding: 0.45rem 1rem;
     background: #f3f1f8;
     font-size: 0.9rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.wft-phase__head:hover {
+    filter: brightness(0.97);
+}
+
+.wft-phase__chevron {
+    flex: 0 0 auto;
+    font-size: 0.75rem;
+    color: var(--secondary-color);
+    transition: transform 0.15s ease;
+    transform: rotate(90deg);
+}
+
+.wft-phase--collapsed .wft-phase__chevron {
+    transform: rotate(0deg);
+}
+
+.wft-phase--collapsed .wft-steps {
+    display: none;
+}
+
+.wft-phase__titre {
+    flex: 1;
 }
 
 .wft-phase--active .wft-phase__head {
@@ -5754,7 +5780,7 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
 .wft-steps {
     list-style: none;
     margin: 0;
-    padding: 0.5rem 1rem 0.75rem;
+    padding: 0.35rem 1rem 0.5rem;
     display: flex;
     flex-direction: column;
 }
@@ -5762,7 +5788,7 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
 .wft-step {
     display: flex;
     gap: 0.75rem;
-    padding: 0.55rem 0;
+    padding: 0.3rem 0;
     position: relative;
 }
 
@@ -5771,8 +5797,8 @@ body.sos-alerts-map-page #alertsMap .leaflet-popup-content:has(.map-popup-alert)
     content: '';
     position: absolute;
     left: 12px;
-    top: 2.1rem;
-    bottom: -0.55rem;
+    top: 1.85rem;
+    bottom: -0.3rem;
     width: 2px;
     background: #e2deec;
 }
@@ -5900,4 +5926,31 @@ span.wft-doc {
 
 @media (max-width: 700px) {
     .wft-head__progress { flex: 1 1 100%; }
+}
+
+/* ---- Dossier alerte : mise en page deux colonnes pour limiter le défilement ---- */
+.dossier-sections-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.dossier-sections-grid > .dashboard-section {
+    margin-top: 0;
+}
+
+@media (min-width: 1200px) {
+    .dossier-sections-grid {
+        grid-template-columns: 1fr 1fr;
+        align-items: start;
+    }
+
+    /* Les formulaires et tableaux larges gardent toute la largeur. */
+    .dossier-sections-grid > #doctorReportSection,
+    .dossier-sections-grid > #questionnaireSection,
+    .dossier-sections-grid > #mhcCareDocumentsSection,
+    .dossier-sections-grid > #invoiceSection {
+        grid-column: 1 / -1;
+    }
 }

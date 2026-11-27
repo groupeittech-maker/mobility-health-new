@@ -182,9 +182,11 @@
                     </div>
                 </li>`;
             }).join('');
+            const collapsed = !hasCurrent;
             return `
-            <section class="wft-phase${phaseDone ? ' wft-phase--done' : ''}${hasCurrent ? ' wft-phase--active' : ''}">
-                <header class="wft-phase__head">
+            <section class="wft-phase${phaseDone ? ' wft-phase--done' : ''}${hasCurrent ? ' wft-phase--active' : ''}${collapsed ? ' wft-phase--collapsed' : ''}">
+                <header class="wft-phase__head" role="button" tabindex="0" aria-expanded="${collapsed ? 'false' : 'true'}">
+                    <span class="wft-phase__chevron">▸</span>
                     <span class="wft-phase__titre">${escapeHtml(phase.titre)}</span>
                     <span class="wft-phase__count">${doneInPhase}/${phaseSteps.length}</span>
                 </header>
@@ -206,5 +208,22 @@
         </div>`;
     }
 
-    window.MhWorkflowTracker = { render, computePosition };
+    // Repli/dépli des phases au clic (délégation — une seule fois par conteneur).
+    function bindCollapse(container) {
+        if (!container || container.dataset.wftCollapseBound) return;
+        container.dataset.wftCollapseBound = '1';
+        const toggle = (event) => {
+            const head = event.target.closest && event.target.closest('.wft-phase__head');
+            if (!head) return;
+            if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            const phase = head.parentElement;
+            const collapsed = phase.classList.toggle('wft-phase--collapsed');
+            head.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        };
+        container.addEventListener('click', toggle);
+        container.addEventListener('keydown', toggle);
+    }
+
+    window.MhWorkflowTracker = { render, computePosition, bindCollapse };
 })();

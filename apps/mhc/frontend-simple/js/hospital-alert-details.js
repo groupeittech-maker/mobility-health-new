@@ -2603,7 +2603,8 @@ function renderWorkflowTracker() {
     if (!container || !window.MhWorkflowTracker || !currentSinistre) {
         return;
     }
-    window.MhWorkflowTracker.render(container, {
+    window.MhWorkflowTracker.bindCollapse(document.getElementById('workflowTrackerContent'));
+        MhWorkflowTracker.render(container, {
         steps: currentSinistre.workflow_steps || [],
         documents: latestCareDocuments,
         invoice: currentStay?.invoice || null,
