@@ -174,18 +174,33 @@ function renderMhInvoiceDetail() {
     if (!container) {
         return;
     }
-    if (!mhSelectedInvoiceId) {
+    const closeDrawer = () => {
         container.hidden = true;
         container.innerHTML = '';
+        document.body.classList.remove('mh-drawer-open');
+        const backdrop = document.getElementById('mhDrawerBackdrop');
+        if (backdrop) backdrop.hidden = true;
+    };
+    if (!mhSelectedInvoiceId) {
+        closeDrawer();
         return;
     }
     const invoice = mhFilteredInvoices.find((item) => item.id === mhSelectedInvoiceId);
     if (!invoice) {
-        container.hidden = true;
-        container.innerHTML = '';
+        closeDrawer();
         return;
     }
     container.hidden = false;
+    document.body.classList.add('mh-drawer-open');
+    const backdrop = document.getElementById('mhDrawerBackdrop');
+    if (backdrop) {
+        backdrop.hidden = false;
+        backdrop.onclick = () => {
+            mhSelectedInvoiceId = null;
+            renderMhInvoiceList();
+            renderMhInvoiceDetail();
+        };
+    }
     const hospitalName = invoice.hospital?.nom || `Hôpital #${invoice.hospital_id}`;
     const sinistreLabel =
         invoice.sinistre?.numero_sinistre || `Sinistre #${invoice.sinistre?.id || '—'}`;
@@ -202,6 +217,29 @@ function renderMhInvoiceDetail() {
             <div style="display:flex;align-items:center;gap:0.75rem;">
                 <span class="status-badge">${escapeHtml(getInvoiceStatusLabel(invoice.statut))}</span>
                 <button type="button" class="btn btn-outline btn-sm" id="mhCloseDetailBtn">✕ Fermer</button>
+            </div>
+        </div>
+        <div class="mh-decision-block">
+            ${invoice.bloquee ? '<p class="pill pill-danger">Facture bloquée</p>' : ''}
+            ${invoice.reassureur_agrement === 'en_attente' ? '<p class="pill">Plafond dépassé — agrément du réassureur requis</p>' : ''}
+            ${invoice.reassureur_agrement === 'approuve' ? '<p class="pill pill-success">Agrément réassureur accordé</p>' : ''}
+            <div class="form-group">
+                <label for="mhDecisionNotes">Notes internes</label>
+                <textarea id="mhDecisionNotes" rows="2" placeholder="Commentaire interne"></textarea>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-success" id="mhApproveBtn">Payer la facture</button>
+                <button class="btn btn-danger" id="mhRejectBtn">Rejeter la facture</button>
+                <button class="btn" id="mhBlockBtn">${invoice.bloquee ? 'Débloquer' : 'Bloquer'}</button>
+                <button class="btn btn-success" id="mhAgrementBtn" hidden>Enregistrer l’agrément réassureur</button>
+            </div>
+        </div>
+        <div class="mh-suivi-block">
+            <h4>Suivi du dossier</h4>
+            <div class="timeline">
+                ${renderMhTimelineItem('Médecin-conseil', invoice.validation_medicale)}
+                ${renderMhTimelineItem('Affaires médicales', invoice.validation_sinistre)}
+                ${renderMhTimelineItem('Paiement', invoice.statut === 'paid' ? 'approved' : (invoice.statut === 'validated' ? 'pending' : null))}
             </div>
         </div>
         <div class="detail-grid">
@@ -232,27 +270,9 @@ function renderMhInvoiceDetail() {
                 <p><strong>Montant TTC :</strong> ${formatCurrency(invoice.montant_ttc)}</p>
             </div>
         </div>
-        <div class="timeline">
-            ${renderMhTimelineItem('Médecin-conseil', invoice.validation_medicale)}
-            ${renderMhTimelineItem('Affaires médicales', invoice.validation_sinistre)}
-            ${renderMhTimelineItem('Paiement', invoice.statut === 'paid' ? 'approved' : (invoice.statut === 'validated' ? 'pending' : null))}
-        </div>
-        ${invoice.bloquee ? '<p class="pill pill-danger">Facture bloquée</p>' : ''}
-        ${invoice.reassureur_agrement === 'en_attente' ? '<p class="pill">Plafond dépassé — agrément du réassureur requis</p>' : ''}
-        ${invoice.reassureur_agrement === 'approuve' ? '<p class="pill pill-success">Agrément réassureur accordé</p>' : ''}
         <div class="history-block">
             <h4>Historique des actions</h4>
             <div id="mhHistory" class="history-list"></div>
-        </div>
-        <div class="form-group">
-            <label for="mhDecisionNotes">Notes internes</label>
-            <textarea id="mhDecisionNotes" rows="3" placeholder="Commentaire interne"></textarea>
-        </div>
-        <div class="form-actions">
-            <button class="btn btn-success" id="mhApproveBtn">Payer la facture</button>
-            <button class="btn btn-danger" id="mhRejectBtn">Rejeter la facture</button>
-            <button class="btn" id="mhBlockBtn">${invoice.bloquee ? 'Débloquer' : 'Bloquer'}</button>
-            <button class="btn btn-success" id="mhAgrementBtn" hidden>Enregistrer l’agrément réassureur</button>
         </div>
     `;
 

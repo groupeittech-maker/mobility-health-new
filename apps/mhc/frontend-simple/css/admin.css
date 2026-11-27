@@ -6012,3 +6012,54 @@ span.wft-doc {
 .data-table tbody tr[data-invoice-id] {
     cursor: pointer;
 }
+
+/* ---- Factures : detail en tiroir lateral ---- */
+.mh-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 10, 40, 0.45);
+    z-index: 900;
+}
+
+.mh-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100vh;
+    width: min(760px, 96vw);
+    z-index: 950;
+    overflow-y: auto;
+    border-radius: 0;
+    box-shadow: -8px 0 32px rgba(20, 10, 40, 0.25);
+    margin: 0;
+    animation: mhDrawerIn 0.2s ease-out;
+}
+
+@keyframes mhDrawerIn {
+    from { transform: translateX(40px); opacity: 0.6; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+body.mh-drawer-open {
+    overflow: hidden;
+}
+
+.mh-decision-block {
+    background: #f7f5fc;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.mh-decision-block .form-actions {
+    margin-bottom: 0;
+}
+
+.mh-suivi-block {
+    margin-bottom: 1rem;
+}
+
+.mh-suivi-block h4 {
+    margin: 0 0 0.5rem;
+}
