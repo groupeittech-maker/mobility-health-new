@@ -6145,3 +6145,34 @@ body.mh-drawer-open {
     font-size: 0.82rem;
     color: var(--secondary-color);
 }
+
+/* ---- Tiroir facture : informations sur une seule ligne ---- */
+.mh-drawer .detail-grid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 1.5rem;
+    margin-bottom: 0.9rem;
+}
+
+.mh-drawer .detail-grid > div {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.mh-drawer .detail-grid strong {
+    font-size: 0.8rem;
+    color: var(--secondary-color);
+    font-weight: 600;
+}
+
+.mh-drawer .detail-grid strong::after {
+    content: ' :';
+}
+
+.mh-drawer .detail-grid p {
+    margin: 0;
+    font-size: 0.9rem;
+}
