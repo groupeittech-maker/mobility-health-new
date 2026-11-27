@@ -220,9 +220,10 @@
 
         const role = localStorage.getItem('user_role') || '';
 
-        // Vérification de véracité (médecin-conseil / affaires médicales) :
-        // mêmes boutons Accepter/Refuser que la fiche dossier ouverte
-        // depuis le tableau de bord — sinon le choix n'apparaît pas ici.
+        // Décision de prise en charge (médecin-conseil / affaires médicales) :
+        // exactement deux issues — accepter ou refuser. Les autres boutons
+        // historiques (« Traiter l'alerte », « Demander des informations »…)
+        // n'induisaient aucune action métier et ont été retirés.
         let verifHtml = '';
         const VERIF_ROLES = ['medecin_referent_mh', 'doctor', 'agent_medical_mhc', 'superviseur_affaires_medicales', 'admin'];
         if (d.sinistre_id && VERIF_ROLES.includes(role) && ['en_attente', 'en_cours'].includes(a.statut)) {
@@ -233,7 +234,7 @@
                 if (!step || !['completed', 'cancelled'].includes(step.statut)) {
                     verifHtml =
                         '<button class="btn btn-primary" onclick="verifyAlert(' + d.sinistre_id + ',true,' + id + ')">✓ Accepter la prise en charge</button>' +
-                        '<button class="btn btn-danger" onclick="verifyAlert(' + d.sinistre_id + ',false,' + id + ')">✗ Alerte non avérée</button>';
+                        '<button class="btn btn-danger" onclick="verifyAlert(' + d.sinistre_id + ',false,' + id + ')">✗ Refuser la prise en charge</button>';
                 }
             }
         }
@@ -278,7 +279,7 @@
     window.verifyAlert = async function (sinistreId, approve, alerteId) {
         const notes = prompt(approve
             ? 'Commentaire (optionnel) — confirmer la prise en charge :'
-            : 'Motif du refus — alerte non avérée :');
+            : 'Motif du refus de la prise en charge :');
         if (notes === null) return;
         const res = await fetch(API + '/sos/sinistres/' + sinistreId + '/verification', {
             method: 'POST',
@@ -286,7 +287,7 @@
             body: JSON.stringify({ approve, notes: notes || undefined }),
         });
         if (res.ok) {
-            if (window.mhcToast) mhcToast(approve ? 'Prise en charge confirmée.' : 'Alerte marquée non avérée.');
+            if (window.mhcToast) mhcToast(approve ? 'Prise en charge confirmée.' : 'Prise en charge refusée.');
             closePanel();
             load();
         } else {
