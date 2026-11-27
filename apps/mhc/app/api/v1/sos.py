@@ -590,7 +590,9 @@ def generate_numero_sinistre() -> str:
     return f"SIN-{uuid.uuid4().hex[:8].upper()}-{datetime.utcnow().strftime('%Y%m%d')}"
 
 
-ALERTE_STATUTS_ACTIFS = {"en_attente", "en_cours"}
+# « resolue » = validée par le médecin-conseil : le parcours patient est en cours,
+# l'assuré ne peut pas redéclencher un SOS tant que le dossier n'est pas clôturé.
+ALERTE_STATUTS_ACTIFS = {"en_attente", "en_cours", "resolue"}
 
 
 def _alerte_en_cours(db: Session, user_id: int) -> Optional[Alerte]:
@@ -863,7 +865,7 @@ async def trigger_sos(
 
 
 # Statuts considérés comme "clôturés" : à exclure de la liste "alertes en temps réel"
-ALERTE_STATUTS_CLOTURES = {"resolue", "annulee"}
+ALERTE_STATUTS_CLOTURES = {"annulee", "cloturee"}
 
 
 def _build_alertes_query_for_user(db: Session, current_user: User):
@@ -1376,8 +1378,10 @@ async def verify_alert_veracity(
     if verification.approve:
         if sinistre.statut == "annule":
             sinistre.statut = "en_cours"
-            if alerte and alerte.statut == "annulee":
-                alerte.statut = "en_cours"
+        if alerte and alerte.statut not in {"cloturee"}:
+            # Décision positive du médecin-conseil : l'alerte est validée — elle
+            # reste visible en suivi jusqu'à la clôture du parcours (facturation).
+            alerte.statut = "resolue"
         if not sinistre.numero_sinistre:
             from app.services.mhc_reference_service import allocate_sinistre_number
             if sinistre.souscription_id and sinistre.souscription is None:

@@ -514,8 +514,8 @@ def _create_document(
 
 def _close_dossier(sinistre: Sinistre, alerte: Optional[Alerte]) -> None:
     sinistre.statut = "resolu"
-    if alerte and alerte.statut not in {"annulee"}:
-        alerte.statut = "resolue"
+    # L'alerte n'est pas clôturée ici : le parcours patient se termine avec le
+    # règlement de la facturation (invoices._close_dossier_if_settled).
 
 
 def issue_care_document(

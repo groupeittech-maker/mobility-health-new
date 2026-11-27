@@ -192,7 +192,7 @@ class TestDeclarationManuelle:
     ):
         sinistre_ref, _, subscription = _open_sinistre(db, test_user, test_product, test_hospital)
         # Une seule alerte en cours par assuré : le dossier précédent est clos.
-        sinistre_ref.alerte.statut = "resolue"
+        sinistre_ref.alerte.statut = "cloturee"
         db.delete(sinistre_ref)
         from app.models.attestation import Attestation
         db.add(Attestation(
@@ -305,7 +305,7 @@ class TestInvoiceWorkflow:
         assert r.json()["statut"] == "paid"
         db.expire_all()
         assert db.get(Sinistre, sinistre.id).statut == "resolu"
-        assert db.get(Alerte, alerte.id).statut == "resolue"
+        assert db.get(Alerte, alerte.id).statut == "cloturee"
 
     def test_bloquee_and_reassureur_gate_payment(
         self, client, db, test_user, test_product, test_hospital

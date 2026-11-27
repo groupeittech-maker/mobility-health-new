@@ -10,11 +10,9 @@
 
     const TABS = [
         { key: 'toutes', label: 'Toutes les alertes', match: () => true },
-        { key: 'en_traitement', label: 'En traitement', match: a => a.statut === 'en_cours' },
-        // « À valider » = alerte active SANS décision de prise en charge : dès que la
-        // vérification est faite ou l'accord enregistré (numéro de sinistre attribué →
-        // is_validated), elle passe en traitement et sort de cette file.
-        { key: 'a_valider', label: 'À valider', match: a => ['en_attente', 'en_cours'].includes(a.statut) && !a.is_validated },
+        // « À traiter » = aucune décision de prise en charge encore prise. Dès que le
+        // médecin-conseil valide ou refuse, l'alerte change de statut et sort de cette file.
+        { key: 'a_traiter', label: 'À traiter', match: a => ['en_attente', 'en_cours'].includes(a.statut) },
         { key: 'validees', label: 'Validées', match: a => a.statut === 'resolue' },
         { key: 'refusees', label: 'Refusées', match: a => a.statut === 'annulee' },
         { key: 'cloturees', label: 'Clôturées', match: a => a.statut === 'cloturee' },
@@ -23,10 +21,11 @@
     // Onglet initial via ?tab= (deep-link depuis la sidebar / autres écrans).
     const urlTab = new URLSearchParams(window.location.search).get('tab');
     if (urlTab && TABS.some(t => t.key === urlTab)) activeTab = urlTab;
+    else if (['a_valider', 'en_traitement'].includes(urlTab)) activeTab = 'a_traiter';
 
     const STATUT_BADGE = {
-        en_attente: 'Urgente',
-        en_cours: 'En traitement',
+        en_attente: 'Nouvelle',
+        en_cours: 'À traiter',
         resolue: 'Validée',
         annulee: 'Refusée',
         cloturee: 'Clôturée',
@@ -60,8 +59,8 @@
         const c = s => allAlertes.filter(s).length;
         const data = [
             { label: 'Alertes reçues', v: allAlertes.length, ico: '🚨', color: 'red' },
-            { label: 'En traitement', v: c(a => a.statut === 'en_cours'), ico: '⏱️', color: 'amber' },
-            { label: 'Prises en charge validées', v: c(a => a.statut === 'resolue'), ico: '✅', color: 'teal' },
+            { label: 'À traiter', v: c(a => ['en_attente', 'en_cours'].includes(a.statut)), ico: '⏱️', color: 'amber' },
+            { label: 'Validées', v: c(a => a.statut === 'resolue'), ico: '✅', color: 'teal' },
             { label: 'Alertes refusées', v: c(a => a.statut === 'annulee'), ico: '🚫', color: 'red' },
             { label: 'Alertes clôturées', v: c(a => a.statut === 'cloturee'), ico: '📁', color: 'slate' },
         ];
@@ -108,7 +107,7 @@
 
     function depuis(a) {
         const t = new Date(a.created_at).getTime();
-        if (!t || ['resolue', 'annulee', 'cloturee'].includes(a.statut)) return '—';
+        if (!t || ['annulee', 'cloturee'].includes(a.statut)) return '—';
         const mins = Math.max(0, Math.floor((Date.now() - t) / 60000));
         const lbl = mins < 60 ? mins + ' min' : mins < 1440 ? Math.floor(mins / 60) + ' h ' + (mins % 60) + 'm' : Math.floor(mins / 1440) + ' j';
         return '<span class="depuis' + (mins > 30 ? ' late' : '') + '">' + lbl + '</span>';

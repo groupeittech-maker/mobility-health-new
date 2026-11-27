@@ -1,7 +1,8 @@
 const ALERTS_FETCH_LIMIT = 200;
 /** Rafraîchissement tableau / carte (déclenche aussi la détection des nouvelles alertes pour le modal) */
 const AUTO_REFRESH_INTERVAL = 10000;
-const ACTIVE_ALERT_STATUSES = new Set(['en_attente', 'en_cours']);
+// « resolue » = validée : l'opération est toujours en cours (parcours patient).
+const ACTIVE_ALERT_STATUSES = new Set(['en_attente', 'en_cours', 'resolue']);
 const PROCESSED_ALERT_STATUSES = new Set(['resolue', 'annulee']);
 const ROWS_PER_PAGE = 6;
 let currentPageSosRealtime = 0;
@@ -204,10 +205,11 @@ function normalizeAlert(alert) {
 }
 
 const STATUS_LABELS = {
-    en_attente: 'En attente',
-    en_cours: 'En cours',
-    resolue: 'Résolue',
-    annulee: 'Annulée',
+    en_attente: 'Nouvelle',
+    en_cours: 'À traiter',
+    resolue: 'Validée',
+    annulee: 'Refusée',
+    cloturee: 'Clôturée',
 };
 
 const STATUS_CLASS_MAP = {

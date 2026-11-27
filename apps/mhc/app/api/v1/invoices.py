@@ -1026,18 +1026,6 @@ async def validate_compta(
         previous_stage=previous_stage,
     )
 
-    if request.approve and invoice.hospital_stay_id:
-        stay = (
-            db.query(HospitalStay)
-            .options(
-                joinedload(HospitalStay.sinistre).joinedload(Sinistre.alerte),
-            )
-            .filter(HospitalStay.id == invoice.hospital_stay_id)
-            .first()
-        )
-        if stay and stay.sinistre and stay.sinistre.alerte and stay.sinistre.alerte.statut != "resolue":
-            stay.sinistre.alerte.statut = "resolue"
-
     db.commit()
     db.refresh(invoice)
 
@@ -1101,8 +1089,8 @@ def _close_dossier_if_settled(db: Session, invoice: Invoice) -> None:
     )
     if all(i.statut == InvoiceStatus.PAID for i in autres):
         sinistre.statut = "resolu"
-        if sinistre.alerte and sinistre.alerte.statut != "resolue":
-            sinistre.alerte.statut = "resolue"
+        if sinistre.alerte and sinistre.alerte.statut != "cloturee":
+            sinistre.alerte.statut = "cloturee"
 
 
 @router.post("/{invoice_id}/pay", response_model=InvoiceResponse)

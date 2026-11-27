@@ -88,7 +88,7 @@ def _get_sinistre(db: Session, alerte_id: int) -> Optional[Sinistre]:
 
 def _current_step(db: Session, alerte: Alerte, sinistre: Optional[Sinistre]) -> int:
     """Position dans le stepper : 1 Réception … 6 Clôture."""
-    if alerte.statut == "resolue":
+    if alerte.statut == "cloturee":
         return 6
     step = 1
     if alerte.statut != "en_attente":
@@ -482,6 +482,8 @@ async def execute_action(alerte_id: int, payload: ActionRequest, db: Session = D
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
+        if alerte.statut not in {"cloturee"}:
+            alerte.statut = "resolue"
         label = "Accord de prise en charge enregistré"
         _log_event(db, alerte_id, "accord_prise_en_charge", label, current_user)
 
