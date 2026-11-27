@@ -639,11 +639,21 @@ function renderMedicalQuestionnaireBlock(questionnaire, options = {}) {
 }
 
 function renderLongMedicalQuestionnaire(responses, excludeConsent = false) {
-    const entries = Object.entries(responses || {}).filter(
-        ([key]) => key !== 'mode' && !REMOVED_MEDICAL_KEYS.has(key) && !(excludeConsent && CONSENT_KEYS.has(key))
+    const normalized = window.MhMedicalDeclaration
+        ? window.MhMedicalDeclaration.normalize(responses || {})
+        : (responses || {});
+    const declaration = window.MhMedicalDeclaration
+        ? window.MhMedicalDeclaration.build(normalized)
+        : null;
+    const entries = Object.entries(normalized).filter(
+        ([key]) =>
+            key !== 'mode' &&
+            !REMOVED_MEDICAL_KEYS.has(key) &&
+            !(excludeConsent && CONSENT_KEYS.has(key)) &&
+            !(declaration && declaration.used.has(key))
     );
     if (!entries.length) {
-        return '';
+        return declaration ? declaration.html : '';
     }
 
     const map = Object.fromEntries(entries);
@@ -753,7 +763,7 @@ function renderLongMedicalQuestionnaire(responses, excludeConsent = false) {
             </div>`;
     }
 
-    let html = '';
+    let html = declaration ? declaration.html : '';
     if (mobilePairs.length > 0) {
         html += subsection(
             'Questionnaire médical (souscription mobile)',
@@ -1067,11 +1077,8 @@ function formatPlainValue(value) {
         return value.map((entry) => formatPlainValue(entry)).join(', ');
     }
     if (typeof value === 'object') {
-        try {
-            return JSON.stringify(value, null, 2);
-        } catch (error) {
-            return String(value);
-        }
+        const parts = Object.entries(value).map(([k, v]) => `${formatKeyLabel(k)} : ${formatPlainValue(v)}`);
+        return parts.join(' · ') || '—';
     }
     return String(value);
 }
