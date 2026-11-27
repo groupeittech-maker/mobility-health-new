@@ -303,13 +303,15 @@ def allowed_next_actions(sinistre: Sinistre) -> List[str]:
         actions = [a for a in actions if a != MhcCareDocumentType.BRF.value]
 
     # Tant qu'une validation est en attente, on bloque les émissions concurrentes.
-    # Seule la branche décès (BRF) reste ouverte, et jamais pour un type déjà en attente.
+    # Restent ouvertes : la branche décès (BRF) et le bulletin de sortie (BS) — la
+    # sortie du patient est un fait terrain qui ne doit pas attendre la validation
+    # administrative du bon d'hospitalisation ; jamais pour un type déjà en attente.
     pending = _pending(docs)
     if pending:
         pending_types = {d.document_type for d in pending}
         actions = [
             a for a in actions
-            if a == MhcCareDocumentType.BRF.value and a not in pending_types
+            if a in {MhcCareDocumentType.BRF.value, MhcCareDocumentType.BS.value} and a not in pending_types
         ]
     return actions
 

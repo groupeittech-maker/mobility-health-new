@@ -656,6 +656,44 @@ async def update_hospital_stay_report(
     stay.validation_notes = None
     stay.ended_at = datetime.utcnow() if report.terminer_sejour else None
 
+    if report.terminer_sejour:
+        # La clôture du séjour doit produire le bulletin de sortie (114) — sans lui,
+        # la facture est impossible (« soins terminés » exigé) et le dossier reste
+        # bloqué en cours de route. Émission intégrée à la transmission du rapport.
+        from app.core.mhc_nomenclature import MhcCareDocumentType, MhcExitMode
+        from app.services.mhc_care_document_service import issue_care_document, _docs, _effective
+
+        modes_valides = {m.value for m in MhcExitMode}
+        exit_types = {MhcCareDocumentType.BS.value, MhcCareDocumentType.ARS.value, MhcCareDocumentType.ARF.value}
+        has_exit_doc = any(d.document_type in exit_types for d in _effective(_docs(sinistre)))
+        if not has_exit_doc:
+            if not report.mode_sortie or report.mode_sortie not in modes_valides:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Mode de sortie requis pour clôturer le séjour (guérison, ambulatoire, transfert, rapatriement sanitaire ou autre) : le bulletin de sortie doit être émis avec le rapport.",
+                )
+            try:
+                issue_care_document(
+                    db,
+                    sinistre,
+                    MhcCareDocumentType.BS.value,
+                    current_user,
+                    payload={
+                        "mode_sortie": report.mode_sortie,
+                        "date_entree": stay.started_at.isoformat() if getattr(stay, "started_at", None) else None,
+                        "date_sortie": datetime.utcnow().isoformat(),
+                        "duree_jours": report.duree_sejour_heures / 24 if report.duree_sejour_heures else None,
+                        "resume_rapport": report.resume,
+                    },
+                    notes="Bulletin émis automatiquement à la clôture du séjour (rapport médical).",
+                    alerte=sinistre.alerte,
+                )
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Impossible d'émettre le bulletin de sortie : {exc}",
+                )
+
     referent_push_queue: List[Tuple[int, int]] = []
     should_notify_report = previous_report_status != "submitted" and stay.report_status == "submitted"
     if should_notify_report:

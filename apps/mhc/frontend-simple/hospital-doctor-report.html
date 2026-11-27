@@ -119,6 +119,17 @@
                                 <input type="checkbox" id="terminerSejour">
                                 <span>Le patient est sorti : clôturer le séjour</span>
                             </label>
+                            <div class="form-group" id="exitModeGroup" hidden style="margin-left:1.6rem;">
+                                <label for="exitModeSelect">Mode de sortie — le bulletin de sortie est émis avec le rapport *</label>
+                                <select id="exitModeSelect">
+                                    <option value="">— Choisir le mode de sortie —</option>
+                                    <option value="guerison">Guérison</option>
+                                    <option value="ambulatoire">Sortie ambulatoire (poursuite des soins en ambulatoire)</option>
+                                    <option value="transfert">Transfert vers un autre établissement</option>
+                                    <option value="rapatriement_sanitaire">Rapatriement sanitaire</option>
+                                    <option value="autre">Autre</option>
+                                </select>
+                            </div>
                             <p class="report-form__hint">L’enregistrement transmet le rapport au médecin-conseil MHC pour validation.</p>
                             <div class="form-actions">
                                 <button type="submit" class="btn btn-primary" id="saveReportBtn" disabled>Enregistrer et transmettre</button>
@@ -142,6 +153,6 @@
     <script src="js/backoffice-nav.js?v=25"></script>
     <script src="js/nav-access.js"></script>
     <script src="js/medical-declaration.js?v=1"></script>
-    <script src="js/hospital-doctor.js?v=8"></script>
+    <script src="js/hospital-doctor.js?v=9"></script>
 </body>
 </html>

@@ -1114,8 +1114,14 @@ async function handleDoctorReportSubmit(event) {
         examens_effectues: examens,
         resume: document.getElementById('resumeSejour').value || null,
         observations: document.getElementById('observationsSejour').value || null,
-        terminer_sejour: document.getElementById('terminerSejour').checked
+        terminer_sejour: document.getElementById('terminerSejour').checked,
+        mode_sortie: document.getElementById('exitModeSelect')?.value || null
     };
+
+    if (payload.terminer_sejour && !payload.mode_sortie) {
+        showAlert('Choisissez le mode de sortie du patient : le bulletin de sortie est émis avec le rapport.', 'warning');
+        return;
+    }
 
     const submitBtn = document.getElementById('saveReportBtn');
     submitBtn.disabled = true;
@@ -1369,3 +1375,13 @@ window.mhRowAction = function (act, arg) {
     if (act === 'preview') selectDoctorCase(Number(arg));
 };
 
+// Le sélecteur de mode de sortie suit la case « clôturer le séjour » :
+// le bulletin de sortie est émis avec le rapport, il est donc obligatoire.
+document.addEventListener('change', (event) => {
+    if (event.target && event.target.id === 'terminerSejour') {
+        const group = document.getElementById('exitModeGroup');
+        if (group) {
+            group.hidden = !event.target.checked;
+        }
+    }
+});

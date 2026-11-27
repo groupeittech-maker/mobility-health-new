@@ -25,6 +25,9 @@ class HospitalStayReportUpdate(BaseModel):
     resume: Optional[str] = None
     observations: Optional[str] = None
     terminer_sejour: bool = False
+    # Mode de sortie du patient — obligatoire quand terminer_sejour=True et qu'aucun
+    # bulletin de sortie n'existe encore : la clôture du séjour émet le bulletin (114).
+    mode_sortie: Optional[str] = None
 
 
 class HospitalStayValidationRequest(BaseModel):

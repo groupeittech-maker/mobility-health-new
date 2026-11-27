@@ -336,6 +336,78 @@ class TestHospitalStayFlow:
         assert report_data["report_actes"] == ["Consultation médicale"]
         assert report_data["report_examens"] == ["Analyse sanguine"]
 
+    def test_closure_report_requires_exit_mode_and_issues_bulletin(
+        self,
+        client,
+        db,
+        test_user,
+        test_hospital,
+        reception_headers,
+        hospital_doctor,
+        hospital_doctor_headers,
+    ):
+        """La clôture du séjour doit produire le bulletin de sortie (114) à la
+        transmission du rapport — sinon la facturation bute plus tard sur
+        l'absence de document. Sans mode de sortie, la soumission est refusée."""
+        alerte, sinistre = _create_sinistre(db, test_user, test_hospital)
+        # Retirer le bulletin pré-émis par la fixture : ce test couvre la
+        # première émission, intégrée à la transmission du rapport.
+        for doc in db.query(MhcCareDocument).filter(
+            MhcCareDocument.sinistre_id == sinistre.id,
+            MhcCareDocument.document_type == "bs",
+        ).all():
+            db.delete(doc)
+        db.commit()
+
+        stay = client.post(
+            f"/api/v1/hospital-sinistres/sinistres/{sinistre.id}/stays",
+            json={"doctor_id": hospital_doctor.id},
+            headers=reception_headers,
+        )
+        assert stay.status_code == status.HTTP_201_CREATED
+        stay_id = stay.json()["id"]
+
+        payload = {
+            "motif_consultation": "Traumatisme",
+            "duree_sejour_heures": 24,
+            "actes_effectues": ["Consultation médicale"],
+            "examens_effectues": [],
+            "terminer_sejour": True,
+        }
+
+        # Sans mode de sortie : refus net avant toute transmission.
+        refused = client.put(
+            f"/api/v1/hospital-sinistres/hospital-stays/{stay_id}/report",
+            json=payload,
+            headers=hospital_doctor_headers,
+        )
+        assert refused.status_code == status.HTTP_400_BAD_REQUEST
+        assert "mode de sortie" in refused.json()["detail"].lower()
+        assert db.query(MhcCareDocument).filter(
+            MhcCareDocument.sinistre_id == sinistre.id,
+            MhcCareDocument.document_type == "bs",
+        ).count() == 0
+
+        # Avec mode de sortie : rapport transmis, séjour clos, bulletin émis.
+        payload["mode_sortie"] = "guerison"
+        accepted = client.put(
+            f"/api/v1/hospital-sinistres/hospital-stays/{stay_id}/report",
+            json=payload,
+            headers=hospital_doctor_headers,
+        )
+        assert accepted.status_code == status.HTTP_200_OK
+        data = accepted.json()
+        assert data["status"] == "awaiting_validation"
+        assert data["ended_at"] is not None
+
+        bulletins = db.query(MhcCareDocument).filter(
+            MhcCareDocument.sinistre_id == sinistre.id,
+            MhcCareDocument.document_type == "bs",
+        ).all()
+        assert len(bulletins) == 1
+        assert bulletins[0].statut == "emi"
+        assert bulletins[0].payload["mode_sortie"] == "guerison"
+
     def test_referent_validation_and_invoice_flow(
         self,
         client,
