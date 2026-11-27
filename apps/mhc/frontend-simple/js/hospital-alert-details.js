@@ -283,19 +283,7 @@ function renderSinistreInfo(sinistre, alerte) {
         ` : '<p class="muted">Aucun hôpital assigné.</p>';
     }
 
-    const workflowList = document.getElementById('workflowList');
-    if (workflowList) {
-        workflowList.innerHTML = (sinistre.workflow_steps || []).map(step => `
-            <li>
-                <strong>${escapeHtml(step.titre)}</strong>
-                <div class="muted">${escapeHtml(step.description || '')}</div>
-                <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem;">
-                    <span class="status-badge ${getWorkflowStepStatusClass(step.statut)}">${getWorkflowStepStatusLabel(step.statut)}</span>
-                    ${step.completed_at ? `<span class="map-badge" style="font-size: 0.75rem;">${formatDateTime(step.completed_at)}</span>` : ''}
-                </div>
-            </li>
-        `).join('') || '<li class="muted">Aucune étape disponible.</li>';
-    }
+    renderWorkflowTracker();
 
     renderPatientDossier(sinistre.patient, sinistre, alerte);
     updateMedicalDecisionStatus(sinistre.workflow_steps || []);
@@ -2459,6 +2447,8 @@ async function loadCareDocuments() {
     try {
         const data = await apiCall(`/mhc/sinistres/${currentSinistre.id}/care-documents`);
         const docs = data.documents || [];
+        latestCareDocuments = docs;
+        renderWorkflowTracker();
         if (statusEl) {
             statusEl.textContent = data.numero_sinistre
                 ? `Sinistre ${data.numero_sinistre} — ${docs.length} document(s)`
@@ -2597,6 +2587,39 @@ async function issueCareDocument() {
         if (btn) btn.disabled = false;
     }
 }
+
+let latestCareDocuments = [];
+
+function renderWorkflowTracker() {
+    const container = document.getElementById('workflowTrackerContent');
+    if (!container || !window.MhWorkflowTracker || !currentSinistre) {
+        return;
+    }
+    window.MhWorkflowTracker.render(container, {
+        steps: currentSinistre.workflow_steps || [],
+        documents: latestCareDocuments,
+        invoice: currentStay?.invoice || null,
+        careDocumentPdfUrl: (doc) => `${API_BASE_URL}/mhc/care-documents/${doc.id}/pdf`,
+    });
+}
+
+// Les puces « document » du tracker ouvrent le PDF authentifié (Bearer requis).
+document.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('workflowTrackerContent');
+    if (!container) {
+        return;
+    }
+    container.addEventListener('click', (event) => {
+        const link = event.target.closest('a.wft-doc');
+        if (!link) {
+            return;
+        }
+        const match = (link.getAttribute('href') || '').match(/care-documents\/(\d+)\/pdf/);
+        if (match) {
+            openCareDocumentPdf(event, Number(match[1]));
+        }
+    });
+});
 
 function openCareDocumentPdf(event, documentId) {
     event.preventDefault();
