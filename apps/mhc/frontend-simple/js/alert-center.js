@@ -218,9 +218,6 @@
                 '<div class="dp-row"><span class="k">📎</span><span class="v">' + (x.titre || x.filename || x.numero || 'Document') + '</span></div>'
             ).join('') : '<div class="muted" style="font-size:0.74rem">Aucun document</div>');
 
-        const canEdit = window.MhPermissions
-            ? window.MhPermissions.can('alerte_sos', 'edition')
-            : true;
         const role = localStorage.getItem('user_role') || '';
 
         // Vérification de véracité (médecin-conseil / affaires médicales) :
@@ -249,11 +246,7 @@
                 blocageBtn = '<button class="btn btn-danger" onclick="bloquerSinistre(' + d.sinistre_id + ',' + id + ')">⛔ Bloquer le dossier</button>';
             }
         }
-        document.getElementById('dpActions').innerHTML = verifHtml + (canEdit
-            ? '<a class="btn btn-primary" href="alert-detail.html?id=' + id + '" style="text-decoration:none;text-align:center">✓ Traiter l\'alerte</a>' +
-            '<button class="btn btn-outline" onclick="askInfo(' + id + ')">Demander des informations</button>' +
-            '<button class="btn btn-danger" onclick="refuseAlert(' + id + ')">Refuser la prise en charge</button>'
-            : '<a class="btn btn-outline" href="alert-detail.html?id=' + id + '" style="text-decoration:none;text-align:center">Voir le détail</a>') + blocageBtn;
+        document.getElementById('dpActions').innerHTML = verifHtml + blocageBtn;
     };
 
     window.bloquerSinistre = async function (sinistreId, alerteId) {
@@ -300,28 +293,6 @@
             const e = await res.json().catch(() => ({}));
             if (window.mhcToast) mhcToast(e.detail || 'Action impossible', true);
         }
-    };
-
-    window.askInfo = async function (id) {
-        const note = prompt('Message de demande d\'informations :');
-        if (!note) return;
-        await fetch(API + '/alertes/' + id + '/notes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
-            body: JSON.stringify({ note: '[Demande d\'informations] ' + note }),
-        });
-        closePanel();
-    };
-
-    window.refuseAlert = async function (id) {
-        if (!confirm('Refuser cette alerte / prise en charge ?')) return;
-        await fetch(API + '/alertes/' + id + '/action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
-            body: JSON.stringify({ action: 'refuser', notes: 'Refus depuis le centre d\'alerte' }),
-        }).catch(() => {});
-        closePanel();
-        load();
     };
 
     // ------- Déclaration manuelle (assuré au téléphone) -------
