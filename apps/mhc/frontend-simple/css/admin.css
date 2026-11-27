@@ -5954,3 +5954,52 @@ span.wft-doc {
         grid-column: 1 / -1;
     }
 }
+
+/* ---- Dossier alerte : navigation par onglets ---- */
+.dossier-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-top: 1.5rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.dossier-tab {
+    padding: 0.55rem 1.1rem;
+    border: none;
+    background: none;
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--secondary-color);
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+}
+
+.dossier-tab:hover {
+    color: var(--primary-color);
+    background: #f3f1f8;
+}
+
+.dossier-tab.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+    background: #faf9fd;
+}
+
+.dossier-tab-panel {
+    padding-top: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.dossier-tab-panel[hidden] {
+    display: none;
+}
+
+.dossier-tab-panel > .dashboard-section {
+    margin: 0;
+}

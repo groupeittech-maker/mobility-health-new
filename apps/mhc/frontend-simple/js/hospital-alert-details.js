@@ -2802,3 +2802,62 @@ document.addEventListener('change', (event) => {
         }
     }
 });
+
+/**
+ * Onglets du dossier — la page empilait toutes les sections en longueur.
+ * Chaque onglet regroupe les sections liées ; un onglet dont toutes les
+ * sections sont masquées pour le rôle courant est lui-même masqué.
+ */
+function initDossierTabs() {
+    const nav = document.getElementById('dossierTabs');
+    if (!nav || nav.dataset.tabsBound) return;
+    nav.dataset.tabsBound = '1';
+    const buttons = Array.from(nav.querySelectorAll('.dossier-tab'));
+    const panels = Array.from(document.querySelectorAll('.dossier-tab-panel'));
+    if (!buttons.length || !panels.length) return;
+
+    const sectionVisible = (section) => !section.hidden && section.style.display !== 'none';
+    const panelHasContent = (panel) =>
+        Array.from(panel.querySelectorAll('.dashboard-section')).some(sectionVisible);
+
+    const activate = (tabKey) => {
+        buttons.forEach((b) => b.classList.toggle('active', b.dataset.tab === tabKey));
+        panels.forEach((panel) => {
+            panel.hidden = panel.dataset.tabPanel !== tabKey;
+        });
+    };
+
+    const refresh = () => {
+        let firstVisible = null;
+        buttons.forEach((btn) => {
+            const panel = panels.find((p) => p.dataset.tabPanel === btn.dataset.tab);
+            const visible = panel ? panelHasContent(panel) : false;
+            btn.hidden = !visible;
+            if (visible && !firstVisible) firstVisible = btn.dataset.tab;
+        });
+        const activeBtn = buttons.find((b) => b.classList.contains('active') && !b.hidden);
+        if (activeBtn) {
+            activate(activeBtn.dataset.tab);
+        } else if (firstVisible) {
+            activate(firstVisible);
+        }
+    };
+
+    nav.addEventListener('click', (event) => {
+        const btn = event.target.closest('.dossier-tab');
+        if (btn && !btn.hidden) activate(btn.dataset.tab);
+    });
+
+    // Les sections apparaissent/disparaissent selon le rôle et la progression
+    // du dossier : on réévalue la visibilité des onglets à chaque changement.
+    const observer = new MutationObserver(() => refresh());
+    panels.forEach((panel) => {
+        panel.querySelectorAll('.dashboard-section').forEach((section) => {
+            observer.observe(section, { attributes: true, attributeFilter: ['hidden', 'style', 'class'] });
+        });
+    });
+
+    refresh();
+}
+
+document.addEventListener('DOMContentLoaded', initDossierTabs);

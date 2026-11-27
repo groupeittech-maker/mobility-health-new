@@ -179,235 +179,251 @@
             <div id="workflowTrackerContent"><p class="muted">Chargement du suivi…</p></div>
         </section>
 
-        <div class="dossier-sections-grid">
-        <section class="dashboard-section" id="receptionActionsSection" hidden>
-            <h3>Actions réception</h3>
-            <div class="reception-actions">
-                <button class="btn" id="dispatchAmbulanceBtn">🚑 Envoyer une ambulance</button>
-                <div id="orientationFormContainer"></div>
-            </div>
-        </section>
+        <nav class="dossier-tabs" id="dossierTabs" aria-label="Navigation du dossier">
+            <button type="button" class="dossier-tab" data-tab="actions">Actions</button>
+            <button type="button" class="dossier-tab" data-tab="rapport">Rapport médical</button>
+            <button type="button" class="dossier-tab" data-tab="patient">Dossier patient</button>
+            <button type="button" class="dossier-tab" data-tab="documents">Bons &amp; attestations</button>
+            <button type="button" class="dossier-tab" data-tab="facturation">Facturation</button>
+        </nav>
 
-        <section class="dashboard-section" id="doctorReportSection" hidden>
-            <h3>Rapport médical</h3>
-            <form id="doctorReportForm">
+        <div class="dossier-tab-panel" data-tab-panel="actions">
+    <section class="dashboard-section" id="receptionActionsSection" hidden>
+                <h3>Actions réception</h3>
+                <div class="reception-actions">
+                    <button class="btn" id="dispatchAmbulanceBtn">🚑 Envoyer une ambulance</button>
+                    <div id="orientationFormContainer"></div>
+                </div>
+            </section>
+
+    <section class="dashboard-section" id="certificatDecesSection" hidden>
+                <div class="section-header">
+                    <h3>Certificat de décès</h3>
+                    <p class="muted">
+                        Joignez le certificat de décès émis par l'hôpital au dossier (PDF ou image, max 10 Mo).
+                    </p>
+                </div>
+                <div id="certificatDecesExisting" class="info-grid" hidden></div>
+                <div id="certificatDecesUpload" class="medical-decision-card" hidden>
+                    <label for="certificatDecesFile">Fichier joint</label>
+                    <input type="file" id="certificatDecesFile" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+                    <div class="medical-decision-actions" style="margin-top:0.75rem;">
+                        <button type="button" class="btn btn-primary" id="certificatDecesUploadBtn">Ajouter au dossier</button>
+                    </div>
+                </div>
+                <p id="certificatDecesStatus" class="muted" hidden></p>
+            </section>
+
+    <section class="dashboard-section" id="reorientationSection" hidden>
+                <div class="section-header">
+                    <h3>Réorientation du patient</h3>
+                    <p class="muted">
+                        Médecin-conseil ou affaires médicales : change la clinique et remet l'acceptation à zéro.
+                        Le bon 111 de l'ancienne clinique est invalidé — la nouvelle clinique devra accepter le patient.
+                    </p>
+                </div>
+                <div class="medical-decision-card">
+                    <label for="reorientationHospital">Nouvel établissement</label>
+                    <select id="reorientationHospital"><option value="">Chargement…</option></select>
+                    <label for="reorientationNotes" style="margin-top:0.6rem;">Motif</label>
+                    <textarea id="reorientationNotes" rows="2" placeholder="Motif de la réorientation"></textarea>
+                    <div class="medical-decision-actions" style="margin-top:0.6rem;">
+                        <button type="button" class="btn btn-primary" id="reorientationSubmitBtn">Réorienter le patient</button>
+                    </div>
+                </div>
+            </section>
+
+    <section class="dashboard-section" id="medicalDecisionSection">
+                <div class="section-header">
+                    <h3>Décision médicale</h3>
+                    <p class="muted" id="medicalDecisionStatus">
+                        Analysez les informations patient puis confirmez ou refusez la véracité de l'alerte.
+                    </p>
+                </div>
+                <div class="medical-decision-card">
+                    <label for="medicalDecisionNotes">Notes à partager avec l'équipe opérationnelle</label>
+                    <textarea id="medicalDecisionNotes" rows="4" placeholder="Précisez votre décision..."></textarea>
+                    <div class="medical-decision-actions">
+                        <button type="button" class="btn btn-success" id="medicalApproveBtn">
+                            Alerte avérée
+                        </button>
+                        <button type="button" class="btn btn-danger" id="medicalRejectBtn">
+                            Alerte non avérée
+                        </button>
+                    </div>
+                    <p class="muted decision-hint">
+                        La validation ambulance reste gérée par la réception de l'hôpital.
+                    </p>
+                </div>
+            </section>
+        </div>
+
+        <div class="dossier-tab-panel" data-tab-panel="rapport" hidden>
+    <section class="dashboard-section" id="doctorReportSection" hidden>
+                <h3>Rapport médical</h3>
+                <form id="doctorReportForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="motifConsultation">Motif de consultation</label>
+                            <textarea id="motifConsultation" name="motifConsultation" rows="2"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="motifHospitalisation">Motif d'hospitalisation</label>
+                            <textarea id="motifHospitalisation" name="motifHospitalisation" rows="2"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="dureeSejour">Durée du séjour (jours)</label>
+                            <input type="number" id="dureeSejour" name="dureeSejour" min="0" step="0.5">
+                        </div>
+                    </div>
+
+                    <div class="form-grid two-columns">
+                        <div>
+                            <label>Actes médicaux réalisés</label>
+                            <div id="actesOptions" class="options-grid"></div>
+                        </div>
+                        <div>
+                            <label>Examens réalisés</label>
+                            <div id="examensOptions" class="options-grid"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="resumeSejour">Résumé du séjour</label>
+                            <textarea id="resumeSejour" name="resumeSejour" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="observationsSejour">Observations complémentaires</label>
+                            <textarea id="observationsSejour" name="observationsSejour" rows="3"></textarea>
+                        </div>
+                    </div>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="terminerSejour">
+                        Clôturer le séjour après enregistrement
+                    </label>
+                    <div class="form-group" id="exitModeGroup" hidden style="margin-left:1.6rem;">
+                        <label for="exitModeSelect">Mode de sortie — le bulletin de sortie est émis avec le rapport *</label>
+                        <select id="exitModeSelect">
+                            <option value="">— Choisir le mode de sortie —</option>
+                            <option value="guerison">Guérison</option>
+                            <option value="ambulatoire">Sortie ambulatoire (poursuite des soins en ambulatoire)</option>
+                            <option value="transfert">Transfert vers un autre établissement</option>
+                            <option value="rapatriement_sanitaire">Rapatriement sanitaire</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Enregistrer le rapport</button>
+                    </div>
+                </form>
+            </section>
+
+    <section class="dashboard-section" id="reportValidationSection" hidden>
+                <h3>Validation du rapport</h3>
+                <p class="muted">
+                    Le médecin référent confirme ou rejette le rapport clinique avant la facturation.
+                </p>
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="motifConsultation">Motif de consultation</label>
-                        <textarea id="motifConsultation" name="motifConsultation" rows="2"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="motifHospitalisation">Motif d'hospitalisation</label>
-                        <textarea id="motifHospitalisation" name="motifHospitalisation" rows="2"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="dureeSejour">Durée du séjour (jours)</label>
-                        <input type="number" id="dureeSejour" name="dureeSejour" min="0" step="0.5">
+                        <label for="reportValidationNotes">Notes</label>
+                        <textarea id="reportValidationNotes" rows="3" placeholder="Commentaires pour l'équipe médicale"></textarea>
                     </div>
                 </div>
-
-                <div class="form-grid two-columns">
-                    <div>
-                        <label>Actes médicaux réalisés</label>
-                        <div id="actesOptions" class="options-grid"></div>
-                    </div>
-                    <div>
-                        <label>Examens réalisés</label>
-                        <div id="examensOptions" class="options-grid"></div>
-                    </div>
-                </div>
-
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="resumeSejour">Résumé du séjour</label>
-                        <textarea id="resumeSejour" name="resumeSejour" rows="3"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="observationsSejour">Observations complémentaires</label>
-                        <textarea id="observationsSejour" name="observationsSejour" rows="3"></textarea>
-                    </div>
-                </div>
-
-                <label class="checkbox-label">
-                    <input type="checkbox" id="terminerSejour">
-                    Clôturer le séjour après enregistrement
-                </label>
-                <div class="form-group" id="exitModeGroup" hidden style="margin-left:1.6rem;">
-                    <label for="exitModeSelect">Mode de sortie — le bulletin de sortie est émis avec le rapport *</label>
-                    <select id="exitModeSelect">
-                        <option value="">— Choisir le mode de sortie —</option>
-                        <option value="guerison">Guérison</option>
-                        <option value="ambulatoire">Sortie ambulatoire (poursuite des soins en ambulatoire)</option>
-                        <option value="transfert">Transfert vers un autre établissement</option>
-                        <option value="rapatriement_sanitaire">Rapatriement sanitaire</option>
-                        <option value="autre">Autre</option>
-                    </select>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Enregistrer le rapport</button>
-                </div>
-            </form>
-        </section>
-
-        <section class="dashboard-section" id="certificatDecesSection" hidden>
-            <div class="section-header">
-                <h3>Certificat de décès</h3>
-                <p class="muted">
-                    Joignez le certificat de décès émis par l'hôpital au dossier (PDF ou image, max 10 Mo).
-                </p>
-            </div>
-            <div id="certificatDecesExisting" class="info-grid" hidden></div>
-            <div id="certificatDecesUpload" class="medical-decision-card" hidden>
-                <label for="certificatDecesFile">Fichier joint</label>
-                <input type="file" id="certificatDecesFile" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
-                <div class="medical-decision-actions" style="margin-top:0.75rem;">
-                    <button type="button" class="btn btn-primary" id="certificatDecesUploadBtn">Ajouter au dossier</button>
-                </div>
-            </div>
-            <p id="certificatDecesStatus" class="muted" hidden></p>
-        </section>
-
-        <section class="dashboard-section" id="reportValidationSection" hidden>
-            <h3>Validation du rapport</h3>
-            <p class="muted">
-                Le médecin référent confirme ou rejette le rapport clinique avant la facturation.
-            </p>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="reportValidationNotes">Notes</label>
-                    <textarea id="reportValidationNotes" rows="3" placeholder="Commentaires pour l'équipe médicale"></textarea>
-                </div>
-            </div>
-            <div class="medical-decision-actions">
-                <button type="button" class="btn btn-success" id="approveReportBtn">Valider le rapport</button>
-                <button type="button" class="btn btn-danger" id="rejectReportBtn">Rejeter le rapport</button>
-            </div>
-        </section>
-
-        <section class="dashboard-section" id="invoiceSection" hidden>
-            <h3>Facturation hospitalière</h3>
-            <div id="invoiceSummary" class="info-grid"></div>
-            <div id="invoiceContentBlock" class="table-wrapper" hidden>
-                <h4>Contenu de la facture</h4>
-                <table class="data-table" id="invoiceLinesTable">
-                    <thead>
-                        <tr>
-                            <th>Désignation</th>
-                            <th>Quantité</th>
-                            <th>Prix unitaire</th>
-                            <th>Montant TTC</th>
-                        </tr>
-                    </thead>
-                    <tbody id="invoiceLinesBody"></tbody>
-                </table>
-                <p id="invoiceLinesEmpty" class="muted" hidden>Aucune ligne.</p>
-            </div>
-            <p id="invoiceApprovalStatus" class="muted" hidden></p>
-            <div id="invoiceMedicalApproval" class="medical-decision-card" hidden>
-                <label for="invoiceMedicalNotes">Notes pour la validation médicale</label>
-                <textarea id="invoiceMedicalNotes" rows="3" placeholder="Commentaires à propos de la facture"></textarea>
                 <div class="medical-decision-actions">
-                    <button type="button" class="btn btn-success" id="invoiceApproveBtn">Accorder la facture</button>
-                    <button type="button" class="btn btn-danger" id="invoiceRejectBtn">Refuser la facture</button>
+                    <button type="button" class="btn btn-success" id="approveReportBtn">Valider le rapport</button>
+                    <button type="button" class="btn btn-danger" id="rejectReportBtn">Rejeter le rapport</button>
                 </div>
-            </div>
-            <div id="invoiceSinistreApproval" class="medical-decision-card" hidden>
-                <label for="invoiceSinistreNotes">Notes pour la validation sinistre</label>
-                <textarea id="invoiceSinistreNotes" rows="3" placeholder="Commentaires pour les affaires médicales"></textarea>
-                <div class="medical-decision-actions">
-                    <button type="button" class="btn btn-success" id="invoiceSinistreApproveBtn">Valider la facture</button>
-                    <button type="button" class="btn btn-danger" id="invoiceSinistreRejectBtn">Refuser la facture</button>
-                </div>
-            </div>
-            <button class="btn btn-primary" id="createInvoiceBtn">Créer et envoyer la facture</button>
-        </section>
+            </section>
+        </div>
 
-        <section class="dashboard-section" id="questionnaireSection" hidden>
-            <div class="section-header">
-                <h3>Dossier patient</h3>
-                <p class="muted">
-                    Aperçu synthétique des informations civiles et médicales nécessaires à la décision.
-                </p>
-            </div>
-            <div class="questionnaire-grid questionnaire-grid--alert-dossier">
-                <div class="doctor-case-panel questionnaire-civil-panel">
-                    <h4>Informations patient</h4>
-                    <div id="civilDataContent" class="questionnaire-content--civil-dossier"></div>
+        <div class="dossier-tab-panel" data-tab-panel="patient" hidden>
+    <section class="dashboard-section" id="questionnaireSection" hidden>
+                <div class="section-header">
+                    <h3>Dossier patient</h3>
+                    <p class="muted">
+                        Aperçu synthétique des informations civiles et médicales nécessaires à la décision.
+                    </p>
                 </div>
-                <div class="questionnaire-block questionnaire-block--medical">
-                    <div class="questionnaire-header">
-                        <h5>Dossier médical</h5>
-                        <span class="badge badge-provisoire" id="medicalQuestionnaireVersion" hidden></span>
+                <div class="questionnaire-grid questionnaire-grid--alert-dossier">
+                    <div class="doctor-case-panel questionnaire-civil-panel">
+                        <h4>Informations patient</h4>
+                        <div id="civilDataContent" class="questionnaire-content--civil-dossier"></div>
                     </div>
-                    <div class="questionnaire-content questionnaire-content--medical" id="medicalDataContent"></div>
+                    <div class="questionnaire-block questionnaire-block--medical">
+                        <div class="questionnaire-header">
+                            <h5>Dossier médical</h5>
+                            <span class="badge badge-provisoire" id="medicalQuestionnaireVersion" hidden></span>
+                        </div>
+                        <div class="questionnaire-content questionnaire-content--medical" id="medicalDataContent"></div>
+                    </div>
                 </div>
-            </div>
-        </section>
+            </section>
+        </div>
 
-        <section class="dashboard-section" id="mhcCareDocumentsSection" hidden>
-            <div class="section-header">
-                <h3>Bons et attestations MHC</h3>
-                <p class="muted">
-                    Parcours de prise en charge d'urgence : décision médicale, hospitalisation, sortie et rapatriements.
-                </p>
-            </div>
-            <p id="mhcCareDocStatus" class="muted">Chargement des documents...</p>
-            <ul id="mhcCareDocList" class="card-list" hidden></ul>
-            <div id="mhcCareDocIssue" class="medical-decision-card" hidden>
-                <label for="mhcCareDocType">Émettre un document</label>
-                <select id="mhcCareDocType"></select>
-                <div id="mhcCareDocFields"></div>
-                <label for="mhcCareDocNotes">Notes</label>
-                <textarea id="mhcCareDocNotes" rows="2" placeholder="Motif médical, observations..."></textarea>
-                <div class="medical-decision-actions">
-                    <button type="button" class="btn btn-primary" id="mhcCareDocIssueBtn">Émettre</button>
+        <div class="dossier-tab-panel" data-tab-panel="documents" hidden>
+    <section class="dashboard-section" id="mhcCareDocumentsSection" hidden>
+                <div class="section-header">
+                    <h3>Bons et attestations MHC</h3>
+                    <p class="muted">
+                        Parcours de prise en charge d'urgence : décision médicale, hospitalisation, sortie et rapatriements.
+                    </p>
                 </div>
-            </div>
-        </section>
+                <p id="mhcCareDocStatus" class="muted">Chargement des documents...</p>
+                <ul id="mhcCareDocList" class="card-list" hidden></ul>
+                <div id="mhcCareDocIssue" class="medical-decision-card" hidden>
+                    <label for="mhcCareDocType">Émettre un document</label>
+                    <select id="mhcCareDocType"></select>
+                    <div id="mhcCareDocFields"></div>
+                    <label for="mhcCareDocNotes">Notes</label>
+                    <textarea id="mhcCareDocNotes" rows="2" placeholder="Motif médical, observations..."></textarea>
+                    <div class="medical-decision-actions">
+                        <button type="button" class="btn btn-primary" id="mhcCareDocIssueBtn">Émettre</button>
+                    </div>
+                </div>
+            </section>
+        </div>
 
-        <section class="dashboard-section" id="reorientationSection" hidden>
-            <div class="section-header">
-                <h3>Réorientation du patient</h3>
-                <p class="muted">
-                    Médecin-conseil ou affaires médicales : change la clinique et remet l'acceptation à zéro.
-                    Le bon 111 de l'ancienne clinique est invalidé — la nouvelle clinique devra accepter le patient.
-                </p>
-            </div>
-            <div class="medical-decision-card">
-                <label for="reorientationHospital">Nouvel établissement</label>
-                <select id="reorientationHospital"><option value="">Chargement…</option></select>
-                <label for="reorientationNotes" style="margin-top:0.6rem;">Motif</label>
-                <textarea id="reorientationNotes" rows="2" placeholder="Motif de la réorientation"></textarea>
-                <div class="medical-decision-actions" style="margin-top:0.6rem;">
-                    <button type="button" class="btn btn-primary" id="reorientationSubmitBtn">Réorienter le patient</button>
+        <div class="dossier-tab-panel" data-tab-panel="facturation" hidden>
+    <section class="dashboard-section" id="invoiceSection" hidden>
+                <h3>Facturation hospitalière</h3>
+                <div id="invoiceSummary" class="info-grid"></div>
+                <div id="invoiceContentBlock" class="table-wrapper" hidden>
+                    <h4>Contenu de la facture</h4>
+                    <table class="data-table" id="invoiceLinesTable">
+                        <thead>
+                            <tr>
+                                <th>Désignation</th>
+                                <th>Quantité</th>
+                                <th>Prix unitaire</th>
+                                <th>Montant TTC</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoiceLinesBody"></tbody>
+                    </table>
+                    <p id="invoiceLinesEmpty" class="muted" hidden>Aucune ligne.</p>
                 </div>
-            </div>
-        </section>
-
-        <section class="dashboard-section" id="medicalDecisionSection">
-            <div class="section-header">
-                <h3>Décision médicale</h3>
-                <p class="muted" id="medicalDecisionStatus">
-                    Analysez les informations patient puis confirmez ou refusez la véracité de l'alerte.
-                </p>
-            </div>
-            <div class="medical-decision-card">
-                <label for="medicalDecisionNotes">Notes à partager avec l'équipe opérationnelle</label>
-                <textarea id="medicalDecisionNotes" rows="4" placeholder="Précisez votre décision..."></textarea>
-                <div class="medical-decision-actions">
-                    <button type="button" class="btn btn-success" id="medicalApproveBtn">
-                        Alerte avérée
-                    </button>
-                    <button type="button" class="btn btn-danger" id="medicalRejectBtn">
-                        Alerte non avérée
-                    </button>
+                <p id="invoiceApprovalStatus" class="muted" hidden></p>
+                <div id="invoiceMedicalApproval" class="medical-decision-card" hidden>
+                    <label for="invoiceMedicalNotes">Notes pour la validation médicale</label>
+                    <textarea id="invoiceMedicalNotes" rows="3" placeholder="Commentaires à propos de la facture"></textarea>
+                    <div class="medical-decision-actions">
+                        <button type="button" class="btn btn-success" id="invoiceApproveBtn">Accorder la facture</button>
+                        <button type="button" class="btn btn-danger" id="invoiceRejectBtn">Refuser la facture</button>
+                    </div>
                 </div>
-                <p class="muted decision-hint">
-                    La validation ambulance reste gérée par la réception de l'hôpital.
-                </p>
-            </div>
-        </section>
+                <div id="invoiceSinistreApproval" class="medical-decision-card" hidden>
+                    <label for="invoiceSinistreNotes">Notes pour la validation sinistre</label>
+                    <textarea id="invoiceSinistreNotes" rows="3" placeholder="Commentaires pour les affaires médicales"></textarea>
+                    <div class="medical-decision-actions">
+                        <button type="button" class="btn btn-success" id="invoiceSinistreApproveBtn">Valider la facture</button>
+                        <button type="button" class="btn btn-danger" id="invoiceSinistreRejectBtn">Refuser la facture</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="createInvoiceBtn">Créer et envoyer la facture</button>
+            </section>
         </div>
     </main>
 
@@ -423,7 +439,7 @@
     <script src="js/backoffice-nav.js?v=25"></script>
     <script src="js/medical-declaration.js?v=1"></script>
     <script src="js/workflow-tracker.js?v=2"></script>
-    <script src="js/hospital-alert-details.js?v=11"></script>
+    <script src="js/hospital-alert-details.js?v=12"></script>
 </body>
 </html>
 
