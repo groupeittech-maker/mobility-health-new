@@ -11,7 +11,10 @@
     const TABS = [
         { key: 'toutes', label: 'Toutes les alertes', match: () => true },
         { key: 'en_traitement', label: 'En traitement', match: a => a.statut === 'en_cours' },
-        { key: 'a_valider', label: 'À valider', match: a => ['en_attente', 'en_cours'].includes(a.statut) },
+        // « À valider » = alerte active SANS décision de prise en charge : dès que la
+        // vérification est faite ou l'accord enregistré (numéro de sinistre attribué →
+        // is_validated), elle passe en traitement et sort de cette file.
+        { key: 'a_valider', label: 'À valider', match: a => ['en_attente', 'en_cours'].includes(a.statut) && !a.is_validated },
         { key: 'validees', label: 'Validées', match: a => a.statut === 'resolue' },
         { key: 'refusees', label: 'Refusées', match: a => a.statut === 'annulee' },
         { key: 'cloturees', label: 'Clôturées', match: a => a.statut === 'cloturee' },
