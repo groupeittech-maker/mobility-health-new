@@ -174,10 +174,16 @@ async def list_medical_reports(
     return [_report_to_dict(r) for r in reports]
 
 
-def _report_to_dict(r: HospitalMedicalReport) -> dict:
+def _report_to_dict(r: HospitalMedicalReport, stay=None) -> dict:
+    patient = getattr(stay, "patient", None) if stay else None
     return {
         "id": r.id,
         "stay_id": r.stay_id,
+        "stay_date_entree": stay.started_at.isoformat() if stay and stay.started_at else None,
+        "stay_date_sortie": stay.ended_at.isoformat() if stay and stay.ended_at else None,
+        "assure_nom": getattr(patient, "full_name", None) or getattr(patient, "email", None) if patient else None,
+        "motif_consultation": getattr(stay, "report_motif_consultation", None) if stay else None,
+        "motif_hospitalisation": getattr(stay, "report_motif_hospitalisation", None) if stay else None,
         "report_type": r.report_type,
         "resume": r.resume,
         "actes": r.actes,
@@ -322,7 +328,7 @@ async def pending_validations(
             groups = required_validator_groups(MhcCareDocumentType(doc.document_type))
         except Exception:
             groups = []
-        already = {v.get("group") for v in (doc.validations or [])}
+        already = {v.get("groupe") for v in (doc.validations or []) if v.get("approuve")}
         missing = [g for g in groups if g not in already]
         if not missing:
             continue
@@ -337,8 +343,40 @@ async def pending_validations(
                 "issued_at": doc.issued_at.isoformat() if doc.issued_at else None,
             })
 
+    # Contexte séjour pour chaque rapport (dates, assuré, motifs) — le
+    # validateur doit voir de quoi il s'agit sans ouvrir le dossier.
+    from app.models.hospital_stay import HospitalStay
+    stay_ids = {r.stay_id for r in reports}
+    stays = {
+        st.id: st
+        for st in db.query(HospitalStay).filter(HospitalStay.id.in_(stay_ids)).all()
+    } if stay_ids else {}
+
+    # Contexte assuré/sinistre pour les documents.
+    from app.models.sinistre import Sinistre
+    from app.models.alerte import Alerte as _Alerte
+    sin_ids = {d["sinistre_id"] for d in care_pending}
+    sin_map = {}
+    if sin_ids:
+        for sin in db.query(Sinistre).filter(Sinistre.id.in_(sin_ids)).all():
+            al = db.query(_Alerte).filter(_Alerte.id == sin.alerte_id).first() if sin.alerte_id else None
+            usr = getattr(al, "user", None) if al else None
+            sin_map[sin.id] = {
+                "numero_sinistre": sin.numero_sinistre,
+                "assure_nom": getattr(usr, "full_name", None) or getattr(usr, "email", None) if usr else None,
+            }
+    from app.core.mhc_nomenclature import DOCUMENT_TITLES as _TITLES, MhcCareDocumentType as _T
+    for d in care_pending:
+        ctx = sin_map.get(d["sinistre_id"]) or {}
+        d["numero_sinistre"] = ctx.get("numero_sinistre")
+        d["assure_nom"] = ctx.get("assure_nom")
+        try:
+            d["titre"] = _TITLES.get(_T(d["document_type"]), d["document_type"])
+        except Exception:
+            d["titre"] = d["document_type"]
+
     return {
         "escalations_applied": True,
-        "reports": [_report_to_dict(r) for r in reports],
+        "reports": [_report_to_dict(r, stays.get(r.stay_id)) for r in reports],
         "care_documents": care_pending,
     }

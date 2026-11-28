@@ -567,6 +567,125 @@ class TestMhcCareDocumentApi:
         finally:
             app.dependency_overrides.pop(get_current_user, None)
 
+    def test_issuer_cannot_validate_own_document(
+        self,
+        client,
+        db,
+        test_user,
+        test_product,
+        test_hospital,
+        test_doctor,
+        test_receptionist,
+        test_medical_reviewer,
+    ):
+        """L'émetteur d'un document ne peut ni valider ni refuser son propre document."""
+        from app.api.v1.auth import get_current_user
+        from app.main import app
+        from app.models.mhc_care_document import MhcCareDocument
+
+        sinistre, _, _ = _open_sinistre(db, test_user, test_product, test_hospital)
+        sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
+        sinistre.decision_mc = "accord"
+        db.commit()
+
+        # BRS émis par le médecin de l'hôpital (compagnon du bulletin en mode
+        # rapatriement) — le scénario remonté : demandeur et validateur
+        # étaient la même personne. On reproduit l'état directement.
+        brs = MhcCareDocument(
+            sinistre_id=sinistre.id,
+            document_type="brs",
+            statut="emi",
+            numero="BRS-TEST-001",
+            issued_by_id=test_receptionist.id,
+            validation_status="en_attente",
+            validations=[],
+            payload={},
+        )
+        db.add(brs)
+        db.commit()
+        db.refresh(brs)
+
+        def _as(user):
+            app.dependency_overrides[get_current_user] = lambda: user
+
+        try:
+            # L'émetteur (partenaire-santé, groupe validateur du BRS) ne peut
+            # ni approuver ni refuser son propre document.
+            _as(test_receptionist)
+            for approve in (True, False):
+                rv = client.post(
+                    f"/api/v1/mhc/care-documents/{brs.id}/validation",
+                    json={"approve": approve},
+                )
+                assert rv.status_code == status.HTTP_403_FORBIDDEN, rv.text
+                assert "autre personne" in rv.json()["detail"]
+
+            # Un AUTRE membre du même groupe ne peut pas non plus passer avant
+            # le pôle médical (ordre), mais le pôle médical peut commencer.
+            _as(test_medical_reviewer)
+            rv = client.post(
+                f"/api/v1/mhc/care-documents/{brs.id}/validation",
+                json={"approve": True},
+            )
+            assert rv.status_code == status.HTTP_200_OK, rv.text
+        finally:
+            app.dependency_overrides.pop(get_current_user, None)
+
+    def test_delete_document_by_issuer_rules(
+        self,
+        client,
+        db,
+        test_user,
+        test_product,
+        test_hospital,
+        test_doctor,
+        test_receptionist,
+        test_medical_reviewer,
+    ):
+        """Suppression : émetteur OK tant que le document n'est pas engagé."""
+        from app.api.v1.auth import get_current_user
+        from app.main import app
+
+        sinistre, _, _ = _open_sinistre(db, test_user, test_product, test_hospital)
+        sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
+        sinistre.decision_mc = "accord"
+        db.commit()
+        base = f"/api/v1/mhc/sinistres/{sinistre.id}/care-documents"
+
+        def _as(user):
+            app.dependency_overrides[get_current_user] = lambda: user
+
+        try:
+            # Un non-émetteur ne peut pas supprimer.
+            _as(test_receptionist)
+            r = client.post(base, json={"document_type": "bpcu"})
+            assert r.status_code == status.HTTP_201_CREATED
+            doc_id = r.json()[0]["id"]
+
+            _as(test_doctor)
+            rv = client.delete(f"/api/v1/mhc/care-documents/{doc_id}")
+            assert rv.status_code == status.HTTP_403_FORBIDDEN
+
+            # L'émetteur peut supprimer son document non engagé.
+            _as(test_receptionist)
+            rv = client.delete(f"/api/v1/mhc/care-documents/{doc_id}")
+            assert rv.status_code == status.HTTP_204_NO_CONTENT
+            rv = client.delete(f"/api/v1/mhc/care-documents/{doc_id}")
+            assert rv.status_code == status.HTTP_404_NOT_FOUND
+
+            # Un document validé ne peut plus être supprimé.
+            r = client.post(base, json={"document_type": "bh", "payload": {"diagnostic": "X"}})
+            bh_id = r.json()[0]["id"]
+            _as(test_doctor)
+            client.post(f"/api/v1/mhc/care-documents/{bh_id}/validation", json={"approve": True})
+            _as(test_medical_reviewer)
+            client.post(f"/api/v1/mhc/care-documents/{bh_id}/validation", json={"approve": True})
+            _as(test_receptionist)
+            rv = client.delete(f"/api/v1/mhc/care-documents/{bh_id}")
+            assert rv.status_code == status.HTTP_400_BAD_REQUEST
+        finally:
+            app.dependency_overrides.pop(get_current_user, None)
+
     def test_global_list_forbidden_for_plain_user(
         self,
         client,

@@ -89,12 +89,25 @@
             </table>
         </div>
     </main>
+    <!-- Tiroir latéral de consultation du document -->
+    <div class="doc-drawer-backdrop" id="docDrawerBackdrop" style="position:fixed;inset:0;background:rgba(20,16,48,.45);z-index:2400;display:none;"></div>
+    <aside id="docDrawer" style="position:fixed;top:0;right:0;bottom:0;width:min(820px,96vw);background:#fff;z-index:2500;transform:translateX(102%);transition:transform .22s ease;display:flex;flex-direction:column;box-shadow:-12px 0 32px rgba(20,16,48,.18);">
+        <div style="padding:.9rem 1.2rem;border-bottom:1px solid #f1f2f8;display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+            <div>
+                <h2 id="docDrawerTitle" style="font-size:1rem;color:#1e1650;margin:0;">Document</h2>
+                <div id="docDrawerMeta" style="font-size:.74rem;color:#8a8fa3;margin-top:.15rem;"></div>
+            </div>
+            <button type="button" id="docDrawerClose" style="border:none;background:#eceef6;border-radius:.45rem;padding:.35rem .8rem;cursor:pointer;font-size:.78rem;font-weight:600;">✕ Fermer</button>
+        </div>
+        <div id="docDrawerBody" style="flex:1;overflow:hidden;padding:0;"></div>
+    </aside>
+
     <div class="toast" id="toast"></div>
 
     <script src="js/api.js?v=20261013"></script>
     <script src="js/auth.js?v=5"></script>
     <script src="js/permissions.js?v=6"></script>
-    <script src="js/documents.js?v=1"></script>
+    <script src="js/documents.js?v=2"></script>
     <script src="js/backoffice-nav.js?v=25"></script>
 </body>
 </html>

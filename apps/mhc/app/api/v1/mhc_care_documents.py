@@ -125,6 +125,7 @@ class CareDocumentTraceItem(BaseModel):
     document_type: str
     titre: str
     numero: str
+    issued_by_id: Optional[int] = None
     statut: str
     validation_status: str
     issued_at: object = None
@@ -190,6 +191,7 @@ async def list_all_care_documents(
             CareDocumentTraceItem(
                 id=doc.id,
                 document_type=doc.document_type,
+                issued_by_id=doc.issued_by_id,
                 titre=DOCUMENT_TITLES.get(doc_type, doc.document_type),
                 numero=doc.numero,
                 statut=doc.statut,
@@ -301,6 +303,64 @@ async def validate_care_document_endpoint(
     db.commit()
     db.refresh(document)
     return _to_response(document)
+
+
+@router.delete("/care-documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_care_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Supprimer un document émis par erreur — réservé à son émetteur (ou admin).
+
+    La suppression est refusée dès que le document est engagé dans la chaîne :
+    validé (effets appliqués), en cours de validation par d'autres personnes,
+    ou parent d'autres documents.
+    """
+    _ensure_role(current_user)
+    document = get_care_document(db, document_id)
+    if not document:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document introuvable.")
+
+    is_issuer = document.issued_by_id is not None and document.issued_by_id == current_user.id
+    is_admin = current_user.role == Role.ADMIN or getattr(current_user, "is_superuser", False)
+    if not is_issuer and not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seul l'émetteur du document peut le supprimer.",
+        )
+
+    validation_status = getattr(document, "validation_status", None) or "non_requise"
+    if validation_status == "valide":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Impossible de supprimer un document validé : il produit déjà ses effets dans le dossier.",
+        )
+
+    other_validations = [
+        v for v in (document.validations or [])
+        if v.get("user_id") and v.get("user_id") != current_user.id
+    ]
+    if other_validations:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Impossible de supprimer : la validation est déjà engagée par d'autres personnes.",
+        )
+
+    children = (
+        db.query(MhcCareDocument)
+        .filter(MhcCareDocument.parent_document_id == document.id)
+        .count()
+    )
+    if children:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Impossible de supprimer : d'autres documents dépendent de celui-ci.",
+        )
+
+    db.delete(document)
+    db.commit()
+    return None
 
 
 REORIENTATION_ROLES = {

@@ -30,6 +30,11 @@
     };
 
     let allDocs = [];
+    let currentUserId = null;
+    try {
+        const raw = localStorage.getItem('user');
+        currentUserId = raw ? (JSON.parse(raw).id || null) : null;
+    } catch (e) { currentUserId = null; }
 
     function escapeHtml(text) {
         if (text === null || text === undefined) return '';
@@ -130,18 +135,43 @@
                     <td style="white-space:nowrap">${escapeHtml(doc.numero)}</td>
                     <td><span class="badge ${statut.cls}">${escapeHtml(statut.text)}</span></td>
                     <td><span class="badge ${validation.cls}">${escapeHtml(validation.text)}</span></td>
-                    <td><button type="button" class="btn-pdf" data-doc-id="${doc.id}">Consulter</button></td>
+                    <td style="white-space:nowrap">
+                        <button type="button" class="btn-pdf" data-doc-id="${doc.id}">Consulter</button>
+                        ${doc.issued_by_id && doc.issued_by_id === currentUserId && doc.validation_status !== 'valide'
+                            ? `<button type="button" class="btn-pdf btn-del" data-del-id="${doc.id}" style="color:#c81e1e;border-color:#f3c2c2">Supprimer</button>`
+                            : ''}
+                    </td>
                 </tr>
             `;
         }).join('');
 
-        tbody.querySelectorAll('.btn-pdf').forEach((btn) => {
+        tbody.querySelectorAll('.btn-pdf[data-doc-id]').forEach((btn) => {
             btn.addEventListener('click', () => openPdf(Number(btn.getAttribute('data-doc-id'))));
         });
+        tbody.querySelectorAll('.btn-del').forEach((btn) => {
+            btn.addEventListener('click', () => deleteDocument(Number(btn.getAttribute('data-del-id')), btn));
+        });
+    }
+
+    function closeDocDrawer() {
+        document.getElementById('docDrawerBackdrop').style.display = 'none';
+        const drawer = document.getElementById('docDrawer');
+        drawer.style.transform = 'translateX(102%)';
+        document.getElementById('docDrawerBody').innerHTML = '';
     }
 
     async function openPdf(docId) {
         if (!Number.isFinite(docId)) return;
+        const doc = allDocs.find((d) => d.id === docId);
+        document.getElementById('docDrawerTitle').textContent =
+            (doc && (TYPE_LABELS[doc.document_type] || doc.titre)) || 'Document';
+        document.getElementById('docDrawerMeta').textContent = doc
+            ? [doc.numero, doc.assure_nom, doc.numero_sinistre].filter(Boolean).join(' · ')
+            : '';
+        const body = document.getElementById('docDrawerBody');
+        body.innerHTML = '<p style="color:#8a8fa3;padding:1rem 1.2rem">Chargement du document…</p>';
+        document.getElementById('docDrawerBackdrop').style.display = 'block';
+        document.getElementById('docDrawer').style.transform = 'translateX(0)';
         try {
             const token = localStorage.getItem('access_token') || localStorage.getItem('token');
             const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '/api/v1');
@@ -149,16 +179,52 @@
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) {
-                toast('PDF indisponible (HTTP ' + res.status + ')', true);
+                body.innerHTML = '<p style="color:#c81e1e;padding:1rem 1.2rem">Document indisponible (HTTP ' + res.status + ').</p>';
                 return;
             }
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
-            window.open(url, '_blank', 'noopener');
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
+            body.innerHTML = '<iframe src="' + url + '" style="width:100%;height:100%;border:none;" title="Document"></iframe>';
         } catch (error) {
             console.error('Erreur ouverture PDF:', error);
-            toast('Impossible d’ouvrir le document', true);
+            body.innerHTML = '<p style="color:#c81e1e;padding:1rem 1.2rem">Impossible de charger le document.</p>';
+        }
+    }
+
+    // Suppression en deux clics (pas de modale native) : le premier clic arme
+    // le bouton (« Confirmer ? »), le second exécute. L'armement expire seul.
+    const deleteArmTimers = new Map();
+
+    async function deleteDocument(docId, btn) {
+        if (!deleteArmTimers.has(docId)) {
+            if (btn) {
+                btn.textContent = 'Confirmer ?';
+                btn.style.background = '#c81e1e';
+                btn.style.color = '#fff';
+            }
+            deleteArmTimers.set(docId, setTimeout(() => {
+                deleteArmTimers.delete(docId);
+                if (btn) {
+                    btn.textContent = 'Supprimer';
+                    btn.style.background = '';
+                    btn.style.color = '#c81e1e';
+                }
+            }, 4000));
+            return;
+        }
+        clearTimeout(deleteArmTimers.get(docId));
+        deleteArmTimers.delete(docId);
+        try {
+            await apiCall(`/mhc/care-documents/${docId}`, { method: 'DELETE' });
+            toast('Document supprimé');
+            await loadDocuments();
+        } catch (error) {
+            toast(error.message || 'Suppression impossible', true);
+            if (btn) {
+                btn.textContent = 'Supprimer';
+                btn.style.background = '';
+                btn.style.color = '#c81e1e';
+            }
         }
     }
 
@@ -184,6 +250,13 @@
         document.getElementById('docTypeFilter')?.addEventListener('change', renderDocuments);
         document.getElementById('docStatutFilter')?.addEventListener('change', renderDocuments);
         document.getElementById('docRefreshBtn')?.addEventListener('click', loadDocuments);
+        document.getElementById('docDrawerClose')?.addEventListener('click', closeDocDrawer);
+        document.getElementById('docDrawerBackdrop')?.addEventListener('click', closeDocDrawer);
+        // Identité courante pour la suppression (l'émetteur seul peut supprimer).
+        try {
+            const me = await apiCall('/auth/me');
+            currentUserId = me && me.id ? me.id : currentUserId;
+        } catch (e) { /* silencieux */ }
 
         await loadDocuments();
     });

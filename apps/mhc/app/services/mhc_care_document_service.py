@@ -635,6 +635,16 @@ def validate_care_document(
             f"Seul(s) « {labels} » peut/peuvent valider « {DOCUMENT_TITLES[doc_type]} »."
         )
 
+    if (
+        document.issued_by_id is not None
+        and getattr(actor, "id", None) == document.issued_by_id
+        and not _is_admin(actor)
+    ):
+        raise CareDocumentPermissionError(
+            "Vous ne pouvez pas valider un document que vous avez émis : "
+            "la validation doit être effectuée par une autre personne."
+        )
+
     validations = list(document.validations or [])
     approved_groups = {v.get("groupe") for v in validations if v.get("approuve")}
     actor_name = _doctor_display(actor)
@@ -648,21 +658,6 @@ def validate_care_document(
             labels = ", ".join(GROUP_LABELS[g] for g in earlier_missing)
             raise ValueError(
                 f"La validation « {labels} » est requise avant celle-ci."
-            )
-        # « Une autre personne que le demandeur » : le dernier validateur ne
-        # peut pas être l'émetteur du document (ex. BRF demandé puis validé
-        # par les affaires médicales).
-        remaining = [g for g in required if g not in approved_groups]
-        if (
-            remaining
-            and actor_groups[-1] == remaining[-1]
-            and len(remaining) == 1
-            and document.issued_by_id is not None
-            and getattr(actor, "id", None) == document.issued_by_id
-        ):
-            raise ValueError(
-                "La dernière validation doit être effectuée par une autre "
-                "personne que le demandeur."
             )
 
     if not approve:

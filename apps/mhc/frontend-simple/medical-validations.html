@@ -15,23 +15,34 @@
         table { width: 100%; border-collapse: collapse; font-size: .8rem; }
         th { text-align: left; color: #8a8fa3; font-size: .72rem; font-weight: 600; padding: .6rem 1rem; border-bottom: 1px solid #f1f2f8; }
         td { padding: .6rem 1rem; border-bottom: 1px solid #f5f6fb; vertical-align: top; }
-        .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: .7rem; }
+        .cell-main { display: block; font-weight: 600; color: #2c2c3c; }
+        .cell-sub { display: block; font-size: .72rem; color: #8a8fa3; }
+        .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: .7rem; white-space: nowrap; }
         .b-soumis { background: #fdf0dc; color: #b45309; }
         .b-validee_mc { background: #e8f0fe; color: #2d5bd7; }
         .b-esc { background: #fde8e8; color: #c81e1e; }
-        .btn { border: none; border-radius: .45rem; padding: .35rem .7rem; font-size: .74rem; font-weight: 600; cursor: pointer; margin-right: .35rem; }
+        /* Tiroir latéral de consultation */
+        .mv-drawer-backdrop { position: fixed; inset: 0; background: rgba(20,16,48,.45); z-index: 2400; display: none; }
+        .mv-drawer-backdrop.show { display: block; }
+        .mv-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(820px, 96vw); background: #fff; z-index: 2500; transform: translateX(102%); transition: transform .22s ease; display: flex; flex-direction: column; box-shadow: -12px 0 32px rgba(20,16,48,.18); }
+        .mv-drawer.show { transform: translateX(0); }
+        .mv-drawer-h { padding: .9rem 1.2rem; border-bottom: 1px solid #f1f2f8; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .mv-drawer-h h2 { font-size: 1rem; color: #1e1650; margin: 0; }
+        .mv-drawer-h .meta { font-size: .74rem; color: #8a8fa3; margin-top: .15rem; }
+        .mv-drawer-close { border: none; background: #eceef6; border-radius: .45rem; padding: .35rem .8rem; cursor: pointer; font-size: .78rem; font-weight: 600; white-space: nowrap; }
+        .mv-drawer-body { flex: 1; overflow-y: auto; padding: 1rem 1.2rem; }
+        .mv-drawer-body iframe { width: 100%; height: 100%; min-height: 70vh; border: none; }
+        .mv-sec { margin-bottom: 1rem; }
+        .mv-sec h3 { font-size: .74rem; color: #8a8fa3; text-transform: uppercase; letter-spacing: .03em; margin: 0 0 .3rem; }
+        .mv-sec p { font-size: .85rem; color: #2c2c3c; margin: 0; white-space: pre-wrap; }
+        .mv-sec ul { margin: 0; padding-left: 1.1rem; font-size: .85rem; color: #2c2c3c; }
+        .mv-meta { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; font-size: .78rem; color: #8a8fa3; margin-bottom: 1rem; padding-bottom: .8rem; border-bottom: 1px solid #f5f6fb; }
+        .mv-drawer-actions { padding: .8rem 1.2rem; border-top: 1px solid #f1f2f8; display: flex; gap: .6rem; align-items: center; background: #faf9fd; }
+        .btn { border: none; border-radius: .45rem; padding: .45rem .9rem; font-size: .78rem; font-weight: 600; cursor: pointer; }
         .btn-ok { background: #0a9b6c; color: #fff; }
         .btn-ko { background: #fde8e8; color: #c81e1e; }
-        .modal-backdrop { position: fixed; inset: 0; background: rgba(20,16,48,.45); z-index: 2500; display: none; align-items: flex-start; justify-content: center; padding: 3rem 1rem; }
-        .modal-backdrop.show { display: flex; }
-        .modal-card { background: #fff; border-radius: .8rem; max-width: 640px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 1.2rem 1.4rem; }
-        .modal-card h2 { font-size: 1.05rem; color: #1e1650; margin: 0 0 .8rem; }
-        .modal-sec { margin-bottom: .9rem; }
-        .modal-sec h3 { font-size: .78rem; color: #8a8fa3; text-transform: uppercase; letter-spacing: .03em; margin: 0 0 .3rem; }
-        .modal-sec p { font-size: .85rem; color: #2c2c3c; margin: 0; white-space: pre-wrap; }
-        .modal-sec ul { margin: 0; padding-left: 1.1rem; font-size: .85rem; color: #2c2c3c; }
-        .modal-meta { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; font-size: .76rem; color: #8a8fa3; margin-bottom: 1rem; }
-        .modal-close { float: right; border: none; background: #eceef6; border-radius: .45rem; padding: .3rem .7rem; cursor: pointer; font-size: .78rem; }
+        .btn[disabled] { opacity: .55; cursor: not-allowed; }
+        .mv-note { flex: 1; border: 1px solid #dfe3ee; border-radius: .45rem; padding: .4rem .6rem; font-size: .78rem; font-family: inherit; }
         .toast { position: fixed; bottom: 1.4rem; right: 1.4rem; background: #1e1650; color: #fff; padding: .7rem 1.1rem; border-radius: .6rem; font-size: .82rem; z-index: 3000; display: none; }
         .toast.show { display: block; } .toast.error { background: #c81e1e; }
     </style>
@@ -44,7 +55,7 @@
         <div class="card">
             <div class="card-h">Rapports médicaux (<span id="rc">0</span>)</div>
             <table>
-                <thead><tr><th>#</th><th>Séjour</th><th>Type</th><th>Résumé</th><th>Statut</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Date du séjour</th><th>Assuré</th><th>Type</th><th>Motif</th><th>Statut</th><th>Actions</th></tr></thead>
                 <tbody id="reportsBody"><tr><td colspan="6" style="color:#8a8fa3">Chargement…</td></tr></tbody>
             </table>
         </div>
@@ -52,21 +63,31 @@
         <div class="card">
             <div class="card-h">Documents de prise en charge (<span id="dc">0</span>)</div>
             <table>
-                <thead><tr><th>#</th><th>Sinistre</th><th>Document</th><th>N°</th><th>Groupe attendu</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Document</th><th>N°</th><th>Assuré</th><th>Sinistre</th><th>Groupe attendu</th><th>Actions</th></tr></thead>
                 <tbody id="docsBody"><tr><td colspan="6" style="color:#8a8fa3">Chargement…</td></tr></tbody>
             </table>
         </div>
     </main>
-    <div class="toast" id="toast"></div>
 
-    <div class="modal-backdrop" id="reportModal">
-        <div class="modal-card">
-            <button class="modal-close" onclick="document.getElementById('reportModal').classList.remove('show')">✕ Fermer</button>
-            <h2 id="rmTitle">Rapport médical</h2>
-            <div class="modal-meta" id="rmMeta"></div>
-            <div id="rmBody"></div>
+    <!-- Tiroir latéral de consultation / validation -->
+    <div class="mv-drawer-backdrop" id="drawerBackdrop"></div>
+    <aside class="mv-drawer" id="drawer" aria-hidden="true">
+        <div class="mv-drawer-h">
+            <div>
+                <h2 id="dwTitle">Consultation</h2>
+                <div class="meta" id="dwMeta"></div>
+            </div>
+            <button type="button" class="mv-drawer-close" id="dwClose">✕ Fermer</button>
         </div>
-    </div>
+        <div class="mv-drawer-body" id="dwBody"></div>
+        <div class="mv-drawer-actions" id="dwActions" hidden>
+            <input type="text" class="mv-note" id="dwNote" placeholder="Commentaire (obligatoire en cas de refus)">
+            <button type="button" class="btn btn-ok" id="dwApprove">✅ Valider</button>
+            <button type="button" class="btn btn-ko" id="dwRefuse">❌ Refuser</button>
+        </div>
+    </aside>
+
+    <div class="toast" id="toast"></div>
 
     <script src="js/api.js?v=20261013"></script>
     <script src="js/auth.js?v=5"></script>
@@ -78,6 +99,13 @@
         const toast = (m, e) => { const t = $('toast'); t.textContent = m; t.className = 'toast show' + (e ? ' error' : ''); setTimeout(() => t.className = 'toast', 3000); };
         const ROLE = localStorage.getItem('user_role') || '';
         const IS_AM = ['superviseur_affaires_medicales', 'agent_medical_mhc', 'agent_conformite_medical', 'medical_reviewer', 'admin'].includes(ROLE);
+        const fmtDate = v => v ? new Date(v).toLocaleString('fr-FR', { dateStyle: 'short' }) : '—';
+        const fmtDateTime = v => v ? new Date(v).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+
+        let lastReports = [];
+        let lastDocs = [];
+        // Contexte de la ligne ouverte dans le tiroir : {kind:'report'|'doc', id}
+        let drawerCtx = null;
 
         async function load() {
             const data = await apiCall('/medical/validations/pending');
@@ -88,12 +116,17 @@
             const reports = data.reports || [];
             lastReports = reports;
             $('rc').textContent = reports.length;
-            $('reportsBody').innerHTML = reports.map(r => `
+            $('reportsBody').innerHTML = reports.map(r => {
+                const motif = r.motif_hospitalisation || r.motif_consultation || '';
+                return `
                 <tr>
-                    <td>${r.id}</td>
-                    <td>#${r.stay_id}</td>
+                    <td style="white-space:nowrap">
+                        <span class="cell-main">${fmtDate(r.stay_date_entree)}${r.stay_date_sortie ? ' → ' + fmtDate(r.stay_date_sortie) : ''}</span>
+                        <span class="cell-sub">${r.stay_date_sortie ? 'séjour terminé' : 'en cours'}</span>
+                    </td>
+                    <td><span class="cell-main">${esc(r.assure_nom || '—')}</span></td>
                     <td>${r.report_type === 'final' ? 'Rapport final' : "Rapport d'étape"}</td>
-                    <td style="max-width:320px">${esc((r.resume || '').slice(0, 140))}${r.escalated ? ' <span class="badge b-esc">escaladé</span>' : ''}</td>
+                    <td style="max-width:280px">${esc((motif || (r.resume || '')).slice(0, 120))}${r.escalated ? ' <span class="badge b-esc">escaladé</span>' : ''}</td>
                     <td><span class="badge b-${r.statut}">${r.statut === 'soumis' ? 'Attente 1re val.' : 'Attente 2e val.'}</span></td>
                     <td class="table-actions">
                         <select class="action-select"><option value="">⚙️ Actions</option>
@@ -102,19 +135,22 @@
                             <option data-act="report-refuse" data-arg="${r.id}">❌ Refuser</option>
                         </select>
                     </td>
-                </tr>`).join('') || '<tr><td colspan="6" style="color:#8a8fa3">Aucun rapport en attente</td></tr>';
+                </tr>`;
+            }).join('') || '<tr><td colspan="6" style="color:#8a8fa3">Aucun rapport en attente</td></tr>';
 
             const docs = data.care_documents || [];
+            lastDocs = docs;
             $('dc').textContent = docs.length;
             $('docsBody').innerHTML = docs.map(d => `
                 <tr>
-                    <td>${d.document_id}</td>
-                    <td>#${d.sinistre_id}</td>
-                    <td>${esc(d.document_type)}</td>
-                    <td>${esc(d.numero)}</td>
+                    <td>${esc(d.titre || d.document_type)}</td>
+                    <td style="white-space:nowrap">${esc(d.numero)}</td>
+                    <td><span class="cell-main">${esc(d.assure_nom || '—')}</span></td>
+                    <td style="white-space:nowrap">${esc(d.numero_sinistre || '#' + d.sinistre_id)}</td>
                     <td>${esc(d.groupe_attendu)}</td>
                     <td class="table-actions">
                         <select class="action-select"><option value="">⚙️ Actions</option>
+                            <option data-act="doc-view" data-arg="${d.document_id}">👁️ Consulter</option>
                             <option data-act="doc-accorde" data-arg="${d.document_id}">✅ Valider</option>
                             <option data-act="doc-refuse" data-arg="${d.document_id}">❌ Refuser</option>
                         </select>
@@ -122,49 +158,118 @@
                 </tr>`).join('') || '<tr><td colspan="6" style="color:#8a8fa3">Aucun document en attente</td></tr>';
         }
 
-        let lastReports = [];
-
         const listItems = arr => (Array.isArray(arr) && arr.length)
             ? '<ul>' + arr.map(x => '<li>' + esc(typeof x === 'object' && x !== null ? (x.libelle || x.nom || x.label || JSON.stringify(x)) : x) + '</li>').join('') + '</ul>'
             : '<p style="color:#8a8fa3">—</p>';
 
-        function openReportModal(id) {
+        function openDrawer() {
+            $('drawerBackdrop').classList.add('show');
+            $('drawer').classList.add('show');
+            $('drawer').setAttribute('aria-hidden', 'false');
+        }
+        function closeDrawer() {
+            $('drawerBackdrop').classList.remove('show');
+            $('drawer').classList.remove('show');
+            $('drawer').setAttribute('aria-hidden', 'true');
+            drawerCtx = null;
+            $('dwBody').innerHTML = '';
+            $('dwNote').value = '';
+        }
+
+        function openReportDrawer(id) {
             const r = lastReports.find(x => String(x.id) === String(id));
             if (!r) return;
-            $('rmTitle').textContent = (r.report_type === 'final' ? 'Rapport final' : "Rapport d'étape") + ' — séjour #' + r.stay_id;
-            $('rmMeta').innerHTML =
-                '<span>Soumis le ' + (r.created_at ? new Date(r.created_at).toLocaleString('fr-FR') : '—') + '</span>' +
-                '<span>Statut : ' + esc(r.statut) + '</span>' +
-                (r.escalated ? '<span style="color:#c81e1e">Escaladé</span>' : '');
-            $('rmBody').innerHTML =
-                '<div class="modal-sec"><h3>Résumé</h3><p>' + esc(r.resume || '—') + '</p></div>' +
-                '<div class="modal-sec"><h3>Actes effectués</h3>' + listItems(r.actes) + '</div>' +
-                '<div class="modal-sec"><h3>Examens effectués</h3>' + listItems(r.examens) + '</div>' +
-                (r.evolution ? '<div class="modal-sec"><h3>Évolution</h3><p>' + esc(r.evolution) + '</p></div>' : '') +
-                (r.observations ? '<div class="modal-sec"><h3>Observations</h3><p>' + esc(r.observations) + '</p></div>' : '') +
-                (r.refusal_reason ? '<div class="modal-sec"><h3>Motif du refus</h3><p style="color:#c81e1e">' + esc(r.refusal_reason) + '</p></div>' : '');
-            $('reportModal').classList.add('show');
+            drawerCtx = { kind: 'report', id: r.id };
+            $('dwTitle').textContent = (r.report_type === 'final' ? 'Rapport final' : "Rapport d'étape") + (r.assure_nom ? ' — ' + r.assure_nom : '');
+            $('dwMeta').textContent = 'Séjour du ' + fmtDate(r.stay_date_entree) + (r.stay_date_sortie ? ' au ' + fmtDate(r.stay_date_sortie) : ' (en cours)')
+                + ' · soumis le ' + fmtDateTime(r.created_at) + (r.escalated ? ' · ESCALADÉ' : '');
+            $('dwBody').innerHTML =
+                '<div class="mv-meta">' +
+                '<span><strong>Assuré :</strong> ' + esc(r.assure_nom || '—') + '</span>' +
+                (r.motif_consultation ? '<span><strong>Motif consultation :</strong> ' + esc(r.motif_consultation) + '</span>' : '') +
+                (r.motif_hospitalisation ? '<span><strong>Motif hospitalisation :</strong> ' + esc(r.motif_hospitalisation) + '</span>' : '') +
+                '</div>' +
+                '<div class="mv-sec"><h3>Résumé</h3><p>' + esc(r.resume || '—') + '</p></div>' +
+                '<div class="mv-sec"><h3>Actes effectués</h3>' + listItems(r.actes) + '</div>' +
+                '<div class="mv-sec"><h3>Examens effectués</h3>' + listItems(r.examens) + '</div>' +
+                (r.evolution ? '<div class="mv-sec"><h3>Évolution</h3><p>' + esc(r.evolution) + '</p></div>' : '') +
+                (r.observations ? '<div class="mv-sec"><h3>Observations</h3><p>' + esc(r.observations) + '</p></div>' : '');
+            $('dwActions').hidden = false;
+            openDrawer();
+        }
+
+        async function openDocDrawer(id) {
+            const d = lastDocs.find(x => String(x.document_id) === String(id));
+            drawerCtx = { kind: 'doc', id: Number(id) };
+            $('dwTitle').textContent = (d && d.titre) || 'Document';
+            $('dwMeta').textContent = [(d && d.numero), (d && d.assure_nom), (d && d.numero_sinistre)].filter(Boolean).join(' · ');
+            $('dwBody').innerHTML = '<p style="color:#8a8fa3">Chargement du document…</p>';
+            $('dwActions').hidden = false;
+            openDrawer();
+            try {
+                const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+                const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '/api/v1');
+                const res = await fetch(`${base}/mhc/care-documents/${id}/pdf`, { headers: { Authorization: `Bearer ${token}` } });
+                if (!res.ok) {
+                    $('dwBody').innerHTML = '<p style="color:#c81e1e">Document indisponible (HTTP ' + res.status + ').</p>';
+                    return;
+                }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                $('dwBody').innerHTML = '<iframe src="' + url + '" title="Document"></iframe>';
+            } catch (e) {
+                $('dwBody').innerHTML = '<p style="color:#c81e1e">Impossible de charger le document.</p>';
+            }
+        }
+
+        async function submitDecision(approve) {
+            if (!drawerCtx) return;
+            const note = $('dwNote').value.trim();
+            if (!approve && !note) {
+                toast('Le motif du refus est obligatoire', true);
+                return;
+            }
+            $('dwApprove').disabled = true;
+            $('dwRefuse').disabled = true;
+            try {
+                if (drawerCtx.kind === 'report') {
+                    await apiCall(`/medical/medical-reports/${drawerCtx.id}/validate`, {
+                        method: 'POST',
+                        body: JSON.stringify({ decision: approve ? 'accorde' : 'refuse', commentaire: note || null }),
+                    });
+                } else {
+                    await apiCall(`/mhc/care-documents/${drawerCtx.id}/validation`, {
+                        method: 'POST',
+                        body: JSON.stringify({ approve, notes: note || null }),
+                    });
+                }
+                toast(approve ? 'Validation enregistrée' : 'Refus enregistré');
+                closeDrawer();
+                load();
+            } catch (e) {
+                toast(e.message || 'Erreur', true);
+            } finally {
+                $('dwApprove').disabled = false;
+                $('dwRefuse').disabled = false;
+            }
         }
 
         window.mhRowAction = async (act, id) => {
-            if (act === 'report-view') { openReportModal(id); return; }
-            try {
-                if (act === 'report-accorde' || act === 'report-refuse') {
-                    const decision = act === 'report-accorde' ? 'accorde' : 'refuse';
-                    const commentaire = decision === 'refuse' ? prompt('Motif du refus :') : null;
-                    await apiCall(`/medical/medical-reports/${id}/validate`, { method: 'POST', body: JSON.stringify({ decision, commentaire }) });
-                } else {
-                    await apiCall(`/mhc/care-documents/${id}/validation`, { method: 'POST', body: JSON.stringify({ approve: act === 'doc-accorde' }) });
-                }
-                toast('Validation enregistrée'); load();
-            } catch (e) { toast(e.message || 'Erreur', true); }
+            if (act === 'report-view') { openReportDrawer(id); return; }
+            if (act === 'doc-view') { openDocDrawer(id); return; }
+            // Décisions directes depuis la liste : ouvrir le tiroir pour
+            // visualiser avant de décider (la consultation est requise).
+            if (act === 'report-accorde' || act === 'report-refuse') { openReportDrawer(id); return; }
+            if (act === 'doc-accorde' || act === 'doc-refuse') { openDocDrawer(id); return; }
         };
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!(await requireBackoffice('index.html'))) return;
-            $('reportModal').addEventListener('click', e => {
-                if (e.target === $('reportModal')) $('reportModal').classList.remove('show');
-            });
+            $('dwClose').addEventListener('click', closeDrawer);
+            $('drawerBackdrop').addEventListener('click', closeDrawer);
+            $('dwApprove').addEventListener('click', () => submitDecision(true));
+            $('dwRefuse').addEventListener('click', () => submitDecision(false));
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
             load();
         });
     </script>
