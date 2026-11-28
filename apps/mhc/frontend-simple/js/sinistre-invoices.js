@@ -295,10 +295,8 @@ function renderInvoiceDetail() {
 
     const approveBtn = document.getElementById('sinistreApproveBtn');
     const rejectBtn = document.getElementById('sinistreRejectBtn');
-    const payBtn = document.getElementById('sinistrePayBtn');
     if (approveBtn) approveBtn.onclick = () => handleSinistreInvoiceDecision(true);
     if (rejectBtn) rejectBtn.onclick = () => handleSinistreInvoiceDecision(false);
-    if (payBtn) payBtn.onclick = () => handleSinistreInvoicePayment();
     loadInvoiceHistory(invoice.id, 'sinistreHistory');
     loadInvoiceItems(invoice.id);
 }
@@ -372,34 +370,23 @@ function renderTimelineItem(label, state) {
     `;
 }
 
-function canPayInvoice(invoice) {
-    // Étape comptabilité : la facture est validée (médical + affaires médicales),
-    // l'action du comptable est le PAIEMENT — il n'y a plus rien à « valider ».
-    return (
-        invoice &&
-        invoice.statut === 'validated' &&
-        ['agent_comptable_mh', 'finance_manager', 'admin'].includes(currentUserRole || '')
-    );
-}
-
 function renderDecisionBlock(invoice) {
     // Bloc contextuel : visible uniquement si l'utilisateur a une action réelle —
     // des boutons « Valider » désactivés sur une facture déjà validée étaient
-    // contradictoires avec le suivi du dossier.
+    // contradictoires avec le suivi du dossier. Le paiement du comptable se
+    // fait sur « Factures médicales », pas ici.
     const canValidate = canValidateInvoiceMedical(invoice) || canValidateInvoiceSinistre(invoice);
-    const canPay = canPayInvoice(invoice);
-    if (!canValidate && !canPay) return '';
-    const buttons = canPay
-        ? '<button class="btn btn-success" id="sinistrePayBtn">Payer la facture</button>'
-        : '<button class="btn btn-success" id="sinistreApproveBtn">Valider la facture</button>' +
-          '<button class="btn btn-danger" id="sinistreRejectBtn">Rejeter la facture</button>';
+    if (!canValidate) return '';
     return `
         <div class="mh-decision-block">
             <div class="form-group">
                 <label for="sinistreDecisionNotes">Notes pour l'historique</label>
                 <textarea id="sinistreDecisionNotes" rows="2" placeholder="Commentaire visible par les équipes"></textarea>
             </div>
-            <div class="form-actions">${buttons}</div>
+            <div class="form-actions">
+                <button class="btn btn-success" id="sinistreApproveBtn">Valider la facture</button>
+                <button class="btn btn-danger" id="sinistreRejectBtn">Rejeter la facture</button>
+            </div>
         </div>
     `;
 }
@@ -420,25 +407,6 @@ function canValidateInvoiceSinistre(invoice) {
         (SINISTRE_ACTION_ROLES.includes(currentUserRole || '') ||
             (window.MhPermissions && window.MhPermissions.can('sinistres', 'controle')))
     );
-}
-
-async function handleSinistreInvoicePayment() {
-    const notesField = document.getElementById('sinistreDecisionNotes');
-    const notes = notesField?.value.trim() || undefined;
-    const payBtn = document.getElementById('sinistrePayBtn');
-    if (payBtn) payBtn.disabled = true;
-    try {
-        await apiCall(`/invoices/${selectedInvoiceId}/pay`, {
-            method: 'POST',
-            body: JSON.stringify({ notes }),
-        });
-        showAlert('Facture payée.', 'success');
-        await fetchSinistreInvoices();
-    } catch (error) {
-        console.error('Erreur paiement facture:', error);
-        showAlert(error.message || 'Impossible de payer la facture.', 'error');
-        if (payBtn) payBtn.disabled = false;
-    }
 }
 
 async function handleSinistreInvoiceDecision(approve) {
