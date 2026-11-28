@@ -250,8 +250,63 @@
         document.getElementById('dpActions').innerHTML = verifHtml + blocageBtn;
     };
 
+
+    // ------- Modale de décision (remplace les prompt/confirm natifs du navigateur) -------
+    function askDecision(opts) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('decisionModal');
+            const title = document.getElementById('decisionModalTitle');
+            const hint = document.getElementById('decisionModalHint');
+            const label = document.getElementById('decisionNotesLabel');
+            const notes = document.getElementById('decisionNotes');
+            const notesGroup = document.getElementById('decisionNotesGroup');
+            const confirmBtn = document.getElementById('decisionConfirmBtn');
+            const cancelBtn = document.getElementById('decisionCancelBtn');
+            const closeBtn = document.getElementById('decisionCloseBtn');
+            if (!modal) { resolve(null); return; }
+
+            title.textContent = opts.title || 'Confirmation';
+            hint.textContent = opts.hint || '';
+            hint.hidden = !opts.hint;
+            notesGroup.hidden = opts.hideNotes === true;
+            label.textContent = opts.label || 'Commentaire (optionnel)';
+            notes.value = '';
+            notes.placeholder = opts.placeholder || '';
+            confirmBtn.textContent = opts.confirmLabel || 'Confirmer';
+            confirmBtn.className = 'btn ' + (opts.confirmClass || 'btn-success');
+
+            const cleanup = (value) => {
+                modal.classList.remove('open');
+                confirmBtn.onclick = cancelBtn.onclick = closeBtn.onclick = null;
+                resolve(value);
+            };
+            confirmBtn.onclick = () => {
+                const value = notes.value.trim();
+                if (!opts.hideNotes && opts.requireNotes && !value) {
+                    notes.focus();
+                    notes.style.borderColor = '#c0392b';
+                    return;
+                }
+                cleanup(opts.hideNotes ? '' : value);
+            };
+            cancelBtn.onclick = () => cleanup(null);
+            closeBtn.onclick = () => cleanup(null);
+            notes.style.borderColor = '';
+            modal.classList.add('open');
+            if (!opts.hideNotes) notes.focus();
+        });
+    }
+
     window.bloquerSinistre = async function (sinistreId, alerteId) {
-        const motif = prompt('Motif du blocage (obligatoire pour la conformité) :');
+        const motif = await askDecision({
+            title: 'Bloquer le dossier',
+            hint: 'Le dossier sera gelé pour contrôle conformité.',
+            label: 'Motif du blocage (obligatoire)',
+            placeholder: 'Raison du blocage…',
+            confirmLabel: 'Bloquer',
+            confirmClass: 'btn-danger',
+            requireNotes: true,
+        });
         if (motif === null) return;
         const res = await fetch(API + '/admin/sinistres/sinistres/' + sinistreId + '/bloquer', {
             method: 'PUT',
@@ -263,7 +318,14 @@
     };
 
     window.debloquerSinistre = async function (sinistreId, alerteId) {
-        if (!confirm('Débloquer ce dossier ?')) return;
+        const ok = await askDecision({
+            title: 'Débloquer le dossier',
+            hint: 'Le dossier redevient traitable par les équipes.',
+            confirmLabel: 'Débloquer',
+            confirmClass: 'btn-success',
+            hideNotes: true,
+        });
+        if (ok === null) return;
         const res = await fetch(API + '/admin/sinistres/sinistres/' + sinistreId + '/debloquer', {
             method: 'PUT',
             headers: { Authorization: 'Bearer ' + token() },
@@ -277,9 +339,23 @@
     };
 
     window.verifyAlert = async function (sinistreId, approve, alerteId) {
-        const notes = prompt(approve
-            ? 'Commentaire (optionnel) — confirmer la prise en charge :'
-            : 'Motif du refus de la prise en charge :');
+        const notes = await askDecision(approve
+            ? {
+                title: 'Accepter la prise en charge',
+                hint: 'L\'accord est enregistré, le numéro de sinistre est attribué et l\'alerte passe dans « Validées ».',
+                label: 'Commentaire (optionnel)',
+                placeholder: 'Précisions éventuelles sur la prise en charge…',
+                confirmLabel: '✓ Accepter la prise en charge',
+                confirmClass: 'btn-success',
+            }
+            : {
+                title: 'Refuser la prise en charge',
+                hint: 'Le bon de refus (112) est émis et l\'alerte passe dans « Refusées ».',
+                label: 'Motif du refus',
+                placeholder: 'Motif visible dans le dossier…',
+                confirmLabel: '✗ Refuser la prise en charge',
+                confirmClass: 'btn-danger',
+            });
         if (notes === null) return;
         const res = await fetch(API + '/sos/sinistres/' + sinistreId + '/verification', {
             method: 'POST',

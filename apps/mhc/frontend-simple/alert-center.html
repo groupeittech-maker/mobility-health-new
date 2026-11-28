@@ -62,6 +62,24 @@
         <div class="dp-actions" id="dpActions"></div>
     </div>
 
+    <div class="bo-modal-backdrop" id="decisionModal">
+        <div class="bo-modal" style="max-width:480px;">
+            <div class="bo-modal-head">
+                <h3 id="decisionModalTitle">Confirmer la prise en charge</h3>
+                <button type="button" class="bo-modal-close" id="decisionCloseBtn">&times;</button>
+            </div>
+            <p class="muted" id="decisionModalHint" style="margin-top:-0.5rem;"></p>
+            <div class="form-group" id="decisionNotesGroup">
+                <label id="decisionNotesLabel" for="decisionNotes">Commentaire (optionnel)</label>
+                <textarea id="decisionNotes" rows="3" placeholder=""></textarea>
+            </div>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem;">
+                <button class="btn btn-outline" id="decisionCancelBtn">Annuler</button>
+                <button class="btn btn-success" id="decisionConfirmBtn">Confirmer</button>
+            </div>
+        </div>
+    </div>
+
     <div class="bo-modal-backdrop" id="declareModal">
         <div class="bo-modal" style="max-width:640px;">
             <div class="bo-modal-head">
@@ -104,7 +122,7 @@
     <script src="js/auth.js?v=5"></script>
     <script src="js/permissions.js?v=6"></script>
     <script src="js/backoffice-nav.js?v=25"></script>
-    <script src="js/alert-center.js?v=20"></script>
+    <script src="js/alert-center.js?v=21"></script>
     <script src="js/sos-mh-alert-modal.js?v=5"></script>
 </body>
 </html>
