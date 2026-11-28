@@ -1236,13 +1236,6 @@ async function renderReceptionActions() {
     }
     section.hidden = false;
 
-    const dispatchBtn = document.getElementById('dispatchAmbulanceBtn');
-    const ambulanceStep = getWorkflowStep('ambulance_en_route');
-    const dispatched = ambulanceStep && ambulanceStep.statut === 'completed';
-    dispatchBtn.disabled = dispatched;
-    dispatchBtn.textContent = dispatched ? '🚑 Ambulance déployée' : '🚑 Envoyer une ambulance';
-    dispatchBtn.onclick = () => handleDispatchAmbulance(dispatchBtn);
-
     const formContainer = document.getElementById('orientationFormContainer');
     if (currentStay) {
         const stayInfo = buildReceptionStayAlert(currentStay);
@@ -1290,28 +1283,6 @@ async function renderReceptionActions() {
         </form>
     `;
     document.getElementById('orientationForm').addEventListener('submit', handleOrientationSubmit);
-}
-
-async function handleDispatchAmbulance(button) {
-    button.disabled = true;
-    button.textContent = 'Envoi en cours...';
-    try {
-        await apiCall(`/hospital-sinistres/sinistres/${currentSinistre.id}/dispatch-ambulance`, {
-            method: 'POST',
-            body: JSON.stringify({ notes: 'Action déclenchée par la réception' }),
-        });
-        showAlert('Ambulance envoyée.', 'success');
-        await loadAlertDetails();
-    } catch (error) {
-        console.error('Erreur ambulance:', error);
-        showAlert(error.message || 'Impossible d’envoyer l’ambulance.', 'error');
-    } finally {
-        // Ne pas réactiver à l'aveugle : si l'envoi a réussi l'étape est
-        // 'completed' et le bouton reste « Ambulance déployée », désactivé.
-        const dispatched = getWorkflowStep('ambulance_en_route')?.statut === 'completed';
-        button.disabled = dispatched;
-        button.textContent = dispatched ? '🚑 Ambulance déployée' : '🚑 Envoyer une ambulance';
-    }
 }
 
 async function ensureHospitalDoctors() {

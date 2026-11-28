@@ -127,24 +127,16 @@
 
     function updateActionButtons(d) {
         const types = new Set((d.timeline || []).map(e => e.type));
-        const closed = ['resolue', 'annulee'].includes(d.alerte && d.alerte.statut);
-        const hasBpcu = (d.care_documents || []).some(doc => doc.type === 'bpcu');
-        const states = [
-            ['btnAmbulance', types.has('ambulance'), '🚑 Ambulance déjà envoyée'],
-            ['btnNotifyHospital', types.has('notification_hopital'), '🏥 Hôpital déjà prévenu'],
-            ['btnPriseEnCharge', hasBpcu || types.has('prise_en_charge'), '📋 Accord du médecin-conseil enregistré'],
-            ['btnHotel', types.has('hotel'), '🏨 Hébergement organisé'],
-        ];
-        states.forEach(([id, done, label]) => {
-            const b = $(id);
-            if (!b) return;
-            if (done || closed) {
-                b.disabled = true;
-                b.textContent = done ? label : b.textContent;
-            } else {
-                b.disabled = false;
-            }
-        });
+        const closed = ['resolue', 'annulee', 'cloturee'].includes(d.alerte && d.alerte.statut);
+        const decided = types.has('accord_prise_en_charge') || types.has('prise_en_charge') || types.has('refus');
+        const b = $('btnPriseEnCharge');
+        if (!b) return;
+        if (decided || closed) {
+            b.disabled = true;
+            if (decided) b.textContent = '📋 Accord du médecin-conseil enregistré';
+        } else {
+            b.disabled = false;
+        }
     }
 
     function renderStatutMedical(sm) {
@@ -275,52 +267,9 @@
         $('commWa').addEventListener('click', () => { window.open('https://wa.me/' + phone().replace(/^\+/, ''), '_blank'); });
         $('commEmail').addEventListener('click', () => { window.location.href = 'mailto:' + (detail?.assure?.email || ''); });
 
-        // Bandeau d'actions
-        $('btnAmbulance').addEventListener('click', () => doAction('ambulance'));
+        // Bandeau d'actions — seule la prise en charge directe déclenche
+        // la chaîne concrète (numéro de sinistre, décision, admission).
         $('btnPriseEnCharge').addEventListener('click', () => doAction('prise_en_charge'));
-        $('btnHotel').addEventListener('click', openHotelModal);
-        $('btnDoHotel').addEventListener('click', async () => {
-            const hid = +$('hotelSelect').value;
-            if (!hid) { toast('Sélectionnez un hôtel', true); return; }
-            try {
-                await apiCall(`/ops/alertes/${alerteId}/hebergement`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        hotel_id: hid,
-                        nb_nuits: +$('hotelNuits').value || null,
-                        notes: $('hotelNotes').value || null,
-                    }),
-                });
-                $('hotelModal').classList.remove('open');
-                toast('Hébergement réservé');
-                await reload();
-            } catch (err) { toast(err.message || 'Erreur', true); }
-        });
-        $('btnNotifyHospital').addEventListener('click', async () => {
-            const hid = selectedHospitalId || (detail?.hospital_assigne?.id) || (facilities[0] && facilities[0].id);
-            if (!hid) { toast('Sélectionnez un établissement', true); return; }
-            try {
-                await apiCall(`/alertes/${alerteId}/prevenir-hopital`, { method: 'POST', body: JSON.stringify({ hospital_id: hid }) });
-                toast('Hôpital prévenu');
-                await reload();
-            } catch (err) { toast(err.message || 'Erreur', true); }
-        });
-    }
-
-    async function openHotelModal() {
-        try {
-            const hotels = await apiCall('/ops/hotels');
-            if (!hotels.length) {
-                toast('Aucun hôtel configuré — ajoutez-en dans « Hôtels »', true);
-                return;
-            }
-            $('hotelSelect').innerHTML = hotels.map(h =>
-                `<option value="${h.id}">${esc(h.nom)}${h.ville ? ' — ' + esc(h.ville) : ''}</option>`).join('');
-            $('hotelModal').classList.add('open');
-        } catch (err) {
-            // Repli : simple événement si le module hôtels est indisponible.
-            doAction('hotel');
-        }
     }
 
     async function doAction(action) {

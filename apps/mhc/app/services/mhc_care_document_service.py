@@ -29,7 +29,7 @@ from app.models.produit_assurance import ProduitAssurance
 from app.models.sinistre import Sinistre
 from app.models.souscription import Souscription
 from app.models.user import User
-from app.core.enums import Role
+from app.core.enums import Role, StatutWorkflowSinistre
 from app.services.mhc_reference_service import allocate_document_number
 
 CLOSING_TYPES = {
@@ -740,6 +740,25 @@ def issue_decision_documents(
     sinistre.decision_mc_by_id = actor.id if actor else None
     sinistre.decision_mc_at = _now()
     db.add(sinistre)
+
+    if approve:
+        # L'ambulance ne fait plus partie du workflow : l'étape « ambulance
+        # en route » n'aura jamais lieu — on l'annule si elle est encore en
+        # attente pour que le suivi du dossier reste cohérent. Les étapes
+        # déjà engagées (dossiers antérieurs) ne sont pas touchées.
+        from app.services.sinistre_workflow_service import ensure_workflow_steps, update_workflow_step
+
+        steps, _ = ensure_workflow_steps(db, sinistre, alerte)
+        ambulance_step = next(
+            (st for st in steps if st.step_key == "ambulance_en_route"),
+            None,
+        )
+        if ambulance_step and ambulance_step.statut == StatutWorkflowSinistre.PENDING.value:
+            update_workflow_step(
+                db, sinistre, alerte, "ambulance_en_route", StatutWorkflowSinistre.CANCELLED,
+                actor_id=actor.id if actor else None,
+                notes="Prise en charge directe — sans ambulance",
+            )
     return created
 
 

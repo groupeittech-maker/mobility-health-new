@@ -686,7 +686,6 @@ function renderReceptionActions() {
     }
     section.hidden = false;
 
-    updateAmbulanceButton();
     populateDoctorsSelect();
 
     const form = document.getElementById('orientationForm');
@@ -694,51 +693,47 @@ function renderReceptionActions() {
         form.dataset.bound = '1';
         form.addEventListener('submit', handleOrientationSubmit);
     }
+    updateOrientationButton();
+}
+
+function updateOrientationButton() {
     const openBtn = document.getElementById('openOrientationBtn');
-    if (openBtn) {
-        openBtn.onclick = () => {
-            populateDoctorsSelect();
-            document.getElementById('orientationModal')?.classList.add('open');
-        };
-    }
-}
-
-function updateAmbulanceButton() {
-    const button = document.getElementById('dispatchAmbulanceBtn');
-    const status = document.getElementById('ambulanceStatus');
-    if (!button) {
+    if (!openBtn) {
         return;
     }
-    const workflow = (selectedSinistre.workflow_steps || []).find(step => step.step_key === 'ambulance_en_route');
-    const alreadyDispatched = workflow?.statut === 'completed';
-    button.disabled = alreadyDispatched;
-    button.textContent = alreadyDispatched ? '🚑 Ambulance envoyée' : '🚑 Envoyer une ambulance';
-    button.onclick = () => handleDispatchAmbulance(button);
+    const status = document.getElementById('orientationStatus');
+    const stay = selectedSinistre?.hospital_stay;
+    if (stay) {
+        // Le patient est déjà orienté : l'action est verrouillée, sans quoi
+        // la réception pouvait cliquer à nouveau et se heurter au refus
+        // « Un séjour existe déjà » côté serveur.
+        openBtn.disabled = true;
+        openBtn.textContent = '👨‍⚕️ Patient orienté';
+        const doctor = stay.assigned_doctor?.full_name || stay.doctor_full_name || '';
+        const since = stay.started_at ? ` le ${formatDateTime(stay.started_at)}` : '';
+        if (status) {
+            status.textContent = `Patient orienté${doctor ? ' vers ' + doctor : ''}${since}.`;
+        }
+        openBtn.onclick = null;
+        return;
+    }
+    if (!selectedSinistre?.numero_sinistre) {
+        openBtn.disabled = true;
+        if (status) {
+            status.textContent = 'En attente de la validation médicale avant orientation.';
+        }
+        openBtn.onclick = null;
+        return;
+    }
+    openBtn.disabled = false;
+    openBtn.textContent = '👨‍⚕️ Orienter le patient';
     if (status) {
-        status.textContent = alreadyDispatched
-            ? `Ambulance déclenchée le ${formatDateTime(workflow.completed_at)}`
-            : 'Aucune ambulance envoyée pour le moment.';
+        status.textContent = '';
     }
-}
-
-async function handleDispatchAmbulance(button) {
-    if (!selectedSinistre) {
-        return;
-    }
-    button.disabled = true;
-    button.textContent = 'Envoi en cours...';
-    try {
-        await apiCall(`/hospital-sinistres/sinistres/${selectedSinistre.id}/dispatch-ambulance`, {
-            method: 'POST',
-            body: JSON.stringify({ notes: 'Action déclenchée depuis le portail réception' }),
-        });
-        showAlert('Ambulance envoyée.', 'success');
-        await selectAlert(selectedAlert.id);
-    } catch (error) {
-        showAlert(error.message || 'Impossible d\'envoyer l\'ambulance.', 'error');
-        button.disabled = false;
-        button.textContent = '🚑 Envoyer une ambulance';
-    }
+    openBtn.onclick = () => {
+        populateDoctorsSelect();
+        document.getElementById('orientationModal')?.classList.add('open');
+    };
 }
 
 async function handleOrientationSubmit(event) {

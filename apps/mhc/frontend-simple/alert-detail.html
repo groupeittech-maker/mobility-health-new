@@ -295,24 +295,9 @@
 
         <div class="ad-actionbar">
             <div class="action-card">
-                <h4>🚑 Envoi d'une ambulance</h4>
-                <p>Demande une ambulance pour l'assuré</p>
-                <button class="btn btn-red" id="btnAmbulance" type="button">Lancer l'envoi d'ambulance</button>
-            </div>
-            <div class="action-card">
-                <h4>🏥 Prévenir l'hôpital</h4>
-                <p>Informer l'établissement de l'arrivée du patient</p>
-                <button class="btn btn-blue" id="btnNotifyHospital" type="button">Notifier l'hôpital</button>
-            </div>
-            <div class="action-card">
                 <h4>📋 Prise en charge directe</h4>
-                <p>Organiser la prise en charge sans ambulance</p>
+                <p>Accorder la prise en charge — attribue le numéro de sinistre et ouvre l'admission du patient par l'établissement</p>
                 <button class="btn btn-green" id="btnPriseEnCharge" type="button">Accorder la prise en charge</button>
-            </div>
-            <div class="action-card">
-                <h4>🏨 Hôtel</h4>
-                <p>Organiser un hébergement pour l'assuré</p>
-                <button class="btn btn-purple" id="btnHotel" type="button">Gérer l'hôtel</button>
             </div>
         </div>
     </main>
@@ -344,21 +329,6 @@
         </div>
     </div>
 
-    <!-- Modal hôtel -->
-    <div class="modal-backdrop" id="hotelModal">
-        <div class="modal">
-            <h3>Organiser un hébergement</h3>
-            <label>Hôtel</label>
-            <select id="hotelSelect"></select>
-            <label>Nombre de nuits</label>
-            <input type="number" id="hotelNuits" min="1" value="1">
-            <label>Notes</label>
-            <textarea id="hotelNotes" rows="2"></textarea>
-            <div class="modal-actions">
-                <button class="btn btn-outline" type="button" data-close>Annuler</button>
-                <button class="btn btn-primary" type="button" id="btnDoHotel">Réserver</button>
-            </div>
-        </div>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -368,6 +338,6 @@
     <script src="js/permissions.js?v=6"></script>
     <script src="js/backoffice-nav.js?v=25"></script>
     <script src="vendor/leaflet/leaflet.js"></script>
-    <script src="js/alert-detail.js?v=8"></script>
+    <script src="js/alert-detail.js?v=9"></script>
 </body>
 </html>
