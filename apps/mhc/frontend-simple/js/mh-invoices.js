@@ -484,12 +484,13 @@ function renderMhHistoryItem(entry, actionLabels) {
     const label = actionLabels[entry.action] || entry.action;
     const actor = entry.actor_name ? `par ${escapeHtml(entry.actor_name)}` : '';
     const statusLabel = entry.new_status ? getInvoiceStatusLabel(entry.new_status) : '';
+    const pillCls = entry.new_status === 'paid' || entry.new_status === 'validated' ? ' pill-success' : (entry.new_status === 'rejected' ? ' pill-danger' : '');
     const notes = entry.notes ? `<div class="history-note">${escapeHtml(entry.notes)}</div>` : '';
     return `
         <li class="history-item">
             <span class="history-date">${formatDateTime(entry.created_at)}</span>
             <strong class="history-action">${escapeHtml(label)}</strong>
-            ${statusLabel ? `<span class="pill">${escapeHtml(statusLabel)}</span>` : ''}
+            ${statusLabel ? `<span class="pill${pillCls}">${escapeHtml(statusLabel)}</span>` : ''}
             <span class="history-actor muted">${actor}</span>
             ${notes}
         </li>
