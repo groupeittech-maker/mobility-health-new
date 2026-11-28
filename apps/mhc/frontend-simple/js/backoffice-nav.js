@@ -112,7 +112,7 @@
             children: [
                 { label: 'Tableau financier', href: 'finance-dashboard.html', feature: 'encaissement_prime' },
                 { label: 'Encaissements, paiements & remboursements', href: 'finance-outbound.html', anyFeatures: ['encaissement_prime', 'paiement_sinistre', 'remboursement'], badge: 'encaissements_attente,remboursements_attente' },
-                { label: 'Factures médicales', href: 'mh-invoices.html', feature: 'facturation_medicale' },
+                { label: 'Factures médicales', href: 'mh-invoices.html', feature: 'facturation_medicale', badge: 'factures_a_payer' },
                 { label: 'Grand livre', href: 'accounting-ledger.html', feature: 'retrocession_mhc' },
                 { label: 'Portail comptable', href: 'accounting-portal.html', feature: 'encaissement_prime' },
             ],

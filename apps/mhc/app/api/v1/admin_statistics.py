@@ -217,6 +217,11 @@ async def nav_counts(
             HospitalMedicalReport.statut.in_(["soumis", "validee_mc"]))),
         "factures_attente": n(db.query(func.count(Invoice.id)).filter(
             Invoice.statut.like("pending%"))),
+        # File du comptable MHC (« Factures médicales ») : factures validées en
+        # attente de paiement — les bloquées ne peuvent pas être payées.
+        "factures_a_payer": n(db.query(func.count(Invoice.id)).filter(
+            Invoice.statut.in_(["validated", "pending_compta"]),
+            Invoice.bloquee.isnot(True))),
         "remboursements_attente": n(db.query(func.count(Ristourne.id)).filter(
             Ristourne.statut == "a_rembourser")),
         "encaissements_attente": n(db.query(func.count(Paiement.id)).filter(
