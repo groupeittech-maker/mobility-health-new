@@ -156,6 +156,7 @@ function renderInvoiceList() {
                 <tr class="${selectedClass}" data-invoice-id="${invoice.id}">
                     <td><strong>${escapeHtml(invoice.numero_facture)}</strong></td>
                     <td>${escapeHtml(sinistreLabel)}</td>
+                    <td>${escapeHtml(invoice.client_name || '—')}</td>
                     <td>${escapeHtml(hospitalName)}</td>
                     <td>${formatCurrency(invoice.montant_ttc)}</td>
                     <td><span class="status-badge">${escapeHtml(getInvoiceStatusLabel(invoice.statut))}</span></td>
