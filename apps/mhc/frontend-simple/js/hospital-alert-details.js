@@ -10,6 +10,7 @@ const ALLOWED_HOSPITAL_ROLES = [
     'admin',
 ];
 const ACTIVE_ALERT_STATUSES = new Set(['en_attente', 'en_cours']);
+const INACTIVE_ALERT_STATUSES = new Set(['annulee', 'cloturee']);
 const ALERTS_FETCH_LIMIT = 200;
 
 const MEDICAL_ACTION_ROLES = ['medecin_referent_mh'];
@@ -383,7 +384,7 @@ function filterAlertsForReception(alerts) {
         .map(normalizeAlertEntry)
         .filter(alert =>
             alert.assigned_hospital?.id === currentHospitalId &&
-            ACTIVE_ALERT_STATUSES.has(alert.statut) &&
+            !INACTIVE_ALERT_STATUSES.has(alert.statut) &&
             !alert.is_oriented
         )
         .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));

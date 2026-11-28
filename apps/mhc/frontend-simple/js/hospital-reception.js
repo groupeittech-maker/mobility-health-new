@@ -1,5 +1,5 @@
 const ALLOWED_RECEPTION_ROLES = ['agent_reception_hopital', 'hospital_admin'];
-const ACTIVE_ALERT_STATUSES = new Set(['en_attente', 'en_cours']);
+const INACTIVE_ALERT_STATUSES = new Set(['annulee', 'cloturee']);
 const ALERT_REFRESH_INTERVAL = 60000;
 
 let assignedAlerts = [];
@@ -182,12 +182,15 @@ function filterReceptionAlerts(alerts = []) {
     if (!Array.isArray(alerts)) {
         return [];
     }
-    // Les alertes orientées restent visibles même une fois résolues
-    // (onglet « Dossiers orientés » = historique de la réception).
+    // Le dossier suit tout le parcours réception : une alerte validée
+    // (resolue) reste visible tant que le patient n'est pas admis — sinon
+    // elle disparaîtrait de la file avant même l'orientation (deadlock).
+    // Seules les alertes annulées ou clôturées sortent de la liste, sauf
+    // si elles sont orientées (onglet « Dossiers orientés » = historique).
     return alerts
         .filter(alert =>
             alert?.assigned_hospital?.id === currentHospitalId &&
-            (ACTIVE_ALERT_STATUSES.has(alert?.statut) || alert?.is_oriented)
+            (!INACTIVE_ALERT_STATUSES.has(alert?.statut) || alert?.is_oriented)
         )
         .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 }
@@ -210,10 +213,10 @@ function toggleGlobalState({ table, empty }) {
     }
 }
 
-// Une alerte est « traitée » côté réception quand une ambulance a été
-// déployée (étape workflow 'ambulance_en_route' terminée) — le séjour
-// n'existe pas encore, donc is_oriented reste faux et le dossier doit
-// quand même quitter « À traiter ».
+// Une alerte est « traitée » côté réception quand le patient est orienté
+// (séjour créé). L'ambulance déployée ne suffit pas : tant que l'admission
+// n'a pas eu lieu, le dossier reste dans « À traiter » avec l'action
+// d'orientation visible — c'est le travail en cours de la réception.
 function alertAmbulanceDispatched(alert) {
     return (alert?.workflow_steps || []).some(
         (step) => step.step_key === 'ambulance_en_route' && step.statut === 'completed'
@@ -221,7 +224,7 @@ function alertAmbulanceDispatched(alert) {
 }
 
 function alertHandledByReception(alert) {
-    return Boolean(alert?.is_oriented) || alertAmbulanceDispatched(alert);
+    return Boolean(alert?.is_oriented);
 }
 
 function getAlertsForCurrentTab() {
@@ -412,6 +415,8 @@ function buildAlertRow(alert) {
         stateBadge = `<span class="bo-badge validee">${alert.is_oriented ? 'Orienté' : 'Traité'}</span>`;
     } else if (handled) {
         stateBadge = '<span class="bo-badge a_valider">En attente de validation</span>';
+    } else if (alertAmbulanceDispatched(alert)) {
+        stateBadge = '<span class="bo-badge a_valider">Admission en attente</span>';
     } else {
         stateBadge = '<span class="bo-badge en_attente">À traiter</span>';
     }
