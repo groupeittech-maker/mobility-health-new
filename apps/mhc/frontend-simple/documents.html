@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documents émis — Mobility Health Care</title>
+    <link rel="stylesheet" href="css/style.css?v=20261028">
+    <link rel="stylesheet" href="css/backoffice.css?v=26">
+    <style>
+        .doc-page { padding: 1.2rem 1.4rem 3rem; }
+        .doc-page h1 { font-size: 1.35rem; color: #1e1650; margin: 0 0 .2rem; }
+        .doc-sub { color: #8a8fa3; font-size: .82rem; margin-bottom: 1rem; }
+        .doc-filters { display: flex; flex-wrap: wrap; gap: .6rem 1rem; align-items: flex-end; background: #fff; border: 1px solid #eceef6; border-radius: .8rem; padding: .8rem 1rem; margin-bottom: 1rem; }
+        .doc-filters label { display: flex; flex-direction: column; font-size: .72rem; font-weight: 600; color: #8a8fa3; gap: .25rem; }
+        .doc-filters input, .doc-filters select { border: 1px solid #dfe3ee; border-radius: .45rem; padding: .4rem .6rem; font-size: .82rem; min-width: 180px; }
+        .doc-filters .btn { border: none; border-radius: .45rem; padding: .45rem .9rem; font-size: .78rem; font-weight: 600; cursor: pointer; background: #4a3f8c; color: #fff; }
+        .card { background: #fff; border: 1px solid #eceef6; border-radius: .8rem; overflow: hidden; margin-bottom: 1rem; }
+        .card-h { padding: .8rem 1rem; border-bottom: 1px solid #f1f2f8; font-weight: 700; font-size: .88rem; color: #1e1650; display: flex; justify-content: space-between; align-items: center; }
+        .card-h .muted { font-weight: 400; font-size: .76rem; color: #8a8fa3; }
+        table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+        th { text-align: left; color: #8a8fa3; font-size: .72rem; font-weight: 600; padding: .6rem 1rem; border-bottom: 1px solid #f1f2f8; }
+        td { padding: .55rem 1rem; border-bottom: 1px solid #f5f6fb; vertical-align: middle; }
+        tr:hover td { background: #faf9fd; }
+        .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: .7rem; white-space: nowrap; }
+        .b-emi { background: #e8f0fe; color: #2d5bd7; }
+        .b-cloture { background: #eceef6; color: #5a5f75; }
+        .b-expire { background: #fdf0dc; color: #b45309; }
+        .b-val-ok { background: #e2f6ec; color: #0a9b6c; }
+        .b-val-attente { background: #fdf0dc; color: #b45309; }
+        .b-val-na { background: #f1f2f8; color: #8a8fa3; }
+        .btn-pdf { border: 1px solid #dfe3ee; background: #fff; border-radius: .45rem; padding: .3rem .7rem; font-size: .74rem; font-weight: 600; cursor: pointer; color: #4a3f8c; text-decoration: none; display: inline-block; }
+        .btn-pdf:hover { background: #4a3f8c; color: #fff; }
+        .assure-cell strong { display: block; }
+        .assure-cell .muted { font-size: .72rem; color: #8a8fa3; }
+        .empty-row td { color: #8a8fa3; text-align: center; padding: 2rem 1rem; }
+        .toast { position: fixed; bottom: 1.4rem; right: 1.4rem; background: #1e1650; color: #fff; padding: .7rem 1.1rem; border-radius: .6rem; font-size: .82rem; z-index: 3000; display: none; }
+        .toast.show { display: block; } .toast.error { background: #c81e1e; }
+    </style>
+</head>
+<body data-backoffice>
+    <main class="container doc-page">
+        <h1>Documents émis</h1>
+        <p class="doc-sub">Traçabilité de tous les documents de prise en charge générés — bons, attestations, bulletins — par assuré.</p>
+
+        <div class="doc-filters">
+            <label>
+                Recherche
+                <input type="search" id="docSearch" placeholder="Assuré, n° document ou n° sinistre">
+            </label>
+            <label>
+                Type de document
+                <select id="docTypeFilter">
+                    <option value="">Tous</option>
+                </select>
+            </label>
+            <label>
+                Statut
+                <select id="docStatutFilter">
+                    <option value="">Tous</option>
+                    <option value="emi">Émis</option>
+                    <option value="cloture">Clôturé</option>
+                    <option value="expire">Expiré</option>
+                </select>
+            </label>
+            <button class="btn" id="docRefreshBtn">Actualiser</button>
+        </div>
+
+        <div class="card">
+            <div class="card-h">
+                <span>Documents de prise en charge</span>
+                <span class="muted" id="docCount">—</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date d'émission</th>
+                        <th>Assuré</th>
+                        <th>Sinistre</th>
+                        <th>Document</th>
+                        <th>N°</th>
+                        <th>Statut</th>
+                        <th>Validation</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="docsBody">
+                    <tr class="empty-row"><td colspan="8">Chargement…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+    <div class="toast" id="toast"></div>
+
+    <script src="js/api.js?v=20261013"></script>
+    <script src="js/auth.js?v=5"></script>
+    <script src="js/permissions.js?v=6"></script>
+    <script src="js/documents.js?v=1"></script>
+    <script src="js/backoffice-nav.js?v=25"></script>
+</body>
+</html>

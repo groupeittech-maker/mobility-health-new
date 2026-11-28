@@ -11,7 +11,10 @@ from app.core.http_headers import content_disposition
 from app.core.mhc_nomenclature import DOCUMENT_TITLES, MhcCareDocumentType, document_catalog
 from app.core.mhc_tarif_reference import projet_tarif_public, split_prime_nette
 from app.api.v1.auth import get_current_user
+from app.models.alerte import Alerte
 from app.models.hospital import Hospital
+from app.models.mhc_care_document import MhcCareDocument
+from app.models.sinistre import Sinistre
 from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.mhc_care_document import (
@@ -114,6 +117,93 @@ async def get_mhc_referentiel(current_user: User = Depends(get_current_user)):
             "assureur_0": _dec(split_prime_nette(Decimal("6500"), Decimal("0"))),
         },
     }
+
+
+
+class CareDocumentTraceItem(BaseModel):
+    id: int
+    document_type: str
+    titre: str
+    numero: str
+    statut: str
+    validation_status: str
+    issued_at: object = None
+    sinistre_id: int = None
+    numero_sinistre: Optional[str] = None
+    alerte_id: Optional[int] = None
+    assure_id: Optional[int] = None
+    assure_nom: Optional[str] = None
+    hospital_nom: Optional[str] = None
+
+
+@router.get("/care-documents", response_model=List[CareDocumentTraceItem])
+async def list_all_care_documents(
+    q: Optional[str] = None,
+    document_type: Optional[str] = None,
+    statut: Optional[str] = None,
+    limit: int = 300,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Traçabilité de tous les documents de prise en charge émis.
+
+    Recherche libre sur l'assuré, le numéro de document ou de sinistre.
+    Les profils hospitaliers ne voient que les documents de leurs établissements.
+    """
+    _ensure_role(current_user)
+
+    query = (
+        db.query(MhcCareDocument, Sinistre, Alerte, User, Hospital)
+        .join(Sinistre, MhcCareDocument.sinistre_id == Sinistre.id)
+        .outerjoin(Alerte, Sinistre.alerte_id == Alerte.id)
+        .outerjoin(User, Alerte.user_id == User.id)
+        .outerjoin(Hospital, Sinistre.hospital_id == Hospital.id)
+    )
+
+    # Portée hospitalière : réception, médecins et admin d'établissement.
+    hospital_roles = {Role.MEDECIN_HOPITAL, Role.HOSPITAL_ADMIN, Role.AGENT_RECEPTION_HOPITAL, Role.DOCTOR}
+    if current_user.role in hospital_roles and getattr(current_user, "hospital_id", None):
+        query = query.filter(Sinistre.hospital_id == current_user.hospital_id)
+
+    if document_type:
+        query = query.filter(MhcCareDocument.document_type == document_type)
+    if statut:
+        query = query.filter(MhcCareDocument.statut == statut)
+    if q:
+        term = f"%{q.strip()}%"
+        query = query.filter(
+            (User.full_name.ilike(term))
+            | (MhcCareDocument.numero.ilike(term))
+            | (Sinistre.numero_sinistre.ilike(term))
+        )
+
+    rows = (
+        query.order_by(MhcCareDocument.issued_at.desc())
+        .limit(min(limit, 500))
+        .all()
+    )
+
+    items = []
+    for doc, sinistre, alerte, assure, hospital in rows:
+        doc_type = MhcCareDocumentType(doc.document_type)
+        items.append(
+            CareDocumentTraceItem(
+                id=doc.id,
+                document_type=doc.document_type,
+                titre=DOCUMENT_TITLES.get(doc_type, doc.document_type),
+                numero=doc.numero,
+                statut=doc.statut,
+                validation_status=getattr(doc, "validation_status", None) or "non_requise",
+                issued_at=doc.issued_at.isoformat() if doc.issued_at else None,
+                sinistre_id=sinistre.id,
+                numero_sinistre=sinistre.numero_sinistre,
+                alerte_id=alerte.id if alerte else None,
+                assure_id=assure.id if assure else None,
+                assure_nom=(assure.full_name or assure.email) if assure else None,
+                hospital_nom=hospital.nom if hospital else None,
+            )
+        )
+    return items
 
 
 @router.get("/sinistres/{sinistre_id}/care-documents", response_model=MhcCareDocumentListResponse)

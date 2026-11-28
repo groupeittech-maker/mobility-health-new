@@ -517,6 +517,73 @@ class TestMhcCareDocumentApi:
         finally:
             app.dependency_overrides.pop(get_current_user, None)
 
+    def test_global_traceability_list(
+        self,
+        client,
+        db,
+        test_user,
+        test_product,
+        test_hospital,
+        test_doctor,
+        test_receptionist,
+    ):
+        """GET /mhc/care-documents — liste globale avec contexte assuré/sinistre."""
+        from app.api.v1.auth import get_current_user
+        from app.main import app
+
+        app.dependency_overrides[get_current_user] = lambda: test_receptionist
+        try:
+            sinistre, _, _ = _open_sinistre(db, test_user, test_product, test_hospital)
+            sinistre.numero_sinistre = allocate_sinistre_number(db, sinistre)
+            sinistre.decision_mc = "accord"
+            db.commit()
+
+            created = client.post(
+                f"/api/v1/mhc/sinistres/{sinistre.id}/care-documents",
+                json={"document_type": "bpcu", "payload": {"motif_medical": "Traumatisme"}},
+            )
+            assert created.status_code == status.HTTP_201_CREATED
+            doc_id = created.json()[0]["id"]
+
+            listed = client.get("/api/v1/mhc/care-documents")
+            assert listed.status_code == status.HTTP_200_OK
+            items = listed.json()
+            mine = [i for i in items if i["id"] == doc_id]
+            assert len(mine) == 1
+            item = mine[0]
+            assert item["numero_sinistre"] == sinistre.numero_sinistre
+            assert item["assure_nom"]
+            assert item["titre"]
+            assert item["statut"] == "emi"
+
+            # recherche par numéro de sinistre
+            filtered = client.get(f"/api/v1/mhc/care-documents?q={sinistre.numero_sinistre}")
+            assert filtered.status_code == status.HTTP_200_OK
+            assert any(i["id"] == doc_id for i in filtered.json())
+            # filtre type sans correspondance
+            empty = client.get("/api/v1/mhc/care-documents?document_type=arf")
+            assert empty.status_code == status.HTTP_200_OK
+            assert all(i["document_type"] == "arf" for i in empty.json())
+        finally:
+            app.dependency_overrides.pop(get_current_user, None)
+
+    def test_global_list_forbidden_for_plain_user(
+        self,
+        client,
+        db,
+        test_user,
+    ):
+        """Un simple assuré n'a pas accès à la traçabilité globale."""
+        from app.api.v1.auth import get_current_user
+        from app.main import app
+
+        app.dependency_overrides[get_current_user] = lambda: test_user
+        try:
+            resp = client.get("/api/v1/mhc/care-documents")
+            assert resp.status_code == status.HTTP_403_FORBIDDEN
+        finally:
+            app.dependency_overrides.pop(get_current_user, None)
+
     def test_emitter_403_and_validation_via_api(
         self,
         client,
