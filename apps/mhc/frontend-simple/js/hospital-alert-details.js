@@ -2379,25 +2379,24 @@ function currentUserCanValidateCareDoc(doc) {
     return groupsNeeded.some((label) => (MHC_VALIDATOR_GROUP_ROLES[label] || []).includes(role));
 }
 
-function renderCareDocValidationBlock(doc) {
+function renderCareDocValidationStatus(doc) {
     const status = doc.validation_status || 'non_requise';
-    if (status === 'non_requise') return '';
+    if (status === 'non_requise') return '<span class="muted">—</span>';
     let badgeColor = '#6b7280';
     if (status === 'valide') badgeColor = '#047857';
     else if (status === 'refuse') badgeColor = '#b91c1c';
     else if (status === 'en_attente') badgeColor = '#b45309';
-    let html = `<div class="muted" style="margin-top:0.35rem;">Validation : <span style="color:${badgeColor};font-weight:700;">${escapeHtml(MHC_VALIDATION_STATUS_LABELS[status] || status)}</span>`;
+    let html = `<span style="color:${badgeColor};font-weight:700;">${escapeHtml(MHC_VALIDATION_STATUS_LABELS[status] || status)}</span>`;
     if (status === 'en_attente' && (doc.validations_requises || []).length) {
-        html += ` — requis : ${escapeHtml((doc.validations_requises || []).join(', '))}`;
-    }
-    html += '</div>';
-    if (currentUserCanValidateCareDoc(doc)) {
-        html += `<div style="margin-top:0.4rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
-            <button class="btn btn-primary btn-sm" onclick="validateCareDocument(${doc.id}, true)">Valider</button>
-            <button class="btn btn-outline btn-sm" onclick="validateCareDocument(${doc.id}, false)">Refuser</button>
-        </div>`;
+        html += `<div class="muted" style="font-size:0.72rem;">requis : ${escapeHtml((doc.validations_requises || []).join(', '))}</div>`;
     }
     return html;
+}
+
+function renderCareDocValidationActions(doc) {
+    if (!currentUserCanValidateCareDoc(doc)) return '';
+    return `<button class="btn btn-primary btn-sm" onclick="validateCareDocument(${doc.id}, true)">Valider</button>
+        <button class="btn btn-outline btn-sm" onclick="validateCareDocument(${doc.id}, false)">Refuser</button>`;
 }
 
 async function validateCareDocument(documentId, approve) {
@@ -2434,22 +2433,25 @@ async function loadCareDocuments() {
                 ? `Sinistre ${data.numero_sinistre} — ${docs.length} document(s)`
                 : 'Le numéro de sinistre sera attribué à la validation médicale.';
         }
+        const tableWrap = document.getElementById('mhcCareDocTableWrap');
         if (listEl) {
             if (!docs.length) {
-                listEl.hidden = true;
+                if (tableWrap) tableWrap.hidden = true;
                 listEl.innerHTML = '';
             } else {
-                listEl.hidden = false;
+                if (tableWrap) tableWrap.hidden = false;
                 listEl.innerHTML = docs.map((doc) => `
-                    <li class="card-item">
-                        <strong>${escapeHtml(doc.titre || MHC_DOC_LABELS[doc.document_type] || doc.document_type)}</strong>
-                        <div class="muted">N° <span style="color:#b91c1c;font-weight:700;">${escapeHtml(doc.numero)}</span></div>
-                        <div class="muted">${escapeHtml(formatDateTime(doc.issued_at))}${doc.valid_until ? ` • valable jusqu'au ${escapeHtml(formatDateTime(doc.valid_until))}` : ''}</div>
-                        ${renderCareDocValidationBlock(doc)}
-                        <div style="margin-top:0.5rem;">
-                            <a class="btn btn-outline btn-sm" href="${API_BASE_URL}/mhc/care-documents/${doc.id}/pdf" target="_blank" rel="noopener" onclick="return openCareDocumentPdf(event, ${doc.id})">Télécharger le PDF</a>
-                        </div>
-                    </li>
+                    <tr>
+                        <td><strong>${escapeHtml(doc.titre || MHC_DOC_LABELS[doc.document_type] || doc.document_type)}</strong></td>
+                        <td><span style="color:#b91c1c;font-weight:700;white-space:nowrap;">${escapeHtml(doc.numero)}</span></td>
+                        <td style="white-space:nowrap;">${escapeHtml(formatDateTime(doc.issued_at))}</td>
+                        <td style="white-space:nowrap;">${doc.valid_until ? escapeHtml(formatDateTime(doc.valid_until)) : '<span class="muted">—</span>'}</td>
+                        <td>${renderCareDocValidationStatus(doc)}</td>
+                        <td style="white-space:nowrap;">
+                            <a class="btn btn-outline btn-sm" href="${API_BASE_URL}/mhc/care-documents/${doc.id}/pdf" target="_blank" rel="noopener" onclick="return openCareDocumentPdf(event, ${doc.id})">PDF</a>
+                            ${renderCareDocValidationActions(doc)}
+                        </td>
+                    </tr>
                 `).join('');
             }
         }

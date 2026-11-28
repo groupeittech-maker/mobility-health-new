@@ -368,7 +368,21 @@
                     </p>
                 </div>
                 <p id="mhcCareDocStatus" class="muted">Chargement des documents...</p>
-                <ul id="mhcCareDocList" class="card-list" hidden></ul>
+                <div class="table-wrapper" id="mhcCareDocTableWrap" hidden>
+                    <table class="data-table" id="mhcCareDocTable">
+                        <thead>
+                            <tr>
+                                <th>Document</th>
+                                <th>N°</th>
+                                <th>Émis le</th>
+                                <th>Validité</th>
+                                <th>Validation</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mhcCareDocList"></tbody>
+                    </table>
+                </div>
                 <div id="mhcCareDocIssue" class="medical-decision-card" hidden>
                     <label for="mhcCareDocType">Émettre un document</label>
                     <select id="mhcCareDocType"></select>
@@ -435,7 +449,7 @@
     <script src="js/backoffice-nav.js?v=25"></script>
     <script src="js/medical-declaration.js?v=1"></script>
     <script src="js/workflow-tracker.js?v=2"></script>
-    <script src="js/hospital-alert-details.js?v=14"></script>
+    <script src="js/hospital-alert-details.js?v=15"></script>
 </body>
 </html>
 
